@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Herbario Urbano — Memoria de Ciudades Sostenibles</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com/">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@500;600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --paper: #F6F1E4;
+      --paper-alt: #EFE7D2;
+      --card: #FFFDF7;
+      --forest: #1F3A2E;
+      --forest-soft: #2C4A3B;
+      --leaf: #4C7A5C;
+      --moss: #8FAE7C;
+      --honey: #C99A3E;
+      --honey-soft: #E4C67C;
+      --clay: #B5654A;
+      --ink: #2A2A22;
+      --ink-muted: #6B6A5C;
+      --line: #D8CDA9;
+      --shadow: rgba(31,58,46,0.18);
+      --radius: 14px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{
+      background: var(--paper);
+      background-image:
+        radial-gradient(circle at 10% 8%, rgba(140,170,120,0.14), transparent 40%),
+        radial-gradient(circle at 92% 85%, rgba(201,154,62,0.12), transparent 45%);
+      color: var(--ink);
+      font-family: 'Work Sans', sans-serif;
+      min-height: 100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding: 28px 16px 60px;
+    }
+    h1,h2,.display{ font-family:'Fraunces', serif; }
+
+    /* ---------- Decorative leaf-vein SVG texture used in cards ---------- */
+    .leaf-vein{ position:absolute; inset:0; opacity:0.06; pointer-events:none; }
+
+    /* ================= START SCREEN ================= */
+    .screen{ width:100%; max-width: 720px; }
+    .cover{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 40px 36px 34px;
+      box-shadow: 0 18px 40px var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .cover::before{
+      content:"";
+      position:absolute; top:0; left:0; right:0; height:6px;
+      background: repeating-linear-gradient(90deg, var(--leaf) 0 18px, var(--honey) 18px 36px);
+    }
+    .eyebrow{
+      display:inline-flex; align-items:center; gap:8px;
+      font-family:'IBM Plex Mono', monospace;
+      font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--leaf); font-weight:600;
+      background: rgba(76,122,92,0.1);
+      border: 1px solid rgba(76,122,92,0.25);
+      padding: 5px 12px; border-radius: 999px;
+      margin-bottom: 18px;
+    }
+    .cover h1{
+      font-size: clamp(1.9rem, 4vw, 2.6rem);
+      color: var(--forest);
+      font-weight: 700;
+      line-height: 1.08;
+      margin-bottom: 10px;
+    }
+    .cover h1 em{ color: var(--honey); font-style: italic; font-weight: 500; }
+    .cover p.lead{
+      color: var(--ink-muted);
+      font-size: 1rem;
+      max-width: 46ch;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    .config-grid{ display:grid; gap: 22px; margin-bottom: 8px; }
+    .field{
+      background: var(--paper-alt);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 18px 14px;
+    }
+    .field-head{
+      display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;
+    }
+    .field-label{
+      font-family:'IBM Plex Mono', monospace;
+      font-size: 0.72rem; letter-spacing:0.08em; text-transform:uppercase;
+      color: var(--forest-soft); font-weight:600;
+    }
+    .field-value{
+      font-family:'IBM Plex Mono', monospace;
+      font-size: 1rem; font-weight:600; color: var(--honey); background:#fff;
+      border:1px solid var(--line); border-radius:8px; padding:2px 10px;
+    }
+    input[type="range"]{
+      -webkit-appearance:none; width:100%; height:6px; border-radius:4px;
+      background: linear-gradient(90deg, var(--leaf), var(--line));
+      outline:none; cursor:pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+      background: var(--forest); border:3px solid var(--honey-soft);
+      cursor:pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    input[type="range"]::-moz-range-thumb{
+      width:20px; height:20px; border-radius:50%;
+      background: var(--forest); border:3px solid var(--honey-soft); cursor:pointer;
+    }
+    .field-hint{ font-size:0.78rem; color: var(--ink-muted); margin-top:8px; }
+
+    .zone-preview{
+      display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;
+    }
+    .zone-chip{
+      font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
+      background:#fff; border:1px solid var(--line); border-radius:8px;
+      padding:5px 9px; color: var(--forest-soft);
+    }
+
+    .start-btn{
+      margin-top: 26px;
+      width:100%;
+      background: var(--forest);
+      color: var(--paper);
+      border:none;
+      font-family:'Fraunces', serif;
+      font-weight:600;
+      font-size: 1.08rem;
+      padding: 15px 20px;
+      border-radius: 12px;
+      cursor:pointer;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      transition: transform 0.15s ease, background 0.2s ease;
+      box-shadow: 0 10px 24px rgba(31,58,46,0.35);
+    }
+    .start-btn:hover{ background: var(--forest-soft); transform: translateY(-2px); }
+    .start-btn:active{ transform: translateY(0); }
+    .start-btn .sprout{ font-size:1.2rem; }
+
+    .hidden{ display:none !important; }
+
+    /* ================= GAME SCREEN ================= */
+    .game-wrap{ width:100%; max-width: 720px; }
+    header.game-header{
+      text-align:center; margin-bottom: 18px;
+    }
+    .eyebrow-row{ display:flex; justify-content:center; margin-bottom:8px; }
+    .game-header h1{
+      color: var(--forest); font-size: 1.55rem; font-weight:700;
+    }
+    .game-header p.subtitle{
+      font-family:'IBM Plex Mono', monospace;
+      color: var(--leaf); font-size:0.82rem; letter-spacing:0.06em;
+      text-transform: uppercase; font-weight:600; margin-top:4px;
+    }
+
+    .stats-bar{
+      display:flex; gap:14px; justify-content:center;
+      background: var(--card);
+      padding: 12px 20px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      margin: 0 auto 20px;
+      max-width: fit-content;
+      box-shadow: 0 8px 20px var(--shadow);
+    }
+    .stat{ display:flex; flex-direction:column; align-items:center; min-width:78px; }
+    .stat-label{
+      font-family:'IBM Plex Mono', monospace;
+      font-size:0.65rem; color: var(--ink-muted); text-transform:uppercase; letter-spacing:0.1em;
+    }
+    .stat-value{
+      font-family:'IBM Plex Mono', monospace;
+      font-size: 1.3rem; font-weight:600; color: var(--forest); margin-top:2px;
+    }
+    .stat-value.danger{ color: var(--clay); }
+    .stat-divider{ width:1px; background: var(--line); }
+
+    .progress-track{
+      width:100%; max-width:720px; height:8px; border-radius:6px;
+      background: var(--paper-alt); border:1px solid var(--line);
+      margin: 0 auto 22px; overflow:hidden;
+    }
+    .progress-fill{
+      height:100%; width:0%;
+      background: linear-gradient(90deg, var(--moss), var(--leaf));
+      transition: width 0.4s ease;
+    }
+
+    .grid-container{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      width: 100%;
+      perspective: 1200px;
+    }
+
+    .card{ background: transparent; aspect-ratio: 1; cursor:pointer; }
+    .card-inner{
+      position:relative; width:100%; height:100%;
+      transition: transform 0.5s cubic-bezier(.4,.2,.2,1);
+      transform-style: preserve-3d;
+      border-radius: 12px;
+    }
+    .card.flipped .card-inner, .card.matched .card-inner{ transform: rotateY(180deg); }
+    .card.matched .card-inner{
+      box-shadow: 0 0 0 3px var(--honey), 0 8px 18px rgba(201,154,62,0.35);
+      border-radius:12px;
+    }
+
+    .card-front, .card-back{
+      position:absolute; inset:0;
+      -webkit-backface-visibility:hidden; backface-visibility:hidden;
+      border-radius:12px;
+      border: 1.5px solid var(--line);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding: 8px;
+      overflow:hidden;
+    }
+    .card-front{
+      background: linear-gradient(160deg, var(--forest) 0%, var(--forest-soft) 100%);
+      box-shadow: 0 6px 14px var(--shadow), inset 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .card-front .front-icon{
+      font-size: 1.8rem; opacity:0.9; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+    }
+    .card-back{
+      background: var(--card);
+      transform: rotateY(180deg);
+      border-color: var(--honey-soft);
+      text-align:center;
+    }
+    .card.matched .card-back{ background: #FFFCF3; }
+
+    .sprite-container{
+      width: 78%; height: 56%; margin-bottom: 6px;
+      border-radius: 8px; overflow:hidden;
+      border: 1px solid var(--line);
+      background: var(--paper-alt);
+    }
+    .sprite-img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .card-title{ font-family:'Fraunces', serif; font-size:0.68rem; font-weight:600; color: var(--forest); line-height:1.15; }
+    .card-desc{ font-size:0.7rem; color: var(--ink); line-height:1.25; font-weight:500; }
+
+    .footnote{
+      text-align:center; color: var(--ink-muted); font-size:0.78rem; margin-top:24px;
+    }
+
+    /* ---------- MODAL ---------- */
+    .modal{
+      display:none; position:fixed; inset:0; background: rgba(31,26,17,0.55);
+      backdrop-filter: blur(2px);
+      justify-content:center; align-items:center; z-index:100; padding:20px;
+    }
+    .modal-content{
+      background: var(--card); padding: 38px 34px; border-radius: 18px;
+      border: 1px solid var(--line); text-align:center; max-width: 380px;
+      box-shadow: 0 24px 50px rgba(0,0,0,0.35);
+      position:relative; overflow:hidden;
+    }
+    .modal-content::before{
+      content:""; position:absolute; top:0; left:0; right:0; height:5px;
+      background: repeating-linear-gradient(90deg, var(--leaf) 0 14px, var(--honey) 14px 28px);
+    }
+    .modal h2{ color: var(--forest); margin-bottom: 12px; font-size:1.4rem; }
+    .modal p{ color: var(--ink-muted); font-size:0.92rem; line-height:1.5; margin-bottom:6px; }
+    .btn{
+      background: var(--forest); color: var(--paper); font-family:'Fraunces', serif;
+      font-weight:600; border:none; padding: 12px 26px; border-radius: 10px;
+      cursor:pointer; margin-top: 18px; transition: 0.2s;
+    }
+    .btn:hover{ background: var(--forest-soft); transform: scale(1.03); }
+
+    @media (max-width: 480px){
+      .grid-container{ gap:8px; }
+      .card-title{ font-size:0.6rem; }
+      .card-desc{ font-size:0.62rem; }
+      .cover{ padding: 30px 20px 26px; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .card-inner{ transition: none; }
+      .start-btn:hover{ transform:none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= PANTALLA DE CONFIGURACIÓN ================= -->
+  <div class="screen" id="startScreen">
+    <div class="cover">
+      <span class="eyebrow">🌱 Gestión Ambiental Urbana</span>
+      <h1>Herbario Urbano<br><em>memoria de ciudades sostenibles</em></h1>
+      <p class="lead">Empareja cada concepto con su imagen y su definición antes de que se agote el tiempo. Configura tu propio recorrido: cuántas parejas quieres dominar y cuánto tiempo te das por zona.</p>
+
+      <div class="config-grid">
+        <div class="field">
+          <div class="field-head">
+            <span class="field-label">Parejas totales</span>
+            <span class="field-value" id="pairsValue">16</span>
+          </div>
+          <input type="range" id="pairsRange" min="4" max="30" step="1" value="16">
+          <div class="field-hint">Máximo 30 parejas (todo el listado de conceptos disponible).</div>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <span class="field-label">Parejas por zona</span>
+            <span class="field-value" id="perZoneValue">8</span>
+          </div>
+          <input type="range" id="perZoneRange" min="2" max="10" step="1" value="8">
+          <div class="field-hint">Define cuántas zonas se generarán al repartir las parejas totales.</div>
+          <div class="zone-preview" id="zonePreview"><span class="zone-chip">Zona 1: 8 parejas · 90s</span><span class="zone-chip">Zona 2: 8 parejas · 90s</span></div>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <span class="field-label">Tiempo por zona</span>
+            <span class="field-value" id="timeValue">90s</span>
+          </div>
+          <input type="range" id="timeRange" min="20" max="180" step="5" value="90">
+          <div class="field-hint">Se aplica a todas las zonas de esta partida.</div>
+        </div>
+      </div>
+
+      <button class="start-btn" id="startBtn">
+        <span class="sprout">🌿</span> Comenzar recorrido
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= PANTALLA DE JUEGO ================= -->
+  <div class="game-wrap hidden" id="gameScreen">
+    <header class="game-header">
+      <div class="eyebrow-row"><span class="eyebrow">🌍 Gestión Ambiental Urbana</span></div>
+      <h1>Herbario Urbano</h1>
+      <p class="subtitle" id="zoneTitle">Zona 1 de 4</p>
+    </header>
+
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-label">Parejas</span>
+        <span class="stat-value" id="matches">0 / 8</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-label">Tiempo</span>
+        <span class="stat-value" id="timer">01:30</span>
+      </div>
+    </div>
+
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="grid-container" id="grid"></div>
+
+    <p class="footnote">Toca dos tarjetas para revelar su contenido — encuentra la imagen y su definición.</p>
+  </div>
+
+  <!-- ================= MODAL ================= -->
+  <div class="modal" id="messageModal">
+    <div class="modal-content">
+      <h2 id="modalTitle">¡Tiempo Agotado!</h2>
+      <p id="modalText">No lograste completar la zona a tiempo. Inténtalo de nuevo.</p>
+      <button class="btn" id="modalBtn" onclick="handleModalAction()">Reintentar Zona</button>
+    </div>
+  </div>
+
+  <script>
+    const conceptPairs = [
+      { id: 1,  title: "Ciudad sostenible", desc: "Equilibrio entre el desarrollo urbano y el medio ambiente.", slug: "img1" },
+      { id: 2,  title: "Ciudad resiliente", desc: "Capacidad de adaptarse y recuperarse ante impactos climáticos.", slug: "img2" },
+      { id: 3,  title: "Biodiversidad urbana", desc: "Riqueza de flora y fauna presentes en la ciudad.", slug: "img3" },
+      { id: 4,  title: "Estructura Ecológica", desc: "Red de espacios naturales que proveen servicios ambientales.", slug: "img4" },
+      { id: 5,  title: "Conectividad ecológica", desc: "Corredores que unen ecosistemas para el flujo de especies.", slug: "img5" },
+      { id: 6,  title: "Servicios ecosistémicos", desc: "Beneficios que la naturaleza aporta al bienestar humano.", slug: "img6" },
+      { id: 7,  title: "Infraestructura verde", desc: "Elementos naturales integrados en la matriz de la ciudad.", slug: "img7" },
+      { id: 8,  title: "Bosques urbanos", desc: "Arbolado que mitiga islas de calor y purifica el aire.", slug: "img8" },
+      { id: 9,  title: "Humedales urbanos", desc: "Cuerpos de agua vitales para regular inundaciones.", slug: "img9" },
+      { id: 10, title: "Áreas protegidas", desc: "Espacios reservados para resguardar la biodiversidad local.", slug: "img10" },
+      { id: 11, title: "Paisaje urbano", desc: "Integración visual y funcional del entorno construido y natural.", slug: "img11" },
+      { id: 12, title: "Movilidad cero emisiones", desc: "Transporte eléctrico y activo para reducir la huella de carbono.", slug: "img12" },
+      { id: 13, title: "Energías renovables", desc: "Fuentes de energía limpia como el sol y el viento.", slug: "img13" },
+      { id: 14, title: "Eficiencia energética", desc: "Uso racional y optimizado del consumo de energía.", slug: "img14" },
+      { id: 15, title: "Economía circular", desc: "Modelo de reducción, reutilización y reciclaje de materiales.", slug: "img15" },
+      { id: 16, title: "Gestión de residuos", desc: "Manejo adecuado de las basuras en la ciudad.", slug: "img16" },
+      { id: 17, title: "Residuos posconsumo", desc: "Recolección de aparatos electrónicos y baterías usadas.", slug: "img17" },
+      { id: 18, title: "Restauración ecológica", desc: "Recuperación de ecosistemas degradados en zonas urbanas.", slug: "img18" },
+      { id: 19, title: "Aprovechamiento de agua", desc: "Captación hídrica pluvial para uso eficiente en la ciudad.", slug: "img19" },
+      { id: 20, title: "Gestión ambiental urbana", desc: "Administración de políticas para mejorar el entorno de la ciudad.", slug: "img20" },
+      { id: 21, title: "Planificación urbana", desc: "Ordenamiento territorial considerando la región y ecosistemas.", slug: "img21" },
+      { id: 22, title: "Construcción sostenible", desc: "Edificaciones diseñadas para minimizar el impacto ecológico.", slug: "img22" },
+      { id: 23, title: "Asentamientos sostenibles", desc: "Barrios que integran calidad de vida y respeto ambiental.", slug: "img23" },
+      { id: 24, title: "Ciudad humanizada", desc: "Entornos diseñados con prioridad para peatones y convivencia.", slug: "img24" },
+      { id: 25, title: "Derecho a la ciudad", desc: "Acceso equitativo a servicios y espacios públicos para todos.", slug: "img25" },
+      { id: 26, title: "Participación ciudadana", desc: "Involucramiento de la comunidad en la gestión ambiental.", slug: "img26" },
+      { id: 27, title: "Gobernanza ambiental", desc: "Toma de decisiones articulada para la sostenibilidad.", slug: "img27" },
+      { id: 28, title: "Soluciones basadas en la naturaleza", desc: "Estrategias que usan la naturaleza para resolver retos urbanos.", slug: "img28" },
+      { id: 29, title: "Negocios verdes", desc: "Actividades económicas que generan impactos ambientales positivos.", slug: "img29" },
+      { id: 30, title: "Cambio climático", desc: "Acciones de mitigación y adaptación ante la variación global.", slug: "img30" }
+    ];
+
+    const MAX_PAIRS = conceptPairs.length; // 30
+
+    // ---------------- Estado / configuración ----------------
+    let zones = [];
+    let currentZoneIndex = 0;
+    let flippedCards = [];
+    let matchedCount = 0;
+    let totalPairsInZone = 0;
+    let timerInterval;
+    let timeLeft = 0;
+    let gameStatus = '';
+    let lockBoard = false;
+
+    // ---------------- Elementos: pantalla de inicio ----------------
+    const pairsRange   = document.getElementById('pairsRange');
+    const pairsValue   = document.getElementById('pairsValue');
+    const perZoneRange = document.getElementById('perZoneRange');
+    const perZoneValue = document.getElementById('perZoneValue');
+    const timeRange    = document.getElementById('timeRange');
+    const timeValue    = document.getElementById('timeValue');
+    const zonePreview  = document.getElementById('zonePreview');
+    const startBtn     = document.getElementById('startBtn');
+
+    function clampPerZone(){
+      perZoneRange.max = Math.max(2, Math.min(10, Number(pairsRange.value)));
+      if(Number(perZoneRange.value) > Number(perZoneRange.max)){
+        perZoneRange.value = perZoneRange.max;
+      }
+    }
+
+    function buildZonePreview(){
+      const totalPairs = Number(pairsRange.value);
+      const perZone = Number(perZoneRange.value);
+      const time = Number(timeRange.value);
+      const zoneCount = Math.ceil(totalPairs / perZone);
+
+      zonePreview.innerHTML = '';
+      let remaining = totalPairs;
+      for(let i = 0; i < zoneCount; i++){
+        const size = Math.min(perZone, remaining);
+        remaining -= size;
+        const chip = document.createElement('span');
+        chip.className = 'zone-chip';
+        chip.textContent = `Zona ${i+1}: ${size} parejas · ${time}s`;
+        zonePreview.appendChild(chip);
+      }
+    }
+
+    function refreshConfigUI(){
+      clampPerZone();
+      pairsValue.textContent = pairsRange.value;
+      perZoneValue.textContent = perZoneRange.value;
+      timeValue.textContent = `${timeRange.value}s`;
+      buildZonePreview();
+    }
+
+    [pairsRange, perZoneRange, timeRange].forEach(el => {
+      el.addEventListener('input', refreshConfigUI);
+    });
+    refreshConfigUI();
+
+    function buildZonesFromConfig(){
+      const totalPairs = Math.min(Number(pairsRange.value), MAX_PAIRS);
+      const perZone = Number(perZoneRange.value);
+      const time = Number(timeRange.value);
+
+      const shuffledConcepts = shuffle([...conceptPairs]).slice(0, totalPairs);
+
+      const result = [];
+      let start = 0;
+      let level = 1;
+      while(start < shuffledConcepts.length){
+        const end = Math.min(start + perZone, shuffledConcepts.length);
+        result.push({ level, concepts: shuffledConcepts.slice(start, end), time });
+        start = end;
+        level++;
+      }
+      return result;
+    }
+
+    startBtn.addEventListener('click', () => {
+      zones = buildZonesFromConfig();
+      currentZoneIndex = 0;
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('gameScreen').classList.remove('hidden');
+      initZone();
+    });
+
+    // ---------------- Utilidades ----------------
+    function shuffle(array){
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    function formatTime(sec){
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function startTimer(seconds){
+      clearInterval(timerInterval);
+      timeLeft = seconds;
+      updateTimerUI();
+
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerUI();
+
+        if(timeLeft <= 0){
+          clearInterval(timerInterval);
+          showModal("¡Tiempo Agotado!", "No lograste completar la zona a tiempo. Inténtalo de nuevo.", "Reintentar Zona", "lose");
+        }
+      }, 1000);
+    }
+
+    function updateTimerUI(){
+      const timerEl = document.getElementById('timer');
+      timerEl.innerText = formatTime(timeLeft);
+      if(timeLeft <= 15) timerEl.classList.add('danger');
+      else timerEl.classList.remove('danger');
+    }
+
+    function updateProgress(){
+      const pct = totalPairsInZone === 0 ? 0 : Math.round((matchedCount / totalPairsInZone) * 100);
+      document.getElementById('progressFill').style.width = `${pct}%`;
+    }
+
+    // ---------------- Lógica de zona ----------------
+    function initZone(){
+      lockBoard = false;
+      const zoneConfig = zones[currentZoneIndex];
+      totalPairsInZone = zoneConfig.concepts.length;
+
+      document.getElementById('zoneTitle').innerText = `Zona ${zoneConfig.level} de ${zones.length}`;
+      document.getElementById('matches').innerText = `0 / ${totalPairsInZone}`;
+      document.getElementById('messageModal').style.display = 'none';
+
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      flippedCards = [];
+      matchedCount = 0;
+      updateProgress();
+
+      let deck = [];
+      zoneConfig.concepts.forEach((item) => {
+        deck.push({ pairId: item.id, type: 'img', title: item.title, slug: item.slug });
+        deck.push({ pairId: item.id, type: 'text', desc: item.desc });
+      });
+      deck = shuffle(deck);
+
+      deck.forEach((data) => {
+        const cardEl = document.createElement('div');
+        cardEl.classList.add('card');
+        cardEl.dataset.pairId = data.pairId;
+
+        let backContent = '';
+        if(data.type === 'img'){
+          backContent = `
+            <div class="sprite-container">
+              <img class="sprite-img" src="./img/${data.slug}.jpeg" alt="${data.title}" onerror="this.style.display='none'">
+            </div>
+            <div class="card-title">${data.title}</div>
+          `;
+        } else {
+          backContent = `<div class="card-desc">${data.desc}</div>`;
+        }
+
+        cardEl.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front"><span class="front-icon">🌿</span></div>
+            <div class="card-back">${backContent}</div>
+          </div>
+        `;
+
+        cardEl.addEventListener('click', () => flipCard(cardEl));
+        grid.appendChild(cardEl);
+      });
+
+      startTimer(zoneConfig.time);
+    }
+
+    function flipCard(card){
+      if(lockBoard || flippedCards.length === 2 || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+      card.classList.add('flipped');
+      flippedCards.push(card);
+
+      if(flippedCards.length === 2){
+        lockBoard = true;
+        checkMatch();
+      }
+    }
+
+    function checkMatch(){
+      const [card1, card2] = flippedCards;
+
+      if(card1.dataset.pairId === card2.dataset.pairId){
+        card1.classList.add('matched');
+        card2.classList.add('matched');
+        matchedCount++;
+        document.getElementById('matches').innerText = `${matchedCount} / ${totalPairsInZone}`;
+        updateProgress();
+        flippedCards = [];
+        lockBoard = false;
+
+        if(matchedCount === totalPairsInZone){
+          clearInterval(timerInterval);
+          setTimeout(checkZoneComplete, 500);
+        }
+      } else {
+        setTimeout(() => {
+          card1.classList.remove('flipped');
+          card2.classList.remove('flipped');
+          flippedCards = [];
+          lockBoard = false;
+        }, 900);
+      }
+    }
+
+    function checkZoneComplete(){
+      if(currentZoneIndex < zones.length - 1){
+        showModal("¡Zona Completada!", `Sobreviviste a la Zona ${zones[currentZoneIndex].level}. Prepárate para el siguiente desafío.`, "Siguiente Zona", "win");
+      } else {
+        showModal("¡Misión Cumplida! 🌍", `Has superado las ${zones.length} zonas y dominado los conceptos de sostenibilidad.`, "Jugar de Nuevo", "complete");
+      }
+    }
+
+    function showModal(title, text, btnText, status){
+      document.getElementById('modalTitle').innerText = title;
+      document.getElementById('modalText').innerText = text;
+      document.getElementById('modalBtn').innerText = btnText;
+      document.getElementById('messageModal').style.display = 'flex';
+      gameStatus = status;
+    }
+
+    function handleModalAction(){
+      if(gameStatus === 'win'){
+        currentZoneIndex++;
+        initZone();
+      } else if(gameStatus === 'lose'){
+        initZone();
+      } else if(gameStatus === 'complete'){
+        document.getElementById('gameScreen').classList.add('hidden');
+        document.getElementById('startScreen').classList.remove('hidden');
+        document.getElementById('messageModal').style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
