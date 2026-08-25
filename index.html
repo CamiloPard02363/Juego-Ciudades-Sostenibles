@@ -236,8 +236,6 @@
     }
     .card.flipped .card-inner, .card.matched .card-inner { transform: rotateY(180deg); }
     .card.shake .card-inner{ animation: shake 0.4s; }
-    .card.disabled{ cursor: default; pointer-events: none; }
-    .card.disabled .card-front{ opacity: 0.35; filter: grayscale(0.6); }
     @keyframes shake{
       10%,90%{ transform: translateX(-2px) rotateY(0); }
       20%,80%{ transform: translateX(3px) rotateY(0); }
@@ -266,9 +264,6 @@
       font-size: 0.8rem; color: var(--gold-primary); opacity: 0.7; z-index: 2;
     }
     .card-front .front-symbol { font-family: 'Cinzel', serif; color: var(--gold-primary); font-size: 1.8rem; opacity: 0.9; z-index: 1; }
-    .card.powerup .card-front{ border-color: var(--moss); box-shadow: inset 0 0 18px rgba(0,0,0,0.5), 0 0 18px rgba(110,154,90,0.5); }
-    .card.powerup .card-front .front-symbol{ color: var(--moss); animation: pulse 1.4s infinite; }
-    @keyframes pulse{ 0%,100%{ opacity:0.7; transform:scale(1);} 50%{ opacity:1; transform:scale(1.15);} }
 
     .card-back {
       background: var(--paper-card); color: var(--ink);
@@ -281,7 +276,6 @@
       border: 3px solid var(--gold-primary); background: #FFFDF8;
       box-shadow: 0 0 24px rgba(201, 160, 80, 0.4), inset 0 0 0 4px rgba(201,160,80,0.18);
     }
-    .card.powerup .card-back{ border: 2px solid var(--moss); background: #F4FBF0; }
 
     .sprite-container {
       width: 88%; height: 62%; margin-bottom: 10px;
@@ -292,8 +286,6 @@
     .sprite-img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .card-title { font-family: 'Cinzel', serif; font-size: 0.88rem; font-weight: 700; color: var(--emerald-dark); line-height: 1.25; margin-top: 4px; }
     .card-desc { font-size: 0.86rem; line-height: 1.4; color: var(--ink); font-weight: 400; padding: 0 4px; }
-    .powerup-label{ font-family:'Cinzel', serif; font-size:0.9rem; font-weight:700; color: var(--emerald-dark); }
-    .powerup-icon{ font-size: 2.2rem; margin-bottom: 8px; }
 
     .footnote { text-align: center; color: var(--gold-light); opacity: 0.75; font-size: 0.78rem; margin-top: 24px; }
 
@@ -319,7 +311,7 @@
       font-size:1.15rem; margin: 14px 0 4px;
     }
 
-    /* ============= TOAST (power-up feedback) ============= */
+    /* ============= TOAST (feedback general) ============= */
     .toast{
       position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px);
       background: var(--emerald-dark); color: var(--gold-light);
@@ -330,11 +322,34 @@
     }
     .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* ============= POWER-UP FLOTANTE (evento por racha) ============= */
+    .powerup-spawn{
+      position: fixed; top: 90px; left: 50%;
+      transform: translateX(-50%) scale(0.75);
+      background: linear-gradient(135deg, var(--emerald-dark), var(--emerald-deep));
+      border: 2px solid var(--moss); border-radius: 16px;
+      padding: 12px 20px 14px; display:flex; align-items:center; gap:12px;
+      cursor:pointer; z-index: 260; opacity:0; pointer-events:none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.45), 0 0 22px rgba(110,154,90,0.45);
+      overflow:hidden;
+    }
+    .powerup-spawn.show{ opacity:1; transform: translateX(-50%) scale(1); pointer-events:auto; }
+    .powerup-spawn .ps-icon{ font-size:1.7rem; animation: pulse 1s infinite; }
+    .powerup-spawn .ps-text{ display:flex; flex-direction:column; }
+    .powerup-spawn .ps-label{ font-family:'Cinzel',serif; color: var(--gold-light); font-size:0.82rem; font-weight:700; }
+    .powerup-spawn .ps-hint{ font-family:'Montserrat',sans-serif; color: var(--gold-primary); font-size:0.62rem; letter-spacing:0.05em; text-transform:uppercase; margin-top:2px; }
+    .powerup-spawn .ps-bar{
+      position:absolute; bottom:0; left:0; height:3px; background: var(--gold-primary); width:100%;
+    }
+    @keyframes pulse{ 0%,100%{ opacity:0.7; transform:scale(1);} 50%{ opacity:1; transform:scale(1.15);} }
+
     @media (max-width: 480px) {
       .card-title { font-size: 0.72rem; }
       .card-desc { font-size: 0.72rem; }
       .cover-card { padding: 32px 22px 28px; }
       .back-btn{ font-size:0.6rem; padding:6px 10px; }
+      .powerup-spawn{ top: 80px; padding: 10px 16px 12px; }
     }
     @media (prefers-reduced-motion: reduce) {
       .card-inner { transition: none; }
@@ -449,7 +464,7 @@
 
       <div class="grid-container" id="grid"></div>
 
-      <p class="footnote">Toca dos tarjetas para revelar su contenido — encuentra la imagen y su definición. Cuida las cartas especiales 🌿, ¡traen sorpresas!</p>
+      <p class="footnote">Toca dos tarjetas para revelar su contenido — encuentra la imagen y su definición. Encadena aciertos: cada 2 parejas seguidas hay chance de que aparezca un comodín 🌿.</p>
     </div>
 
   </div>
@@ -466,6 +481,16 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- ================= COMODÍN FLOTANTE ================= -->
+  <div class="powerup-spawn" id="powerupSpawn">
+    <span class="ps-icon" id="powerupSpawnIcon">🌿</span>
+    <div class="ps-text">
+      <span class="ps-label" id="powerupSpawnLabel">Comodín</span>
+      <span class="ps-hint">Toca antes de que desaparezca</span>
+    </div>
+    <div class="ps-bar" id="powerupSpawnBar"></div>
+  </div>
+
   <script>
     // ============= FONDO 3D — HOJAS CAYENDO (Three.js) =============
     const canvas = document.getElementById('webgl-bg');
@@ -476,7 +501,6 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    // Textura de hoja generada por canvas (sin archivos externos)
     function makeLeafTexture(color){
       const c = document.createElement('canvas');
       c.width = 64; c.height = 64;
@@ -484,12 +508,10 @@
       ctx.clearRect(0,0,64,64);
       ctx.fillStyle = color;
       ctx.beginPath();
-      // forma de hoja simple (almendra)
       ctx.moveTo(32, 4);
       ctx.bezierCurveTo(58, 20, 58, 46, 32, 60);
       ctx.bezierCurveTo(6, 46, 6, 20, 32, 4);
       ctx.fill();
-      // nervadura central
       ctx.strokeStyle = 'rgba(0,0,0,0.25)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -544,7 +566,6 @@
       leafGroups.forEach(group => {
         const pos = group.points.geometry.attributes.position.array;
         for (let j = 0; j < pos.length / 3; j++){
-          // caída suave + oscilación lateral (efecto hoja cayendo)
           pos[j*3+1] -= group.speeds[j];
           pos[j*3]   += Math.sin(t * 0.6 + group.phase + j) * 0.0015;
           if (pos[j*3+1] < -6){
@@ -595,6 +616,7 @@
     function sfxMatch(){ playTone(523.25, 0.12, 'triangle', 0.16); playTone(783.99, 0.18, 'triangle', 0.14, 0.06); }
     function sfxFail(){ playTone(180, 0.25, 'sawtooth', 0.12); }
     function sfxPowerup(){ playTone(660, 0.1, 'sine', 0.15); playTone(880, 0.1, 'sine', 0.15, 0.08); playTone(1100, 0.16, 'sine', 0.15, 0.16); }
+    function sfxPowerupAppear(){ playTone(1200, 0.08, 'sine', 0.1); playTone(1500, 0.1, 'sine', 0.1, 0.05); }
     function sfxWin(){ [523.25, 659.25, 783.99, 1046.5].forEach((f,i)=>playTone(f, 0.2, 'triangle', 0.15, i*0.1)); }
     function sfxLose(){ playTone(220, 0.3, 'sawtooth', 0.14); playTone(160, 0.4, 'sawtooth', 0.12, 0.2); }
 
@@ -663,13 +685,18 @@
     const TIME_BONUS_FACTOR = 4;
     const FAIL_PENALTY = 10;
 
-    // ---------------- Power-ups ----------------
+    // ---------------- Power-ups (evento flotante por racha, no ocupan casillas del mazo) ----------------
     const POWERUP_TYPES = [
       { key: 'time',  icon: '⏳', label: '+10s de tiempo' },
       { key: 'peek',  icon: '👁️', label: 'Vista rápida' },
       { key: 'bonus', icon: '✨', label: '+150 puntos extra' }
     ];
-    const POWERUP_CHANCE = 0.12; // probabilidad por carta especial dentro del mazo
+    const STREAK_TRIGGER = 2;       // cada cuántos aciertos CONSECUTIVOS se evalúa la aparición
+    const STREAK_SPAWN_CHANCE = 0.55; // probabilidad de que realmente aparezca al cumplirse la racha
+    const POWERUP_VISIBLE_MS = 4200;  // tiempo que el comodín permanece disponible antes de desvanecerse
+
+    let powerupSpawnTimeout = null;
+    let powerupActive = false;
 
     function getBestScore(){
       return Number(localStorage.getItem('herbario_best_score') || 0);
@@ -774,6 +801,7 @@
 
     document.getElementById('backToConfigBtn').addEventListener('click', () => {
       clearInterval(timerInterval);
+      hidePowerupSpawn();
       document.getElementById('gameScreen').classList.add('hidden');
       document.getElementById('startScreen').classList.remove('hidden');
       document.getElementById('messageModal').style.display = 'none';
@@ -797,6 +825,7 @@
         updateTimerUI();
         if(timeLeft <= 0){
           clearInterval(timerInterval);
+          hidePowerupSpawn();
           sfxLose();
           vibrate([80, 60, 80]);
           showModal("¡Tiempo Agotado!", "No lograste completar la zona a tiempo. Inténtalo de nuevo.", "Reintentar Zona", "lose");
@@ -860,9 +889,86 @@
       setTimeout(() => el.remove(), 900);
     }
 
+    // ---------------- Comodín flotante (evento por racha) ----------------
+    function maybeSpawnPowerupOnStreak(){
+      // Solo se evalúa exactamente cuando la racha es múltiplo de STREAK_TRIGGER,
+      // así no aparece en cada pareja, sino cada cierto número de aciertos seguidos.
+      if(powerupActive) return;
+      if(comboCount === 0 || comboCount % STREAK_TRIGGER !== 0) return;
+      if(Math.random() > STREAK_SPAWN_CHANCE) return;
+
+      const p = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+      spawnPowerup(p);
+    }
+
+    function spawnPowerup(powerup){
+      powerupActive = true;
+      const el = document.getElementById('powerupSpawn');
+      const icon = document.getElementById('powerupSpawnIcon');
+      const label = document.getElementById('powerupSpawnLabel');
+      const bar = document.getElementById('powerupSpawnBar');
+
+      icon.textContent = powerup.icon;
+      label.textContent = powerup.label;
+      sfxPowerupAppear();
+
+      el.classList.add('show');
+      bar.style.transition = 'none';
+      bar.style.width = '100%';
+      requestAnimationFrame(() => {
+        bar.style.transition = `width ${POWERUP_VISIBLE_MS}ms linear`;
+        bar.style.width = '0%';
+      });
+
+      const claim = () => {
+        clearTimeout(powerupSpawnTimeout);
+        el.onclick = null;
+        applyPowerup(powerup);
+        hidePowerupSpawn();
+      };
+      el.onclick = claim;
+
+      powerupSpawnTimeout = setTimeout(() => {
+        el.onclick = null;
+        hidePowerupSpawn();
+      }, POWERUP_VISIBLE_MS);
+    }
+
+    function hidePowerupSpawn(){
+      const el = document.getElementById('powerupSpawn');
+      el.classList.remove('show');
+      el.onclick = null;
+      clearTimeout(powerupSpawnTimeout);
+      powerupActive = false;
+    }
+
+    function applyPowerup(powerup){
+      sfxPowerup();
+      vibrate([30, 30, 30]);
+      if(powerup.key === 'time'){
+        timeLeft += 10;
+        updateTimerUI();
+        showToast('⏳ +10 segundos');
+      } else if(powerup.key === 'bonus'){
+        totalScore += 150;
+        zoneScore += 150;
+        updateScoreUI();
+        showToast('✨ +150 puntos extra');
+      } else if(powerup.key === 'peek'){
+        showToast('👁️ Vista rápida: memoriza el tablero');
+        const grid = document.getElementById('grid');
+        const hiddenCards = [...grid.querySelectorAll('.card')].filter(c => !c.classList.contains('matched') && !c.classList.contains('flipped'));
+        hiddenCards.forEach(c => c.classList.add('flipped'));
+        setTimeout(() => {
+          hiddenCards.forEach(c => { if(!c.classList.contains('matched')) c.classList.remove('flipped'); });
+        }, 1000);
+      }
+    }
+
     // ---------------- Lógica de zona ----------------
     function initZone(){
       lockBoard = false;
+      hidePowerupSpawn();
       const zoneConfig = zones[currentZoneIndex];
       totalPairsInZone = zoneConfig.concepts.length;
 
@@ -879,6 +985,8 @@
       updateProgress();
       updateComboUI();
 
+      // El mazo contiene EXCLUSIVAMENTE cartas de concepto (imagen + definición).
+      // Cada pareja siempre tiene sus dos mitades: nunca queda una carta huérfana.
       let deck = [];
       zoneConfig.concepts.forEach((item) => {
         deck.push({ pairId: item.id, type: 'img', title: item.title, slug: item.slug });
@@ -886,24 +994,13 @@
       });
       deck = shuffle(deck);
 
-      // asignar power-ups a algunas cartas normales (no rompe el emparejamiento base)
-      deck.forEach((data) => {
-        if(Math.random() < POWERUP_CHANCE){
-          const p = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-          data.powerup = p;
-        }
-      });
-
       deck.forEach((data) => {
         const cardEl = document.createElement('div');
         cardEl.classList.add('card');
         cardEl.dataset.pairId = data.pairId;
-        if(data.powerup) cardEl.classList.add('powerup');
 
         let backContent = '';
-        if(data.powerup){
-          backContent = `<div class="powerup-icon">${data.powerup.icon}</div><div class="powerup-label">${data.powerup.label}</div>`;
-        } else if(data.type === 'img'){
+        if(data.type === 'img'){
           backContent = `
             <div class="sprite-container">
               <img class="sprite-img" src="./img/${data.slug}.jpeg" alt="${data.title}" onerror="this.style.display='none'">
@@ -914,15 +1011,14 @@
           backContent = `<div class="card-desc">${data.desc}</div>`;
         }
 
-        const frontSymbol = data.powerup ? '🌿' : '✦';
         cardEl.innerHTML = `
           <div class="card-inner">
-            <div class="card-front"><span class="front-symbol">${frontSymbol}</span></div>
+            <div class="card-front"><span class="front-symbol">✦</span></div>
             <div class="card-back">${backContent}</div>
           </div>
         `;
 
-        cardEl.addEventListener('click', () => flipCard(cardEl, data));
+        cardEl.addEventListener('click', () => flipCard(cardEl));
         grid.appendChild(cardEl);
       });
 
@@ -936,7 +1032,7 @@
     function startPreview(previewSeconds, zoneTimeSeconds){
       lockBoard = true;
       const grid = document.getElementById('grid');
-      const revealCards = [...grid.querySelectorAll('.card')].filter(c => !c.classList.contains('powerup'));
+      const revealCards = [...grid.querySelectorAll('.card')];
       revealCards.forEach(c => c.classList.add('flipped'));
 
       let remaining = previewSeconds;
@@ -958,19 +1054,9 @@
       }, 1000);
     }
 
-    function flipCard(card, data){
-      if(lockBoard || card.classList.contains('flipped') || card.classList.contains('matched') || card.classList.contains('disabled')) return;
-
-      // Las cartas de power-up son completamente independientes del par en juego:
-      // no tocan flippedCards ni lockBoard, así el tablero nunca se bloquea.
-      if(data.powerup){
-        card.classList.add('flipped');
-        playTone(440, 0.06, 'sine', 0.08);
-        resolvePowerup(data.powerup, card);
-        return;
-      }
-
-      if(flippedCards.length === 2) return;
+    // ---------------- Emparejamiento (única lógica, sin comodines dentro del mazo) ----------------
+    function flipCard(card){
+      if(lockBoard || flippedCards.length === 2 || card.classList.contains('flipped') || card.classList.contains('matched')) return;
 
       card.classList.add('flipped');
       playTone(440, 0.06, 'sine', 0.08);
@@ -980,35 +1066,6 @@
         lockBoard = true;
         checkMatch();
       }
-    }
-
-    function resolvePowerup(powerup, card){
-      sfxPowerup();
-      vibrate([30, 30, 30]);
-      if(powerup.key === 'time'){
-        timeLeft += 10;
-        updateTimerUI();
-        showToast('⏳ +10 segundos');
-      } else if(powerup.key === 'bonus'){
-        totalScore += 150;
-        zoneScore += 150;
-        updateScoreUI();
-        showFloatingPoints(card, 150);
-        showToast('✨ +150 puntos extra');
-      } else if(powerup.key === 'peek'){
-        showToast('👁️ Vista rápida: memoriza el tablero');
-        const grid = document.getElementById('grid');
-        const hiddenCards = [...grid.querySelectorAll('.card')].filter(c => !c.classList.contains('matched') && !c.classList.contains('flipped'));
-        hiddenCards.forEach(c => c.classList.add('flipped'));
-        setTimeout(() => {
-          hiddenCards.forEach(c => { if(!c.classList.contains('matched')) c.classList.remove('flipped'); });
-        }, 1000);
-      }
-      // la carta de power-up se consume: se voltea de nuevo y queda deshabilitada
-      setTimeout(() => {
-        card.classList.remove('flipped');
-        card.classList.add('disabled');
-      }, 700);
     }
 
     function checkMatch(){
@@ -1037,8 +1094,12 @@
         flippedCards = [];
         lockBoard = false;
 
+        // Evalúa si la racha actual desbloquea un comodín flotante (probabilístico, no en cada pareja)
+        maybeSpawnPowerupOnStreak();
+
         if(matchedCount === totalPairsInZone){
           clearInterval(timerInterval);
+          hidePowerupSpawn();
           setTimeout(checkZoneComplete, 500);
         }
       } else {
