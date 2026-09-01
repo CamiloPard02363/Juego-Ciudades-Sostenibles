@@ -142,20 +142,6 @@
       cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
-    .toggle-row { display:flex; align-items:center; justify-content:space-between; }
-    .switch { position:relative; display:inline-block; width:44px; height:24px; }
-    .switch input { opacity:0; width:0; height:0; }
-    .slider-toggle {
-      position:absolute; cursor:pointer; inset:0; background: #ccc;
-      transition:.3s; border-radius:24px;
-    }
-    .slider-toggle:before {
-      content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px;
-      background:white; transition:.3s; border-radius:50%;
-    }
-    .switch input:checked + .slider-toggle { background: var(--emerald-light); }
-    .switch input:checked + .slider-toggle:before { transform: translateX(20px); }
-
     .btn-gold {
       width: 100%; margin-top: 26px;
       background: linear-gradient(135deg, var(--emerald-dark) 0%, var(--emerald-deep) 100%);
@@ -261,7 +247,6 @@
     }
     .card-front .front-symbol { font-family: 'Cinzel', serif; color: var(--gold-primary); font-size: 1.8rem; opacity: 0.9; z-index: 1; }
 
-    /* ESTRUCTURA UNIFICADA TIPO 2 (Imagen + Badge + Titulo + Desc) */
     .card-back {
       background: var(--paper-card); color: var(--ink);
       transform: rotateY(180deg); border: 2px solid var(--gold-primary);
@@ -294,14 +279,12 @@
     .card-badge.problem { background: rgba(181,101,74,0.15); color: var(--clay); border: 1px solid rgba(181,101,74,0.35); }
     .card-badge.action { background: rgba(201,160,80,0.18); color: var(--gold-dark); border: 1px solid rgba(201,160,80,0.4); }
     
-    /* Al hacer match cambian a verde */
     .card.matched .card-badge.problem, .card.matched .card-badge.action { 
       background: rgba(110,154,90,0.18); color: var(--emerald-light); border-color: rgba(110,154,90,0.4); 
     }
 
     .card-title { font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 700; color: var(--emerald-dark); line-height: 1.15; margin-bottom: 4px; }
     .card-desc { font-size: 0.62rem; line-height: 1.25; color: var(--ink-muted); font-weight: 500; padding: 0 2px; }
-    /* FIN ESTRUCTURA UNIFICADA */
 
     .footnote { text-align: center; color: var(--gold-light); opacity: 0.75; font-size: 0.78rem; margin-top: 24px; }
 
@@ -327,44 +310,11 @@
       font-size:1.15rem; margin: 14px 0 4px;
     }
 
-    /* ============= TOAST & POWERUP ============= */
-    .toast{
-      position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px);
-      background: var(--emerald-dark); color: var(--gold-light);
-      font-family:'Cinzel', serif; font-size: 0.82rem; letter-spacing: 0.04em;
-      padding: 10px 20px; border-radius: 10px; border: 1px solid var(--gold-primary);
-      z-index: 300; opacity: 0; transition: all 0.35s ease; pointer-events:none;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-    }
-    .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
-
-    .powerup-spawn{
-      position: fixed; top: 90px; left: 50%;
-      transform: translateX(-50%) scale(0.75);
-      background: linear-gradient(135deg, var(--emerald-dark), var(--emerald-deep));
-      border: 2px solid var(--moss); border-radius: 16px;
-      padding: 12px 20px 14px; display:flex; align-items:center; gap:12px;
-      cursor:pointer; z-index: 260; opacity:0; pointer-events:none;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      box-shadow: 0 12px 28px rgba(0,0,0,0.45), 0 0 22px rgba(110,154,90,0.45);
-      overflow:hidden;
-    }
-    .powerup-spawn.show{ opacity:1; transform: translateX(-50%) scale(1); pointer-events:auto; }
-    .powerup-spawn .ps-icon{ font-size:1.7rem; animation: pulse 1s infinite; }
-    .powerup-spawn .ps-text{ display:flex; flex-direction:column; }
-    .powerup-spawn .ps-label{ font-family:'Cinzel',serif; color: var(--gold-light); font-size:0.82rem; font-weight:700; }
-    .powerup-spawn .ps-hint{ font-family:'Montserrat',sans-serif; color: var(--gold-primary); font-size:0.62rem; letter-spacing:0.05em; text-transform:uppercase; margin-top:2px; }
-    .powerup-spawn .ps-bar{
-      position:absolute; bottom:0; left:0; height:3px; background: var(--gold-primary); width:100%;
-    }
-    @keyframes pulse{ 0%,100%{ opacity:0.7; transform:scale(1);} 50%{ opacity:1; transform:scale(1.15);} }
-
     @media (max-width: 480px) {
       .card-title { font-size: 0.65rem; }
       .card-desc { font-size: 0.55rem; }
       .cover-card { padding: 32px 22px 28px; }
       .back-btn{ font-size:0.6rem; padding:6px 10px; }
-      .powerup-spawn{ top: 80px; padding: 10px 16px 12px; }
     }
   </style>
 </head>
@@ -456,19 +406,7 @@
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
-
-  <div class="powerup-spawn" id="powerupSpawn">
-    <span class="ps-icon" id="powerupSpawnIcon">🌿</span>
-    <div class="ps-text">
-      <span class="ps-label" id="powerupSpawnLabel">Comodín</span>
-      <span class="ps-hint">Toca antes de que desaparezca</span>
-    </div>
-    <div class="ps-bar" id="powerupSpawnBar"></div>
-  </div>
-
   <script>
-    // ============= FONDO 3D (Three.js) =============
     const canvas = document.getElementById('webgl-bg');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -538,41 +476,39 @@
     }
     animate();
 
-    // ============= DATOS: POSITIVO VS NEGATIVO =============
     const conceptPairs = [
-      { id: 1, posTitle: "Ciudad sostenible", posDesc: "Calidad de vida con menor impacto ambiental.", posSlug: "img1", negTitle: "Ciudad insostenible", negDesc: "Crecimiento que agota recursos y daña el entorno.", negSlug: "neg_img1" },
-      { id: 2, posTitle: "Ciudad resiliente", posDesc: "Capacidad de afrontar riesgos climáticos.", posSlug: "img2", negTitle: "Vulnerabilidad urbana", negDesc: "Incapacidad de superar desastres ambientales.", negSlug: "neg_img2" },
-      { id: 3, posTitle: "Biodiversidad urbana", posDesc: "Variedad de flora y fauna en la ciudad.", posSlug: "img3", negTitle: "Desierto de asfalto", negDesc: "Pérdida de especies y predominio del concreto.", negSlug: "neg_img3" },
-      { id: 4, posTitle: "Estructura ecológica", posDesc: "Red verde integrada a la matriz urbana.", posSlug: "img4", negTitle: "Fragmentación natural", negDesc: "Desconexión y destrucción de áreas verdes.", negSlug: "neg_img4" },
-      { id: 5, posTitle: "Conectividad ecológica", posDesc: "Corredores naturales para flujo de especies.", posSlug: "img5", negTitle: "Barreras artificiales", negDesc: "Bloqueo del flujo natural de fauna y flora.", negSlug: "neg_img5" },
-      { id: 6, posTitle: "Servicios ecosistémicos", posDesc: "Beneficios de la naturaleza para las personas.", posSlug: "img6", negTitle: "Degradación ambiental", negDesc: "Pérdida de beneficios naturales para la población.", negSlug: "neg_img6" },
-      { id: 7, posTitle: "Infraestructura verde", posDesc: "Elementos naturales con beneficios ambientales.", posSlug: "img7", negTitle: "Infraestructura gris", negDesc: "Construcciones que ignoran los ciclos naturales.", negSlug: "neg_img7" },
-      { id: 8, posTitle: "Bosques urbanos", posDesc: "Masas de árboles con función ecológica.", posSlug: "img8", negTitle: "Deforestación urbana", negDesc: "Tala masiva de árboles para urbanización.", negSlug: "neg_img8" },
-      { id: 9, posTitle: "Humedales urbanos", posDesc: "Ecosistemas acuáticos que protegen la ciudad.", posSlug: "img9", negTitle: "Relleno de ecosistemas", negDesc: "Secado y destrucción de cuerpos de agua vitales.", negSlug: "neg_img9" },
-      { id: 10, posTitle: "Áreas protegidas", posDesc: "Zonas destinadas a conservar ecosistemas.", posSlug: "img10", negTitle: "Explotación urbana", negDesc: "Invasión y daño a zonas de conservación.", negSlug: "neg_img10" },
-      { id: 11, posTitle: "Paisaje urbano", posDesc: "Mezcla armónica de entorno natural y construido.", posSlug: "img11", negTitle: "Contaminación visual", negDesc: "Caos estético y pérdida de identidad natural.", negSlug: "neg_img11" },
-      { id: 12, posTitle: "Movilidad cero emisiones", posDesc: "Transporte eléctrico o no motorizado.", posSlug: "img12", negTitle: "Dependencia fósil", negDesc: "Uso excesivo de vehículos contaminantes.", negSlug: "neg_img12" },
-      { id: 13, posTitle: "Energías renovables", posDesc: "Fuentes de energía limpias (sol, viento).", posSlug: "img13", negTitle: "Energías sucias", negDesc: "Uso de carbón y petróleo altamente contaminantes.", negSlug: "neg_img13" },
-      { id: 14, posTitle: "Eficiencia energética", posDesc: "Uso óptimo para bajar el consumo.", posSlug: "img14", negTitle: "Despilfarro energético", negDesc: "Consumo excesivo e irresponsable de electricidad.", negSlug: "neg_img14" },
-      { id: 15, posTitle: "Economía circular", posDesc: "Modelo de reducir, reusar y reciclar materiales.", posSlug: "img15", negTitle: "Economía lineal", negDesc: "Modelo insostenible de extraer, usar y desechar.", negSlug: "neg_img15" },
-      { id: 16, posTitle: "Gestión de residuos", posDesc: "Manejo adecuado de la basura.", posSlug: "img16", negTitle: "Acumulación de basura", negDesc: "Manejo deficiente que contamina calles y ríos.", negSlug: "neg_img16" },
-      { id: 17, posTitle: "Residuos posconsumo", posDesc: "Basura que exige manejo específico.", posSlug: "img17", negTitle: "Contaminación tóxica", negDesc: "Abandono de desechos peligrosos sin tratamiento.", negSlug: "neg_img17" },
-      { id: 18, posTitle: "Restauración ecológica", posDesc: "Recuperar funciones de ecosistemas.", posSlug: "img18", negTitle: "Destrucción de hábitats", negDesc: "Daño continuo a ecosistemas sin recuperación.", negSlug: "neg_img18" },
-      { id: 19, posTitle: "Aprovechamiento de agua", posDesc: "Captar y usar eficientemente agua de lluvia.", posSlug: "img19", negTitle: "Desperdicio hídrico", negDesc: "Uso irracional y contaminación de fuentes de agua.", negSlug: "neg_img19" },
-      { id: 20, posTitle: "Gestión ambiental urbana", posDesc: "Administración que une lo social y ambiental.", posSlug: "img20", negTitle: "Negligencia institucional", negDesc: "Falta de control y políticas para el ambiente.", negSlug: "neg_img20" },
-      { id: 21, posTitle: "Planificación urbana", posDesc: "Ordenar crecimiento respetando el entorno.", posSlug: "img21", negTitle: "Crecimiento desordenado", negDesc: "Expansión caótica sin respetar la naturaleza.", negSlug: "neg_img21" },
-      { id: 22, posTitle: "Construcción sostenible", posDesc: "Edificar bajo criterios ecológicos.", posSlug: "img22", negTitle: "Edificación depredadora", negDesc: "Obras que consumen excesiva energía y recursos.", negSlug: "neg_img22" },
-      { id: 23, posTitle: "Asentamientos sostenibles", posDesc: "Barrios planificados en armonía.", posSlug: "img23", negTitle: "Zonas de riesgo", negDesc: "Barrios informales vulnerables a desastres.", negSlug: "neg_img23" },
-      { id: 24, posTitle: "Ciudad humanizada", posDesc: "Diseño que prioriza a las personas.", posSlug: "img24", negTitle: "Ciudad hostil", negDesc: "Diseño urbano que margina y dificulta convivencia.", negSlug: "neg_img24" },
-      { id: 25, posTitle: "Derecho a la ciudad", posDesc: "Disfrute equitativo de servicios urbanos.", posSlug: "img25", negTitle: "Exclusión espacial", negDesc: "Privatización y acceso desigual a los servicios.", negSlug: "neg_img25" },
-      { id: 26, posTitle: "Participación ciudadana", posDesc: "Habitantes activos en decisiones.", posSlug: "img26", negTitle: "Apatía social", negDesc: "Desinterés y exclusión en las decisiones.", negSlug: "neg_img26" },
-      { id: 27, posTitle: "Gobernanza ambiental", posDesc: "Decisiones articuladas entre actores.", posSlug: "img27", negTitle: "Corrupción ecológica", negDesc: "Decisiones que favorecen intereses particulares.", negSlug: "neg_img27" },
-      { id: 28, posTitle: "Soluciones naturales", posDesc: "Usar naturaleza para resolver retos.", posSlug: "img28", negTitle: "Parches artificiales", negDesc: "Respuestas costosas que ignoran dinámica natural.", negSlug: "neg_img28" },
-      { id: 29, posTitle: "Negocios verdes", posDesc: "Economía que genera impacto positivo.", posSlug: "img29", negTitle: "Industrias extractivistas", negDesc: "Empresas que priorizan el lucro destruyendo.", negSlug: "neg_img29" },
-      { id: 30, posTitle: "Cambio climático", posDesc: "Acciones frente a riesgos del clima.", posSlug: "img30", negTitle: "Negacionismo climático", negDesc: "Ignorar la crisis y aumentar las emisiones.", negSlug: "neg_img30" }
+      { id: 1, posTitle: "Ciudad sostenible", posDesc: "Calidad de vida con menor impacto ambiental.", posSlug: "img1", negTitle: "Ciudad insostenible", negDesc: "Crecimiento que agota recursos y daña el entorno.", negSlug: "imgN1" },
+      { id: 2, posTitle: "Ciudad resiliente", posDesc: "Capacidad de afrontar riesgos climáticos.", posSlug: "img2", negTitle: "Vulnerabilidad urbana", negDesc: "Incapacidad de superar desastres ambientales.", negSlug: "imgN2" },
+      { id: 3, posTitle: "Biodiversidad urbana", posDesc: "Variedad de flora y fauna en la ciudad.", posSlug: "img3", negTitle: "Desierto de asfalto", negDesc: "Pérdida de especies y predominio del concreto.", negSlug: "imgN3" },
+      { id: 4, posTitle: "Estructura ecológica", posDesc: "Red verde integrada a la matriz urbana.", posSlug: "img4", negTitle: "Fragmentación natural", negDesc: "Desconexión y destrucción de áreas verdes.", negSlug: "imgN4" },
+      { id: 5, posTitle: "Conectividad ecológica", posDesc: "Corredores naturales para flujo de especies.", posSlug: "img5", negTitle: "Barreras artificiales", negDesc: "Bloqueo del flujo natural de fauna y flora.", negSlug: "imgN5" },
+      { id: 6, posTitle: "Servicios ecosistémicos", posDesc: "Beneficios de la naturaleza para las personas.", posSlug: "img6", negTitle: "Degradación ambiental", negDesc: "Pérdida de beneficios naturales para la población.", negSlug: "imgN6" },
+      { id: 7, posTitle: "Infraestructura verde", posDesc: "Elementos naturales con beneficios ambientales.", posSlug: "img7", negTitle: "Infraestructura gris", negDesc: "Construcciones que ignoran los ciclos naturales.", negSlug: "imgN7" },
+      { id: 8, posTitle: "Bosques urbanos", posDesc: "Masas de árboles con función ecológica.", posSlug: "img8", negTitle: "Deforestación urbana", negDesc: "Tala masiva de árboles para urbanización.", negSlug: "imgN8" },
+      { id: 9, posTitle: "Humedales urbanos", posDesc: "Ecosistemas acuáticos que protegen la ciudad.", posSlug: "img9", negTitle: "Relleno de ecosistemas", negDesc: "Secado y destrucción de cuerpos de agua vitales.", negSlug: "imgN9" },
+      { id: 10, posTitle: "Áreas protegidas", posDesc: "Zonas destinadas a conservar ecosistemas.", posSlug: "img10", negTitle: "Explotación urbana", negDesc: "Invasión y daño a zonas de conservación.", negSlug: "imgN10" },
+      { id: 11, posTitle: "Paisaje urbano", posDesc: "Mezcla armónica de entorno natural y construido.", posSlug: "img11", negTitle: "Contaminación visual", negDesc: "Caos estético y pérdida de identidad natural.", negSlug: "imgN11" },
+      { id: 12, posTitle: "Movilidad cero emisiones", posDesc: "Transporte eléctrico o no motorizado.", posSlug: "img12", negTitle: "Dependencia fósil", negDesc: "Uso excesivo de vehículos contaminantes.", negSlug: "imgN12" },
+      { id: 13, posTitle: "Energías renovables", posDesc: "Fuentes de energía limpias (sol, viento).", posSlug: "img13", negTitle: "Energías sucias", negDesc: "Uso de carbón y petróleo altamente contaminantes.", negSlug: "imgN13" },
+      { id: 14, posTitle: "Eficiencia energética", posDesc: "Uso óptimo para bajar el consumo.", posSlug: "img14", negTitle: "Despilfarro energético", negDesc: "Consumo excesivo e irresponsable de electricidad.", negSlug: "imgN14" },
+      { id: 15, posTitle: "Economía circular", posDesc: "Modelo de reducir, reusar y reciclar materiales.", posSlug: "img15", negTitle: "Economía lineal", negDesc: "Modelo insostenible de extraer, usar y desechar.", negSlug: "imgN15" },
+      { id: 16, posTitle: "Gestión de residuos", posDesc: "Manejo adecuado de la basura.", posSlug: "img16", negTitle: "Acumulación de basura", negDesc: "Manejo deficiente que contamina calles y ríos.", negSlug: "imgN16" },
+      { id: 17, posTitle: "Residuos posconsumo", posDesc: "Basura que exige manejo específico.", posSlug: "img17", negTitle: "Contaminación tóxica", negDesc: "Abandono de desechos peligrosos sin tratamiento.", negSlug: "imgN17" },
+      { id: 18, posTitle: "Restauración ecológica", posDesc: "Recuperar funciones de ecosistemas.", posSlug: "img18", negTitle: "Destrucción de hábitats", negDesc: "Daño continuo a ecosistemas sin recuperación.", negSlug: "imgN18" },
+      { id: 19, posTitle: "Aprovechamiento de agua", posDesc: "Captar y usar eficientemente agua de lluvia.", posSlug: "img19", negTitle: "Desperdicio hídrico", negDesc: "Uso irracional y contaminación de fuentes de agua.", negSlug: "imgN19" },
+      { id: 20, posTitle: "Gestión ambiental urbana", posDesc: "Administración que une lo social y ambiental.", posSlug: "img20", negTitle: "Negligencia institucional", negDesc: "Falta de control y políticas para el ambiente.", negSlug: "imgN20" },
+      { id: 21, posTitle: "Planificación urbana", posDesc: "Ordenar crecimiento respetando el entorno.", posSlug: "img21", negTitle: "Crecimiento desordenado", negDesc: "Expansión caótica sin respetar la naturaleza.", negSlug: "imgN21" },
+      { id: 22, posTitle: "Construcción sostenible", posDesc: "Edificar bajo criterios ecológicos.", posSlug: "img22", negTitle: "Edificación depredadora", negDesc: "Obras que consumen excesiva energía y recursos.", negSlug: "imgN22" },
+      { id: 23, posTitle: "Asentamientos sostenible", posDesc: "Barrios planificados en armonía.", posSlug: "img23", negTitle: "Zonas de riesgo", negDesc: "Barrios informales vulnerables a desastres.", negSlug: "imgN23" },
+      { id: 24, posTitle: "Ciudad humanizada", posDesc: "Diseño que prioriza a las personas.", posSlug: "img24", negTitle: "Ciudad hostil", negDesc: "Diseño urbano que margina y dificulta convivencia.", negSlug: "imgN24" },
+      { id: 25, posTitle: "Derecho a la ciudad", posDesc: "Disfrute equitativo de servicios urbanos.", posSlug: "img25", negTitle: "Exclusión espacial", negDesc: "Privatización y acceso desigual a los servicios.", negSlug: "imgN25" },
+      { id: 26, posTitle: "Participación ciudadana", posDesc: "Habitantes activos en decisiones.", posSlug: "img26", negTitle: "Apatía social", negDesc: "Desinterés y exclusión en las decisiones.", negSlug: "imgN26" },
+      { id: 27, posTitle: "Gobernanza ambiental", posDesc: "Decisiones articuladas entre actores.", posSlug: "img27", negTitle: "Corrupción ecológica", negDesc: "Decisiones que favorecen intereses particulares.", negSlug: "imgN27" },
+      { id: 28, posTitle: "Soluciones naturales", posDesc: "Usar naturaleza para resolver retos.", posSlug: "img28", negTitle: "Parches artificiales", negDesc: "Respuestas costosas que ignoran dinámica natural.", negSlug: "imgN28" },
+      { id: 29, posTitle: "Negocios verdes", posDesc: "Economía que genera impacto positivo.", posSlug: "img29", negTitle: "Industrias extractivistas", negDesc: "Empresas que priorizan el lucro destruyendo.", negSlug: "imgN29" },
+      { id: 30, posTitle: "Cambio climático", posDesc: "Acciones frente a riesgos del clima.", posSlug: "img30", negTitle: "Negacionismo climático", negDesc: "Ignorar la crisis y aumentar las emisiones.", negSlug: "imgN30" }
     ];
 
-    // ============= LÓGICA DEL JUEGO =============
     let zones = [], currentZoneIndex = 0, flippedCards = [], matchedCount = 0;
     let totalPairsInZone = 0, timerInterval, timeLeft = 0, lockBoard = false;
     let totalScore = 0, zoneScore = 0, comboCount = 0;
@@ -652,12 +588,10 @@
 
       let deck = [];
       cfg.concepts.forEach(item => {
-        // Carta Positiva (A)
         deck.push({ 
           pairId: item.id, title: item.posTitle, desc: item.posDesc, slug: item.posSlug, 
           badgeClass: 'action', badgeText: 'Aspecto Positivo' 
         });
-        // Carta Negativa (B)
         deck.push({ 
           pairId: item.id, title: item.negTitle, desc: item.negDesc, slug: item.negSlug, 
           badgeClass: 'problem', badgeText: 'Aspecto Negativo' 
@@ -669,7 +603,6 @@
         const c = document.createElement('div');
         c.className = 'card'; c.dataset.pairId = data.pairId;
         
-        // ESTRUCTURA UNIFICADA PARA AMBAS CARTAS
         c.innerHTML = `
           <div class="card-inner">
             <div class="card-front"><span class="front-symbol">✦</span></div>
