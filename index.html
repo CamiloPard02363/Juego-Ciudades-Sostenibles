@@ -96,14 +96,14 @@
       color: var(--ink-muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 24px; font-weight: 400;
     }
 
-    .best-score-banner{
+    .best-score-banner {
       display:flex; align-items:center; justify-content:space-between;
       background: linear-gradient(135deg, rgba(201,160,80,0.12), rgba(110,154,90,0.12));
       border: 1px solid var(--glass-border); border-radius: 12px;
       padding: 12px 16px; margin-bottom: 24px;
     }
-    .best-score-banner .label{ font-family:'Cinzel', serif; font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color: var(--emerald-light); }
-    .best-score-banner .value{ font-family:'Cinzel', serif; font-weight:700; color: var(--gold-dark); font-size:1.1rem; }
+    .best-score-banner .label { font-family:'Cinzel', serif; font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color: var(--emerald-light); }
+    .best-score-banner .value { font-family:'Cinzel', serif; font-weight:700; color: var(--gold-dark); font-size:1.1rem; }
 
     .config-grid { display: grid; gap: 20px; margin-bottom: 8px; }
     .field {
@@ -141,24 +141,20 @@
       background: var(--emerald-dark); border: 2px solid var(--gold-primary);
       cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
-    input[type="range"]::-moz-range-thumb {
-      width: 18px; height: 18px; border-radius: 50%;
-      background: var(--emerald-dark); border: 2px solid var(--gold-primary); cursor: pointer;
-    }
 
-    .toggle-row{ display:flex; align-items:center; justify-content:space-between; }
-    .switch{ position:relative; display:inline-block; width:44px; height:24px; }
-    .switch input{ opacity:0; width:0; height:0; }
-    .slider-toggle{
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; }
+    .switch { position:relative; display:inline-block; width:44px; height:24px; }
+    .switch input { opacity:0; width:0; height:0; }
+    .slider-toggle {
       position:absolute; cursor:pointer; inset:0; background: #ccc;
       transition:.3s; border-radius:24px;
     }
-    .slider-toggle:before{
+    .slider-toggle:before {
       content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px;
       background:white; transition:.3s; border-radius:50%;
     }
-    .switch input:checked + .slider-toggle{ background: var(--emerald-light); }
-    .switch input:checked + .slider-toggle:before{ transform: translateX(20px); }
+    .switch input:checked + .slider-toggle { background: var(--emerald-light); }
+    .switch input:checked + .slider-toggle:before { transform: translateX(20px); }
 
     .btn-gold {
       width: 100%; margin-top: 26px;
@@ -184,7 +180,7 @@
       letter-spacing: 0.15em; text-transform: uppercase; font-weight: 600; margin-top: 6px;
     }
 
-    .back-btn{
+    .back-btn {
       position:absolute; top:0; left:0;
       background: var(--glass-bg); border:1px solid var(--glass-border);
       color: var(--emerald-dark); font-family:'Cinzel',serif; font-size:0.68rem;
@@ -192,7 +188,7 @@
       padding:8px 14px; border-radius:10px; cursor:pointer; z-index:5;
       transition: transform 0.2s, background 0.2s;
     }
-    .back-btn:hover{ transform: translateY(-1px); background: #fff; }
+    .back-btn:hover { transform: translateY(-1px); background: #fff; }
 
     .stats-bar {
       display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
@@ -207,7 +203,7 @@
     }
     .stat-value { font-family: 'Cinzel', serif; font-size: 1.2rem; font-weight: 700; color: var(--emerald-dark); margin-top: 3px; }
     .stat-value.danger { color: var(--clay); }
-    .stat-value.combo{ color: var(--gold-dark); }
+    .stat-value.combo { color: var(--gold-dark); }
     .stat-divider { width: 1px; background: var(--glass-border); }
 
     .progress-track {
@@ -228,15 +224,15 @@
     @media (max-width: 640px){ .grid-container{ grid-template-columns: repeat(3, 1fr); gap: 12px; } }
     @media (max-width: 400px){ .grid-container{ grid-template-columns: repeat(2, 1fr); gap: 10px; } }
 
-    .card { background: transparent; aspect-ratio: 5 / 7; cursor: pointer; position: relative; }
+    .card { background: transparent; aspect-ratio: 5 / 7.2; cursor: pointer; position: relative; }
     .card-inner {
       position: relative; width: 100%; height: 100%;
       transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
       transform-style: preserve-3d; border-radius: 12px;
     }
     .card.flipped .card-inner, .card.matched .card-inner { transform: rotateY(180deg); }
-    .card.shake .card-inner{ animation: shake 0.4s; }
-    @keyframes shake{
+    .card.shake .card-inner { animation: shake 0.4s; }
+    @keyframes shake {
       10%,90%{ transform: translateX(-2px) rotateY(0); }
       20%,80%{ transform: translateX(3px) rotateY(0); }
       30%,50%,70%{ transform: translateX(-5px) rotateY(0); }
@@ -247,40 +243,43 @@
       position: absolute; inset: 0;
       -webkit-backface-visibility: hidden; backface-visibility: hidden;
       border-radius: 14px; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; padding: 14px; overflow: hidden;
+      align-items: center; justify-content: flex-start; padding: 12px; overflow: hidden;
     }
 
     .card-front {
       background: linear-gradient(145deg, var(--emerald-dark), var(--emerald-deep));
-      border: 2px solid var(--gold-primary);
+      border: 2px solid var(--gold-primary); justify-content: center;
       box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.5), 0 8px 18px rgba(0,0,0,0.35);
     }
     .card-front::after {
       content: ""; width: 78%; height: 84%;
       border: 1px solid rgba(201, 160, 80, 0.35); border-radius: 8px; position: absolute;
     }
-    .card-front::before, .card-back::before{
+    .card-front::before{
       content: "❦"; position: absolute; top: 8px; left: 10px;
       font-size: 0.8rem; color: var(--gold-primary); opacity: 0.7; z-index: 2;
     }
     .card-front .front-symbol { font-family: 'Cinzel', serif; color: var(--gold-primary); font-size: 1.8rem; opacity: 0.9; z-index: 1; }
 
+    /* ESTRUCTURA UNIFICADA TIPO 2 (Imagen + Badge + Titulo + Desc) */
     .card-back {
       background: var(--paper-card); color: var(--ink);
       transform: rotateY(180deg); border: 2px solid var(--gold-primary);
       box-shadow: 0 12px 24px rgba(0,0,0,0.22), inset 0 0 0 4px rgba(201,160,80,0.12);
       text-align: center;
     }
-    .card-back::before{ color: var(--gold-dark); }
+    .card-back::before{ 
+      content: "⚡"; position: absolute; top: 6px; left: 8px;
+      font-size: 0.6rem; color: var(--clay); opacity: 0.8; z-index: 2;
+    }
     .card.matched .card-back {
       border: 3px solid var(--gold-primary); background: #FFFDF8;
       box-shadow: 0 0 24px rgba(201, 160, 80, 0.4), inset 0 0 0 4px rgba(201,160,80,0.18);
     }
 
-    /* NUEVOS ESTILOS INTEGRADOS (De Acción Osada) */
     .sprite-container {
-      width: 88%; height: 52%; margin-bottom: 8px;
-      border-radius: 10px; overflow: hidden;
+      width: 100%; height: 42%; margin-bottom: 8px;
+      border-radius: 8px; overflow: hidden;
       border: 1px solid var(--glass-border); background: rgba(201,160,80,0.08);
       box-shadow: 0 4px 10px rgba(0,0,0,0.15);
       display: flex; align-items: center; justify-content: center;
@@ -288,17 +287,21 @@
     .sprite-img { width: 100%; height: 100%; object-fit: cover; display: block; }
     
     .card-badge {
-      font-family: 'Cinzel', serif; font-size: 0.56rem; letter-spacing: 0.08em;
-      text-transform: uppercase; padding: 2px 9px; border-radius: 20px;
-      margin-bottom: 5px; font-weight: 700; white-space: nowrap;
+      font-family: 'Cinzel', serif; font-size: 0.52rem; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 3px 10px; border-radius: 20px;
+      margin-bottom: 6px; font-weight: 700; white-space: nowrap;
     }
     .card-badge.problem { background: rgba(181,101,74,0.15); color: var(--clay); border: 1px solid rgba(181,101,74,0.35); }
     .card-badge.action { background: rgba(201,160,80,0.18); color: var(--gold-dark); border: 1px solid rgba(201,160,80,0.4); }
-    .card.matched .card-badge.problem, .card.matched .card-badge.action { background: rgba(110,154,90,0.18); color: var(--emerald-light); border-color: rgba(110,154,90,0.4); }
+    
+    /* Al hacer match cambian a verde */
+    .card.matched .card-badge.problem, .card.matched .card-badge.action { 
+      background: rgba(110,154,90,0.18); color: var(--emerald-light); border-color: rgba(110,154,90,0.4); 
+    }
 
-    .card-title { font-family: 'Cinzel', serif; font-size: 0.86rem; font-weight: 700; color: var(--emerald-dark); line-height: 1.22; margin-top: 2px; }
-    .card-desc { font-size: 0.76rem; line-height: 1.32; color: var(--ink-muted); font-weight: 400; padding: 0 2px; margin-top: 4px; }
-    /* FIN NUEVOS ESTILOS */
+    .card-title { font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 700; color: var(--emerald-dark); line-height: 1.15; margin-bottom: 4px; }
+    .card-desc { font-size: 0.62rem; line-height: 1.25; color: var(--ink-muted); font-weight: 500; padding: 0 2px; }
+    /* FIN ESTRUCTURA UNIFICADA */
 
     .footnote { text-align: center; color: var(--gold-light); opacity: 0.75; font-size: 0.78rem; margin-top: 24px; }
 
@@ -324,7 +327,7 @@
       font-size:1.15rem; margin: 14px 0 4px;
     }
 
-    /* ============= TOAST (feedback general) ============= */
+    /* ============= TOAST & POWERUP ============= */
     .toast{
       position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px);
       background: var(--emerald-dark); color: var(--gold-light);
@@ -335,7 +338,6 @@
     }
     .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ============= POWER-UP FLOTANTE ============= */
     .powerup-spawn{
       position: fixed; top: 90px; left: 50%;
       transform: translateX(-50%) scale(0.75);
@@ -358,15 +360,11 @@
     @keyframes pulse{ 0%,100%{ opacity:0.7; transform:scale(1);} 50%{ opacity:1; transform:scale(1.15);} }
 
     @media (max-width: 480px) {
-      .card-title { font-size: 0.72rem; }
-      .card-desc { font-size: 0.66rem; }
+      .card-title { font-size: 0.65rem; }
+      .card-desc { font-size: 0.55rem; }
       .cover-card { padding: 32px 22px 28px; }
       .back-btn{ font-size:0.6rem; padding:6px 10px; }
       .powerup-spawn{ top: 80px; padding: 10px 16px 12px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .card-inner { transition: none; }
-      .btn-gold:hover { transform: none; }
     }
   </style>
 </head>
@@ -375,13 +373,11 @@
   <canvas id="webgl-bg"></canvas>
 
   <div class="app-container">
-
-    <!-- ================= PANTALLA DE CONFIGURACIÓN ================= -->
     <div class="screen" id="startScreen">
       <div class="cover-card">
         <span class="eyebrow">Botanical Memory Architecture</span>
         <h1>Herbario Urbano<br><em>Edición Sostenible</em></h1>
-        <p class="lead">Explora la taxonomía ambiental de la ciudad. Empareja cada concepto con su registro gráfico y su definición antes de que expire el tiempo. Entre más rápido aciertes, más puntos ganas.</p>
+        <p class="lead">Explora la dualidad de la ciudad. Empareja cada aspecto positivo con su contraparte negativa (problema ambiental) antes de que expire el tiempo.</p>
 
         <div class="best-score-banner hidden" id="bestScoreBanner">
           <span class="label">Mejor puntaje</span>
@@ -395,7 +391,6 @@
               <span class="field-value" id="pairsValue">16</span>
             </div>
             <input type="range" id="pairsRange" min="4" max="30" step="1" value="16">
-            <div class="field-hint">Máximo 30 parejas (todo el listado de conceptos disponible).</div>
           </div>
 
           <div class="field">
@@ -404,7 +399,6 @@
               <span class="field-value" id="perZoneValue">8</span>
             </div>
             <input type="range" id="perZoneRange" min="2" max="10" step="1" value="8">
-            <div class="field-hint">Define cuántas zonas se generarán al repartir las parejas totales.</div>
             <div class="zone-preview" id="zonePreview"></div>
           </div>
 
@@ -414,27 +408,14 @@
               <span class="field-value" id="timeValue">90s</span>
             </div>
             <input type="range" id="timeRange" min="20" max="180" step="5" value="90">
-            <div class="field-hint">Se aplica a todas las zonas de esta partida.</div>
           </div>
 
           <div class="field">
             <div class="field-head">
-              <span class="field-label">Vista previa al iniciar zona</span>
+              <span class="field-label">Vista previa</span>
               <span class="field-value" id="previewValue">5s</span>
             </div>
             <input type="range" id="previewRange" min="0" max="15" step="1" value="5">
-            <div class="field-hint">Segundos para memorizar las cartas boca arriba antes de que empiece a correr el tiempo. Usa 0 para desactivarla.</div>
-          </div>
-
-          <div class="field toggle-row">
-            <div>
-              <span class="field-label">Sonido y vibración</span>
-              <div class="field-hint" style="margin-top:4px;">Activa el feedback sensorial durante el juego.</div>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="sfxToggle" checked>
-              <span class="slider-toggle"></span>
-            </label>
           </div>
         </div>
 
@@ -442,7 +423,6 @@
       </div>
     </div>
 
-    <!-- ================= PANTALLA DE JUEGO ================= -->
     <div class="game-wrap hidden" id="gameScreen">
       <header class="game-header">
         <button class="back-btn" id="backToConfigBtn">← Configuración</button>
@@ -452,37 +432,21 @@
       </header>
 
       <div class="stats-bar">
-        <div class="stat">
-          <span class="stat-label">Parejas</span>
-          <span class="stat-value" id="matches">0 / 8</span>
-        </div>
+        <div class="stat"><span class="stat-label">Parejas</span><span class="stat-value" id="matches">0 / 8</span></div>
         <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-label">Tiempo</span>
-          <span class="stat-value" id="timer">01:30</span>
-        </div>
+        <div class="stat"><span class="stat-label">Tiempo</span><span class="stat-value" id="timer">01:30</span></div>
         <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-label">Puntos</span>
-          <span class="stat-value" id="scoreValue">0</span>
-        </div>
+        <div class="stat"><span class="stat-label">Puntos</span><span class="stat-value" id="scoreValue">0</span></div>
         <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-label">Combo</span>
-          <span class="stat-value combo" id="comboValue">x1</span>
-        </div>
+        <div class="stat"><span class="stat-label">Combo</span><span class="stat-value combo" id="comboValue">x1</span></div>
       </div>
 
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-
       <div class="grid-container" id="grid"></div>
-
-      <p class="footnote">Toca dos tarjetas para revelar su contenido — encuentra la imagen y su definición. Encadena aciertos: cada 2 parejas seguidas hay chance de que aparezca un comodín 🌿.</p>
+      <p class="footnote">Encuentra la dupla: el Aspecto Positivo y su correspondiente Aspecto Negativo.</p>
     </div>
-
   </div>
 
-  <!-- ================= MODAL ================= -->
   <div class="modal" id="messageModal">
     <div class="modal-content">
       <h2 id="modalTitle">¡Tiempo Agotado!</h2>
@@ -494,7 +458,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <!-- ================= COMODÍN FLOTANTE ================= -->
   <div class="powerup-spawn" id="powerupSpawn">
     <span class="ps-icon" id="powerupSpawnIcon">🌿</span>
     <div class="ps-text">
@@ -505,7 +468,7 @@
   </div>
 
   <script>
-    // ============= FONDO 3D — HOJAS CAYENDO (Three.js) =============
+    // ============= FONDO 3D (Three.js) =============
     const canvas = document.getElementById('webgl-bg');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -531,9 +494,7 @@
       ctx.moveTo(32, 8);
       ctx.lineTo(32, 56);
       ctx.stroke();
-      const tex = new THREE.CanvasTexture(c);
-      tex.needsUpdate = true;
-      return tex;
+      return new THREE.CanvasTexture(c);
     }
 
     const leafTexGreen = makeLeafTexture('#6E9A5A');
@@ -542,271 +503,131 @@
 
     const leafGroups = [];
     [leafTexGreen, leafTexGold, leafTexDeep].forEach((tex, i) => {
-      const count = 55;
+      const count = 40;
       const geometry = new THREE.BufferGeometry();
       const positions = new Float32Array(count * 3);
       const speeds = new Float32Array(count);
-      const rotSpeeds = new Float32Array(count);
       for (let j = 0; j < count; j++){
         positions[j*3]   = (Math.random() - 0.5) * 16;
         positions[j*3+1] = (Math.random() - 0.5) * 12;
         positions[j*3+2] = (Math.random() - 0.5) * 8;
         speeds[j] = 0.003 + Math.random() * 0.006;
-        rotSpeeds[j] = (Math.random() - 0.5) * 0.02;
       }
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-      const material = new THREE.PointsMaterial({
-        size: 0.5 + i * 0.08,
-        map: tex,
-        transparent: true,
-        opacity: 0.75,
-        depthWrite: false
-      });
-
+      const material = new THREE.PointsMaterial({ size: 0.5 + i * 0.08, map: tex, transparent: true, opacity: 0.75, depthWrite: false });
       const points = new THREE.Points(geometry, material);
       scene.add(points);
-      leafGroups.push({ points, speeds, positions, rotSpeeds, phase: Math.random()*10 });
+      leafGroups.push({ points, speeds, phase: Math.random()*10 });
     });
 
     camera.position.z = 5;
-
     let clock = new THREE.Clock();
     function animate() {
       requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
-
       leafGroups.forEach(group => {
         const pos = group.points.geometry.attributes.position.array;
         for (let j = 0; j < pos.length / 3; j++){
           pos[j*3+1] -= group.speeds[j];
           pos[j*3]   += Math.sin(t * 0.6 + group.phase + j) * 0.0015;
-          if (pos[j*3+1] < -6){
-            pos[j*3+1] = 6;
-            pos[j*3] = (Math.random() - 0.5) * 16;
-          }
+          if (pos[j*3+1] < -6){ pos[j*3+1] = 6; pos[j*3] = (Math.random() - 0.5) * 16; }
         }
         group.points.geometry.attributes.position.needsUpdate = true;
-        group.points.rotation.z = Math.sin(t * 0.15) * 0.05;
       });
-
       renderer.render(scene, camera);
     }
     animate();
 
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    // ============= AUDIO (Web Audio API, sin archivos externos) =============
-    let audioCtx = null;
-    function getAudioCtx(){
-      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      return audioCtx;
-    }
-
-    function playTone(freq, duration, type='sine', volume=0.18, delay=0){
-      if(!sfxEnabled) return;
-      try{
-        const ctx = getAudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        gain.gain.value = volume;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        const startTime = ctx.currentTime + delay;
-        gain.gain.setValueAtTime(volume, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-        osc.start(startTime);
-        osc.stop(startTime + duration);
-      } catch(e){ /* audio no disponible */ }
-    }
-
-    function sfxMatch(){ playTone(523.25, 0.12, 'triangle', 0.16); playTone(783.99, 0.18, 'triangle', 0.14, 0.06); }
-    function sfxFail(){ playTone(180, 0.25, 'sawtooth', 0.12); }
-    function sfxPowerup(){ playTone(660, 0.1, 'sine', 0.15); playTone(880, 0.1, 'sine', 0.15, 0.08); playTone(1100, 0.16, 'sine', 0.15, 0.16); }
-    function sfxPowerupAppear(){ playTone(1200, 0.08, 'sine', 0.1); playTone(1500, 0.1, 'sine', 0.1, 0.05); }
-    function sfxWin(){ [523.25, 659.25, 783.99, 1046.5].forEach((f,i)=>playTone(f, 0.2, 'triangle', 0.15, i*0.1)); }
-    function sfxLose(){ playTone(220, 0.3, 'sawtooth', 0.14); playTone(160, 0.4, 'sawtooth', 0.12, 0.2); }
-
-    function vibrate(pattern){
-      if(!sfxEnabled) return;
-      if(navigator.vibrate) navigator.vibrate(pattern);
-    }
-
-    let sfxEnabled = true;
-    document.getElementById('sfxToggle').addEventListener('change', (e) => {
-      sfxEnabled = e.target.checked;
-    });
-
-    // ============= DATOS DEL JUEGO =============
+    // ============= DATOS: POSITIVO VS NEGATIVO =============
     const conceptPairs = [
-      { id: 1,  title: "Ciudad sostenible", desc: "Calidad de vida con menor impacto ambiental.", slug: "img1" },
-      { id: 2,  title: "Ciudad resiliente", desc: "Capacidad de afrontar y superar riesgos climáticos.", slug: "img2" },
-      { id: 3,  title: "Biodiversidad urbana", desc: "Variedad de flora y fauna en la ciudad.", slug: "img3" },
-      { id: 4,  title: "Estructura ecológica", desc: "Red verde integrada a la matriz urbana.", slug: "img4" },
-      { id: 5,  title: "Conectividad ecológica", desc: "Corredores naturales para el flujo de especies.", slug: "img5" },
-      { id: 6,  title: "Servicios ecosistémicos", desc: "Beneficios de la naturaleza para las personas.", slug: "img6" },
-      { id: 7,  title: "Infraestructura verde", desc: "Elementos naturales con beneficios sociales y ambientales.", slug: "img7" },
-      { id: 8,  title: "Bosques urbanos", desc: "Masas de árboles con función social y ecológica.", slug: "img8" },
-      { id: 9,  title: "Humedales urbanos", desc: "Ecosistemas acuáticos que protegen la ciudad.", slug: "img9" },
-      { id: 10, title: "Áreas protegidas", desc: "Zonas destinadas a conservar ecosistemas.", slug: "img10" },
-      { id: 11, title: "Paisaje urbano", desc: "Mezcla armónica de entorno natural y construido.", slug: "img11" },
-      { id: 12, title: "Movilidad cero emisiones", desc: "Transporte eléctrico o no motorizado.", slug: "img12" },
-      { id: 13, title: "Energías renovables", desc: "Fuentes de energía limpias como sol y viento.", slug: "img13" },
-      { id: 14, title: "Eficiencia energética", desc: "Uso óptimo de la energía para bajar el consumo.", slug: "img14" },
-      { id: 15, title: "Economía circular", desc: "Modelo de reducir, reusar y reciclar materiales.", slug: "img15" },
-      { id: 16, title: "Gestión de residuos", desc: "Manejo adecuado de la basura hasta su disposición.", slug: "img16" },
-      { id: 17, title: "Residuos posconsumo", desc: "Basura especial que exige manejo específico (ej. electrónicos).", slug: "img17" },
-      { id: 18, title: "Restauración ecológica", desc: "Recuperar funciones de ecosistemas degradados.", slug: "img18" },
-      { id: 19, title: "Aprovechamiento de agua", desc: "Captar y utilizar eficientemente el agua de lluvia.", slug: "img19" },
-      { id: 20, title: "Gestión ambiental urbana", desc: "Administración que une lo ambiental, social y económico.", slug: "img20" },
-      { id: 21, title: "Planificación urbana", desc: "Ordenar el crecimiento respetando entorno y personas.", slug: "img21" },
-      { id: 22, title: "Construcción sostenible", desc: "Edificar bajo criterios ecológicos y eficientes.", slug: "img22" },
-      { id: 23, title: "Asentamientos sostenibles", desc: "Barrios planificados en armonía con el territorio.", slug: "img23" },
-      { id: 24, title: "Ciudad humanizada", desc: "Diseño que prioriza a las personas y la convivencia.", slug: "img24" },
-      { id: 25, title: "Derecho a la ciudad", desc: "Disfrute equitativo de los servicios urbanos.", slug: "img25" },
-      { id: 26, title: "Participación ciudadana", desc: "Habitantes activos en decisiones de su entorno.", slug: "img26" },
-      { id: 27, title: "Gobernanza ambiental", desc: "Decisiones articuladas entre diversos actores.", slug: "img27" },
-      { id: 28, title: "Soluciones naturales", desc: "Usar la naturaleza para resolver retos urbanos.", slug: "img28" },
-      { id: 29, title: "Negocios verdes", desc: "Economía sostenible que genera impacto positivo.", slug: "img29" },
-      { id: 30, title: "Cambio climático", desc: "Acciones frente a variaciones y riesgos del clima.", slug: "img30" }
+      { id: 1, posTitle: "Ciudad sostenible", posDesc: "Calidad de vida con menor impacto ambiental.", posSlug: "img1", negTitle: "Ciudad insostenible", negDesc: "Crecimiento que agota recursos y daña el entorno.", negSlug: "neg_img1" },
+      { id: 2, posTitle: "Ciudad resiliente", posDesc: "Capacidad de afrontar riesgos climáticos.", posSlug: "img2", negTitle: "Vulnerabilidad urbana", negDesc: "Incapacidad de superar desastres ambientales.", negSlug: "neg_img2" },
+      { id: 3, posTitle: "Biodiversidad urbana", posDesc: "Variedad de flora y fauna en la ciudad.", posSlug: "img3", negTitle: "Desierto de asfalto", negDesc: "Pérdida de especies y predominio del concreto.", negSlug: "neg_img3" },
+      { id: 4, posTitle: "Estructura ecológica", posDesc: "Red verde integrada a la matriz urbana.", posSlug: "img4", negTitle: "Fragmentación natural", negDesc: "Desconexión y destrucción de áreas verdes.", negSlug: "neg_img4" },
+      { id: 5, posTitle: "Conectividad ecológica", posDesc: "Corredores naturales para flujo de especies.", posSlug: "img5", negTitle: "Barreras artificiales", negDesc: "Bloqueo del flujo natural de fauna y flora.", negSlug: "neg_img5" },
+      { id: 6, posTitle: "Servicios ecosistémicos", posDesc: "Beneficios de la naturaleza para las personas.", posSlug: "img6", negTitle: "Degradación ambiental", negDesc: "Pérdida de beneficios naturales para la población.", negSlug: "neg_img6" },
+      { id: 7, posTitle: "Infraestructura verde", posDesc: "Elementos naturales con beneficios ambientales.", posSlug: "img7", negTitle: "Infraestructura gris", negDesc: "Construcciones que ignoran los ciclos naturales.", negSlug: "neg_img7" },
+      { id: 8, posTitle: "Bosques urbanos", posDesc: "Masas de árboles con función ecológica.", posSlug: "img8", negTitle: "Deforestación urbana", negDesc: "Tala masiva de árboles para urbanización.", negSlug: "neg_img8" },
+      { id: 9, posTitle: "Humedales urbanos", posDesc: "Ecosistemas acuáticos que protegen la ciudad.", posSlug: "img9", negTitle: "Relleno de ecosistemas", negDesc: "Secado y destrucción de cuerpos de agua vitales.", negSlug: "neg_img9" },
+      { id: 10, posTitle: "Áreas protegidas", posDesc: "Zonas destinadas a conservar ecosistemas.", posSlug: "img10", negTitle: "Explotación urbana", negDesc: "Invasión y daño a zonas de conservación.", negSlug: "neg_img10" },
+      { id: 11, posTitle: "Paisaje urbano", posDesc: "Mezcla armónica de entorno natural y construido.", posSlug: "img11", negTitle: "Contaminación visual", negDesc: "Caos estético y pérdida de identidad natural.", negSlug: "neg_img11" },
+      { id: 12, posTitle: "Movilidad cero emisiones", posDesc: "Transporte eléctrico o no motorizado.", posSlug: "img12", negTitle: "Dependencia fósil", negDesc: "Uso excesivo de vehículos contaminantes.", negSlug: "neg_img12" },
+      { id: 13, posTitle: "Energías renovables", posDesc: "Fuentes de energía limpias (sol, viento).", posSlug: "img13", negTitle: "Energías sucias", negDesc: "Uso de carbón y petróleo altamente contaminantes.", negSlug: "neg_img13" },
+      { id: 14, posTitle: "Eficiencia energética", posDesc: "Uso óptimo para bajar el consumo.", posSlug: "img14", negTitle: "Despilfarro energético", negDesc: "Consumo excesivo e irresponsable de electricidad.", negSlug: "neg_img14" },
+      { id: 15, posTitle: "Economía circular", posDesc: "Modelo de reducir, reusar y reciclar materiales.", posSlug: "img15", negTitle: "Economía lineal", negDesc: "Modelo insostenible de extraer, usar y desechar.", negSlug: "neg_img15" },
+      { id: 16, posTitle: "Gestión de residuos", posDesc: "Manejo adecuado de la basura.", posSlug: "img16", negTitle: "Acumulación de basura", negDesc: "Manejo deficiente que contamina calles y ríos.", negSlug: "neg_img16" },
+      { id: 17, posTitle: "Residuos posconsumo", posDesc: "Basura que exige manejo específico.", posSlug: "img17", negTitle: "Contaminación tóxica", negDesc: "Abandono de desechos peligrosos sin tratamiento.", negSlug: "neg_img17" },
+      { id: 18, posTitle: "Restauración ecológica", posDesc: "Recuperar funciones de ecosistemas.", posSlug: "img18", negTitle: "Destrucción de hábitats", negDesc: "Daño continuo a ecosistemas sin recuperación.", negSlug: "neg_img18" },
+      { id: 19, posTitle: "Aprovechamiento de agua", posDesc: "Captar y usar eficientemente agua de lluvia.", posSlug: "img19", negTitle: "Desperdicio hídrico", negDesc: "Uso irracional y contaminación de fuentes de agua.", negSlug: "neg_img19" },
+      { id: 20, posTitle: "Gestión ambiental urbana", posDesc: "Administración que une lo social y ambiental.", posSlug: "img20", negTitle: "Negligencia institucional", negDesc: "Falta de control y políticas para el ambiente.", negSlug: "neg_img20" },
+      { id: 21, posTitle: "Planificación urbana", posDesc: "Ordenar crecimiento respetando el entorno.", posSlug: "img21", negTitle: "Crecimiento desordenado", negDesc: "Expansión caótica sin respetar la naturaleza.", negSlug: "neg_img21" },
+      { id: 22, posTitle: "Construcción sostenible", posDesc: "Edificar bajo criterios ecológicos.", posSlug: "img22", negTitle: "Edificación depredadora", negDesc: "Obras que consumen excesiva energía y recursos.", negSlug: "neg_img22" },
+      { id: 23, posTitle: "Asentamientos sostenibles", posDesc: "Barrios planificados en armonía.", posSlug: "img23", negTitle: "Zonas de riesgo", negDesc: "Barrios informales vulnerables a desastres.", negSlug: "neg_img23" },
+      { id: 24, posTitle: "Ciudad humanizada", posDesc: "Diseño que prioriza a las personas.", posSlug: "img24", negTitle: "Ciudad hostil", negDesc: "Diseño urbano que margina y dificulta convivencia.", negSlug: "neg_img24" },
+      { id: 25, posTitle: "Derecho a la ciudad", posDesc: "Disfrute equitativo de servicios urbanos.", posSlug: "img25", negTitle: "Exclusión espacial", negDesc: "Privatización y acceso desigual a los servicios.", negSlug: "neg_img25" },
+      { id: 26, posTitle: "Participación ciudadana", posDesc: "Habitantes activos en decisiones.", posSlug: "img26", negTitle: "Apatía social", negDesc: "Desinterés y exclusión en las decisiones.", negSlug: "neg_img26" },
+      { id: 27, posTitle: "Gobernanza ambiental", posDesc: "Decisiones articuladas entre actores.", posSlug: "img27", negTitle: "Corrupción ecológica", negDesc: "Decisiones que favorecen intereses particulares.", negSlug: "neg_img27" },
+      { id: 28, posTitle: "Soluciones naturales", posDesc: "Usar naturaleza para resolver retos.", posSlug: "img28", negTitle: "Parches artificiales", negDesc: "Respuestas costosas que ignoran dinámica natural.", negSlug: "neg_img28" },
+      { id: 29, posTitle: "Negocios verdes", posDesc: "Economía que genera impacto positivo.", posSlug: "img29", negTitle: "Industrias extractivistas", negDesc: "Empresas que priorizan el lucro destruyendo.", negSlug: "neg_img29" },
+      { id: 30, posTitle: "Cambio climático", posDesc: "Acciones frente a riesgos del clima.", posSlug: "img30", negTitle: "Negacionismo climático", negDesc: "Ignorar la crisis y aumentar las emisiones.", negSlug: "neg_img30" }
     ];
-    const MAX_PAIRS = conceptPairs.length;
 
-    // ---------------- Estado del juego ----------------
-    let zones = [];
-    let currentZoneIndex = 0;
-    let flippedCards = [];
-    let matchedCount = 0;
-    let totalPairsInZone = 0;
-    let timerInterval;
-    let timeLeft = 0;
-    let zoneTime = 0;
-    let gameStatus = '';
-    let lockBoard = false;
+    // ============= LÓGICA DEL JUEGO =============
+    let zones = [], currentZoneIndex = 0, flippedCards = [], matchedCount = 0;
+    let totalPairsInZone = 0, timerInterval, timeLeft = 0, lockBoard = false;
+    let totalScore = 0, zoneScore = 0, comboCount = 0;
 
-    let totalScore = 0;
-    let zoneScore = 0;
-    let comboCount = 0;
+    function getBestScore(){ return Number(localStorage.getItem('herb_score') || 0); }
+    function setBestScore(s){ localStorage.setItem('herb_score', String(s)); }
 
-    const POINTS_PER_MATCH = 100;
-    const TIME_BONUS_FACTOR = 4;
-    const FAIL_PENALTY = 10;
+    document.getElementById('pairsRange').addEventListener('input', updateConfigUI);
+    document.getElementById('perZoneRange').addEventListener('input', updateConfigUI);
+    document.getElementById('timeRange').addEventListener('input', updateConfigUI);
+    document.getElementById('previewRange').addEventListener('input', updateConfigUI);
 
-    // ---------------- Power-ups (evento flotante por racha) ----------------
-    const POWERUP_TYPES = [
-      { key: 'time',  icon: '⏳', label: '+10s de tiempo' },
-      { key: 'peek',  icon: '👁️', label: 'Vista rápida' },
-      { key: 'bonus', icon: '✨', label: '+150 puntos extra' }
-    ];
-    const STREAK_TRIGGER = 2;       // cada cuántos aciertos CONSECUTIVOS se evalúa la aparición
-    const STREAK_SPAWN_CHANCE = 0.55; // probabilidad de que realmente aparezca al cumplirse la racha
-    const POWERUP_VISIBLE_MS = 4200;  // tiempo que el comodín permanece disponible antes de desvanecerse
-
-    let powerupSpawnTimeout = null;
-    let powerupActive = false;
-
-    function getBestScore(){
-      return Number(localStorage.getItem('herbario_best_score') || 0);
-    }
-    function setBestScore(score){
-      localStorage.setItem('herbario_best_score', String(score));
-    }
-
-    // ---------------- Elementos: pantalla de inicio ----------------
-    const pairsRange   = document.getElementById('pairsRange');
-    const pairsValue   = document.getElementById('pairsValue');
-    const perZoneRange = document.getElementById('perZoneRange');
-    const perZoneValue = document.getElementById('perZoneValue');
-    const timeRange    = document.getElementById('timeRange');
-    const timeValue    = document.getElementById('timeValue');
-    const previewRange = document.getElementById('previewRange');
-    const previewValue = document.getElementById('previewValue');
-    const zonePreview  = document.getElementById('zonePreview');
-    const startBtn     = document.getElementById('startBtn');
-    const bestScoreBanner = document.getElementById('bestScoreBanner');
-    const bestScoreValue  = document.getElementById('bestScoreValue');
-
-    function refreshBestScoreBanner(){
-      const best = getBestScore();
-      if(best > 0){
-        bestScoreValue.textContent = best;
-        bestScoreBanner.classList.remove('hidden');
-      } else {
-        bestScoreBanner.classList.add('hidden');
-      }
-    }
-    refreshBestScoreBanner();
-
-    function clampPerZone(){
-      perZoneRange.max = Math.max(2, Math.min(10, Number(pairsRange.value)));
-      if(Number(perZoneRange.value) > Number(perZoneRange.max)){
-        perZoneRange.value = perZoneRange.max;
-      }
-    }
-
-    function buildZonePreview(){
-      const totalPairs = Number(pairsRange.value);
-      const perZone = Number(perZoneRange.value);
-      const time = Number(timeRange.value);
-      const zoneCount = Math.ceil(totalPairs / perZone);
-
-      zonePreview.innerHTML = '';
-      let remaining = totalPairs;
-      for(let i = 0; i < zoneCount; i++){
-        const size = Math.min(perZone, remaining);
-        remaining -= size;
-        const chip = document.createElement('span');
-        chip.className = 'zone-chip';
-        chip.textContent = `Zona ${i+1}: ${size} · ${time}s`;
-        zonePreview.appendChild(chip);
-      }
-    }
-
-    function refreshConfigUI(){
-      clampPerZone();
-      pairsValue.textContent = pairsRange.value;
-      perZoneValue.textContent = perZoneRange.value;
-      timeValue.textContent = `${timeRange.value}s`;
-      previewValue.textContent = `${previewRange.value}s`;
+    function updateConfigUI(){
+      const pr = document.getElementById('pairsRange');
+      const pzr = document.getElementById('perZoneRange');
+      pzr.max = Math.max(2, Math.min(10, Number(pr.value)));
+      if(Number(pzr.value) > Number(pzr.max)) pzr.value = pzr.max;
+      document.getElementById('pairsValue').innerText = pr.value;
+      document.getElementById('perZoneValue').innerText = pzr.value;
+      document.getElementById('timeValue').innerText = `${document.getElementById('timeRange').value}s`;
+      document.getElementById('previewValue').innerText = `${document.getElementById('previewRange').value}s`;
       buildZonePreview();
     }
 
-    [pairsRange, perZoneRange, timeRange, previewRange].forEach(el => el.addEventListener('input', refreshConfigUI));
-    refreshConfigUI();
-
-    function shuffle(array){ return array.sort(() => Math.random() - 0.5); }
-
-    function buildZonesFromConfig(){
-      const totalPairs = Math.min(Number(pairsRange.value), MAX_PAIRS);
-      const perZone = Number(perZoneRange.value);
-      const time = Number(timeRange.value);
-      const preview = Number(previewRange.value);
-
-      const shuffledConcepts = shuffle([...conceptPairs]).slice(0, totalPairs);
-
-      const result = [];
-      let start = 0;
-      let level = 1;
-      while(start < shuffledConcepts.length){
-        const end = Math.min(start + perZone, shuffledConcepts.length);
-        result.push({ level, concepts: shuffledConcepts.slice(start, end), time, preview });
-        start = end;
-        level++;
+    function buildZonePreview(){
+      const total = Number(document.getElementById('pairsRange').value);
+      const perZone = Number(document.getElementById('perZoneRange').value);
+      const zoneCount = Math.ceil(total / perZone);
+      const zp = document.getElementById('zonePreview');
+      zp.innerHTML = '';
+      let rem = total;
+      for(let i = 0; i < zoneCount; i++){
+        const size = Math.min(perZone, rem);
+        rem -= size;
+        const chip = document.createElement('span');
+        chip.className = 'zone-chip';
+        chip.innerText = `Zona ${i+1}: ${size}`;
+        zp.appendChild(chip);
       }
-      return result;
     }
+    updateConfigUI();
 
-    startBtn.addEventListener('click', () => {
-      zones = buildZonesFromConfig();
-      currentZoneIndex = 0;
-      totalScore = 0;
-      updateScoreUI();
+    document.getElementById('startBtn').addEventListener('click', () => {
+      const totalPairs = Number(document.getElementById('pairsRange').value);
+      const perZone = Number(document.getElementById('perZoneRange').value);
+      const time = Number(document.getElementById('timeRange').value);
+      const preview = Number(document.getElementById('previewRange').value);
+      
+      const shuffled = conceptPairs.sort(()=>Math.random()-0.5).slice(0, totalPairs);
+      zones = [];
+      for(let i=0; i<shuffled.length; i+=perZone){
+        zones.push({ level: zones.length+1, concepts: shuffled.slice(i, i+perZone), time, preview });
+      }
+      
+      currentZoneIndex = 0; totalScore = 0;
       document.getElementById('startScreen').classList.add('hidden');
       document.getElementById('gameScreen').classList.remove('hidden');
       initZone();
@@ -814,362 +635,140 @@
 
     document.getElementById('backToConfigBtn').addEventListener('click', () => {
       clearInterval(timerInterval);
-      hidePowerupSpawn();
       document.getElementById('gameScreen').classList.add('hidden');
       document.getElementById('startScreen').classList.remove('hidden');
-      document.getElementById('messageModal').style.display = 'none';
-      refreshBestScoreBanner();
     });
 
-    // ---------------- Utilidades UI ----------------
-    function formatTime(sec){
-      const m = Math.floor(sec / 60).toString().padStart(2, '0');
-      const s = (sec % 60).toString().padStart(2, '0');
-      return `${m}:${s}`;
+    function initZone(){
+      const cfg = zones[currentZoneIndex];
+      totalPairsInZone = cfg.concepts.length;
+      document.getElementById('zoneTitle').innerText = `Zona ${cfg.level} de ${zones.length}`;
+      document.getElementById('matches').innerText = `0 / ${totalPairsInZone}`;
+      document.getElementById('messageModal').style.display = 'none';
+
+      const grid = document.getElementById('grid');
+      grid.innerHTML = ''; flippedCards = []; matchedCount = 0; lockBoard = false;
+      comboCount = 0; zoneScore = 0;
+
+      let deck = [];
+      cfg.concepts.forEach(item => {
+        // Carta Positiva (A)
+        deck.push({ 
+          pairId: item.id, title: item.posTitle, desc: item.posDesc, slug: item.posSlug, 
+          badgeClass: 'action', badgeText: 'Aspecto Positivo' 
+        });
+        // Carta Negativa (B)
+        deck.push({ 
+          pairId: item.id, title: item.negTitle, desc: item.negDesc, slug: item.negSlug, 
+          badgeClass: 'problem', badgeText: 'Aspecto Negativo' 
+        });
+      });
+      deck.sort(()=>Math.random()-0.5);
+
+      deck.forEach(data => {
+        const c = document.createElement('div');
+        c.className = 'card'; c.dataset.pairId = data.pairId;
+        
+        // ESTRUCTURA UNIFICADA PARA AMBAS CARTAS
+        c.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front"><span class="front-symbol">✦</span></div>
+            <div class="card-back">
+              <div class="sprite-container">
+                <img class="sprite-img" src="./img/${data.slug}.jpeg" alt="${data.title}" onerror="this.style.display='none'">
+              </div>
+              <span class="card-badge ${data.badgeClass}">${data.badgeText}</span>
+              <div class="card-title">${data.title}</div>
+              <div class="card-desc">${data.desc}</div>
+            </div>
+          </div>
+        `;
+        c.addEventListener('click', () => flipCard(c));
+        grid.appendChild(c);
+      });
+
+      if(cfg.preview > 0) startPreview(cfg.preview, cfg.time);
+      else startTimer(cfg.time);
     }
 
-    function startTimer(seconds){
+    function startPreview(prev, time){
+      lockBoard = true;
+      const cards = [...document.querySelectorAll('.card')];
+      cards.forEach(c => c.classList.add('flipped'));
+      let rem = prev;
+      document.getElementById('timer').innerText = `👁️ ${rem}s`;
+      const ival = setInterval(()=>{
+        rem--;
+        if(rem > 0) document.getElementById('timer').innerText = `👁️ ${rem}s`;
+        else {
+          clearInterval(ival);
+          cards.forEach(c => c.classList.remove('flipped'));
+          lockBoard = false;
+          startTimer(time);
+        }
+      }, 1000);
+    }
+
+    function startTimer(sec){
       clearInterval(timerInterval);
-      timeLeft = seconds;
-      zoneTime = seconds;
-      updateTimerUI();
-      timerInterval = setInterval(() => {
-        timeLeft--;
-        updateTimerUI();
-        if(timeLeft <= 0){
+      timeLeft = sec; updateTimerUI();
+      timerInterval = setInterval(()=>{
+        timeLeft--; updateTimerUI();
+        if(timeLeft<=0){
           clearInterval(timerInterval);
-          hidePowerupSpawn();
-          sfxLose();
-          vibrate([80, 60, 80]);
-          showModal("¡Tiempo Agotado!", "No lograste completar la zona a tiempo. Inténtalo de nuevo.", "Reintentar Zona", "lose");
+          showModal("¡Tiempo Agotado!", "No lograste completar la zona a tiempo.", "Reintentar", "lose");
         }
       }, 1000);
     }
 
     function updateTimerUI(){
-      const timerEl = document.getElementById('timer');
-      timerEl.innerText = formatTime(timeLeft);
-      if(timeLeft <= 15) timerEl.classList.add('danger');
-      else timerEl.classList.remove('danger');
+      const m = Math.floor(timeLeft/60).toString().padStart(2,'0');
+      const s = (timeLeft%60).toString().padStart(2,'0');
+      document.getElementById('timer').innerText = `${m}:${s}`;
     }
 
-    function updateProgress(){
-      const pct = totalPairsInZone === 0 ? 0 : Math.round((matchedCount / totalPairsInZone) * 100);
-      document.getElementById('progressFill').style.width = `${pct}%`;
-    }
-
-    function updateScoreUI(){
-      document.getElementById('scoreValue').innerText = totalScore;
-    }
-
-    function updateComboUI(){
-      const el = document.getElementById('comboValue');
-      const mult = getComboMultiplier();
-      el.innerText = `x${mult.toFixed(1)}`;
-    }
-
-    function getComboMultiplier(){
-      if(comboCount >= 6) return 2.0;
-      if(comboCount >= 4) return 1.5;
-      if(comboCount >= 2) return 1.2;
-      return 1.0;
-    }
-
-    function showToast(text){
-      const toast = document.getElementById('toast');
-      toast.textContent = text;
-      toast.classList.add('show');
-      clearTimeout(showToast._t);
-      showToast._t = setTimeout(() => toast.classList.remove('show'), 1800);
-    }
-
-    function showFloatingPoints(refCard, amount){
-      const rect = refCard.getBoundingClientRect();
-      const el = document.createElement('div');
-      el.textContent = `+${amount}`;
-      el.style.cssText = `
-        position:fixed; left:${rect.left+rect.width/2}px; top:${rect.top}px;
-        transform:translate(-50%,0); color:var(--gold-primary);
-        font-family:'Cinzel',serif; font-weight:700; font-size:1.15rem;
-        pointer-events:none; z-index:200; transition: all 0.9s ease-out;
-        text-shadow: 0 2px 6px rgba(0,0,0,0.4);
-      `;
-      document.body.appendChild(el);
-      requestAnimationFrame(() => {
-        el.style.top = `${rect.top - 55}px`;
-        el.style.opacity = '0';
-      });
-      setTimeout(() => el.remove(), 900);
-    }
-
-    // ---------------- Comodín flotante (evento por racha) ----------------
-    function maybeSpawnPowerupOnStreak(){
-      // Solo se evalúa exactamente cuando la racha es múltiplo de STREAK_TRIGGER,
-      // así no aparece en cada pareja, sino cada cierto número de aciertos seguidos.
-      if(powerupActive) return;
-      if(comboCount === 0 || comboCount % STREAK_TRIGGER !== 0) return;
-      if(Math.random() > STREAK_SPAWN_CHANCE) return;
-
-      const p = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-      spawnPowerup(p);
-    }
-
-    function spawnPowerup(powerup){
-      powerupActive = true;
-      const el = document.getElementById('powerupSpawn');
-      const icon = document.getElementById('powerupSpawnIcon');
-      const label = document.getElementById('powerupSpawnLabel');
-      const bar = document.getElementById('powerupSpawnBar');
-
-      icon.textContent = powerup.icon;
-      label.textContent = powerup.label;
-      sfxPowerupAppear();
-
-      el.classList.add('show');
-      bar.style.transition = 'none';
-      bar.style.width = '100%';
-      requestAnimationFrame(() => {
-        bar.style.transition = `width ${POWERUP_VISIBLE_MS}ms linear`;
-        bar.style.width = '0%';
-      });
-
-      const claim = () => {
-        clearTimeout(powerupSpawnTimeout);
-        el.onclick = null;
-        applyPowerup(powerup);
-        hidePowerupSpawn();
-      };
-      el.onclick = claim;
-
-      powerupSpawnTimeout = setTimeout(() => {
-        el.onclick = null;
-        hidePowerupSpawn();
-      }, POWERUP_VISIBLE_MS);
-    }
-
-    function hidePowerupSpawn(){
-      const el = document.getElementById('powerupSpawn');
-      el.classList.remove('show');
-      el.onclick = null;
-      clearTimeout(powerupSpawnTimeout);
-      powerupActive = false;
-    }
-
-    function applyPowerup(powerup){
-      sfxPowerup();
-      vibrate([30, 30, 30]);
-      if(powerup.key === 'time'){
-        timeLeft += 10;
-        updateTimerUI();
-        showToast('⏳ +10 segundos');
-      } else if(powerup.key === 'bonus'){
-        totalScore += 150;
-        zoneScore += 150;
-        updateScoreUI();
-        showToast('✨ +150 puntos extra');
-      } else if(powerup.key === 'peek'){
-        showToast('👁️ Vista rápida: memoriza el tablero');
-        const grid = document.getElementById('grid');
-        const hiddenCards = [...grid.querySelectorAll('.card')].filter(c => !c.classList.contains('matched') && !c.classList.contains('flipped'));
-        hiddenCards.forEach(c => c.classList.add('flipped'));
-        setTimeout(() => {
-          hiddenCards.forEach(c => { if(!c.classList.contains('matched')) c.classList.remove('flipped'); });
-        }, 1000);
-      }
-    }
-
-    // ---------------- Lógica de zona ----------------
-    function initZone(){
-      lockBoard = false;
-      hidePowerupSpawn();
-      const zoneConfig = zones[currentZoneIndex];
-      totalPairsInZone = zoneConfig.concepts.length;
-
-      document.getElementById('zoneTitle').innerText = `Zona ${zoneConfig.level} de ${zones.length}`;
-      document.getElementById('matches').innerText = `0 / ${totalPairsInZone}`;
-      document.getElementById('messageModal').style.display = 'none';
-
-      const grid = document.getElementById('grid');
-      grid.innerHTML = '';
-      flippedCards = [];
-      matchedCount = 0;
-      zoneScore = 0;
-      comboCount = 0;
-      updateProgress();
-      updateComboUI();
-
-      // El mazo contiene EXCLUSIVAMENTE cartas de concepto (imagen + definición).
-      // Cada pareja siempre tiene sus dos mitades: nunca queda una carta huérfana.
-      let deck = [];
-      zoneConfig.concepts.forEach((item) => {
-        // Carta tipo A (Concepto - se mostrará con etiqueta roja/naranja del nuevo diseño)
-        deck.push({ pairId: item.id, type: 'img', title: item.title, slug: item.slug });
-        // Carta tipo B (Definición - se mostrará con etiqueta dorada del nuevo diseño)
-        deck.push({ pairId: item.id, type: 'text', title: item.title, desc: item.desc });
-      });
-      deck = shuffle(deck);
-
-      deck.forEach((data) => {
-        const cardEl = document.createElement('div');
-        cardEl.classList.add('card');
-        cardEl.dataset.pairId = data.pairId;
-
-        let backContent = '';
-        
-        // MODIFICACIÓN: Aquí se aplica la estructura visual del Código 2
-        if(data.type === 'img'){
-          backContent = `
-            <span class="card-badge problem">Concepto</span>
-            <div class="sprite-container">
-              <img class="sprite-img" src="./img/${data.slug}.jpeg" alt="${data.title}" onerror="this.style.display='none'">
-            </div>
-            <div class="card-title">${data.title}</div>
-          `;
-        } else {
-          backContent = `
-            <span class="card-badge action">Definición</span>
-            <div class="card-title">${data.title}</div>
-            <div class="card-desc">${data.desc}</div>
-          `;
-        }
-
-        cardEl.innerHTML = `
-          <div class="card-inner">
-            <div class="card-front"><span class="front-symbol">✦</span></div>
-            <div class="card-back">${backContent}</div>
-          </div>
-        `;
-
-        cardEl.addEventListener('click', () => flipCard(cardEl));
-        grid.appendChild(cardEl);
-      });
-
-      if(zoneConfig.preview > 0){
-        startPreview(zoneConfig.preview, zoneConfig.time);
-      } else {
-        startTimer(zoneConfig.time);
-      }
-    }
-
-    function startPreview(previewSeconds, zoneTimeSeconds){
-      lockBoard = true;
-      const grid = document.getElementById('grid');
-      const revealCards = [...grid.querySelectorAll('.card')];
-      revealCards.forEach(c => c.classList.add('flipped'));
-
-      let remaining = previewSeconds;
-      const timerEl = document.getElementById('timer');
-      timerEl.classList.remove('danger');
-      timerEl.innerText = `👁️ ${remaining}s`;
-      showToast('Memoriza el tablero...');
-
-      const previewInterval = setInterval(() => {
-        remaining--;
-        if(remaining > 0){
-          timerEl.innerText = `👁️ ${remaining}s`;
-        } else {
-          clearInterval(previewInterval);
-          revealCards.forEach(c => { if(!c.classList.contains('matched')) c.classList.remove('flipped'); });
-          lockBoard = false;
-          startTimer(zoneTimeSeconds);
-        }
-      }, 1000);
-    }
-
-    // ---------------- Emparejamiento ----------------
     function flipCard(card){
       if(lockBoard || flippedCards.length === 2 || card.classList.contains('flipped') || card.classList.contains('matched')) return;
-
       card.classList.add('flipped');
-      playTone(440, 0.06, 'sine', 0.08);
-
       flippedCards.push(card);
-      if(flippedCards.length === 2){
-        lockBoard = true;
-        checkMatch();
-      }
+      if(flippedCards.length === 2){ lockBoard = true; setTimeout(checkMatch, 600); }
     }
 
     function checkMatch(){
-      const [card1, card2] = flippedCards;
-
-      if(card1.dataset.pairId === card2.dataset.pairId){
-        card1.classList.add('matched');
-        card2.classList.add('matched');
-        matchedCount++;
-        comboCount++;
-
-        const mult = getComboMultiplier();
-        const timeBonus = Math.round(timeLeft * TIME_BONUS_FACTOR);
-        const gained = Math.round((POINTS_PER_MATCH + timeBonus) * mult);
-        zoneScore += gained;
-        totalScore += gained;
-        updateScoreUI();
-        updateComboUI();
-        showFloatingPoints(card2, gained);
-
-        sfxMatch();
-        vibrate(30);
-
+      const [c1, c2] = flippedCards;
+      if(c1.dataset.pairId === c2.dataset.pairId){
+        c1.classList.add('matched'); c2.classList.add('matched');
+        matchedCount++; comboCount++;
+        const pts = Math.round((100 + timeLeft*4) * (comboCount>=4?1.5:comboCount>=2?1.2:1));
+        totalScore += pts; zoneScore += pts;
+        
         document.getElementById('matches').innerText = `${matchedCount} / ${totalPairsInZone}`;
-        updateProgress();
-        flippedCards = [];
-        lockBoard = false;
-
-        // Evalúa si la racha actual desbloquea un comodín flotante (probabilístico, no en cada pareja)
-        maybeSpawnPowerupOnStreak();
-
-        if(matchedCount === totalPairsInZone){
+        document.getElementById('scoreValue').innerText = totalScore;
+        document.getElementById('comboValue').innerText = `x${comboCount>=4?1.5:comboCount>=2?1.2:1}`;
+        document.getElementById('progressFill').style.width = `${(matchedCount/totalPairsInZone)*100}%`;
+        
+        flippedCards = []; lockBoard = false;
+        if(matchedCount === totalPairsInZone) {
           clearInterval(timerInterval);
-          hidePowerupSpawn();
-          setTimeout(checkZoneComplete, 500);
+          setTimeout(() => showModal("¡Zona Superada!", "Has encontrado todas las duplas.", "Siguiente", "win"), 500);
         }
       } else {
-        comboCount = 0;
-        updateComboUI();
-        totalScore = Math.max(0, totalScore - FAIL_PENALTY);
-        updateScoreUI();
-        sfxFail();
-        vibrate([40, 40, 40]);
-        card1.classList.add('shake');
-        card2.classList.add('shake');
+        comboCount = 0; document.getElementById('comboValue').innerText = "x1";
+        totalScore = Math.max(0, totalScore - 10);
+        document.getElementById('scoreValue').innerText = totalScore;
+        c1.classList.add('shake'); c2.classList.add('shake');
         setTimeout(() => {
-          card1.classList.remove('flipped', 'shake');
-          card2.classList.remove('flipped', 'shake');
-          flippedCards = [];
-          lockBoard = false;
-        }, 900);
+          c1.classList.remove('flipped', 'shake'); c2.classList.remove('flipped', 'shake');
+          flippedCards = []; lockBoard = false;
+        }, 800);
       }
     }
 
-    function checkZoneComplete(){
-      sfxWin();
-      vibrate([20, 40, 20, 40, 60]);
-      if(currentZoneIndex < zones.length - 1){
-        showModal("¡Zona Completada!", `Sobreviviste a la Zona ${zones[currentZoneIndex].level}. Prepárate para el siguiente desafío.`, "Siguiente Zona", "win");
-      } else {
-        const best = getBestScore();
-        if(totalScore > best){
-          setBestScore(totalScore);
-          showModal("¡Misión Cumplida!", `Has superado las ${zones.length} zonas y dominado los conceptos de sostenibilidad. ¡Nuevo récord!`, "Jugar de Nuevo", "complete");
-        } else {
-          showModal("¡Misión Cumplida!", `Has superado las ${zones.length} zonas y dominado los conceptos de sostenibilidad.`, "Jugar de Nuevo", "complete");
-        }
-      }
-    }
-
-    function showModal(title, text, btnText, status){
+    let gameStatus = '';
+    function showModal(title, text, btn, status){
       document.getElementById('modalTitle').innerText = title;
       document.getElementById('modalText').innerText = text;
-      document.getElementById('modalBtn').innerText = btnText;
-      const scoreLine = document.getElementById('modalScoreLine');
-      if(status === 'win' || status === 'complete'){
-        scoreLine.innerText = `Puntos de la zona: +${zoneScore} · Total: ${totalScore}`;
-      } else if(status === 'lose'){
-        scoreLine.innerText = `Puntos acumulados hasta ahora: ${totalScore}`;
-      } else {
-        scoreLine.innerText = '';
-      }
+      document.getElementById('modalBtn').innerText = btn;
       document.getElementById('messageModal').style.display = 'flex';
       gameStatus = status;
     }
@@ -1177,14 +776,15 @@
     function handleModalAction(){
       if(gameStatus === 'win'){
         currentZoneIndex++;
+        if(currentZoneIndex < zones.length) initZone();
+        else {
+          if(totalScore > getBestScore()) setBestScore(totalScore);
+          document.getElementById('gameScreen').classList.add('hidden');
+          document.getElementById('startScreen').classList.remove('hidden');
+          document.getElementById('messageModal').style.display = 'none';
+        }
+      } else {
         initZone();
-      } else if(gameStatus === 'lose'){
-        initZone();
-      } else if(gameStatus === 'complete'){
-        document.getElementById('gameScreen').classList.add('hidden');
-        document.getElementById('startScreen').classList.remove('hidden');
-        document.getElementById('messageModal').style.display = 'none';
-        refreshBestScoreBanner();
       }
     }
   </script>
