@@ -277,15 +277,28 @@
       box-shadow: 0 0 24px rgba(201, 160, 80, 0.4), inset 0 0 0 4px rgba(201,160,80,0.18);
     }
 
+    /* NUEVOS ESTILOS INTEGRADOS (De Acción Osada) */
     .sprite-container {
-      width: 88%; height: 62%; margin-bottom: 10px;
+      width: 88%; height: 52%; margin-bottom: 8px;
       border-radius: 10px; overflow: hidden;
       border: 1px solid var(--glass-border); background: rgba(201,160,80,0.08);
       box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      display: flex; align-items: center; justify-content: center;
     }
     .sprite-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .card-title { font-family: 'Cinzel', serif; font-size: 0.88rem; font-weight: 700; color: var(--emerald-dark); line-height: 1.25; margin-top: 4px; }
-    .card-desc { font-size: 0.86rem; line-height: 1.4; color: var(--ink); font-weight: 400; padding: 0 4px; }
+    
+    .card-badge {
+      font-family: 'Cinzel', serif; font-size: 0.56rem; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 2px 9px; border-radius: 20px;
+      margin-bottom: 5px; font-weight: 700; white-space: nowrap;
+    }
+    .card-badge.problem { background: rgba(181,101,74,0.15); color: var(--clay); border: 1px solid rgba(181,101,74,0.35); }
+    .card-badge.action { background: rgba(201,160,80,0.18); color: var(--gold-dark); border: 1px solid rgba(201,160,80,0.4); }
+    .card.matched .card-badge.problem, .card.matched .card-badge.action { background: rgba(110,154,90,0.18); color: var(--emerald-light); border-color: rgba(110,154,90,0.4); }
+
+    .card-title { font-family: 'Cinzel', serif; font-size: 0.86rem; font-weight: 700; color: var(--emerald-dark); line-height: 1.22; margin-top: 2px; }
+    .card-desc { font-size: 0.76rem; line-height: 1.32; color: var(--ink-muted); font-weight: 400; padding: 0 2px; margin-top: 4px; }
+    /* FIN NUEVOS ESTILOS */
 
     .footnote { text-align: center; color: var(--gold-light); opacity: 0.75; font-size: 0.78rem; margin-top: 24px; }
 
@@ -322,7 +335,7 @@
     }
     .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ============= POWER-UP FLOTANTE (evento por racha) ============= */
+    /* ============= POWER-UP FLOTANTE ============= */
     .powerup-spawn{
       position: fixed; top: 90px; left: 50%;
       transform: translateX(-50%) scale(0.75);
@@ -346,7 +359,7 @@
 
     @media (max-width: 480px) {
       .card-title { font-size: 0.72rem; }
-      .card-desc { font-size: 0.72rem; }
+      .card-desc { font-size: 0.66rem; }
       .cover-card { padding: 32px 22px 28px; }
       .back-btn{ font-size:0.6rem; padding:6px 10px; }
       .powerup-spawn{ top: 80px; padding: 10px 16px 12px; }
@@ -685,7 +698,7 @@
     const TIME_BONUS_FACTOR = 4;
     const FAIL_PENALTY = 10;
 
-    // ---------------- Power-ups (evento flotante por racha, no ocupan casillas del mazo) ----------------
+    // ---------------- Power-ups (evento flotante por racha) ----------------
     const POWERUP_TYPES = [
       { key: 'time',  icon: '⏳', label: '+10s de tiempo' },
       { key: 'peek',  icon: '👁️', label: 'Vista rápida' },
@@ -989,8 +1002,10 @@
       // Cada pareja siempre tiene sus dos mitades: nunca queda una carta huérfana.
       let deck = [];
       zoneConfig.concepts.forEach((item) => {
+        // Carta tipo A (Concepto - se mostrará con etiqueta roja/naranja del nuevo diseño)
         deck.push({ pairId: item.id, type: 'img', title: item.title, slug: item.slug });
-        deck.push({ pairId: item.id, type: 'text', desc: item.desc });
+        // Carta tipo B (Definición - se mostrará con etiqueta dorada del nuevo diseño)
+        deck.push({ pairId: item.id, type: 'text', title: item.title, desc: item.desc });
       });
       deck = shuffle(deck);
 
@@ -1000,15 +1015,22 @@
         cardEl.dataset.pairId = data.pairId;
 
         let backContent = '';
+        
+        // MODIFICACIÓN: Aquí se aplica la estructura visual del Código 2
         if(data.type === 'img'){
           backContent = `
+            <span class="card-badge problem">Concepto</span>
             <div class="sprite-container">
               <img class="sprite-img" src="./img/${data.slug}.jpeg" alt="${data.title}" onerror="this.style.display='none'">
             </div>
             <div class="card-title">${data.title}</div>
           `;
         } else {
-          backContent = `<div class="card-desc">${data.desc}</div>`;
+          backContent = `
+            <span class="card-badge action">Definición</span>
+            <div class="card-title">${data.title}</div>
+            <div class="card-desc">${data.desc}</div>
+          `;
         }
 
         cardEl.innerHTML = `
@@ -1054,7 +1076,7 @@
       }, 1000);
     }
 
-    // ---------------- Emparejamiento (única lógica, sin comodines dentro del mazo) ----------------
+    // ---------------- Emparejamiento ----------------
     function flipCard(card){
       if(lockBoard || flippedCards.length === 2 || card.classList.contains('flipped') || card.classList.contains('matched')) return;
 
