@@ -3,10 +3,12 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../../domain/ports/user.repository.port.js';
+import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
 import { UserNotFoundError } from '../errors/application.errors.js';
 import type { UseCase } from '../ports/use-case.port.js';
 
 export interface ReactivateUserInput {
+  requestingUserId: string;
   userId: string;
 }
 
@@ -15,6 +17,16 @@ export class ReactivateUserUseCase implements UseCase<ReactivateUserInput, void>
   constructor(@Inject(USER_REPOSITORY) private readonly userRepository: UserRepository) {}
 
   async execute(input: ReactivateUserInput): Promise<void> {
+    const requestingUser = await this.userRepository.findById(input.requestingUserId);
+
+    if (!requestingUser) {
+      throw new UserNotFoundError(input.requestingUserId);
+    }
+
+    if (!requestingUser.canManageUsers()) {
+      throw new ForbiddenActionError('reactivar un usuario');
+    }
+
     const user = await this.userRepository.findById(input.userId);
 
     if (!user) {

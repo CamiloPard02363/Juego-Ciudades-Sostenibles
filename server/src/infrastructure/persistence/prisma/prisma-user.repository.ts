@@ -14,23 +14,29 @@ export class PrismaUserRepository implements UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async save(user: User): Promise<void> {
-    const data = UserMapper.toPersistence(user);
+    const { roleName, ...data } = UserMapper.toPersistence(user);
+    const role = await this.prisma.roleModel.findUniqueOrThrow({ where: { name: roleName } });
+    const payload = { ...data, roleId: role.id };
 
     await this.prisma.userModel.upsert({
-      where: { id: data.id },
-      create: data,
-      update: data,
+      where: { id: payload.id },
+      create: payload,
+      update: payload,
     });
   }
 
   async findById(id: string): Promise<User | null> {
-    const record = await this.prisma.userModel.findUnique({ where: { id } });
+    const record = await this.prisma.userModel.findUnique({
+      where: { id },
+      include: { role: true },
+    });
     return record ? UserMapper.toDomain(record) : null;
   }
 
   async findByEmail(email: Email): Promise<User | null> {
     const record = await this.prisma.userModel.findUnique({
       where: { email: email.getValue() },
+      include: { role: true },
     });
     return record ? UserMapper.toDomain(record) : null;
   }
@@ -44,13 +50,14 @@ export class PrismaUserRepository implements UserRepository {
 
   async findAll(filter: FindAllUsersFilter): Promise<PaginatedResult<User>> {
     const where = {
-      ...(filter.role ? { role: filter.role } : {}),
+      ...(filter.role ? { role: { name: filter.role } } : {}),
       ...(filter.isActive !== undefined ? { isActive: filter.isActive } : {}),
     };
 
     const [records, total] = await Promise.all([
       this.prisma.userModel.findMany({
         where,
+        include: { role: true },
         skip: (filter.page - 1) * filter.pageSize,
         take: filter.pageSize,
         orderBy: { createdAt: 'desc' },

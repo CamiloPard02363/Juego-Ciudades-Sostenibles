@@ -41,7 +41,7 @@ export class UserController {
 
   @Get('me')
   getMe(@CurrentUserId() userId: string) {
-    return this.getUserByIdUseCase.execute({ userId });
+    return this.getUserByIdUseCase.execute({ userId, requestingUserId: userId });
   }
 
   @Get()
@@ -56,8 +56,8 @@ export class UserController {
   }
 
   @Get(':id')
-  getById(@Param('id') userId: string) {
-    return this.getUserByIdUseCase.execute({ userId });
+  getById(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
+    return this.getUserByIdUseCase.execute({ userId, requestingUserId });
   }
 
   @Patch('me/profile')
@@ -79,14 +79,14 @@ export class UserController {
 
   @Patch(':id/deactivate')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deactivate(@Param('id') userId: string) {
-    return this.deactivateUserUseCase.execute({ userId });
+  deactivate(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
+    return this.deactivateUserUseCase.execute({ requestingUserId, userId });
   }
 
   @Patch(':id/reactivate')
   @HttpCode(HttpStatus.NO_CONTENT)
-  reactivate(@Param('id') userId: string) {
-    return this.reactivateUserUseCase.execute({ userId });
+  reactivate(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
+    return this.reactivateUserUseCase.execute({ requestingUserId, userId });
   }
 
   @Patch(':id/role')

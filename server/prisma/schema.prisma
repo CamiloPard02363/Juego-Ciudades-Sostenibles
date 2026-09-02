@@ -10,10 +10,13 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRoleDb {
-  STUDENT
-  TEACHER
-  ADMIN
+model RoleModel {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  createdAt DateTime    @default(now()) @map("created_at")
+  users     UserModel[]
+
+  @@map("roles")
 }
 
 model UserModel {
@@ -24,7 +27,8 @@ model UserModel {
   middleName       String?    @map("middle_name")
   lastName         String     @map("last_name")
   displayName      String     @map("display_name")
-  role             UserRoleDb @default(STUDENT)
+  roleId           String     @map("role_id")
+  role             RoleModel  @relation(fields: [roleId], references: [id])
   avatarUrl        String?    @map("avatar_url")
   birthDate        DateTime?  @map("birth_date")
   locale           String     @default("es-CO")

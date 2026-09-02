@@ -1,18 +1,20 @@
-import type { UserModel } from '../../../generated/prisma/client.js';
+import type { RoleModel, UserModel } from '../../../generated/prisma/client.js';
 import { User } from '../../../domain/entities/user.entity.js';
 import { Email } from '../../../domain/value-objects/email.vo.js';
 import { Password } from '../../../domain/value-objects/password.vo.js';
 import { PersonName } from '../../../domain/value-objects/person-name.vo.js';
 import { Role } from '../../../domain/value-objects/role.vo.js';
 
+export type UserModelWithRole = UserModel & { role: RoleModel };
+
 export class UserMapper {
-  static toDomain(record: UserModel): User {
+  static toDomain(record: UserModelWithRole): User {
     return User.fromPersistence({
       id: record.id,
       email: Email.create(record.email),
       password: Password.fromHash(record.passwordHash),
       name: PersonName.create(record.firstName, record.lastName, record.middleName),
-      role: Role.create(record.role),
+      role: Role.create(record.role.name),
       displayName: record.displayName,
       avatarUrl: record.avatarUrl,
       birthDate: record.birthDate,
@@ -36,7 +38,7 @@ export class UserMapper {
       middleName: props.name.middleName,
       lastName: props.name.lastName,
       displayName: props.displayName,
-      role: props.role.getName(),
+      roleName: props.role.getName(),
       avatarUrl: props.avatarUrl,
       birthDate: props.birthDate,
       locale: props.locale,
