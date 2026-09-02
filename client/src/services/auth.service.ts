@@ -7,8 +7,9 @@ export type LoginCredentials = {
 
 export type AuthUser = {
   id: string
-  name: string
   email: string
+  displayName: string
+  role: string
 }
 
 export type LoginResponse = {
@@ -22,20 +23,15 @@ export function login(credentials: LoginCredentials): Promise<LoginResponse> {
     method: 'POST',
     body: {
       email: credentials.email.trim().toLowerCase(),
-      password: credentials.password,
+      plainPassword: credentials.password,
     },
   })
 }
 
-/** GET /auth/profile — usuario dueño del token; sirve para restaurar la sesión. */
+/** GET /users/me — usuario dueño del token; sirve para restaurar la sesión. */
 export function getProfile(
   token: string,
   signal?: AbortSignal,
 ): Promise<AuthUser> {
-  return request<AuthUser>('/auth/profile', { token, signal })
-}
-
-/** POST /auth/logout — invalida el token en el servidor. */
-export function logout(token: string): Promise<null> {
-  return request<null>('/auth/logout', { method: 'POST', token })
+  return request<AuthUser>('/users/me', { token, signal })
 }

@@ -22,7 +22,7 @@ function App() {
       <div className="w-full max-w-[420px] rounded-2xl border border-border bg-bg p-10 text-center shadow-[var(--shadow)]">
         <header className="mb-7">
           <h1 className="mb-2 text-[28px] tracking-tight text-text-h">
-            Hola, {user.name}
+            Hola, {user.displayName}
           </h1>
           <p className="text-[15px]">Sesión iniciada como {user.email}.</p>
         </header>

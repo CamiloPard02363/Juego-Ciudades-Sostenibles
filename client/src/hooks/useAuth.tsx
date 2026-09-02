@@ -62,15 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(() => {
-    // La sesión local se cierra de inmediato; el aviso al servidor es
-    // best-effort y no debe bloquear ni fallar la salida.
-    const currentToken = token
+    // JWT es sin estado: cerrar sesión es solo descartar el token local.
     clearStoredToken()
     setToken(null)
     setUser(null)
     setStatus('anonymous')
-    if (currentToken) void authService.logout(currentToken).catch(() => {})
-  }, [token])
+  }, [])
 
   return (
     <AuthContext.Provider value={{ user, token, status, signIn, signOut }}>
