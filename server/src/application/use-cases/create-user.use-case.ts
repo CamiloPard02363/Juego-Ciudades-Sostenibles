@@ -13,30 +13,46 @@ import {
   type PasswordHasher,
 } from '../../domain/ports/password-hasher.port.js';
 import { ID_GENERATOR, type IdGenerator } from '../../domain/ports/id-generator.port.js';
-import { EmailAlreadyRegisteredError } from '../errors/application.errors.js';
+import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
+import { EmailAlreadyRegisteredError, UserNotFoundError } from '../errors/application.errors.js';
 import { toUserResponseDto, type UserResponseDto } from '../dtos/user-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
 
-export interface RegisterUserInput {
+/**
+ * Creación de usuarios con rol elegido, solo para ADMIN (ver
+ * `RegisterUserUseCase` para el registro público, que siempre asigna
+ * STUDENT y no acepta `role` en su input).
+ */
+export interface CreateUserInput {
+  requestingUserId: string;
   email: string;
   plainPassword: string;
   firstName: string;
   lastName: string;
   middleName?: string;
   displayName?: string;
-  birthDate?: Date;
-  locale?: string;
+  role: string;
 }
 
 @Injectable()
-export class RegisterUserUseCase implements UseCase<RegisterUserInput, UserResponseDto> {
+export class CreateUserUseCase implements UseCase<CreateUserInput, UserResponseDto> {
   constructor(
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(PASSWORD_HASHER) private readonly passwordHasher: PasswordHasher,
     @Inject(ID_GENERATOR) private readonly idGenerator: IdGenerator,
   ) {}
 
-  async execute(input: RegisterUserInput): Promise<UserResponseDto> {
+  async execute(input: CreateUserInput): Promise<UserResponseDto> {
+    const requestingUser = await this.userRepository.findById(input.requestingUserId);
+
+    if (!requestingUser) {
+      throw new UserNotFoundError(input.requestingUserId);
+    }
+
+    if (!requestingUser.canManageUsers()) {
+      throw new ForbiddenActionError('crear usuarios');
+    }
+
     const email = Email.create(input.email);
 
     const alreadyExists = await this.userRepository.existsByEmail(email);
@@ -49,16 +65,15 @@ export class RegisterUserUseCase implements UseCase<RegisterUserInput, UserRespo
     const password = Password.fromHash(hashedValue);
 
     const name = PersonName.create(input.firstName, input.lastName, input.middleName);
+    const role = Role.create(input.role);
 
     const user = User.create({
       id: this.idGenerator.generate(),
       email,
       password,
       name,
-      role: Role.student(),
+      role,
       displayName: input.displayName,
-      birthDate: input.birthDate ?? null,
-      locale: input.locale,
     });
 
     await this.userRepository.save(user);

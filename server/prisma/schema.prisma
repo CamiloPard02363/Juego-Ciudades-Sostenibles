@@ -10,29 +10,47 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRoleDb {
-  STUDENT
-  TEACHER
-  ADMIN
+model RoleModel {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  createdAt DateTime    @default(now()) @map("created_at")
+  users     UserModel[]
+
+  @@map("roles")
 }
 
 model UserModel {
-  id               String     @id @default(uuid())
-  email            String     @unique
-  passwordHash     String     @map("password_hash")
-  firstName        String     @map("first_name")
-  middleName       String?    @map("middle_name")
-  lastName         String     @map("last_name")
-  displayName      String     @map("display_name")
-  role             UserRoleDb @default(STUDENT)
-  avatarUrl        String?    @map("avatar_url")
-  birthDate        DateTime?  @map("birth_date")
-  locale           String     @default("es-CO")
-  isActive         Boolean    @default(true) @map("is_active")
-  isEmailVerified  Boolean    @default(false) @map("is_email_verified")
-  lastLoginAt      DateTime?  @map("last_login_at")
-  createdAt        DateTime   @default(now()) @map("created_at")
-  lastUpdate       DateTime   @updatedAt @map("last_update")
+  id               String            @id @default(uuid())
+  email            String            @unique
+  passwordHash     String            @map("password_hash")
+  firstName        String            @map("first_name")
+  middleName       String?           @map("middle_name")
+  lastName         String            @map("last_name")
+  displayName      String            @map("display_name")
+  roleId           String            @map("role_id")
+  role             RoleModel         @relation(fields: [roleId], references: [id])
+  avatarUrl        String?           @map("avatar_url")
+  birthDate        DateTime?         @map("birth_date")
+  locale           String            @default("es-CO")
+  isActive         Boolean           @default(true) @map("is_active")
+  isEmailVerified  Boolean           @default(false) @map("is_email_verified")
+  lastLoginAt      DateTime?         @map("last_login_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  lastUpdate       DateTime          @updatedAt @map("last_update")
+  refreshTokens    RefreshTokenModel[]
 
   @@map("users")
+}
+
+model RefreshTokenModel {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  user      UserModel @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }

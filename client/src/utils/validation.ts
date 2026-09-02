@@ -17,3 +17,17 @@ export function validatePassword(password: string): string | null {
   }
   return null
 }
+
+/** El backend exige mínimo 8 caracteres al registrar (ver RegisterUserDto). */
+export function validateNewPassword(password: string): string | null {
+  if (!password) return 'La contraseña es obligatoria.'
+  if (password.length < 8) {
+    return 'La contraseña debe tener al menos 8 caracteres.'
+  }
+  return null
+}
+
+export function validateRequiredName(value: string, fieldLabel: string): string | null {
+  if (!value.trim()) return `${fieldLabel} es obligatorio.`
+  return null
+}

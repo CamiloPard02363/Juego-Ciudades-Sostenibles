@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { CreateUserUseCase } from '../../../application/use-cases/create-user.use-case.js';
 import { UpdateUserProfileUseCase } from '../../../application/use-cases/update-user-profile.use-case.js';
 import { ChangeUserPasswordUseCase } from '../../../application/use-cases/change-user-password.use-case.js';
 import { GetUserByIdUseCase } from '../../../application/use-cases/get-user-by-id.use-case.js';
@@ -24,11 +25,13 @@ import { UpdateUserProfileDto } from '../dtos/update-user-profile.dto.js';
 import { ChangeUserPasswordDto } from '../dtos/change-user-password.dto.js';
 import { ChangeUserRoleDto } from '../dtos/change-user-role.dto.js';
 import { ListUsersQueryDto } from '../dtos/list-users-query.dto.js';
+import { CreateUserDto } from '../dtos/create-user.dto.js';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(
+    private readonly createUserUseCase: CreateUserUseCase,
     private readonly getUserByIdUseCase: GetUserByIdUseCase,
     private readonly updateUserProfileUseCase: UpdateUserProfileUseCase,
     private readonly changeUserPasswordUseCase: ChangeUserPasswordUseCase,
@@ -41,7 +44,13 @@ export class UserController {
 
   @Get('me')
   getMe(@CurrentUserId() userId: string) {
-    return this.getUserByIdUseCase.execute({ userId });
+    return this.getUserByIdUseCase.execute({ userId, requestingUserId: userId });
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  create(@CurrentUserId() requestingUserId: string, @Body() dto: CreateUserDto) {
+    return this.createUserUseCase.execute({ requestingUserId, ...dto });
   }
 
   @Get()
@@ -56,8 +65,8 @@ export class UserController {
   }
 
   @Get(':id')
-  getById(@Param('id') userId: string) {
-    return this.getUserByIdUseCase.execute({ userId });
+  getById(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
+    return this.getUserByIdUseCase.execute({ userId, requestingUserId });
   }
 
   @Patch('me/profile')
@@ -79,14 +88,14 @@ export class UserController {
 
   @Patch(':id/deactivate')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deactivate(@Param('id') userId: string) {
-    return this.deactivateUserUseCase.execute({ userId });
+  deactivate(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
+    return this.deactivateUserUseCase.execute({ requestingUserId, userId });
   }
 
   @Patch(':id/reactivate')
   @HttpCode(HttpStatus.NO_CONTENT)
-  reactivate(@Param('id') userId: string) {
-    return this.reactivateUserUseCase.execute({ userId });
+  reactivate(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
+    return this.reactivateUserUseCase.execute({ requestingUserId, userId });
   }
 
   @Patch(':id/role')
