@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRoleDb {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+model UserModel {
+  id               String     @id @default(uuid())
+  email            String     @unique
+  passwordHash     String     @map("password_hash")
+  firstName        String     @map("first_name")
+  middleName       String?    @map("middle_name")
+  lastName         String     @map("last_name")
+  displayName      String     @map("display_name")
+  role             UserRoleDb @default(STUDENT)
+  avatarUrl        String?    @map("avatar_url")
+  birthDate        DateTime?  @map("birth_date")
+  locale           String     @default("es-CO")
+  isActive         Boolean    @default(true) @map("is_active")
+  isEmailVerified  Boolean    @default(false) @map("is_email_verified")
+  lastLoginAt      DateTime?  @map("last_login_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  lastUpdate       DateTime   @updatedAt @map("last_update")
+
+  @@map("users")
+}
