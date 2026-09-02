@@ -1,0 +1,27 @@
+{
+  "name": "juego-ciudades-sostenibles",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=server",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CamiloPard02363/Juego-Ciudades-Sostenibles.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CamiloPard02363/Juego-Ciudades-Sostenibles/issues"
+  },
+  "homepage": "https://github.com/CamiloPard02363/Juego-Ciudades-Sostenibles#readme"
+}
