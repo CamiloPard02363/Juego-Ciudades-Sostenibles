@@ -8,8 +8,16 @@ export type LoginCredentials = {
 export type AuthUser = {
   id: string
   email: string
+  firstName: string
+  middleName: string | null
+  lastName: string
   displayName: string
   role: string
+  avatarUrl: string | null
+  isActive: boolean
+  isEmailVerified: boolean
+  lastLoginAt: string | null
+  createdAt: string
 }
 
 export type LoginResponse = {
