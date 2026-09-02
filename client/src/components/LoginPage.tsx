@@ -12,7 +12,7 @@ export function LoginPage() {
             
           </span>
           <h1 className="mt-4.5 mb-2 text-[28px] tracking-tight text-text-h">
-            Herbario Urbano
+            NexusPlay
           </h1>
           <p className="text-[15px]">Inicia sesión para continuar tu partida.</p>
         </header>
@@ -21,8 +21,7 @@ export function LoginPage() {
 
         <footer className="mt-6 border-t border-border pt-4.5 text-center">
           <p className="text-[13px] leading-snug">
-            ¿No tienes cuenta? Solicítala a tu docente para unirte a la
-            siguiente ronda.
+            ¿No tienes cuenta? Puedes crearla de manera gratuita.
           </p>
         </footer>
       </div>
