@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev:server": "npm run start:dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
