@@ -19,6 +19,18 @@ type RequestOptions = {
   signal?: AbortSignal
 }
 
+/**
+ * `AuthProvider` registra aquí cómo reaccionar cuando cualquier petición
+ * autenticada devuelve 401 (token vencido, revocado, o el usuario fue
+ * desactivado a mitad de sesión) — así ningún componente individual tiene
+ * que manejarlo, la sesión se cierra sola sin dejar la UI en un estado roto.
+ */
+let unauthorizedHandler: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  unauthorizedHandler = handler
+}
+
 /** Mensajes por defecto cuando el servidor no envía uno legible. */
 const DEFAULT_MESSAGES: Record<number, string> = {
   400: 'Los datos enviados no son válidos.',
@@ -85,6 +97,12 @@ export async function request<T>(
 
   const payload = await parseBody(response)
   if (!response.ok) {
+    // Un 401 en una petición sin token es "credenciales incorrectas" (login).
+    // Un 401 con token es la sesión venciendo a mitad de uso: se cierra sola.
+    if (response.status === 401 && token) {
+      unauthorizedHandler?.()
+      throw new ApiError('Tu sesión expiró. Inicia sesión de nuevo.', response.status)
+    }
     throw new ApiError(extractMessage(payload, response.status), response.status)
   }
 

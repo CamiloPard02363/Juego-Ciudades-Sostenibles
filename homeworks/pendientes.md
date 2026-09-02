@@ -36,8 +36,14 @@ feature), con endpoint(s) reales respaldados por Prisma — **nada hardcodeado**
   `useAuth().signUp` encadena un `POST /auth/login` con las mismas credenciales para entrar
   directo al dashboard. **Este encadenado se reemplaza** cuando llegue la verificación de correo
   con Resend (ver sección más abajo) — en ese momento el registro ya no debe autenticar.
-- Revisar manejo de errores de red/expiración de token en la UI (ya hay base en `utils/http.ts`
-  y `hooks/useAuth.tsx`).
+- ~~Revisar manejo de errores de red/expiración de token en la UI~~ — **hecho**: `utils/http.ts`
+  expone `setUnauthorizedHandler()`; `request()` lo dispara cuando una petición *autenticada*
+  (con `token`) recibe 401 — distinto de un 401 en login/register, que sigue siendo "credenciales
+  incorrectas". `AuthProvider` registra `signOut` como ese handler al montar, así que cualquier
+  fetch en cualquier componente (admin, perfil, etc.) que descubra el token vencido o revocado
+  cierra la sesión sola y vuelve al login, sin que cada componente lo maneje por su cuenta. Cubre
+  también el caso de un admin desactivando a alguien a mitad de sesión: su próximo fetch autenticado
+  falla con 401 y lo saca.
 
 ## 5. Verificación de correo con Resend (backend + frontend)
 

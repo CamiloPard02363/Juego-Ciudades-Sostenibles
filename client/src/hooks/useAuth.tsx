@@ -12,6 +12,7 @@ import {
   getStoredToken,
   setStoredToken,
 } from '../utils/storage'
+import { setUnauthorizedHandler } from '../utils/http'
 
 /** `checking` mientras se valida el token guardado al arrancar la app. */
 type AuthStatus = 'checking' | 'authenticated' | 'anonymous'
@@ -33,6 +34,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [status, setStatus] = useState<AuthStatus>('checking')
 
+  const signOut = useCallback(() => {
+    // JWT es sin estado: cerrar sesión es solo descartar el token local.
+    clearStoredToken()
+    setToken(null)
+    setUser(null)
+    setStatus('anonymous')
+  }, [])
+
+  // Cualquier petición autenticada que reciba 401 (token vencido, o el
+  // usuario fue desactivado a mitad de sesión) cierra la sesión sola. Se
+  // registra antes del efecto de rehidratación de abajo para que también lo
+  // cubra a él: un token guardado que ya no es válido toma este mismo camino
+  // en vez de duplicar la limpieza en dos lugares.
+  useEffect(() => {
+    setUnauthorizedHandler(signOut)
+    return () => setUnauthorizedHandler(null)
+  }, [signOut])
+
   // Al montar, se rehidrata la sesión desde el token guardado.
   useEffect(() => {
     const storedToken = getStoredToken()
@@ -52,7 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
-        // Token expirado o inválido: se descarta y se vuelve al login.
+        // Token expirado o inválido: se descarta y se vuelve al login. Si
+        // fue un 401, signOut() ya corrió vía unauthorizedHandler; esto
+        // también cubre otros fallos (red caída, 500, etc.) sin duplicar.
         clearStoredToken()
         setStatus('anonymous')
       })
@@ -80,14 +101,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(accessToken)
     setUser(profile)
     setStatus('authenticated')
-  }, [])
-
-  const signOut = useCallback(() => {
-    // JWT es sin estado: cerrar sesión es solo descartar el token local.
-    clearStoredToken()
-    setToken(null)
-    setUser(null)
-    setStatus('anonymous')
   }, [])
 
   const updateProfile = useCallback(
