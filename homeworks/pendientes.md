@@ -11,11 +11,46 @@ feature), con endpoint(s) reales respaldados por Prisma — **nada hardcodeado**
 
 ## 2. Frontend — flujo de autenticación
 
-- Conectar formulario de registro (`RegisterUserDto` ya existe en backend: email, plainPassword,
-  firstName, lastName, middleName?, displayName?, role?, birthDate?, locale?) — actualmente el
-  cliente solo tiene login.
+- ~~Conectar formulario de registro~~ — **hecho**: `RegisterPage`/`RegisterForm`/
+  `useRegisterForm` (patrón calcado de login). Solo pide `email`, `password`, `firstName`,
+  `lastName`, `middleName?` — no expone `role`/`displayName`/`birthDate`/`locale` al usuario
+  final, el backend asigna STUDENT por defecto. `POST /auth/register` no devuelve token, así que
+  `useAuth().signUp` encadena un `POST /auth/login` con las mismas credenciales para entrar
+  directo al dashboard. **Este encadenado se reemplaza** cuando llegue la verificación de correo
+  con Resend (ver sección más abajo) — en ese momento el registro ya no debe autenticar.
 - Revisar manejo de errores de red/expiración de token en la UI (ya hay base en `utils/http.ts`
   y `hooks/useAuth.tsx`).
+
+## 5. Verificación de correo con Resend (backend + frontend)
+
+Pendiente de más instrucciones del usuario sobre el flujo exacto (¿token en URL?, ¿código de 6
+dígitos?, ¿expiración?). Anotado para que el diseño respete la arquitectura ya existente:
+
+**Lo que el dominio ya tiene y no necesita cambiar:**
+- `User.isEmailVerified` (prop) y `User.verifyEmail()` (método de entidad, ya valida que no esté
+  verificado dos veces) — ya modelan el estado. `VerifyUserEmailUseCase` ya existe y llama a
+  `user.verifyEmail()` + `userRepository.save(user)`.
+
+**Lo que falta y cómo encaja sin romper SOLID (mismo patrón que `PasswordHasher`):**
+- Nuevo **puerto** en domain: `EmailSenderPort` (`domain/ports/email-sender.port.ts`), interfaz
+  pura sin dependencia a Resend ni a ningún framework — igual que `password-hasher.port.ts`.
+  Ej.: `sendVerificationEmail(to: string, token: string): Promise<void>`.
+- Nuevo **adapter** en infrastructure: `ResendEmailSender` (`infrastructure/email/`), implementa
+  el puerto usando el SDK de Resend. Es el único lugar que conoce Resend.
+- El **caso de uso de registro** (`RegisterUserUseCase`) pasa a inyectar `EMAIL_SENDER` (además
+  de `USER_REPOSITORY`, `PASSWORD_HASHER`, `ID_GENERATOR`) y dispara el envío tras crear el
+  usuario — sigue sin saber nada de Resend, solo conoce el puerto (Dependency Inversion).
+- Probablemente se necesite un **VO o campo nuevo** para el token/código de verificación
+  (ej. `EmailVerificationToken`, con expiración) — evaluar si vive como prop adicional en `User`
+  o como entidad/tabla separada (`email_verifications`) una vez se defina el flujo exacto. Una
+  tabla separada es más limpia (Single Responsibility: `User` no acumula estado transitorio de
+  verificación) y permite reenviar/expirar tokens sin tocar la entidad principal.
+- `RegisterUserUseCase.execute()` seguiría respetando Single Responsibility si la orquestación
+  (crear usuario + generar token + enviar correo) se mantiene en el caso de uso, no en la entidad
+  ni en el controller — la entidad sigue conociendo solo sus propias invariantes.
+- Frontend: el `signUp` en `useAuth.tsx` que hoy encadena login automático deja de hacerlo — tras
+  registrar, se muestra "revisa tu correo" y se lleva al usuario a una pantalla de verificación
+  (pendiente de diseño) en vez de autenticar directo.
 
 ## 3. Frontend — página de inicio (home autenticado)
 

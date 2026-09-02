@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { LoginPage } from './components/LoginPage'
+import { RegisterPage } from './components/RegisterPage'
 import { useAuth } from './hooks/useAuth'
 
 function App() {
   const { user, status, signOut } = useAuth()
+  const [authView, setAuthView] = useState<'login' | 'register'>('login')
 
   if (status === 'checking') {
     return (
@@ -13,7 +16,11 @@ function App() {
   }
 
   if (status !== 'authenticated' || !user) {
-    return <LoginPage />
+    return authView === 'login' ? (
+      <LoginPage onSwitchToRegister={() => setAuthView('register')} />
+    ) : (
+      <RegisterPage onSwitchToLogin={() => setAuthView('login')} />
+    )
   }
 
   // Dashboard mínimo para comprobar que el login/autenticación funcionan de

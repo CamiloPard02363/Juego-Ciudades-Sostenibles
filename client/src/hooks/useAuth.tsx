@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as authService from '../services/auth.service'
-import type { AuthUser, LoginCredentials } from '../services/auth.service'
+import type { AuthUser, LoginCredentials, RegisterInput } from '../services/auth.service'
 import {
   clearStoredToken,
   getStoredToken,
@@ -16,6 +16,7 @@ type AuthContextValue = {
   token: string | null
   status: AuthStatus
   signIn: (credentials: LoginCredentials) => Promise<void>
+  signUp: (input: RegisterInput) => Promise<void>
   signOut: () => void
 }
 
@@ -61,6 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('authenticated')
   }, [])
 
+  const signUp = useCallback(async (input: RegisterInput) => {
+    await authService.registerUser(input)
+    // El registro no autentica: se encadena un login con las mismas
+    // credenciales para entrar directo al dashboard.
+    const { accessToken, user: profile } = await authService.login({
+      email: input.email,
+      password: input.password,
+    })
+    setStoredToken(accessToken)
+    setToken(accessToken)
+    setUser(profile)
+    setStatus('authenticated')
+  }, [])
+
   const signOut = useCallback(() => {
     // JWT es sin estado: cerrar sesión es solo descartar el token local.
     clearStoredToken()
@@ -70,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, status, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, token, status, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   )

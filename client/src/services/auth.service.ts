@@ -5,6 +5,14 @@ export type LoginCredentials = {
   password: string
 }
 
+export type RegisterInput = {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  middleName?: string
+}
+
 export type AuthUser = {
   id: string
   email: string
@@ -32,6 +40,20 @@ export function login(credentials: LoginCredentials): Promise<LoginResponse> {
     body: {
       email: credentials.email.trim().toLowerCase(),
       plainPassword: credentials.password,
+    },
+  })
+}
+
+/** POST /auth/register — crea la cuenta. No autentica: no hay token en la respuesta. */
+export function registerUser(input: RegisterInput): Promise<AuthUser> {
+  return request<AuthUser>('/auth/register', {
+    method: 'POST',
+    body: {
+      email: input.email.trim().toLowerCase(),
+      plainPassword: input.password,
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      middleName: input.middleName?.trim() || undefined,
     },
   })
 }
