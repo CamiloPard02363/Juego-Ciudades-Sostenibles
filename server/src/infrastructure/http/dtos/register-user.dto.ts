@@ -1,5 +1,12 @@
-import { IsDateString, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsDateString, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
+/**
+ * DTO del registro público (`POST /auth/register`). No expone `role`: cualquiera
+ * puede llamar este endpoint sin autenticación, así que el rol nunca es
+ * elegible aquí (el caso de uso siempre asigna STUDENT). Asignar un rol
+ * distinto es responsabilidad de `CreateUserDto` (admin-only, ver
+ * `POST /users`) o de `ChangeUserRoleDto` (`PATCH /users/:id/role`).
+ */
 export class RegisterUserDto {
   @IsEmail()
   email!: string;
@@ -23,10 +30,6 @@ export class RegisterUserDto {
   @IsOptional()
   @IsString()
   displayName?: string;
-
-  @IsOptional()
-  @IsIn(['STUDENT', 'TEACHER', 'ADMIN'])
-  role?: string;
 
   @IsOptional()
   @IsDateString()

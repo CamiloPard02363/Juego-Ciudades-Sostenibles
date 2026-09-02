@@ -1,7 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as authService from '../services/auth.service'
-import type { AuthUser, LoginCredentials, RegisterInput } from '../services/auth.service'
+import type {
+  AuthUser,
+  LoginCredentials,
+  RegisterInput,
+  UpdateProfileInput,
+} from '../services/auth.service'
 import {
   clearStoredToken,
   getStoredToken,
@@ -18,6 +23,7 @@ type AuthContextValue = {
   signIn: (credentials: LoginCredentials) => Promise<void>
   signUp: (input: RegisterInput) => Promise<void>
   signOut: () => void
+  updateProfile: (input: UpdateProfileInput) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -84,8 +90,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('anonymous')
   }, [])
 
+  const updateProfile = useCallback(
+    async (input: UpdateProfileInput) => {
+      if (!token) throw new Error('No hay una sesión activa.')
+      const profile = await authService.updateProfile(token, input)
+      setUser(profile)
+    },
+    [token],
+  )
+
   return (
-    <AuthContext.Provider value={{ user, token, status, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ user, token, status, signIn, signUp, signOut, updateProfile }}
+    >
       {children}
     </AuthContext.Provider>
   )

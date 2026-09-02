@@ -10,6 +10,7 @@ import { BcryptPasswordHasher } from './security/bcrypt-password-hasher.adapter.
 import { CryptoIdGenerator } from './security/crypto-id-generator.adapter.js';
 import { JwtTokenGenerator } from './security/jwt-token-generator.adapter.js';
 import { RegisterUserUseCase } from '../application/use-cases/register-user.use-case.js';
+import { CreateUserUseCase } from '../application/use-cases/create-user.use-case.js';
 import { LoginUserUseCase } from '../application/use-cases/login-user.use-case.js';
 import { UpdateUserProfileUseCase } from '../application/use-cases/update-user-profile.use-case.js';
 import { ChangeUserPasswordUseCase } from '../application/use-cases/change-user-password.use-case.js';
@@ -40,6 +41,7 @@ import { AuthController } from './http/controllers/auth.controller.js';
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: TOKEN_GENERATOR, useClass: JwtTokenGenerator },
     RegisterUserUseCase,
+    CreateUserUseCase,
     LoginUserUseCase,
     UpdateUserProfileUseCase,
     ChangeUserPasswordUseCase,

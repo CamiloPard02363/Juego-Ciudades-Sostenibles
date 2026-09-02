@@ -2,6 +2,24 @@
 
 Tareas acordadas con el usuario, en espera de más contexto o de un próximo turno.
 
+## Hallazgo de seguridad crítico — corregido este turno
+
+Al construir el panel admin ("crear usuarios") se encontró que `POST /auth/register` (público,
+sin autenticación) aceptaba un campo `role` opcional sin restricción — **cualquiera podía
+auto-registrarse como ADMIN** llamando el endpoint directo con `{"role":"ADMIN"}` en el body.
+Verificado con un curl real contra la DB antes de corregir.
+
+Fix:
+- `RegisterUserDto` ya no declara `role` — con `ValidationPipe({ whitelist: true,
+  forbidNonWhitelisted: true })` ya activo, cualquier intento de mandar `role` en el registro
+  público ahora responde `400 Bad Request` ("property role should not exist").
+- `RegisterUserUseCase` ya no acepta `role` en su input; siempre asigna `Role.student()`.
+- Nuevo caso de uso `CreateUserUseCase` + endpoint `POST /users` (admin-only, valida
+  `canManageUsers()` igual que `changeRole`/`deactivate`/`reactivate`) para que un ADMIN sí pueda
+  crear usuarios con el rol que elija — es la vía correcta para lo que el panel admin necesita.
+- Verificado end-to-end: registro público con `role` → 400; `POST /users` sin sesión de ADMIN →
+  403; `POST /users` como ADMIN → crea con el rol pedido.
+
 ## 1. Módulo de juegos (backend)
 
 Pendiente hasta recibir instrucciones más detalladas del usuario. No asumir estructura de datos
@@ -52,24 +70,30 @@ dígitos?, ¿expiración?). Anotado para que el diseño respete la arquitectura 
   registrar, se muestra "revisa tu correo" y se lleva al usuario a una pantalla de verificación
   (pendiente de diseño) en vez de autenticar directo.
 
-## 3. Frontend — página de inicio (home autenticado)
+## 3. Frontend — página de inicio (home autenticado) — hecho
 
-Diseño premium, elegante, coherente con la paleta de `index.css` (acento morado `--accent`,
-soporte claro/oscuro ya definido). Requisitos del usuario:
+`HomeLayout.tsx` (`client/src/components/home/`) con sidebar izquierdo (`Sidebar.tsx`, oculta
+"Administración" si el rol no es ADMIN), barra de búsqueda arriba (`SearchBar.tsx`) y menú de
+perfil en la esquina superior derecha (`ProfileMenu.tsx`, dropdown con Configuración/Cerrar
+sesión, cierra con click-outside y Escape). El layout usa `fixed inset-0` para escapar del
+`#root { max-width: 1126px }` pensado para las pantallas de login/registro.
 
-- Grid de juegos disponibles (dato real desde backend, ver punto 1 — nada hardcodeado).
-- Menú lateral izquierdo (sidebar).
-- Barra de búsqueda en la parte superior.
-- Ícono de perfil en la esquina superior derecha: dropdown con acceso a configuración de perfil
-  y cerrar sesión (JWT stateless — `signOut` ya solo limpia el token local).
-- Sección de configuración de usuario (editar perfil — usa `PATCH /users/me/profile`, ya existe).
+- `GamesSection.tsx`: **sin datos hardcodeados**. El módulo de juegos (backend) no existe
+  todavía, así que no hace fetch a nada — muestra un estado vacío real ("Aún no hay juegos
+  disponibles" / "Sin resultados para X" si hay búsqueda). Cuando exista `GET /games`, se
+  reemplaza el estado vacío por el fetch real. Ver punto 1.
+- `ProfileSettings.tsx`: formulario de edición de perfil conectado a `PATCH /users/me/profile`
+  (vía `useAuth().updateProfile`, ya agregado).
 
-## 4. Frontend — panel de administración (solo rol ADMIN)
+## 4. Frontend — panel de administración (solo rol ADMIN) — hecho
 
-- Listado de usuarios **paginado** (backend ya expone `GET /users?role=&isActive=&page=&pageSize=`
-  vía `ListUsersUseCase`, protegido con `canManageUsers()`).
-- Crear usuarios.
-- Ver el conteo total de usuarios (el backend ya devuelve `total` en la respuesta paginada).
+`AdminUsersSection.tsx` + `CreateUserForm.tsx`, visibles solo si `user.role === 'ADMIN'` (chequeo
+en `HomeLayout`; el backend valida de nuevo con `canManageUsers()`, el frontend nunca es la única
+barrera).
+
+- Listado **paginado** real contra `GET /users?page=&pageSize=` (`ListUsersUseCase`).
+- Conteo total visible (`total` de la respuesta paginada).
+- Crear usuarios vía `POST /users` — **nuevo endpoint, ver hallazgo de seguridad abajo**.
 
 ## Notas de seguridad ya resueltas en backend (este turno)
 
