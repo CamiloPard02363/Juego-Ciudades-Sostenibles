@@ -9,15 +9,12 @@ import {
   type PasswordHasher,
 } from '../../domain/ports/password-hasher.port.js';
 import {
-  TOKEN_GENERATOR,
-  type TokenGenerator,
-} from '../../domain/ports/token-generator.port.js';
-import {
   InvalidCredentialsError,
   UserInactiveError,
 } from '../errors/application.errors.js';
 import { toUserResponseDto, type UserResponseDto } from '../dtos/user-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
+import { TokenPairIssuer } from '../services/token-pair-issuer.service.js';
 
 export interface LoginUserInput {
   email: string;
@@ -27,6 +24,7 @@ export interface LoginUserInput {
 export interface LoginUserOutput {
   user: UserResponseDto;
   accessToken: string;
+  refreshToken: string;
 }
 
 @Injectable()
@@ -34,7 +32,7 @@ export class LoginUserUseCase implements UseCase<LoginUserInput, LoginUserOutput
   constructor(
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(PASSWORD_HASHER) private readonly passwordHasher: PasswordHasher,
-    @Inject(TOKEN_GENERATOR) private readonly tokenGenerator: TokenGenerator,
+    private readonly tokenPairIssuer: TokenPairIssuer,
   ) {}
 
   async execute(input: LoginUserInput): Promise<LoginUserOutput> {
@@ -61,12 +59,8 @@ export class LoginUserUseCase implements UseCase<LoginUserInput, LoginUserOutput
     user.registerLogin();
     await this.userRepository.save(user);
 
-    const accessToken = await this.tokenGenerator.generate({
-      userId: user.id,
-      email: user.email.getValue(),
-      role: user.role.getName(),
-    });
+    const { accessToken, refreshToken } = await this.tokenPairIssuer.issueFor(user);
 
-    return { user: toUserResponseDto(user), accessToken };
+    return { user: toUserResponseDto(user), accessToken, refreshToken };
   }
 }

@@ -17,18 +17,30 @@ type RequestOptions = {
   body?: unknown
   token?: string | null
   signal?: AbortSignal
+  /** Interno: evita reintentar refresh dos veces para la misma petición. */
+  _isRetry?: boolean
 }
 
 /**
- * `AuthProvider` registra aquí cómo reaccionar cuando cualquier petición
- * autenticada devuelve 401 (token vencido, revocado, o el usuario fue
- * desactivado a mitad de sesión) — así ningún componente individual tiene
- * que manejarlo, la sesión se cierra sola sin dejar la UI en un estado roto.
+ * `AuthProvider` registra aquí cómo reaccionar cuando una petición
+ * autenticada agota los reintentos de refresh: la sesión ya no es
+ * recuperable y hay que cerrarla y volver al login.
  */
 let unauthorizedHandler: (() => void) | null = null
 
 export function setUnauthorizedHandler(handler: (() => void) | null): void {
   unauthorizedHandler = handler
+}
+
+/**
+ * `AuthProvider` registra aquí cómo obtener un access token nuevo usando el
+ * refresh token (que vive en una cookie httpOnly, invisible para este
+ * archivo). Devuelve el access token nuevo, o `null` si el refresh falló.
+ */
+let refreshAccessToken: (() => Promise<string | null>) | null = null
+
+export function setRefreshHandler(handler: (() => Promise<string | null>) | null): void {
+  refreshAccessToken = handler
 }
 
 /** Mensajes por defecto cuando el servidor no envía uno legible. */
@@ -72,7 +84,7 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { method = 'GET', body, token, signal } = options
+  const { method = 'GET', body, token, signal, _isRetry = false } = options
 
   const headers: Record<string, string> = {}
   if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -83,6 +95,9 @@ export async function request<T>(
     response = await fetch(`${API_URL}${path}`, {
       method,
       headers,
+      // El refresh token vive en una cookie httpOnly ajena a este archivo;
+      // sin esto el navegador no la envía en peticiones cross-origin.
+      credentials: 'include',
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     })
@@ -98,8 +113,14 @@ export async function request<T>(
   const payload = await parseBody(response)
   if (!response.ok) {
     // Un 401 en una petición sin token es "credenciales incorrectas" (login).
-    // Un 401 con token es la sesión venciendo a mitad de uso: se cierra sola.
-    if (response.status === 401 && token) {
+    // Un 401 con token es el access token vencido a mitad de sesión: se
+    // intenta renovar con el refresh token antes de darse por vencido, y
+    // solo si eso también falla se cierra la sesión.
+    if (response.status === 401 && token && !_isRetry && refreshAccessToken) {
+      const newAccessToken = await refreshAccessToken()
+      if (newAccessToken) {
+        return request<T>(path, { ...options, token: newAccessToken, _isRetry: true })
+      }
       unauthorizedHandler?.()
       throw new ApiError('Tu sesión expiró. Inicia sesión de nuevo.', response.status)
     }

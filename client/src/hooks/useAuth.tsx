@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as authService from '../services/auth.service'
 import type {
@@ -7,14 +7,9 @@ import type {
   RegisterInput,
   UpdateProfileInput,
 } from '../services/auth.service'
-import {
-  clearStoredToken,
-  getStoredToken,
-  setStoredToken,
-} from '../utils/storage'
-import { setUnauthorizedHandler } from '../utils/http'
+import { setRefreshHandler, setUnauthorizedHandler } from '../utils/http'
 
-/** `checking` mientras se valida el token guardado al arrancar la app. */
+/** `checking` mientras se intenta renovar la sesión al arrancar la app. */
 type AuthStatus = 'checking' | 'authenticated' | 'anonymous'
 
 type AuthContextValue = {
@@ -33,84 +28,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [status, setStatus] = useState<AuthStatus>('checking')
+  // El access token vive solo en memoria (dura 15 min, no vale la pena
+  // persistirlo); un ref evita que `refreshAccessToken` capture un `token`
+  // obsoleto en closures viejas de `request()`.
+  const tokenRef = useRef<string | null>(null)
+
+  const applySession = useCallback((accessToken: string, profile: AuthUser) => {
+    tokenRef.current = accessToken
+    setToken(accessToken)
+    setUser(profile)
+    setStatus('authenticated')
+  }, [])
 
   const signOut = useCallback(() => {
-    // JWT es sin estado: cerrar sesión es solo descartar el token local.
-    clearStoredToken()
+    tokenRef.current = null
     setToken(null)
     setUser(null)
     setStatus('anonymous')
+    // Best-effort: revoca el refresh token en servidor. Si falla (red caída,
+    // ya revocado), la sesión local ya quedó cerrada de todos modos.
+    authService.logout().catch(() => {})
   }, [])
 
-  // Cualquier petición autenticada que reciba 401 (token vencido, o el
-  // usuario fue desactivado a mitad de sesión) cierra la sesión sola. Se
-  // registra antes del efecto de rehidratación de abajo para que también lo
-  // cubra a él: un token guardado que ya no es válido toma este mismo camino
-  // en vez de duplicar la limpieza en dos lugares.
+  // request() usa esto para renovar el access token cuando vence a mitad de
+  // sesión, y para la rehidratación al montar (ver efecto de abajo).
+  const refreshSession = useCallback(async (): Promise<string | null> => {
+    try {
+      const { accessToken } = await authService.refreshAccessToken()
+      tokenRef.current = accessToken
+      setToken(accessToken)
+      return accessToken
+    } catch {
+      return null
+    }
+  }, [])
+
+  useEffect(() => {
+    setRefreshHandler(refreshSession)
+    return () => setRefreshHandler(null)
+  }, [refreshSession])
+
+  // Cualquier petición autenticada que agote los reintentos de refresh
+  // cierra la sesión sola, sin que cada componente lo maneje por su cuenta.
   useEffect(() => {
     setUnauthorizedHandler(signOut)
     return () => setUnauthorizedHandler(null)
   }, [signOut])
 
-  // Al montar, se rehidrata la sesión desde el token guardado.
+  // Al montar: no hay nada persistido localmente que revisar (el refresh
+  // token vive en una cookie httpOnly que este código ni siquiera puede
+  // leer), así que la sesión se intenta renovar directo contra el backend.
   useEffect(() => {
-    const storedToken = getStoredToken()
-    if (!storedToken) {
-      setStatus('anonymous')
-      return
-    }
+    let cancelled = false
 
-    const controller = new AbortController()
-
-    authService
-      .getProfile(storedToken, controller.signal)
-      .then((profile) => {
-        setUser(profile)
-        setToken(storedToken)
-        setStatus('authenticated')
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return
-        // Token expirado o inválido: se descarta y se vuelve al login. Si
-        // fue un 401, signOut() ya corrió vía unauthorizedHandler; esto
-        // también cubre otros fallos (red caída, 500, etc.) sin duplicar.
-        clearStoredToken()
+    refreshSession().then((accessToken) => {
+      if (cancelled) return
+      if (!accessToken) {
         setStatus('anonymous')
-      })
-
-    return () => controller.abort()
-  }, [])
-
-  const signIn = useCallback(async (credentials: LoginCredentials) => {
-    const { accessToken, user: profile } = await authService.login(credentials)
-    setStoredToken(accessToken)
-    setToken(accessToken)
-    setUser(profile)
-    setStatus('authenticated')
-  }, [])
-
-  const signUp = useCallback(async (input: RegisterInput) => {
-    await authService.registerUser(input)
-    // El registro no autentica: se encadena un login con las mismas
-    // credenciales para entrar directo al dashboard.
-    const { accessToken, user: profile } = await authService.login({
-      email: input.email,
-      password: input.password,
+        return
+      }
+      authService
+        .getProfile(accessToken)
+        .then((profile) => {
+          if (!cancelled) applySession(accessToken, profile)
+        })
+        .catch(() => {
+          if (!cancelled) setStatus('anonymous')
+        })
     })
-    setStoredToken(accessToken)
-    setToken(accessToken)
-    setUser(profile)
-    setStatus('authenticated')
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const updateProfile = useCallback(
-    async (input: UpdateProfileInput) => {
-      if (!token) throw new Error('No hay una sesión activa.')
-      const profile = await authService.updateProfile(token, input)
-      setUser(profile)
+  const signIn = useCallback(
+    async (credentials: LoginCredentials) => {
+      const { accessToken, user: profile } = await authService.login(credentials)
+      applySession(accessToken, profile)
     },
-    [token],
+    [applySession],
   )
+
+  const signUp = useCallback(
+    async (input: RegisterInput) => {
+      await authService.registerUser(input)
+      // El registro no autentica: se encadena un login con las mismas
+      // credenciales para entrar directo al dashboard.
+      const { accessToken, user: profile } = await authService.login({
+        email: input.email,
+        password: input.password,
+      })
+      applySession(accessToken, profile)
+    },
+    [applySession],
+  )
+
+  const updateProfile = useCallback(async (input: UpdateProfileInput) => {
+    if (!tokenRef.current) throw new Error('No hay una sesión activa.')
+    const profile = await authService.updateProfile(tokenRef.current, input)
+    setUser(profile)
+  }, [])
 
   return (
     <AuthContext.Provider

@@ -2,6 +2,50 @@
 
 Tareas acordadas con el usuario, en espera de más contexto o de un próximo turno.
 
+## Refresh token — hecho
+
+Antes solo había un JWT de acceso de 1 día sin forma de revocarlo ni renovarlo — al expirar,
+re-login completo obligatorio; si un admin desactivaba a alguien, su token seguía sirviendo hasta
+que expirara solo. Se implementó el patrón access + refresh token:
+
+**Backend:**
+- Access token (JWT, `JWT_EXPIRES_IN` default ahora `15m`) sigue viajando en el body de
+  `/auth/login` y en el header `Authorization: Bearer` de cada petición, sin cambios ahí.
+- Nuevo refresh token: string opaco de alta entropía (no JWT), 30 días de vida, viaja **solo**
+  en una cookie `httpOnly; secure (en prod); sameSite=lax; path=/auth` — nunca en el JSON de
+  respuesta ni accesible desde JS del cliente (mitiga robo por XSS).
+- Tabla `refresh_tokens` (`RefreshTokenModel`, migración `20260902161755_refresh_tokens`):
+  guarda el **hash SHA-256** del token (nunca el valor en claro, mismo criterio que passwords)
+  con `expires_at`/`revoked_at`. Nuevo puerto `OpaqueTokenGeneratorPort` (domain) +
+  adapter `CryptoOpaqueTokenGenerator` (infrastructure) — deliberadamente SHA-256 y no bcrypt: el
+  refresh token ya es aleatorio de alta entropía, hashearlo con bcrypt (lento a propósito, para
+  contraseñas de baja entropía) solo desperdiciaría CPU en cada refresh.
+- `TokenPairIssuer` (`application/services/`) centraliza "emitir access+refresh juntos" para no
+  triplicar esa lógica entre login, el registro encadenado y el refresh mismo.
+- **Rotación en cada uso**: `POST /auth/refresh` revoca el refresh token que llega y emite uno
+  nuevo — si alguien reutiliza uno ya rotado (señal de robo), se rechaza con 401. Verificado con
+  curl real.
+- `POST /auth/logout` (nuevo, ya tiene sentido con estado server-side): revoca el refresh token
+  en DB y limpia la cookie. Antes no existía endpoint de logout porque JWT puro era stateless.
+- `RegisterUserDto` sigue sin `role` (ver hallazgo de seguridad abajo) — sin relación con esto,
+  ambos cambios convivieron en el mismo endpoint sin conflicto.
+
+**Frontend:**
+- El access token dejó de persistirse en `localStorage` (ya no vale la pena: dura 15 min) — vive
+  solo en memoria (`useRef` en `useAuth`). `utils/storage.ts` quedó sin uso y se eliminó.
+- `request()` (`utils/http.ts`) manda `credentials: 'include'` siempre, para que la cookie del
+  refresh token viaje. Cuando una petición autenticada recibe 401, ya no cierra la sesión de
+  inmediato: primero intenta `POST /auth/refresh` (vía un handler que `AuthProvider` registra) y
+  reintenta la petición original una vez con el token nuevo; solo si el refresh también falla
+  cierra la sesión.
+- Al montar la app, en vez de leer un token de `localStorage`, se llama `/auth/refresh` directo
+  (la cookie ya viaja sola) para obtener un access token fresco y luego `GET /users/me`.
+- `signOut` ahora también llama `POST /auth/logout` (best-effort, no bloquea el cierre local si
+  falla) para revocar el refresh token en servidor, no solo olvidar el token en el cliente.
+- Verificado end-to-end con curl simulando exactamente las cabeceras de un browser en `:5173`
+  (CORS con `credentials`, cookies persistidas entre llamadas): login → cookie seteada → refresh
+  rota la cookie y emite access token nuevo → reuso del token viejo rechazado → logout revoca.
+
 ## Hallazgo de seguridad crítico — corregido este turno
 
 Al construir el panel admin ("crear usuarios") se encontró que `POST /auth/register` (público,

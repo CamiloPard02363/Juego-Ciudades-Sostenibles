@@ -65,6 +65,25 @@ export function registerUser(input: RegisterInput): Promise<AuthUser> {
   })
 }
 
+export type RefreshResponse = {
+  accessToken: string
+}
+
+/**
+ * POST /auth/refresh — canjea el refresh token (cookie httpOnly, enviada
+ * automáticamente por el navegador) por un access token nuevo. Nunca se le
+ * pasa `token`: no es una petición autenticada con Bearer, así que un 401
+ * aquí no debe disparar el mecanismo de reintento de `request()`.
+ */
+export function refreshAccessToken(): Promise<RefreshResponse> {
+  return request<RefreshResponse>('/auth/refresh', { method: 'POST' })
+}
+
+/** POST /auth/logout — revoca el refresh token en servidor y limpia la cookie. */
+export function logout(): Promise<void> {
+  return request<void>('/auth/logout', { method: 'POST' })
+}
+
 /** GET /users/me — usuario dueño del token; sirve para restaurar la sesión. */
 export function getProfile(
   token: string,
