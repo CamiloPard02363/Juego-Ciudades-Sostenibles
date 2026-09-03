@@ -20,9 +20,15 @@ type SimplePairsGameFormProps = {
   onClose: () => void
   onCreated: () => void
   onBack: () => void
+  onCategoryCreated: () => void
 }
 
-export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsGameFormProps) {
+export function SimplePairsGameForm({
+  onClose,
+  onCreated,
+  onBack,
+  onCategoryCreated,
+}: SimplePairsGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
   const [title, setTitle] = useState('')
@@ -53,6 +59,7 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
       setCategoryId(category.id)
       setNewCategoryName('')
       showToast('Materia creada', 'success')
+      onCategoryCreated()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la materia.')
     } finally {

@@ -23,6 +23,7 @@ type GuessWhoGameFormProps = {
   onClose: () => void
   onCreated: () => void
   onBack: () => void
+  onCategoryCreated: () => void
 }
 
 /**
@@ -31,7 +32,12 @@ type GuessWhoGameFormProps = {
  * tiene sentido "publicarlo" automáticamente — el creador decide cuándo abrir
  * una sala desde el detalle del juego.
  */
-export function GuessWhoGameForm({ onClose, onCreated, onBack }: GuessWhoGameFormProps) {
+export function GuessWhoGameForm({
+  onClose,
+  onCreated,
+  onBack,
+  onCategoryCreated,
+}: GuessWhoGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
   const [title, setTitle] = useState('')
@@ -64,6 +70,7 @@ export function GuessWhoGameForm({ onClose, onCreated, onBack }: GuessWhoGameFor
       setCategoryId(category.id)
       setNewCategoryName('')
       showToast('Materia creada', 'success')
+      onCategoryCreated()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la materia.')
     } finally {

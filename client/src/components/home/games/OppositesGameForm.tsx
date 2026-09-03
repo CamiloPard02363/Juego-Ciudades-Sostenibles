@@ -31,9 +31,15 @@ type OppositesGameFormProps = {
   onClose: () => void
   onCreated: () => void
   onBack: () => void
+  onCategoryCreated: () => void
 }
 
-export function OppositesGameForm({ onClose, onCreated, onBack }: OppositesGameFormProps) {
+export function OppositesGameForm({
+  onClose,
+  onCreated,
+  onBack,
+  onCategoryCreated,
+}: OppositesGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
   const [title, setTitle] = useState('')
@@ -64,6 +70,10 @@ export function OppositesGameForm({ onClose, onCreated, onBack }: OppositesGameF
       setCategoryId(category.id)
       setNewCategoryName('')
       showToast('Materia creada', 'success')
+      // El home mantiene su propia lista de materias para "Explorar
+      // materias"; sin avisarle, la nueva queda invisible ahí hasta que
+      // el usuario termine de crear el juego (o para siempre si cancela).
+      onCategoryCreated()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la materia.')
     } finally {
