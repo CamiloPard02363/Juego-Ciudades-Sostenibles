@@ -3,32 +3,43 @@ import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
 import { Modal } from './Modal'
 import { ImageUploadField } from './ImageUploadField'
+import { AudioUploadField } from './AudioUploadField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { createGame, publishGame } from '../../../services/game.service'
 import { createCategory, listCategories, type CategoryWithGameCount } from '../../../services/category.service'
 import { ApiError } from '../../../utils/http'
 
-type PairDraft = {
+type CardDraft = {
   imageUrl: string | null
   label: string
+  audioUrl: string | null
 }
 
-const EMPTY_PAIR: PairDraft = { imageUrl: null, label: '' }
+const EMPTY_CARD: CardDraft = { imageUrl: null, label: '', audioUrl: null }
+const MIN_CARDS = 12
 
-type SimplePairsGameFormProps = {
+type GuessWhoGameFormProps = {
   onClose: () => void
   onCreated: () => void
   onBack: () => void
 }
 
-export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsGameFormProps) {
+/**
+ * Crea un juego GUESS_WHO en DRAFT (sin publicar): a diferencia de las cartas
+ * de memoria, este tipo se juega en una sala multijugador en vivo, así que no
+ * tiene sentido "publicarlo" automáticamente — el creador decide cuándo abrir
+ * una sala desde el detalle del juego.
+ */
+export function GuessWhoGameForm({ onClose, onCreated, onBack }: GuessWhoGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null)
-  const [pairs, setPairs] = useState<PairDraft[]>([{ ...EMPTY_PAIR }, { ...EMPTY_PAIR }])
+  const [cards, setCards] = useState<CardDraft[]>(
+    Array.from({ length: MIN_CARDS }, () => ({ ...EMPTY_CARD })),
+  )
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [categoryId, setCategoryId] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -60,18 +71,16 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
     }
   }
 
-  function updatePair<K extends keyof PairDraft>(index: number, field: K, value: PairDraft[K]) {
-    setPairs((current) =>
-      current.map((pair, i) => (i === index ? { ...pair, [field]: value } : pair)),
-    )
+  function updateCard<K extends keyof CardDraft>(index: number, field: K, value: CardDraft[K]) {
+    setCards((current) => current.map((card, i) => (i === index ? { ...card, [field]: value } : card)))
   }
 
-  function addPair() {
-    setPairs((current) => [...current, { ...EMPTY_PAIR }])
+  function addCard() {
+    setCards((current) => [...current, { ...EMPTY_CARD }])
   }
 
-  function removePair(index: number) {
-    setPairs((current) => (current.length > 2 ? current.filter((_, i) => i !== index) : current))
+  function removeCard(index: number) {
+    setCards((current) => (current.length > MIN_CARDS ? current.filter((_, i) => i !== index) : current))
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -90,9 +99,13 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
       setError('Elige una materia para el juego.')
       return
     }
-    const incompletePair = pairs.some((pair) => !pair.label.trim() || !pair.imageUrl)
-    if (incompletePair) {
-      setError('Cada pareja necesita una imagen y un nombre antes de crear el juego.')
+    if (cards.length < MIN_CARDS) {
+      setError(`Necesitas al menos ${MIN_CARDS} tarjetas.`)
+      return
+    }
+    const incompleteCard = cards.some((card) => !card.label.trim() || !card.imageUrl)
+    if (incompleteCard) {
+      setError('Cada tarjeta necesita una imagen y un nombre antes de crear el juego.')
       return
     }
 
@@ -102,17 +115,15 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
       const game = await createGame(token, {
         title: title.trim(),
         description: description.trim(),
-        gameType: 'MEMORY_MATCH',
+        gameType: 'GUESS_WHO',
         categoryId,
         theme: coverImageUrl ? { coverImageUrl } : undefined,
-        config: { mode: 'PAIRS' },
-        content: pairs.map((pair) => ({
-          imageUrl: pair.imageUrl as string,
-          label: pair.label.trim(),
+        content: cards.map((card) => ({
+          imageUrl: card.imageUrl as string,
+          label: card.label.trim(),
+          audioUrl: card.audioUrl,
         })),
       })
-      // El creador ve su propio juego de inmediato; publicarlo lo hace
-      // visible para el resto de la plataforma sin un paso manual extra.
       await publishGame(token, game.id)
       showToast('Juego creado', 'success')
       onCreated()
@@ -130,11 +141,12 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
         className="mb-3 text-[12.5px] font-medium text-accent hover:underline"
         onClick={onBack}
       >
-        ← Cambiar modo
+        ← Cambiar tipo de juego
       </button>
-      <h2 className="mb-1 text-[20px] tracking-tight text-text-h">Pares</h2>
+      <h2 className="mb-1 text-[20px] tracking-tight text-text-h">¿Quién Es?</h2>
       <p className="mb-6 text-[13px] text-text">
-        Cada pareja tiene una imagen y el nombre del concepto que representa.
+        Cada tarjeta tiene una imagen, un nombre y un audio opcional. Se juega en una sala en vivo
+        entre 2 personas — abre la sala desde el detalle del juego una vez creado.
       </p>
 
       <form className="flex flex-col gap-[16px]" onSubmit={handleSubmit} noValidate>
@@ -203,15 +215,15 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
         </div>
 
         <div className="flex flex-col gap-3">
-          {pairs.map((pair, index) => (
+          {cards.map((card, index) => (
             <div key={index} className="rounded-xl border border-border p-4">
               <div className="mb-2.5 flex items-center justify-between">
-                <p className="text-[13px] font-semibold text-text-h">Pareja {index + 1}</p>
-                {pairs.length > 2 && (
+                <p className="text-[13px] font-semibold text-text-h">Tarjeta {index + 1}</p>
+                {cards.length > MIN_CARDS && (
                   <button
                     type="button"
                     className="text-[12px] font-medium text-danger"
-                    onClick={() => removePair(index)}
+                    onClick={() => removeCard(index)}
                     disabled={submitting}
                   >
                     Quitar
@@ -220,19 +232,28 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <TextField
-                  label="Nombre del concepto"
+                  label="Nombre"
                   type="text"
-                  value={pair.label}
+                  value={card.label}
                   disabled={submitting}
-                  onChange={(value) => updatePair(index, 'label', value)}
+                  onChange={(value) => updateCard(index, 'label', value)}
                   onBlur={() => {}}
                 />
                 <ImageUploadField
                   label="Imagen"
-                  imageUrl={pair.imageUrl}
-                  folder="memory-cards"
+                  imageUrl={card.imageUrl}
+                  folder="guess-who-cards"
                   disabled={submitting}
-                  onChange={(url) => updatePair(index, 'imageUrl', url)}
+                  onChange={(url) => updateCard(index, 'imageUrl', url)}
+                />
+              </div>
+              <div className="mt-3">
+                <AudioUploadField
+                  label="Audio (opcional)"
+                  audioUrl={card.audioUrl}
+                  folder="guess-who-audio"
+                  disabled={submitting}
+                  onChange={(url) => updateCard(index, 'audioUrl', url)}
                 />
               </div>
             </div>
@@ -242,10 +263,10 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
         <button
           type="button"
           className="self-start rounded-lg border border-dashed border-border px-3.5 py-2 text-[13px] font-medium text-text-h"
-          onClick={addPair}
+          onClick={addCard}
           disabled={submitting}
         >
-          + Agregar pareja
+          + Agregar tarjeta
         </button>
 
         {error && (
@@ -264,7 +285,7 @@ export function SimplePairsGameForm({ onClose, onCreated, onBack }: SimplePairsG
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             disabled={submitting}
           >
-            {submitting ? 'Creando…' : 'Crear y publicar'}
+            {submitting ? 'Creando…' : 'Crear juego'}
           </button>
           <button
             type="button"

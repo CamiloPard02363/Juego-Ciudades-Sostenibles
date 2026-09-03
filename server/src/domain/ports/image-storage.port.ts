@@ -8,4 +8,6 @@ export interface UploadedImage {
 export interface ImageStorage {
   /** Sube un buffer de imagen y devuelve su URL pública (CDN) y su id para poder borrarla luego. */
   upload(buffer: Buffer, folder: string): Promise<UploadedImage>;
+  /** Sube un buffer de audio (ej. pronunciación de una tarjeta de "¿Quién Es?"). */
+  uploadAudio(buffer: Buffer, folder: string): Promise<UploadedImage>;
 }

@@ -4,6 +4,7 @@ import { TextField } from '../../TextField'
 import { Modal } from './Modal'
 import { ImageUploadField } from './ImageUploadField'
 import { useAuth } from '../../../hooks/useAuth'
+import { useToast } from '../../../hooks/useToast'
 import { createGame, publishGame } from '../../../services/game.service'
 import { createCategory, listCategories, type CategoryWithGameCount } from '../../../services/category.service'
 import { ApiError } from '../../../utils/http'
@@ -34,6 +35,7 @@ type OppositesGameFormProps = {
 
 export function OppositesGameForm({ onClose, onCreated, onBack }: OppositesGameFormProps) {
   const { token } = useAuth()
+  const { showToast } = useToast()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null)
@@ -61,6 +63,7 @@ export function OppositesGameForm({ onClose, onCreated, onBack }: OppositesGameF
       setCategories((current) => [...current, { ...category, gameCount: 0 }])
       setCategoryId(category.id)
       setNewCategoryName('')
+      showToast('Materia creada', 'success')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la materia.')
     } finally {
@@ -132,6 +135,7 @@ export function OppositesGameForm({ onClose, onCreated, onBack }: OppositesGameF
       // El creador ve su propio juego de inmediato; publicarlo lo hace
       // visible para el resto de la plataforma sin un paso manual extra.
       await publishGame(token, game.id)
+      showToast('Juego creado', 'success')
       onCreated()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear el juego.')

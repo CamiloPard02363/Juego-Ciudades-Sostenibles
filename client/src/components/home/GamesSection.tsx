@@ -30,12 +30,22 @@ import { GameDetailModal } from './games/GameDetailModal'
 import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
+import { GameTypePicker } from './games/GameTypePicker'
+import type { GameTypeChoice } from './games/GameTypePicker'
 import { GameModePicker } from './games/GameModePicker'
 import { OppositesGameForm } from './games/OppositesGameForm'
 import { SimplePairsGameForm } from './games/SimplePairsGameForm'
+import { GuessWhoGameForm } from './games/GuessWhoGameForm'
+import { GuessWhoRoom } from './games/GuessWhoRoom'
 import type { MemoryMatchPair, MemoryMatchConfig, MemoryMatchMode } from './games/memoryMatchTypes'
 
-type CreateFlowStep = 'closed' | 'picking-mode' | 'opposites-form' | 'pairs-form'
+type CreateFlowStep =
+  | 'closed'
+  | 'picking-type'
+  | 'picking-mode'
+  | 'opposites-form'
+  | 'pairs-form'
+  | 'guess-who-form'
 
 type GamesSectionProps = {
   searchQuery: string
@@ -105,6 +115,7 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
   const [detailError, setDetailError] = useState<string | null>(null)
   const [showPlayOptions, setShowPlayOptions] = useState(false)
   const [playSession, setPlaySession] = useState<PlaySession | null>(null)
+  const [guessWhoRoomGameId, setGuessWhoRoomGameId] = useState<string | null>(null)
   const [createFlowStep, setCreateFlowStep] = useState<CreateFlowStep>('closed')
   const resultsRef = useRef<HTMLDivElement>(null)
   const wasSearchingRef = useRef(false)
@@ -173,6 +184,20 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
     setCreateFlowStep(mode === 'PAIRS' ? 'pairs-form' : 'opposites-form')
   }
 
+  function handleSelectType(choice: GameTypeChoice) {
+    setCreateFlowStep(choice === 'GUESS_WHO' ? 'guess-who-form' : 'picking-mode')
+  }
+
+  function handlePlayClick() {
+    if (!selectedGame) return
+    if (selectedGame.gameType === 'GUESS_WHO') {
+      setGuessWhoRoomGameId(selectedGame.id)
+      setSelectedGame(null)
+      return
+    }
+    setShowPlayOptions(true)
+  }
+
   return (
     <section className="flex flex-col gap-10">
       <div
@@ -211,7 +236,7 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
               type="button"
               className="mt-6 flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={() => setCreateFlowStep('picking-mode')}
+              onClick={() => setCreateFlowStep('picking-type')}
             >
               <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
               Crear nueva partida
@@ -344,8 +369,12 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
         <GameDetailModal
           game={selectedGame}
           onClose={() => setSelectedGame(null)}
-          onPlay={() => setShowPlayOptions(true)}
+          onPlay={handlePlayClick}
         />
+      )}
+
+      {guessWhoRoomGameId && (
+        <GuessWhoRoom gameId={guessWhoRoomGameId} onExit={() => setGuessWhoRoomGameId(null)} />
       )}
 
       {selectedGame && showPlayOptions && (
@@ -381,6 +410,10 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
         />
       )}
 
+      {createFlowStep === 'picking-type' && (
+        <GameTypePicker onClose={() => setCreateFlowStep('closed')} onSelect={handleSelectType} />
+      )}
+
       {createFlowStep === 'picking-mode' && (
         <GameModePicker onClose={() => setCreateFlowStep('closed')} onSelect={handleSelectMode} />
       )}
@@ -397,6 +430,14 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
         <SimplePairsGameForm
           onClose={() => setCreateFlowStep('closed')}
           onBack={() => setCreateFlowStep('picking-mode')}
+          onCreated={handleCreated}
+        />
+      )}
+
+      {createFlowStep === 'guess-who-form' && (
+        <GuessWhoGameForm
+          onClose={() => setCreateFlowStep('closed')}
+          onBack={() => setCreateFlowStep('picking-type')}
           onCreated={handleCreated}
         />
       )}
