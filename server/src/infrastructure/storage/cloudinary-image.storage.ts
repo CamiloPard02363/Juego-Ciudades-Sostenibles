@@ -45,4 +45,30 @@ export class CloudinaryImageStorage implements ImageStorage {
       uploadStream.end(buffer);
     });
   }
+
+  async uploadAudio(buffer: Buffer, folder: string): Promise<UploadedImage> {
+    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+      throw new ServiceUnavailableException(
+        'El almacenamiento de imágenes no está configurado todavía.',
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: `nexusplay/${folder}`,
+          // Cloudinary trata el audio bajo el tipo "video" (sin transformación de imagen).
+          resource_type: 'video',
+        },
+        (error, result) => {
+          if (error || !result) {
+            reject(error ?? new Error('Cloudinary no devolvió resultado.'));
+            return;
+          }
+          resolve({ url: result.secure_url, publicId: result.public_id });
+        },
+      );
+      uploadStream.end(buffer);
+    });
+  }
 }

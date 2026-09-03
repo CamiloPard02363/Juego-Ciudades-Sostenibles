@@ -73,6 +73,12 @@ export type SimplePairInput = {
   label: string
 }
 
+export type GuessWhoCardInput = {
+  imageUrl: string
+  label: string
+  audioUrl: string | null
+}
+
 export type CreateGameInput =
   | {
       title: string
@@ -91,6 +97,15 @@ export type CreateGameInput =
       theme?: { primaryColor?: string; coverImageUrl?: string | null }
       config: { mode: 'PAIRS' } & Record<string, unknown>
       content: SimplePairInput[]
+    }
+  | {
+      title: string
+      description: string
+      gameType: 'GUESS_WHO'
+      categoryId: string
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config?: Record<string, unknown>
+      content: GuessWhoCardInput[]
     }
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */

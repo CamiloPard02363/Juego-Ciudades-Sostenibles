@@ -8,6 +8,7 @@ type GameDetailModalProps = {
 }
 
 export function GameDetailModal({ game, onClose, onPlay }: GameDetailModalProps) {
+  const isGuessWho = game.gameType === 'GUESS_WHO'
   return (
     <Modal onClose={onClose}>
       <div
@@ -39,7 +40,7 @@ export function GameDetailModal({ game, onClose, onPlay }: GameDetailModalProps)
           style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
           onClick={onPlay}
         >
-          Jugar
+          {isGuessWho ? 'Abrir sala' : 'Jugar'}
         </button>
         <button
           type="button"
