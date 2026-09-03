@@ -97,13 +97,35 @@ DRAFT invisible en el catálogo público hasta publicar, edición rechazada con 
 que no es el creador ni admin, y confirmado en Mongo (`db.games.countDocuments()`) que los datos
 cayeron en `nexusplay_games` sin tocar la DB del otro proyecto.
 
-**Pendiente para un próximo turno** (frontend, fuera del alcance de este turno):
-- Pantalla de detalle del juego (descripción + botón jugar).
-- Popup con opciones al dar "jugar" + botón "crear nuevo".
-- Rediseño de la pantalla de configuración (los sliders del `index.html` original) a algo más
-  intuitivo.
-- Conectar `GamesSection.tsx` (hoy con estado vacío real, sin datos hardcodeados) al nuevo
-  `GET /games`.
+## Frontend del módulo de juegos — hecho
+
+Todo en `client/src/components/home/games/` + `GamesSection.tsx` reescrito, siguiendo el flujo
+exacto pedido: catálogo → clic en tarjeta → pantalla de detalle (descripción + botón jugar) →
+clic en jugar → popup de opciones → partida. "Crear nuevo" vive en el catálogo principal, no
+dentro del popup de un juego existente (se preguntó explícitamente y se confirmó esa ubicación).
+
+- `game.service.ts`: cliente HTTP para `/games` (list, getBySlug, create, publish), mismo patrón
+  que `auth.service.ts`.
+- `GameCard.tsx` / `GameDetailModal.tsx` / `PlayOptionsPopup.tsx` / `Modal.tsx` (genérico,
+  reutilizado por los tres): el catálogo es un grid real conectado a `GET /games`, sin datos
+  hardcodeados — estado vacío genuino si no hay juegos o la búsqueda no encuentra nada.
+- **Configuración rediseñada** (reemplaza los sliders del `index.html` original): en vez de 4
+  sliders numéricos, `PlayOptionsPopup` ofrece cantidad de parejas como chips predefinidos (4, 8,
+  12…), dificultad como tres tarjetas con descripción (Relajado/Normal/Desafiante, cada una
+  ajusta el tiempo por zona con un multiplicador) y un checkbox para la vista previa — más
+  intuitivo que mover barras y leer números sueltos.
+- `useMemoryMatchGame.ts` + `MemoryMatchGame.tsx`: la mecánica de memoria (zonas, timer, combo,
+  puntaje, vista previa) portada del `index.html` de la raíz, pero parametrizada por el
+  `content`/`config` reales del juego elegido — cero pares hardcodeados, cero textos del
+  "Herbario Urbano" en el código; ese juego específico ahora es una instancia de datos como
+  cualquier otra que se cree desde la plataforma.
+- `CreateGameForm.tsx`: formulario con pares dinámicos (agregar/quitar), crea el juego en DRAFT
+  y lo publica en el mismo flujo (sin paso manual extra) para que el creador lo vea de inmediato
+  en el catálogo.
+
+**Verificado end-to-end** simulando exactamente el contrato que usa el frontend (curl con
+`Origin: http://localhost:5173`, credenciales incluidas): crear → publicar → aparece en el
+listado → detalle por slug trae `content`/`config` completos y correctos.
 
 ## Refresh token — hecho
 

@@ -136,3 +136,24 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Usado por MemoryMatchGame al fallar un intento de pareja. */
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  80% {
+    transform: translateX(3px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-5px);
+  }
+  40%,
+  60% {
+    transform: translateX(5px);
+  }
+}
