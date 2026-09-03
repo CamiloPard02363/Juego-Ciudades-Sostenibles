@@ -315,8 +315,13 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
               const color = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]
               const active = activeCategoryId === category.id
               const Icon = iconForCategory(category.name)
+              // Además del creador y un admin, cualquier usuario puede limpiar una
+              // categoría sin dueño registrado (creada antes de rastrear autoría).
               const canDeleteCategory = Boolean(
-                user && (user.role === 'ADMIN' || user.id === category.creatorUserId),
+                user &&
+                  (user.role === 'ADMIN' ||
+                    user.id === category.creatorUserId ||
+                    category.creatorUserId === null),
               )
               return (
                 <div key={category.id} className="relative">

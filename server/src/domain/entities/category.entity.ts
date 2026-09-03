@@ -73,9 +73,16 @@ export class Category {
     return this.props.createdAt;
   }
 
-  /** Categorías sin dueño registrado (creadas antes de rastrear autoría) solo las gestiona un admin. */
+  /**
+   * Además del creador y un admin, cualquier usuario autenticado puede
+   * gestionar una categoría sin dueño registrado (creada antes de rastrear
+   * autoría): nadie puede reclamarla como propia, así que bloquearla para
+   * todos menos un admin la vuelve imposible de limpiar en la práctica.
+   */
   canBeManagedBy(requestingUserId: string, isAdmin: boolean): boolean {
-    return isAdmin || this.props.creatorUserId === requestingUserId;
+    return (
+      isAdmin || this.props.creatorUserId === requestingUserId || this.props.creatorUserId === null
+    );
   }
 
   toPersistence(): CategoryProps {

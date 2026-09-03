@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
 import { DIFFICULTIES } from './PlayOptionsPopup'
-import { celebrateMatch, signalMismatch } from '../../../utils/gameFeedback'
+import { celebrateMatch, primeGameFeedback, signalMismatch } from '../../../utils/gameFeedback'
 
 export type CardData = {
   cardId: string
@@ -150,6 +150,11 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
     (cardId: string) => {
       if (phase !== 'playing' || lockRef.current) return
       if (flippedIds.includes(cardId) || flippedIds.length === 2) return
+
+      // Se llama dentro del clic (gesto real del usuario) para que el
+      // AudioContext ya esté listo cuando, ~550ms después, se resuelva el
+      // acierto o fallo y toque reproducir el sonido.
+      primeGameFeedback()
 
       const card = currentZone?.cards.find((c) => c.cardId === cardId)
       if (!card || matchedPairIds.includes(card.pairId)) return
