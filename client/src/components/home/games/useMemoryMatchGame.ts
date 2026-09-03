@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
 import { DIFFICULTIES } from './PlayOptionsPopup'
+import { celebrateMatch, signalMismatch } from '../../../utils/gameFeedback'
 
 export type CardData = {
   cardId: string
@@ -168,12 +169,14 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
             const multiplier = nextCombo >= 4 ? 1.5 : nextCombo >= 2 ? 1.2 : 1
             const points = Math.round((100 + timeLeft * 4) * multiplier)
 
+            celebrateMatch()
             setMatchedPairIds((current) => [...current, first.pairId])
             setCombo(nextCombo)
             setTotalScore((score) => score + points)
             setFlippedIds([])
             lockRef.current = false
           } else {
+            signalMismatch()
             setShakingIds([firstId, secondId])
             setCombo(0)
             setTotalScore((score) => Math.max(0, score - 10))

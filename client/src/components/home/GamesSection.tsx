@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Atom,
   Brain,
@@ -106,6 +106,20 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
   const [showPlayOptions, setShowPlayOptions] = useState(false)
   const [playSession, setPlaySession] = useState<PlaySession | null>(null)
   const [createFlowStep, setCreateFlowStep] = useState<CreateFlowStep>('closed')
+  const resultsRef = useRef<HTMLDivElement>(null)
+  const wasSearchingRef = useRef(false)
+
+  // Al empezar a buscar, el resultado (o el "sin resultados") queda debajo
+  // del banner y las categorías: sin esto, hay que scrollear a mano para
+  // verlo. Solo se dispara al pasar de "sin búsqueda" a "buscando", no en
+  // cada tecla, para no reiniciar el scroll suave todo el tiempo.
+  useEffect(() => {
+    const isSearching = searchQuery.trim().length > 0
+    if (isSearching && !wasSearchingRef.current) {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    wasSearchingRef.current = isSearching
+  }, [searchQuery])
 
   const reload = useCallback(() => {
     if (!token) return
@@ -264,7 +278,7 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
         </div>
       )}
 
-      <div>
+      <div ref={resultsRef} className="scroll-mt-6">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Juegos</h2>
