@@ -121,3 +121,8 @@ export function createGame(token: string, input: CreateGameInput): Promise<GameD
 export function publishGame(token: string, gameId: string): Promise<GameDetail> {
   return request<GameDetail>(`/games/${gameId}/publish`, { method: 'PATCH', token })
 }
+
+/** DELETE /games/:id — borrado lógico; solo el creador o un admin. */
+export function deleteGame(token: string, gameId: string): Promise<void> {
+  return request<void>(`/games/${gameId}`, { method: 'DELETE', token })
+}

@@ -20,6 +20,7 @@ import { useAuth } from '../../hooks/useAuth'
 import {
   listGames,
   getGameBySlug,
+  deleteGame,
   type GameSummary,
   type GameDetail,
 } from '../../services/game.service'
@@ -103,7 +104,7 @@ function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameC
 }
 
 export function GamesSection({ searchQuery }: GamesSectionProps) {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -117,6 +118,7 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
   const [playSession, setPlaySession] = useState<PlaySession | null>(null)
   const [guessWhoRoomGameId, setGuessWhoRoomGameId] = useState<string | null>(null)
   const [createFlowStep, setCreateFlowStep] = useState<CreateFlowStep>('closed')
+  const [deleting, setDeleting] = useState(false)
   const resultsRef = useRef<HTMLDivElement>(null)
   const wasSearchingRef = useRef(false)
 
@@ -167,6 +169,21 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
       setSelectedGame(detail)
     } catch (err) {
       setDetailError(err instanceof ApiError ? err.message : 'No se pudo abrir el juego.')
+    }
+  }
+
+  async function handleDelete() {
+    if (!token || !selectedGame) return
+    setDeleting(true)
+    setDetailError(null)
+    try {
+      await deleteGame(token, selectedGame.id)
+      setSelectedGame(null)
+      reload()
+    } catch (err) {
+      setDetailError(err instanceof ApiError ? err.message : 'No se pudo eliminar el juego.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -368,8 +385,13 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
       {selectedGame && !showPlayOptions && (
         <GameDetailModal
           game={selectedGame}
+          canDelete={Boolean(
+            user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId),
+          )}
+          deleting={deleting}
           onClose={() => setSelectedGame(null)}
           onPlay={handlePlayClick}
+          onDelete={handleDelete}
         />
       )}
 
