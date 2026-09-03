@@ -2,6 +2,73 @@
 
 Tareas acordadas con el usuario, en espera de más contexto o de un próximo turno.
 
+## Módulo de juegos (backend) — hecho
+
+Se construyó el backend completo del módulo de juegos, con Herbario Urbano (el juego de memoria
+por pares del `index.html` original de la raíz) como primer tipo soportado, pero sin nada
+hardcodeado: el contenido de cada instancia de juego (títulos, descripciones, imágenes, config de
+zonas/tiempo) vive en MongoDB, no en código.
+
+**Infra**: Mongo ya estaba corriendo en Docker (`mongoDBVerifyID`, compartido con otro proyecto
+tuyo de verificación de identidad) — se creó una base de datos nueva y aislada,
+`nexusplay_games`, sin tocar `DocumentosE14` ni ninguna otra colección existente. Connection
+string en `server/.env` como `MONGODB_URI` (nunca en git). Driver oficial `mongodb` (no
+Mongoose), mismo criterio que usar Prisma con control manual de queries en vez de un ODM/ORM que
+imponga su propio esquema.
+
+**Cómo escala a más tipos de juego sin migraciones** (respuesta a la pregunta explícita del
+usuario sobre escalabilidad):
+- `GameType` (VO en domain, catálogo fijo tipo `Role`) declara qué tipos existen — hoy solo
+  `MEMORY_MATCH`. Agregar un tipo nuevo es una decisión de código (como agregar un rol), no de
+  datos: cada tipo trae su propia mecánica de juego en el frontend eventualmente.
+- `content` y `config` de un `Game` son genéricos a nivel de dominio (`Record<string, unknown>` /
+  `unknown[]`) — la entidad `Game` no conoce la forma exacta de ningún tipo de juego, solo
+  orquesta su ciclo de vida (draft/published/flagged/removed, quién puede editarlo).
+  La validación de forma específica vive en `application/content-validators/`:
+  `ContentValidator` (puerto) + `MemoryMatchContentValidator` (implementación) +
+  `ContentValidatorRegistry` (mapea `gameType` → validador). **Agregar un tipo de juego nuevo =
+  escribir un validador nuevo y registrarlo — cero migraciones de esquema**, porque Mongo no las
+  necesita y el resto de la plataforma (Postgres/usuarios) no se toca.
+- Un solo documento Mongo por juego, con `content` embebido (no colección aparte): para
+  memory-match no hay razón de negocio para separar los pares del juego — siempre se leen
+  juntos, nunca se paginan dentro de un mismo juego.
+
+**Permisos**: cualquier usuario autenticado puede crear un juego (pedido explícito del usuario:
+"cualquier usuario, pero solo ese usuario puede crearlo... luego voy a crear un modelo de ML que
+identifique contenido inapropiado"). Solo el creador o un ADMIN pueden editar/publicar/eliminar
+— `Game.canBeManagedBy(userId, isAdmin)`, mismo patrón de chequeo explícito en application que ya
+usa todo lo demás (`RequesterAdminResolver`, nuevo, resuelve `isAdmin` contra Postgres en cada
+operación en vez de confiar en el rol del JWT, que podría estar desactualizado hasta 15 min si a
+alguien lo degradan a mitad de sesión).
+
+**Estados** (`GameStatus`): `DRAFT` (solo visible para el creador/admin) → `PUBLISHED` (visible
+en el catálogo público) → `FLAGGED`/`REMOVED` (para cuando exista el moderador de ML — oculta sin
+borrar, para poder auditar). Un juego eliminado es borrado lógico (`REMOVED`), no se borra el
+documento.
+
+**Endpoints** (`/games`, todos requieren `JwtAuthGuard`):
+- `POST /games` — crear (cualquier usuario autenticado, nace en DRAFT).
+- `GET /games` — catálogo paginado; sin filtro solo muestra PUBLISHED; `onlyMine=true` o un
+  status no-público requieren ser dueño o admin.
+- `GET /games/slug/:slug` — detalle por URL amigable (para la pantalla de descripción del juego).
+- `GET /games/:id` — detalle por id.
+- `PATCH /games/:id` — editar (creador o admin). El slug es inmutable tras crear.
+- `PATCH /games/:id/publish` y `/unpublish` — creador o admin.
+- `DELETE /games/:id` — borrado lógico, creador o admin.
+
+**Verificado end-to-end** con curl real: creación con slug autogenerado desde el título,
+DRAFT invisible en el catálogo público hasta publicar, edición rechazada con 403 para un usuario
+que no es el creador ni admin, y confirmado en Mongo (`db.games.countDocuments()`) que los datos
+cayeron en `nexusplay_games` sin tocar la DB del otro proyecto.
+
+**Pendiente para un próximo turno** (frontend, fuera del alcance de este turno):
+- Pantalla de detalle del juego (descripción + botón jugar).
+- Popup con opciones al dar "jugar" + botón "crear nuevo".
+- Rediseño de la pantalla de configuración (los sliders del `index.html` original) a algo más
+  intuitivo.
+- Conectar `GamesSection.tsx` (hoy con estado vacío real, sin datos hardcodeados) al nuevo
+  `GET /games`.
+
 ## Refresh token — hecho
 
 Antes solo había un JWT de acceso de 1 día sin forma de revocarlo ni renovarlo — al expirar,
@@ -63,13 +130,6 @@ Fix:
   crear usuarios con el rol que elija — es la vía correcta para lo que el panel admin necesita.
 - Verificado end-to-end: registro público con `role` → 400; `POST /users` sin sesión de ADMIN →
   403; `POST /users` como ADMIN → crea con el rol pedido.
-
-## 1. Módulo de juegos (backend)
-
-Pendiente hasta recibir instrucciones más detalladas del usuario. No asumir estructura de datos
-todavía. Cuando se retome, construir siguiendo la misma arquitectura hexagonal aplanada ya usada
-en el módulo de usuario (`src/domain`, `src/application`, `src/infrastructure`, sin carpetas por
-feature), con endpoint(s) reales respaldados por Prisma — **nada hardcodeado** en el frontend.
 
 ## 2. Frontend — flujo de autenticación
 

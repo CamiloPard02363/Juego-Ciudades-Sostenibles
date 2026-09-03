@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { searchGames } from '../../services/game.service'
-import type { Game } from '../../services/game.service'
+import { useAuth } from '../../hooks/useAuth'
+import { listGames } from '../../services/game.service'
+import type { GameSummary } from '../../services/game.service'
 
 type GamesSectionProps = {
   searchQuery: string
@@ -8,22 +9,25 @@ type GamesSectionProps = {
 
 /**
  * Busca en GET /games cada vez que cambia `searchQuery` (solo se actualiza
- * al enviar la barra de búsqueda, no en cada tecla). El backend todavía no
- * tiene juegos cargados, así que hoy siempre se ve el estado vacío — pero
+ * al enviar la barra de búsqueda, no en cada tecla). El catálogo todavía no
+ * tiene juegos publicados, así que hoy siempre se ve el estado vacío — pero
  * ya es el resultado real de una búsqueda, no un mensaje fijo.
  */
 export function GamesSection({ searchQuery }: GamesSectionProps) {
-  const [games, setGames] = useState<Game[]>([])
+  const { token } = useAuth()
+  const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    if (!token) return
+
     const controller = new AbortController()
     setLoading(true)
     setError(false)
 
-    searchGames(searchQuery, controller.signal)
-      .then((results) => setGames(results))
+    listGames(token, searchQuery, controller.signal)
+      .then((result) => setGames(result.items))
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
         setError(true)
@@ -33,7 +37,7 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
       })
 
     return () => controller.abort()
-  }, [searchQuery])
+  }, [token, searchQuery])
 
   return (
     <section>

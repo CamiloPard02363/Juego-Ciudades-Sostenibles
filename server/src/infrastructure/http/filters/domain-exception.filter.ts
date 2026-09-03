@@ -5,6 +5,8 @@ import { ForbiddenActionError } from '../../../domain/errors/authorization.error
 import {
   ApplicationError,
   EmailAlreadyRegisteredError,
+  GameNotFoundError,
+  GameSlugAlreadyTakenError,
   InvalidCredentialsError,
   UserInactiveError,
   UserNotFoundError,
@@ -16,6 +18,8 @@ const STATUS_BY_ERROR = new Map<Function, HttpStatus>([
   [UserInactiveError, HttpStatus.FORBIDDEN],
   [UserNotFoundError, HttpStatus.NOT_FOUND],
   [ForbiddenActionError, HttpStatus.FORBIDDEN],
+  [GameNotFoundError, HttpStatus.NOT_FOUND],
+  [GameSlugAlreadyTakenError, HttpStatus.CONFLICT],
 ]);
 
 @Catch(DomainError, ApplicationError)

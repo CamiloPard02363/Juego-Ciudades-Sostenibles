@@ -42,15 +42,6 @@ model UserModel {
   @@map("users")
 }
 
-model GameModel {
-  id        String   @id @default(uuid())
-  title     String
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([title])
-  @@map("games")
-}
-
 model RefreshTokenModel {
   id        String    @id @default(uuid())
   userId    String    @map("user_id")
