@@ -1,6 +1,42 @@
 # Pendientes — NexusPlay
 
-Tareas acordadas con el usuario, en espera de más contexto o de un próximo turno.
+Tareas acordadas con el usuario, en espera de próximo turno.
+
+## Auditoría de seguridad del módulo de juegos — corregida este turno
+
+Tras construir el módulo de juegos, se pidió una revisión exhaustiva de correctitud y seguridad
+(autorización, IDOR, inyección, wiring de módulos). La autorización, el filtrado de campos por
+DTO y el manejo de errores de dominio salieron limpios. Se encontraron y corrigieron 5 problemas
+reales:
+
+- **ReDoS vía `search`** (`mongo-game.repository.ts`): el filtro de búsqueda del catálogo pasaba
+  el input del usuario directo a `$regex` de Mongo sin escapar — un patrón tipo `(a+)+$` provoca
+  backtracking catastrófico. Fix: `escapeRegex()` antes de construir el filtro. Verificado con
+  curl: el mismo patrón ahora responde en ~130ms tratado como texto literal.
+- **Payload sin límite de tamaño** (`main.ts`, `memory-match.content-validator.ts`): el body
+  JSON no tenía límite explícito antes de que la validación de aplicación (tope de 200 parejas)
+  tuviera oportunidad de rechazarlo — riesgo de agotar memoria con un payload gigante. Fix:
+  `app.useBodyParser('json', { limit: '512kb' })` + topes de longitud por campo (120/500/2048
+  caracteres según título/descripción/URL de imagen). Verificado: payload de 600kb → 413 antes de
+  llegar a la lógica de negocio.
+- **Condición de carrera en unicidad de slug** (`mongo-game.repository.ts`): el chequeo
+  `existsBySlug` antes de crear no es atómico — dos creaciones simultáneas con el mismo título
+  podían generar dos juegos con el mismo slug. Fix: índice único real en Mongo
+  (`db.games.createIndex({ slug: 1 }, { unique: true })`, creado en `onModuleInit`) +
+  `save()` traduce el error de duplicado (`E11000`) a `GameSlugAlreadyTakenError` en vez de dejarlo
+  escapar como 500. El chequeo previo se mantiene solo como atajo de UX para el caso común.
+  Verificado: segundo juego con título repetido → 409 limpio, no 500.
+- **Slug fallback predecible** (`game-slug.vo.ts`): un título sin ningún caracter alfanumérico
+  ASCII (solo emojis/símbolos) colapsaba siempre al mismo slug fijo `"juego"`, agravando el
+  riesgo de colisión. Fix: `GameSlug.fromTitle` ahora recibe un `fallbackSuffix` (el id ya
+  generado del juego) y produce `juego-<8 primeros caracteres del id>` en ese caso. Verificado:
+  título `"🎮🎮🎮"` → slug `juego-84d05077`, único por diseño.
+- **`JwtAuthGuard` duplicado como provider** (`game.module.ts`): se declaraba como provider
+  propio en vez de reusar el patrón ya establecido en `UserModule` (`@UseGuards(JwtAuthGuard)`
+  sin declararlo, resolviendo `JwtService` vía el `JwtModule` importado). Fix: se quitó el
+  provider redundante — `GameModule` ya importa `UserModule`, que exporta `JwtModule`, así que el
+  guard se resuelve igual que en `user.controller.ts`. Verificado: servidor arranca limpio, guard
+  sigue protegiendo `/games` (probado con login real).
 
 ## Módulo de juegos (backend) — hecho
 

@@ -45,14 +45,20 @@ export class CreateGameUseCase implements UseCase<CreateGameInput, GameDetailDto
     const config = validator.validateConfig(input.config);
     const content = validator.validateContent(input.content);
 
-    const slug = input.slug ? GameSlug.create(input.slug) : GameSlug.fromTitle(input.title);
+    const id = this.idGenerator.generate();
+    const slug = input.slug ? GameSlug.create(input.slug) : GameSlug.fromTitle(input.title, id);
+
+    // Chequeo previo para el caso común (falla rápido con mensaje claro);
+    // la garantía real ante una carrera entre dos creaciones simultáneas
+    // con el mismo slug la da el índice único en Mongo — ver el catch de
+    // duplicado (E11000) en MongoGameRepository.save().
     const slugTaken = await this.gameRepository.existsBySlug(slug.getValue());
     if (slugTaken) {
       throw new GameSlugAlreadyTakenError(slug.getValue());
     }
 
     const game = Game.create({
-      id: this.idGenerator.generate(),
+      id,
       slug,
       title: input.title.trim(),
       description: input.description.trim(),

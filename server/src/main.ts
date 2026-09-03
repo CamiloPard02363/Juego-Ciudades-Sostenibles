@@ -1,14 +1,19 @@
 import 'dotenv/config';
 import cookieParser from 'cookie-parser';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 import { DomainExceptionFilter } from './infrastructure/http/filters/domain-exception.filter.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.use(cookieParser());
+  // Sin límite explícito, Express deja pasar bodies grandes hasta agotar
+  // memoria antes de que la validación de aplicación (ej. tope de 200
+  // parejas en un juego) tenga oportunidad de rechazarlos.
+  app.useBodyParser('json', { limit: '512kb' });
 
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',') ?? 'http://localhost:5173',

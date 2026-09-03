@@ -3,7 +3,6 @@ import { UserModule } from './user.module.js';
 import { GAME_REPOSITORY } from '../domain/ports/game.repository.port.js';
 import { MongoService } from './persistence/mongo/mongo.service.js';
 import { MongoGameRepository } from './persistence/mongo/mongo-game.repository.js';
-import { JwtAuthGuard } from './http/guards/jwt-auth.guard.js';
 import { MemoryMatchContentValidator } from '../application/content-validators/memory-match.content-validator.js';
 import { ContentValidatorRegistry } from '../application/content-validators/content-validator.registry.js';
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
@@ -21,7 +20,6 @@ import { GameController } from './http/controllers/game.controller.js';
   imports: [UserModule],
   controllers: [GameController],
   providers: [
-    JwtAuthGuard,
     MongoService,
     { provide: GAME_REPOSITORY, useClass: MongoGameRepository },
     MemoryMatchContentValidator,

@@ -24,12 +24,18 @@ const DEFAULT_CONFIG: MemoryMatchConfig = {
   previewSeconds: 5,
 };
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
+const MAX_TITLE_LENGTH = 120;
+const MAX_DESCRIPTION_LENGTH = 500;
+const MAX_IMAGE_URL_LENGTH = 2048;
+
+function isNonEmptyString(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength
+  );
 }
 
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === 'string';
+function isNullableString(value: unknown, maxLength: number): value is string | null {
+  return value === null || (typeof value === 'string' && value.length <= maxLength);
 }
 
 /**
@@ -80,24 +86,33 @@ export class MemoryMatchContentValidator implements ContentValidator {
 
     const pair = item as Record<string, unknown>;
 
-    if (!isNonEmptyString(pair.posTitle) || !isNonEmptyString(pair.negTitle)) {
+    if (
+      !isNonEmptyString(pair.posTitle, MAX_TITLE_LENGTH) ||
+      !isNonEmptyString(pair.negTitle, MAX_TITLE_LENGTH)
+    ) {
       throw new InvalidGameContentError(
-        `la pareja en la posición ${index} necesita posTitle y negTitle.`,
+        `la pareja en la posición ${index} necesita posTitle y negTitle (máximo ${MAX_TITLE_LENGTH} caracteres).`,
       );
     }
-    if (!isNonEmptyString(pair.posDescription) || !isNonEmptyString(pair.negDescription)) {
+    if (
+      !isNonEmptyString(pair.posDescription, MAX_DESCRIPTION_LENGTH) ||
+      !isNonEmptyString(pair.negDescription, MAX_DESCRIPTION_LENGTH)
+    ) {
       throw new InvalidGameContentError(
-        `la pareja en la posición ${index} necesita posDescription y negDescription.`,
+        `la pareja en la posición ${index} necesita posDescription y negDescription (máximo ${MAX_DESCRIPTION_LENGTH} caracteres).`,
       );
     }
-    if (!isNullableString(pair.posImageUrl) || !isNullableString(pair.negImageUrl)) {
+    if (
+      !isNullableString(pair.posImageUrl, MAX_IMAGE_URL_LENGTH) ||
+      !isNullableString(pair.negImageUrl, MAX_IMAGE_URL_LENGTH)
+    ) {
       throw new InvalidGameContentError(
         `la pareja en la posición ${index} tiene una imagen inválida.`,
       );
     }
 
     return {
-      pairId: isNonEmptyString(pair.pairId) ? pair.pairId : `pair-${index}`,
+      pairId: isNonEmptyString(pair.pairId, 60) ? pair.pairId : `pair-${index}`,
       posTitle: pair.posTitle.trim(),
       posDescription: pair.posDescription.trim(),
       posImageUrl: pair.posImageUrl,

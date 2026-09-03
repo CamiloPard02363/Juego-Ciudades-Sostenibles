@@ -1,31 +1,62 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { MongoServerError } from 'mongodb';
 import type {
   FindAllGamesFilter,
   GameRepository,
   PaginatedGames,
 } from '../../../domain/ports/game.repository.port.js';
 import type { Game } from '../../../domain/entities/game.entity.js';
+import { GameSlugAlreadyTakenError } from '../../../application/errors/application.errors.js';
 import { MongoService } from './mongo.service.js';
 import { GameMapper, type GameDocument } from './game.mapper.js';
 
+const DUPLICATE_KEY_ERROR_CODE = 11000;
+
 const COLLECTION = 'games';
 
+/**
+ * `search` viaja tal cual del cliente al `$regex` de Mongo — sin escapar,
+ * un input como `(a+)+$` puede provocar backtracking catastrófico en el
+ * motor de regex y degradar la base de datos para todos (ReDoS).
+ */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 @Injectable()
-export class MongoGameRepository implements GameRepository {
+export class MongoGameRepository implements GameRepository, OnModuleInit {
   constructor(private readonly mongo: MongoService) {}
 
   private get collection() {
     return this.mongo.collection<GameDocument>(COLLECTION);
   }
 
+  /**
+   * El `existsBySlug` en CreateGameUseCase es check-then-act, no atómico:
+   * dos creaciones concurrentes con el mismo título pueden pasar ambas esa
+   * verificación. Este índice es la garantía real de unicidad; el `save()`
+   * de abajo traduce el error de duplicado que produce a un error de
+   * aplicación legible en vez de dejarlo escapar como un 500 genérico.
+   */
+  async onModuleInit(): Promise<void> {
+    await this.collection.createIndex({ slug: 1 }, { unique: true });
+  }
+
   async save(game: Game): Promise<void> {
     const doc = GameMapper.toPersistence(game);
 
-    await this.collection.updateOne(
-      { _id: doc._id },
-      { $set: doc },
-      { upsert: true },
-    );
+    try {
+      await this.collection.updateOne(
+        { _id: doc._id },
+        { $set: doc },
+        { upsert: true },
+      );
+    } catch (error) {
+      if (error instanceof MongoServerError && error.code === DUPLICATE_KEY_ERROR_CODE) {
+        throw new GameSlugAlreadyTakenError(doc.slug);
+      }
+      throw error;
+    }
   }
 
   async findById(id: string): Promise<Game | null> {
@@ -48,9 +79,10 @@ export class MongoGameRepository implements GameRepository {
     if (filter.status) query.status = filter.status;
     if (filter.creatorUserId) query.creatorUserId = filter.creatorUserId;
     if (filter.search) {
+      const safePattern = escapeRegex(filter.search);
       query.$or = [
-        { title: { $regex: filter.search, $options: 'i' } },
-        { description: { $regex: filter.search, $options: 'i' } },
+        { title: { $regex: safePattern, $options: 'i' } },
+        { description: { $regex: safePattern, $options: 'i' } },
       ];
     }
 
