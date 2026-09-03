@@ -28,3 +28,15 @@ export class UserInactiveError extends ApplicationError {
     super('El usuario está inactivo y no puede iniciar sesión.');
   }
 }
+
+export class GameNotFoundError extends ApplicationError {
+  constructor(identifier: string) {
+    super(`No se encontró un juego con identificador "${identifier}".`);
+  }
+}
+
+export class GameSlugAlreadyTakenError extends ApplicationError {
+  constructor(slug: string) {
+    super(`Ya existe un juego con el identificador "${slug}".`);
+  }
+}

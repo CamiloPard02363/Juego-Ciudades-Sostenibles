@@ -64,5 +64,6 @@ import { AuthController } from './http/controllers/auth.controller.js';
     ListUsersUseCase,
     ChangeUserRoleUseCase,
   ],
+  exports: [JwtModule, USER_REPOSITORY, ID_GENERATOR],
 })
 export class UserModule {}
