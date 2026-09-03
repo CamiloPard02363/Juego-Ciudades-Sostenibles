@@ -4,6 +4,7 @@ export interface CategoryDto {
   id: string;
   name: string;
   slug: string;
+  creatorUserId: string | null;
   createdAt: Date;
 }
 
@@ -16,6 +17,7 @@ export function toCategoryDto(category: Category): CategoryDto {
     id: category.id,
     name: category.name,
     slug: category.slug,
+    creatorUserId: category.creatorUserId,
     createdAt: category.createdAt,
   };
 }

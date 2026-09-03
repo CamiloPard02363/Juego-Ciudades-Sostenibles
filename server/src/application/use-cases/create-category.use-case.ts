@@ -12,6 +12,7 @@ import type { UseCase } from '../ports/use-case.port.js';
 
 export interface CreateCategoryInput {
   name: string;
+  creatorUserId: string;
 }
 
 /**
@@ -35,7 +36,12 @@ export class CreateCategoryUseCase implements UseCase<CreateCategoryInput, Categ
       throw new CategorySlugAlreadyTakenError(slug);
     }
 
-    const category = Category.create({ id, name: input.name, slug });
+    const category = Category.create({
+      id,
+      name: input.name,
+      slug,
+      creatorUserId: input.creatorUserId,
+    });
     await this.categoryRepository.save(category);
 
     return toCategoryDto(category);

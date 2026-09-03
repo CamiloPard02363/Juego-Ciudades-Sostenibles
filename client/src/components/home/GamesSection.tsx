@@ -14,6 +14,7 @@ import {
   Sparkles,
   Stethoscope,
   Trophy,
+  X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -24,10 +25,15 @@ import {
   type GameSummary,
   type GameDetail,
 } from '../../services/game.service'
-import { listCategories, type CategoryWithGameCount } from '../../services/category.service'
+import {
+  listCategories,
+  deleteCategory,
+  type CategoryWithGameCount,
+} from '../../services/category.service'
 import { ApiError } from '../../utils/http'
 import { GameCard } from './games/GameCard'
 import { GameDetailModal } from './games/GameDetailModal'
+import { Modal } from './games/Modal'
 import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
@@ -119,6 +125,9 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
   const [guessWhoRoomGameId, setGuessWhoRoomGameId] = useState<string | null>(null)
   const [createFlowStep, setCreateFlowStep] = useState<CreateFlowStep>('closed')
   const [deleting, setDeleting] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<CategoryWithGameCount | null>(null)
+  const [deletingCategory, setDeletingCategory] = useState(false)
+  const [categoryDeleteError, setCategoryDeleteError] = useState<string | null>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const wasSearchingRef = useRef(false)
 
@@ -184,6 +193,24 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
       setDetailError(err instanceof ApiError ? err.message : 'No se pudo eliminar el juego.')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function handleDeleteCategory() {
+    if (!token || !categoryToDelete) return
+    setDeletingCategory(true)
+    setCategoryDeleteError(null)
+    try {
+      await deleteCategory(token, categoryToDelete.id)
+      setCategories((current) => current.filter((c) => c.id !== categoryToDelete.id))
+      if (activeCategoryId === categoryToDelete.id) setActiveCategoryId(null)
+      setCategoryToDelete(null)
+    } catch (err) {
+      setCategoryDeleteError(
+        err instanceof ApiError ? err.message : 'No se pudo eliminar la materia.',
+      )
+    } finally {
+      setDeletingCategory(false)
     }
   }
 
@@ -288,32 +315,54 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
               const color = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]
               const active = activeCategoryId === category.id
               const Icon = iconForCategory(category.name)
+              const canDeleteCategory = Boolean(
+                user && (user.role === 'ADMIN' || user.id === category.creatorUserId),
+              )
               return (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => setActiveCategoryId(active ? null : category.id)}
-                  className={`rounded-2xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${
-                    active ? 'border-transparent' : 'border-border'
-                  }`}
-                  style={
-                    active
-                      ? { background: `${color}22`, boxShadow: `0 0 0 1.5px ${color}` }
-                      : { background: 'var(--surface)' }
-                  }
-                >
-                  <span
-                    className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg text-white"
-                    style={{ background: color }}
-                    aria-hidden="true"
+                <div key={category.id} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setActiveCategoryId(active ? null : category.id)}
+                    className={`w-full rounded-2xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${
+                      active ? 'border-transparent' : 'border-border'
+                    }`}
+                    style={
+                      active
+                        ? { background: `${color}22`, boxShadow: `0 0 0 1.5px ${color}` }
+                        : { background: 'var(--surface)' }
+                    }
                   >
-                    <Icon className="h-4 w-4" strokeWidth={2} />
-                  </span>
-                  <p className="truncate text-[13px] font-semibold text-text-h">{category.name}</p>
-                  <p className="text-[11.5px] text-text">
-                    {category.gameCount} {category.gameCount === 1 ? 'juego' : 'juegos'}
-                  </p>
-                </button>
+                    <span
+                      className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg text-white"
+                      style={{ background: color }}
+                      aria-hidden="true"
+                    >
+                      <Icon className="h-4 w-4" strokeWidth={2} />
+                    </span>
+                    <p className="truncate text-[13px] font-semibold text-text-h">
+                      {category.name}
+                    </p>
+                    <p className="text-[11.5px] text-text">
+                      {category.gameCount} {category.gameCount === 1 ? 'juego' : 'juegos'}
+                    </p>
+                  </button>
+
+                  {canDeleteCategory && (
+                    <button
+                      type="button"
+                      aria-label={`Eliminar materia ${category.name}`}
+                      title="Eliminar materia"
+                      className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-surface text-text/70 shadow-[var(--shadow)] transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setCategoryDeleteError(null)
+                        setCategoryToDelete(category)
+                      }}
+                    >
+                      <X className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
               )
             })}
           </div>
@@ -393,6 +442,47 @@ export function GamesSection({ searchQuery }: GamesSectionProps) {
           onPlay={handlePlayClick}
           onDelete={handleDelete}
         />
+      )}
+
+      {categoryToDelete && (
+        <Modal
+          onClose={() => {
+            if (!deletingCategory) setCategoryToDelete(null)
+          }}
+        >
+          <h2 className="mb-2 text-[18px] tracking-tight text-text-h">Eliminar materia</h2>
+          <p className="mb-6 text-[14px] leading-relaxed text-text">
+            ¿Eliminar "{categoryToDelete.name}"? Esta acción no se puede deshacer.
+          </p>
+
+          {categoryDeleteError && (
+            <p
+              className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
+              role="alert"
+            >
+              {categoryDeleteError}
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="flex-1 rounded-lg bg-danger px-4 py-3 text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleDeleteCategory}
+              disabled={deletingCategory}
+            >
+              {deletingCategory ? 'Eliminando…' : 'Sí, eliminar'}
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-border px-4 py-3 text-[15px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => setCategoryToDelete(null)}
+              disabled={deletingCategory}
+            >
+              Cancelar
+            </button>
+          </div>
+        </Modal>
       )}
 
       {guessWhoRoomGameId && (

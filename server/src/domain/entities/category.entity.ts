@@ -4,6 +4,7 @@ export interface CategoryProps {
   id: string;
   name: string;
   slug: string;
+  creatorUserId: string | null;
   createdAt: Date;
 }
 
@@ -11,6 +12,7 @@ export interface CreateCategoryProps {
   id: string;
   name: string;
   slug: string;
+  creatorUserId: string;
 }
 
 const NAME_MIN_LENGTH = 2;
@@ -42,6 +44,7 @@ export class Category {
       id: props.id,
       name,
       slug: props.slug,
+      creatorUserId: props.creatorUserId,
       createdAt: new Date(),
     });
   }
@@ -62,8 +65,17 @@ export class Category {
     return this.props.slug;
   }
 
+  get creatorUserId(): string | null {
+    return this.props.creatorUserId;
+  }
+
   get createdAt(): Date {
     return this.props.createdAt;
+  }
+
+  /** Categorías sin dueño registrado (creadas antes de rastrear autoría) solo las gestiona un admin. */
+  canBeManagedBy(requestingUserId: string, isAdmin: boolean): boolean {
+    return isAdmin || this.props.creatorUserId === requestingUserId;
   }
 
   toPersistence(): CategoryProps {

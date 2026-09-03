@@ -8,4 +8,5 @@ export interface CategoryRepository {
   findBySlug(slug: string): Promise<Category | null>;
   existsBySlug(slug: string): Promise<boolean>;
   findAll(): Promise<Category[]>;
+  delete(id: string): Promise<void>;
 }

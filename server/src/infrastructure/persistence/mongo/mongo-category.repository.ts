@@ -58,4 +58,8 @@ export class MongoCategoryRepository implements CategoryRepository, OnModuleInit
     const docs = await this.collection.find({}).sort({ name: 1 }).toArray();
     return docs.map(CategoryMapper.toDomain);
   }
+
+  async delete(id: string): Promise<void> {
+    await this.collection.deleteOne({ _id: id });
+  }
 }

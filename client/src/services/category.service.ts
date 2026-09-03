@@ -4,6 +4,7 @@ export type Category = {
   id: string
   name: string
   slug: string
+  creatorUserId: string | null
   createdAt: string
 }
 
@@ -23,4 +24,9 @@ export function createCategory(token: string, name: string): Promise<Category> {
     token,
     body: { name },
   })
+}
+
+/** DELETE /categories/:id — solo quien la creó o un admin. */
+export function deleteCategory(token: string, categoryId: string): Promise<void> {
+  return request<void>(`/categories/${categoryId}`, { method: 'DELETE', token })
 }

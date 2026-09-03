@@ -4,6 +4,7 @@ export interface CategoryDocument {
   _id: string;
   name: string;
   slug: string;
+  creatorUserId: string | null;
   createdAt: Date;
 }
 
@@ -13,6 +14,8 @@ export class CategoryMapper {
       id: doc._id,
       name: doc.name,
       slug: doc.slug,
+      // Categorías creadas antes de rastrear autoría no tienen el campo.
+      creatorUserId: doc.creatorUserId ?? null,
       createdAt: doc.createdAt,
     });
   }
@@ -24,6 +27,7 @@ export class CategoryMapper {
       _id: props.id,
       name: props.name,
       slug: props.slug,
+      creatorUserId: props.creatorUserId,
       createdAt: props.createdAt,
     };
   }
