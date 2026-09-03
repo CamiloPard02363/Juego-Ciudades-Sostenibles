@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Copy, LogOut, Swords, Trophy, Users, Volume2 } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
@@ -15,30 +15,86 @@ type GuessWhoRoomProps = {
  * socket y el mismo layout de tablero — separar en 3 pantallas obligaría a
  * pasar la conexión entre ellas sin ganar nada.
  */
+type EntryChoice = 'undecided' | 'creating' | 'joining'
+
 export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   const { token, user } = useAuth()
   const { room, error, connecting, createRoom, joinRoom, startGame, discardCard, accuseCard, leaveRoom } =
     useGuessWhoRoom(token)
+  const [entryChoice, setEntryChoice] = useState<EntryChoice>('undecided')
   const [joinCode, setJoinCode] = useState('')
-  const [hasRequestedRoom, setHasRequestedRoom] = useState(false)
   const [accusing, setAccusing] = useState(false)
-
-  useEffect(() => {
-    if (!connecting && !hasRequestedRoom && !room) {
-      createRoom(gameId)
-      setHasRequestedRoom(true)
-    }
-  }, [connecting, hasRequestedRoom, room, createRoom, gameId])
 
   function handleExit() {
     leaveRoom()
     onExit()
   }
 
+  // Antes de tocar el socket, cada jugador elige explícitamente si va a
+  // crear la sala o a unirse con un código: si en vez de esto se creara una
+  // sala automáticamente al entrar, el segundo jugador jamás podría unirse a
+  // la del primero — cada apertura del modal generaría su propia sala nueva.
+  if (entryChoice === 'undecided') {
+    return (
+      <Modal onClose={handleExit} maxWidthClassName="max-w-[420px]">
+        <h2 className="mb-1 text-[19px] tracking-tight text-text-h">¿Quién Es?</h2>
+        <p className="mb-6 text-[13px] text-text">¿Vas a crear la sala o a unirte con un código?</p>
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            className="rounded-lg px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={() => {
+              setEntryChoice('creating')
+              createRoom(gameId)
+            }}
+          >
+            Crear sala nueva
+          </button>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="flex-1 rounded-lg border border-border bg-bg px-3 py-2.5 text-[13px] tracking-widest uppercase text-text-h outline-none focus:border-accent"
+              placeholder="CÓDIGO DE SALA"
+              value={joinCode}
+              maxLength={6}
+              onChange={(event) => setJoinCode(event.target.value)}
+            />
+            <button
+              type="button"
+              className="shrink-0 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={joinCode.trim().length !== 6}
+              onClick={() => {
+                setEntryChoice('joining')
+                joinRoom(joinCode.trim())
+              }}
+            >
+              Unirme
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
+          onClick={handleExit}
+        >
+          Cancelar
+        </button>
+      </Modal>
+    )
+  }
+
   if (connecting || !room) {
     return (
       <Modal onClose={handleExit}>
-        <p className="text-[14px] text-text">Conectando a la sala…</p>
+        <p className="text-[14px] text-text">
+          {entryChoice === 'joining' ? 'Uniéndote a la sala…' : 'Creando la sala…'}
+        </p>
+        {error && (
+          <p className="mt-3 text-[13px] text-danger" role="alert">
+            {error}
+          </p>
+        )}
       </Modal>
     )
   }
@@ -107,28 +163,11 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
           </div>
 
           {room.players.length < 2 && (
-            <div className="rounded-xl border border-dashed border-border p-4">
-              <p className="mb-2 text-[13px] font-medium text-text-h">
-                Comparte el código con la otra persona, o únete a una sala existente:
+            <div className="rounded-xl border border-dashed border-border p-4 text-center">
+              <p className="text-[13px] font-medium text-text-h">
+                Comparte el código <strong className="text-accent">{room.code}</strong> con la otra
+                persona para que se una.
               </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-[13px] tracking-widest uppercase text-text-h outline-none focus:border-accent"
-                  placeholder="CÓDIGO"
-                  value={joinCode}
-                  maxLength={6}
-                  onChange={(event) => setJoinCode(event.target.value)}
-                />
-                <button
-                  type="button"
-                  className="shrink-0 rounded-lg border border-border px-3.5 py-2 text-[12.5px] font-medium text-text-h disabled:opacity-50"
-                  disabled={joinCode.trim().length !== 6}
-                  onClick={() => joinRoom(joinCode.trim())}
-                >
-                  Unirme
-                </button>
-              </div>
             </div>
           )}
 
