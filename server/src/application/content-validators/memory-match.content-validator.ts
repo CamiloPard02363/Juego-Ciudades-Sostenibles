@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InvalidGameContentError } from '../../domain/errors/game.errors.js';
 import type { ContentValidator } from './content-validator.port.js';
 
-export interface MemoryMatchPair {
+export type MemoryMatchMode = 'OPPOSITES' | 'PAIRS';
+
+/** Modo OPPOSITES: cada pareja enfrenta un aspecto positivo con su contraparte negativa. */
+export interface OppositesPair {
+  mode: 'OPPOSITES';
   pairId: string;
   posTitle: string;
   posDescription: string;
@@ -12,13 +16,25 @@ export interface MemoryMatchPair {
   negImageUrl: string | null;
 }
 
+/** Modo PAIRS: una carta con imagen se empareja con la carta que nombra ese concepto. */
+export interface SimplePair {
+  mode: 'PAIRS';
+  pairId: string;
+  imageUrl: string;
+  label: string;
+}
+
+export type MemoryMatchPair = OppositesPair | SimplePair;
+
 export interface MemoryMatchConfig {
+  mode: MemoryMatchMode;
   perZone: number;
   timePerZoneSeconds: number;
   previewSeconds: number;
 }
 
 const DEFAULT_CONFIG: MemoryMatchConfig = {
+  mode: 'OPPOSITES',
   perZone: 8,
   timePerZoneSeconds: 90,
   previewSeconds: 5,
@@ -27,6 +43,7 @@ const DEFAULT_CONFIG: MemoryMatchConfig = {
 const MAX_TITLE_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 500;
 const MAX_IMAGE_URL_LENGTH = 2048;
+const VALID_MODES: readonly MemoryMatchMode[] = ['OPPOSITES', 'PAIRS'];
 
 function isNonEmptyString(value: unknown, maxLength: number): value is string {
   return (
@@ -39,22 +56,27 @@ function isNullableString(value: unknown, maxLength: number): value is string | 
 }
 
 /**
- * Valida config y content para el tipo MEMORY_MATCH — el juego de memoria
- * por parejas (positivo/negativo) que originalmente vivía hardcodeado en el
- * index.html del prototipo. Registrarlo en `CONTENT_VALIDATORS` (ver
- * `content-validator.registry.ts`) es todo lo que hace falta para que la
- * plataforma acepte juegos de este tipo — agregar un tipo de juego nuevo
- * significa escribir un validador como este, no una migración de esquema.
+ * Valida config y content para el tipo MEMORY_MATCH — el juego de memoria por
+ * parejas que originalmente vivía hardcodeado en el index.html del prototipo.
+ * `config.mode` distingue dos variantes de la misma mecánica de volteo:
+ * OPPOSITES (positivo/negativo, como el prototipo original) y PAIRS (imagen
+ * con su concepto). Es una rama del mismo validador, no un gameType nuevo,
+ * porque ambas comparten la mecánica de juego — solo cambia la forma de la
+ * pareja.
  */
 @Injectable()
 export class MemoryMatchContentValidator implements ContentValidator {
   validateConfig(config: unknown): Record<string, unknown> {
     const raw = (config ?? {}) as Partial<MemoryMatchConfig>;
 
+    const mode = raw.mode ?? DEFAULT_CONFIG.mode;
     const perZone = raw.perZone ?? DEFAULT_CONFIG.perZone;
     const timePerZoneSeconds = raw.timePerZoneSeconds ?? DEFAULT_CONFIG.timePerZoneSeconds;
     const previewSeconds = raw.previewSeconds ?? DEFAULT_CONFIG.previewSeconds;
 
+    if (!VALID_MODES.includes(mode)) {
+      throw new InvalidGameContentError(`mode debe ser uno de: ${VALID_MODES.join(', ')}.`);
+    }
     if (!Number.isInteger(perZone) || perZone < 2 || perZone > 20) {
       throw new InvalidGameContentError('perZone debe ser un entero entre 2 y 20.');
     }
@@ -65,10 +87,10 @@ export class MemoryMatchContentValidator implements ContentValidator {
       throw new InvalidGameContentError('previewSeconds debe ser un entero entre 0 y 30.');
     }
 
-    return { perZone, timePerZoneSeconds, previewSeconds };
+    return { mode, perZone, timePerZoneSeconds, previewSeconds };
   }
 
-  validateContent(content: unknown): unknown[] {
+  validateContent(content: unknown, config?: Record<string, unknown>): unknown[] {
     if (!Array.isArray(content) || content.length < 2) {
       throw new InvalidGameContentError('el juego necesita al menos 2 parejas de contenido.');
     }
@@ -76,10 +98,14 @@ export class MemoryMatchContentValidator implements ContentValidator {
       throw new InvalidGameContentError('el juego admite como máximo 200 parejas.');
     }
 
-    return content.map((item, index) => this.validatePair(item, index));
+    const mode = (config?.mode as MemoryMatchMode | undefined) ?? DEFAULT_CONFIG.mode;
+
+    return content.map((item, index) =>
+      mode === 'PAIRS' ? this.validateSimplePair(item, index) : this.validateOppositesPair(item, index),
+    );
   }
 
-  private validatePair(item: unknown, index: number): MemoryMatchPair {
+  private validateOppositesPair(item: unknown, index: number): OppositesPair {
     if (typeof item !== 'object' || item === null) {
       throw new InvalidGameContentError(`la pareja en la posición ${index} no es un objeto válido.`);
     }
@@ -112,6 +138,7 @@ export class MemoryMatchContentValidator implements ContentValidator {
     }
 
     return {
+      mode: 'OPPOSITES',
       pairId: isNonEmptyString(pair.pairId, 60) ? pair.pairId : `pair-${index}`,
       posTitle: pair.posTitle.trim(),
       posDescription: pair.posDescription.trim(),
@@ -119,6 +146,32 @@ export class MemoryMatchContentValidator implements ContentValidator {
       negTitle: pair.negTitle.trim(),
       negDescription: pair.negDescription.trim(),
       negImageUrl: pair.negImageUrl,
+    };
+  }
+
+  private validateSimplePair(item: unknown, index: number): SimplePair {
+    if (typeof item !== 'object' || item === null) {
+      throw new InvalidGameContentError(`la pareja en la posición ${index} no es un objeto válido.`);
+    }
+
+    const pair = item as Record<string, unknown>;
+
+    if (!isNonEmptyString(pair.label, MAX_TITLE_LENGTH)) {
+      throw new InvalidGameContentError(
+        `la pareja en la posición ${index} necesita label (máximo ${MAX_TITLE_LENGTH} caracteres).`,
+      );
+    }
+    if (!isNonEmptyString(pair.imageUrl, MAX_IMAGE_URL_LENGTH)) {
+      throw new InvalidGameContentError(
+        `la pareja en la posición ${index} necesita imageUrl.`,
+      );
+    }
+
+    return {
+      mode: 'PAIRS',
+      pairId: isNonEmptyString(pair.pairId, 60) ? pair.pairId : `pair-${index}`,
+      imageUrl: pair.imageUrl,
+      label: pair.label.trim(),
     };
   }
 }

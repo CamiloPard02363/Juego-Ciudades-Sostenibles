@@ -114,13 +114,17 @@ export function MemoryMatchGame({
                     </span>
                   </div>
                   <div
-                    className={`absolute inset-0 flex flex-col items-center justify-start overflow-hidden rounded-xl border-2 p-2 text-center [backface-visibility:hidden] [transform:rotateY(180deg)] ${
-                      isMatched ? 'bg-accent/10' : 'bg-bg'
-                    }`}
+                    className={`absolute inset-0 flex flex-col items-center overflow-hidden rounded-xl border-2 p-2 text-center [backface-visibility:hidden] [transform:rotateY(180deg)] ${
+                      card.badge === null && !card.imageUrl ? 'justify-center' : 'justify-start'
+                    } ${isMatched ? 'bg-accent/10' : 'bg-bg'}`}
                     style={{ borderColor: primaryColor }}
                   >
                     {card.imageUrl && (
-                      <div className="mb-1.5 h-[42%] w-full overflow-hidden rounded-md">
+                      <div
+                        className={`w-full overflow-hidden rounded-md ${
+                          card.badge === null ? 'h-full' : 'mb-1.5 h-[42%]'
+                        }`}
+                      >
                         <img
                           src={card.imageUrl}
                           alt=""
@@ -131,19 +135,31 @@ export function MemoryMatchGame({
                         />
                       </div>
                     )}
-                    <span
-                      className={`mb-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
-                        card.badge === 'positive'
-                          ? 'bg-accent/15 text-accent'
-                          : 'bg-danger/15 text-danger'
-                      }`}
-                    >
-                      {card.badge === 'positive' ? 'Positivo' : 'Negativo'}
-                    </span>
-                    <p className="mb-0.5 text-[11px] font-semibold leading-tight text-text-h">
-                      {card.title}
-                    </p>
-                    <p className="text-[9px] leading-tight text-text">{card.description}</p>
+                    {card.badge && (
+                      <span
+                        className={`mb-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                          card.badge === 'positive'
+                            ? 'bg-accent/15 text-accent'
+                            : 'bg-danger/15 text-danger'
+                        }`}
+                      >
+                        {card.badge === 'positive' ? 'Positivo' : 'Negativo'}
+                      </span>
+                    )}
+                    {card.title && (
+                      <p
+                        className={`leading-tight text-text-h ${
+                          card.badge === null && !card.imageUrl
+                            ? 'text-[13px] font-semibold'
+                            : 'mb-0.5 text-[11px] font-semibold'
+                        }`}
+                      >
+                        {card.title}
+                      </p>
+                    )}
+                    {card.description && (
+                      <p className="text-[9px] leading-tight text-text">{card.description}</p>
+                    )}
                   </div>
                 </div>
               </button>
@@ -218,7 +234,8 @@ function GameEndOverlay({
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            className="rounded-lg bg-accent px-4 py-3 text-[14px] font-medium text-white dark:text-bg"
+            className="rounded-lg px-4 py-3 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             onClick={onAction}
           >
             {actionLabel}

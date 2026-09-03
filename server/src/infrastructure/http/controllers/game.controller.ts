@@ -52,6 +52,7 @@ export class GameController {
       status: query.status,
       onlyMine: query.onlyMine,
       search: query.search,
+      categoryId: query.categoryId,
       page: query.page,
       pageSize: query.pageSize,
     });

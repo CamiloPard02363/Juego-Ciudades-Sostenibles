@@ -52,7 +52,8 @@ export function AdminUsersSection() {
         {!showCreateForm && (
           <button
             type="button"
-            className="shrink-0 rounded-lg bg-accent px-3.5 py-2 text-[13px] font-medium text-white dark:text-bg"
+            className="shrink-0 rounded-lg px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             onClick={() => setShowCreateForm(true)}
           >
             + Crear usuario

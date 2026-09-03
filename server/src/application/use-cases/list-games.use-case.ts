@@ -15,6 +15,7 @@ export interface ListGamesInput {
   /** "solo mis juegos" desde el panel del creador. */
   onlyMine?: boolean;
   search?: string;
+  categoryId?: string;
   page?: number;
   pageSize?: number;
 }
@@ -49,6 +50,7 @@ export class ListGamesUseCase implements UseCase<ListGamesInput, ListGamesOutput
     const result = await this.gameRepository.findAll({
       status,
       creatorUserId: input.onlyMine ? input.requestingUserId : undefined,
+      categoryId: input.categoryId,
       search: input.search,
       page: input.page ?? 1,
       pageSize: input.pageSize ?? 20,

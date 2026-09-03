@@ -93,7 +93,8 @@ export function PlayOptionsPopup({ game, onClose, onStart }: PlayOptionsPopupPro
       <div className="flex gap-2">
         <button
           type="button"
-          className="flex-1 rounded-lg bg-accent px-4 py-3 text-[15px] font-medium text-white dark:text-bg"
+          className="flex-1 rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
           onClick={() => onStart({ pairCount, difficulty, showPreview })}
         >
           Empezar

@@ -9,7 +9,7 @@ export type CardData = {
   title: string
   description: string
   imageUrl: string | null
-  badge: 'positive' | 'negative'
+  badge: 'positive' | 'negative' | null
 }
 
 type ZoneConfig = {
@@ -38,30 +38,55 @@ function shuffle<T>(items: T[]): T[] {
   return copy
 }
 
+function cardsForPair(pair: MemoryMatchPair): CardData[] {
+  if (pair.mode === 'PAIRS') {
+    return [
+      {
+        cardId: `${pair.pairId}-img`,
+        pairId: pair.pairId,
+        title: '',
+        description: '',
+        imageUrl: pair.imageUrl,
+        badge: null,
+      },
+      {
+        cardId: `${pair.pairId}-label`,
+        pairId: pair.pairId,
+        title: pair.label,
+        description: '',
+        imageUrl: null,
+        badge: null,
+      },
+    ]
+  }
+
+  return [
+    {
+      cardId: `${pair.pairId}-pos`,
+      pairId: pair.pairId,
+      title: pair.posTitle,
+      description: pair.posDescription,
+      imageUrl: pair.posImageUrl,
+      badge: 'positive',
+    },
+    {
+      cardId: `${pair.pairId}-neg`,
+      pairId: pair.pairId,
+      title: pair.negTitle,
+      description: pair.negDescription,
+      imageUrl: pair.negImageUrl,
+      badge: 'negative',
+    },
+  ]
+}
+
 function buildZones(pairs: MemoryMatchPair[], pairCount: number, perZone: number): ZoneConfig[] {
   const chosen = shuffle(pairs).slice(0, pairCount)
   const zones: ZoneConfig[] = []
 
   for (let i = 0; i < chosen.length; i += perZone) {
     const slice = chosen.slice(i, i + perZone)
-    const cards: CardData[] = slice.flatMap((pair) => [
-      {
-        cardId: `${pair.pairId}-pos`,
-        pairId: pair.pairId,
-        title: pair.posTitle,
-        description: pair.posDescription,
-        imageUrl: pair.posImageUrl,
-        badge: 'positive' as const,
-      },
-      {
-        cardId: `${pair.pairId}-neg`,
-        pairId: pair.pairId,
-        title: pair.negTitle,
-        description: pair.negDescription,
-        imageUrl: pair.negImageUrl,
-        badge: 'negative' as const,
-      },
-    ])
+    const cards: CardData[] = slice.flatMap(cardsForPair)
     zones.push({ level: zones.length + 1, cards: shuffle(cards) })
   }
 

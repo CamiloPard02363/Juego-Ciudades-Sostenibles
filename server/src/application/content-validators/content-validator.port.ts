@@ -6,5 +6,6 @@
  */
 export interface ContentValidator {
   validateConfig(config: unknown): Record<string, unknown>;
-  validateContent(content: unknown): unknown[];
+  /** `config` recibe el resultado ya validado de `validateConfig` — algunos tipos de juego necesitan conocerlo para validar la forma del contenido (ej. el `mode` de MEMORY_MATCH). */
+  validateContent(content: unknown, config?: Record<string, unknown>): unknown[];
 }

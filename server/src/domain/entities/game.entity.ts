@@ -21,6 +21,7 @@ export interface GameProps {
   description: string;
   gameType: GameType;
   theme: GameTheme;
+  categoryId: string;
   creatorUserId: string;
   status: GameStatus;
   config: Record<string, unknown>;
@@ -36,6 +37,7 @@ export interface CreateGameProps {
   description: string;
   gameType: GameType;
   theme: GameTheme;
+  categoryId: string;
   creatorUserId: string;
   config: Record<string, unknown>;
   content: unknown[];
@@ -58,6 +60,7 @@ export class Game {
       description: props.description,
       gameType: props.gameType,
       theme: props.theme,
+      categoryId: props.categoryId,
       creatorUserId: props.creatorUserId,
       status: GameStatus.draft(),
       config: props.config,
@@ -95,6 +98,10 @@ export class Game {
     return this.props.theme;
   }
 
+  get categoryId(): string {
+    return this.props.categoryId;
+  }
+
   get creatorUserId(): string {
     return this.props.creatorUserId;
   }
@@ -128,6 +135,7 @@ export class Game {
     title?: string;
     description?: string;
     theme?: GameTheme;
+    categoryId?: string;
     config?: Record<string, unknown>;
     content?: unknown[];
   }): void {
@@ -138,6 +146,7 @@ export class Game {
     if (input.title !== undefined) this.props.title = input.title;
     if (input.description !== undefined) this.props.description = input.description;
     if (input.theme !== undefined) this.props.theme = input.theme;
+    if (input.categoryId !== undefined) this.props.categoryId = input.categoryId;
     if (input.config !== undefined) this.props.config = input.config;
     if (input.content !== undefined) this.props.content = input.content;
     this.touch();

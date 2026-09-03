@@ -17,6 +17,7 @@ export interface CreateGameInput {
   title: string;
   description: string;
   gameType: string;
+  categoryId: string;
   slug?: string;
   theme?: { primaryColor?: string; coverImageUrl?: string | null };
   config?: unknown;
@@ -43,7 +44,7 @@ export class CreateGameUseCase implements UseCase<CreateGameInput, GameDetailDto
     const validator = this.contentValidators.resolve(gameType.getName());
 
     const config = validator.validateConfig(input.config);
-    const content = validator.validateContent(input.content);
+    const content = validator.validateContent(input.content, config);
 
     const id = this.idGenerator.generate();
     const slug = input.slug ? GameSlug.create(input.slug) : GameSlug.fromTitle(input.title, id);
@@ -67,6 +68,7 @@ export class CreateGameUseCase implements UseCase<CreateGameInput, GameDetailDto
         primaryColor: input.theme?.primaryColor ?? '#aa3bff',
         coverImageUrl: input.theme?.coverImageUrl ?? null,
       },
+      categoryId: input.categoryId,
       creatorUserId: input.creatorUserId,
       config,
       content,

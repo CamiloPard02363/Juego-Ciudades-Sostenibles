@@ -123,7 +123,8 @@ export function CreateUserForm({ onCreated, onCancel }: CreateUserFormProps) {
       <div className="flex gap-2">
         <button
           type="submit"
-          className="rounded-lg bg-accent px-4 py-2.5 text-[14px] font-medium text-white transition-opacity hover:not-disabled:opacity-88 disabled:cursor-not-allowed disabled:opacity-60 dark:text-bg"
+          className="rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-[transform,opacity] hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
           disabled={submitting}
         >
           {submitting ? 'Creando…' : 'Crear usuario'}

@@ -40,3 +40,21 @@ export class GameSlugAlreadyTakenError extends ApplicationError {
     super(`Ya existe un juego con el identificador "${slug}".`);
   }
 }
+
+export class CategoryNotFoundError extends ApplicationError {
+  constructor(identifier: string) {
+    super(`No se encontró una categoría con identificador "${identifier}".`);
+  }
+}
+
+export class CategorySlugAlreadyTakenError extends ApplicationError {
+  constructor(slug: string) {
+    super(`Ya existe una categoría con el identificador "${slug}".`);
+  }
+}
+
+export class InvalidImageError extends ApplicationError {
+  constructor(reason: string) {
+    super(reason);
+  }
+}

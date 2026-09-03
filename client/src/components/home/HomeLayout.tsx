@@ -25,8 +25,8 @@ export function HomeLayout() {
         canManageUsers={canManageUsers}
       />
 
-      <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-6 py-4">
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
           <ProfileMenu
             user={user}
@@ -35,7 +35,7 @@ export function HomeLayout() {
           />
         </header>
 
-        <main className="flex-1 p-6 sm:p-8">
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
           {section === 'games' && <GamesSection searchQuery={searchQuery} />}
           {section === 'settings' && <ProfileSettings />}
           {section === 'admin-users' && canManageUsers && <AdminUsersSection />}

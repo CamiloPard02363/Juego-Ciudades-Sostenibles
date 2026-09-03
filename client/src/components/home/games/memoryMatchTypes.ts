@@ -1,5 +1,8 @@
-/** Espejo del `MemoryMatchPair` validado por el backend (ver server/src/application/content-validators). */
-export type MemoryMatchPair = {
+/** Espejo de los tipos validados por el backend (ver server/src/application/content-validators). */
+export type MemoryMatchMode = 'OPPOSITES' | 'PAIRS'
+
+export type OppositesPair = {
+  mode: 'OPPOSITES'
   pairId: string
   posTitle: string
   posDescription: string
@@ -9,7 +12,17 @@ export type MemoryMatchPair = {
   negImageUrl: string | null
 }
 
+export type SimplePair = {
+  mode: 'PAIRS'
+  pairId: string
+  imageUrl: string
+  label: string
+}
+
+export type MemoryMatchPair = OppositesPair | SimplePair
+
 export type MemoryMatchConfig = {
+  mode: MemoryMatchMode
   perZone: number
   timePerZoneSeconds: number
   previewSeconds: number

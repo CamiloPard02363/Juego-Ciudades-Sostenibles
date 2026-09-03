@@ -12,6 +12,7 @@ export type GameSummary = {
   description: string
   gameType: string
   theme: GameTheme
+  categoryId: string
   status: 'DRAFT' | 'PUBLISHED' | 'FLAGGED' | 'REMOVED'
   creatorUserId: string
   createdAt: string
@@ -36,6 +37,7 @@ export type ListGamesParams = {
   search?: string
   status?: GameSummary['status']
   onlyMine?: boolean
+  categoryId?: string
 }
 
 /** GET /games — catálogo paginado; sin filtro solo trae juegos publicados. */
@@ -46,6 +48,7 @@ export function listGames(token: string, params: ListGamesParams = {}): Promise<
   if (params.search) query.set('search', params.search)
   if (params.status) query.set('status', params.status)
   if (params.onlyMine) query.set('onlyMine', 'true')
+  if (params.categoryId) query.set('categoryId', params.categoryId)
 
   const queryString = query.toString()
   return request<PaginatedGames>(`/games${queryString ? `?${queryString}` : ''}`, { token })
@@ -56,7 +59,7 @@ export function getGameBySlug(token: string, slug: string): Promise<GameDetail> 
   return request<GameDetail>(`/games/slug/${encodeURIComponent(slug)}`, { token })
 }
 
-export type MemoryMatchPairInput = {
+export type OppositesPairInput = {
   posTitle: string
   posDescription: string
   posImageUrl: string | null
@@ -65,14 +68,30 @@ export type MemoryMatchPairInput = {
   negImageUrl: string | null
 }
 
-export type CreateGameInput = {
-  title: string
-  description: string
-  gameType: 'MEMORY_MATCH'
-  theme?: { primaryColor?: string; coverImageUrl?: string | null }
-  config?: Record<string, unknown>
-  content: MemoryMatchPairInput[]
+export type SimplePairInput = {
+  imageUrl: string
+  label: string
 }
+
+export type CreateGameInput =
+  | {
+      title: string
+      description: string
+      gameType: 'MEMORY_MATCH'
+      categoryId: string
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config?: { mode: 'OPPOSITES' } & Record<string, unknown>
+      content: OppositesPairInput[]
+    }
+  | {
+      title: string
+      description: string
+      gameType: 'MEMORY_MATCH'
+      categoryId: string
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config: { mode: 'PAIRS' } & Record<string, unknown>
+      content: SimplePairInput[]
+    }
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */
 export function createGame(token: string, input: CreateGameInput): Promise<GameDetail> {

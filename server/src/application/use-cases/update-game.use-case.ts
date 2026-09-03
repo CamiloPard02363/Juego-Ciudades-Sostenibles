@@ -17,6 +17,7 @@ export interface UpdateGameInput {
   title?: string;
   description?: string;
   theme?: { primaryColor?: string; coverImageUrl?: string | null };
+  categoryId?: string;
   config?: unknown;
   content?: unknown;
 }
@@ -44,7 +45,9 @@ export class UpdateGameUseCase implements UseCase<UpdateGameInput, GameDetailDto
     const validator = this.contentValidators.resolve(game.gameType.getName());
     const config = input.config !== undefined ? validator.validateConfig(input.config) : undefined;
     const content =
-      input.content !== undefined ? validator.validateContent(input.content) : undefined;
+      input.content !== undefined
+        ? validator.validateContent(input.content, config ?? game.config)
+        : undefined;
 
     game.updateDetails({
       title: input.title?.trim(),
@@ -59,6 +62,7 @@ export class UpdateGameUseCase implements UseCase<UpdateGameInput, GameDetailDto
                   : game.theme.coverImageUrl,
             }
           : undefined,
+      categoryId: input.categoryId,
       config,
       content,
     });

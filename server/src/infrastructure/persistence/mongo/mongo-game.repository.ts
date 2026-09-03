@@ -78,6 +78,7 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
     const query: Record<string, unknown> = {};
     if (filter.status) query.status = filter.status;
     if (filter.creatorUserId) query.creatorUserId = filter.creatorUserId;
+    if (filter.categoryId) query.categoryId = filter.categoryId;
     if (filter.search) {
       const safePattern = escapeRegex(filter.search);
       query.$or = [
@@ -108,5 +109,16 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
 
   async delete(id: string): Promise<void> {
     await this.collection.deleteOne({ _id: id });
+  }
+
+  async countPublishedByCategory(): Promise<Map<string, number>> {
+    const results = await this.collection
+      .aggregate<{ _id: string; count: number }>([
+        { $match: { status: 'PUBLISHED' } },
+        { $group: { _id: '$categoryId', count: { $sum: 1 } } },
+      ])
+      .toArray();
+
+    return new Map(results.map((row) => [row._id, row.count]));
   }
 }

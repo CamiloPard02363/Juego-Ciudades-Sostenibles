@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, LogOut, Settings } from 'lucide-react'
 import type { AuthUser } from '../../services/auth.service'
 
 type ProfileMenuProps = {
@@ -38,22 +39,34 @@ export function ProfileMenu({ user, onOpenSettings, onSignOut }: ProfileMenuProp
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-accent/10 text-[15px] font-semibold text-accent transition-opacity hover:opacity-80"
+        className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pr-3 pl-1 transition-colors hover:bg-code-bg"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        {user.avatarUrl ? (
-          <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          initial
-        )}
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-[14px] font-semibold text-white"
+          style={{ background: 'linear-gradient(135deg, var(--accent-2), var(--accent))' }}
+        >
+          {user.avatarUrl ? (
+            <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            initial
+          )}
+        </span>
+        <span className="max-w-[120px] truncate text-[13.5px] font-medium text-text-h">
+          {user.displayName}
+        </span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-text transition-transform ${open ? 'rotate-180' : ''}`}
+          strokeWidth={2.5}
+        />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-10 mt-2 w-60 overflow-hidden rounded-xl border border-border bg-bg shadow-[var(--shadow)]"
+          className="absolute right-0 z-10 mt-2 w-60 overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow)]"
         >
           <div className="border-b border-border px-4 py-3">
             <p className="truncate text-[14px] font-medium text-text-h">
@@ -64,23 +77,25 @@ export function ProfileMenu({ user, onOpenSettings, onSignOut }: ProfileMenuProp
           <button
             type="button"
             role="menuitem"
-            className="w-full px-4 py-2.5 text-left text-[14px] text-text-h hover:bg-code-bg"
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[14px] text-text-h hover:bg-code-bg"
             onClick={() => {
               setOpen(false)
               onOpenSettings()
             }}
           >
+            <Settings className="h-4 w-4 text-text" strokeWidth={2} />
             Configuración
           </button>
           <button
             type="button"
             role="menuitem"
-            className="w-full px-4 py-2.5 text-left text-[14px] text-danger hover:bg-danger/10"
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[14px] text-danger hover:bg-danger/10"
             onClick={() => {
               setOpen(false)
               onSignOut()
             }}
           >
+            <LogOut className="h-4 w-4" strokeWidth={2} />
             Cerrar sesión
           </button>
         </div>

@@ -16,6 +16,10 @@ export class ListGamesQueryDto {
   search?: string;
 
   @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
