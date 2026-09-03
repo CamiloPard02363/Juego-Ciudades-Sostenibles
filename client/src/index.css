@@ -93,33 +93,45 @@ body {
   margin: 0;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
+/*
+ * En una capa: las utilities de Tailwind (que Tailwind v4 también registra
+ * en capas) ganan por orden de capa sin pelear por especificidad. Sin esto,
+ * estas reglas sueltas (fuera de cualquier @layer) tienen prioridad sobre
+ * CUALQUIER utility de Tailwind — así que un `text-[28px]` o `mt-4.5` en un
+ * <h1> no lograba sobrescribir el font-size:56px/margin:32px de aquí, y el
+ * título terminaba mucho más grande de lo previsto, invadiendo visualmente
+ * el texto de abajo.
+ */
+@layer base {
+  h1,
+  h2 {
+    font-family: var(--heading);
+    font-weight: 500;
+    color: var(--text-h);
+  }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+  h1 {
+    font-size: 56px;
+    line-height: 1.15;
+    letter-spacing: -1.68px;
+    margin: 32px 0;
+    @media (max-width: 1024px) {
+      font-size: 36px;
+      margin: 20px 0;
+    }
   }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+  h2 {
+    font-size: 24px;
+    line-height: 118%;
+    letter-spacing: -0.24px;
+    margin: 0 0 8px;
+    @media (max-width: 1024px) {
+      font-size: 20px;
+    }
   }
-}
-p {
-  margin: 0;
+  p {
+    margin: 0;
+  }
 }
 
 code,
