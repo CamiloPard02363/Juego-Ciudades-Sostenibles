@@ -6,6 +6,7 @@ export const GAME_REPOSITORY = Symbol('GAME_REPOSITORY');
 export interface FindAllGamesFilter {
   status?: GameStatusName;
   creatorUserId?: string;
+  categoryId?: string;
   search?: string;
   page: number;
   pageSize: number;
@@ -25,4 +26,6 @@ export interface GameRepository {
   existsBySlug(slug: string): Promise<boolean>;
   findAll(filter: FindAllGamesFilter): Promise<PaginatedGames>;
   delete(id: string): Promise<void>;
+  /** Conteo de juegos PUBLISHED agrupados por categoría, para el catálogo de materias. */
+  countPublishedByCategory(): Promise<Map<string, number>>;
 }

@@ -22,6 +22,9 @@ export class CreateGameDto {
   @IsIn(['MEMORY_MATCH'])
   gameType!: string;
 
+  @IsString()
+  categoryId!: string;
+
   @IsOptional()
   @IsString()
   slug?: string;

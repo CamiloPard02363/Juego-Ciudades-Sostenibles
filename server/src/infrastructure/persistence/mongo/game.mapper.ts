@@ -10,6 +10,7 @@ export interface GameDocument {
   description: string;
   gameType: string;
   theme: GameTheme;
+  categoryId: string;
   creatorUserId: string;
   status: string;
   config: Record<string, unknown>;
@@ -27,6 +28,7 @@ export class GameMapper {
       description: doc.description,
       gameType: GameType.create(doc.gameType),
       theme: doc.theme,
+      categoryId: doc.categoryId,
       creatorUserId: doc.creatorUserId,
       status: GameStatus.create(doc.status),
       config: doc.config,
@@ -46,6 +48,7 @@ export class GameMapper {
       description: props.description,
       gameType: props.gameType.getName(),
       theme: props.theme,
+      categoryId: props.categoryId,
       creatorUserId: props.creatorUserId,
       status: props.status.getName(),
       config: props.config,

@@ -19,8 +19,15 @@ export class GameSlug {
     return new GameSlug(normalized);
   }
 
-  /** Deriva un slug legible a partir de un título libre (no garantiza unicidad). */
-  static fromTitle(title: string): GameSlug {
+  /**
+   * Deriva un slug legible a partir de un título libre (no garantiza
+   * unicidad — para eso está el índice único en Mongo + captura de
+   * duplicados en el repositorio). Un título sin ningún caracter ASCII
+   * alfanumérico (solo emojis, símbolos, etc.) colapsa a texto vacío tras
+   * la limpieza; `fallbackSuffix` evita que todos esos títulos terminen
+   * compitiendo por el mismo slug fijo "juego".
+   */
+  static fromTitle(title: string, fallbackSuffix: string): GameSlug {
     const base = title
       .trim()
       .toLowerCase()
@@ -33,7 +40,7 @@ export class GameSlug {
       .slice(0, 80)
       .replace(/-$/, '');
 
-    return GameSlug.create(base || 'juego');
+    return GameSlug.create(base || `juego-${fallbackSuffix.slice(0, 8)}`);
   }
 
   getValue(): string {

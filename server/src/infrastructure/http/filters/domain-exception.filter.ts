@@ -4,10 +4,13 @@ import { DomainError } from '../../../domain/errors/user.errors.js';
 import { ForbiddenActionError } from '../../../domain/errors/authorization.errors.js';
 import {
   ApplicationError,
+  CategoryNotFoundError,
+  CategorySlugAlreadyTakenError,
   EmailAlreadyRegisteredError,
   GameNotFoundError,
   GameSlugAlreadyTakenError,
   InvalidCredentialsError,
+  InvalidImageError,
   UserInactiveError,
   UserNotFoundError,
 } from '../../../application/errors/application.errors.js';
@@ -20,6 +23,9 @@ const STATUS_BY_ERROR = new Map<Function, HttpStatus>([
   [ForbiddenActionError, HttpStatus.FORBIDDEN],
   [GameNotFoundError, HttpStatus.NOT_FOUND],
   [GameSlugAlreadyTakenError, HttpStatus.CONFLICT],
+  [CategoryNotFoundError, HttpStatus.NOT_FOUND],
+  [CategorySlugAlreadyTakenError, HttpStatus.CONFLICT],
+  [InvalidImageError, HttpStatus.BAD_REQUEST],
 ]);
 
 @Catch(DomainError, ApplicationError)

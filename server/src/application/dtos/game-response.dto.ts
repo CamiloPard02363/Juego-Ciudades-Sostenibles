@@ -7,6 +7,7 @@ export interface GameSummaryDto {
   description: string;
   gameType: string;
   theme: { primaryColor: string; coverImageUrl: string | null };
+  categoryId: string;
   status: string;
   creatorUserId: string;
   createdAt: Date;
@@ -26,6 +27,7 @@ export function toGameSummaryDto(game: Game): GameSummaryDto {
     description: game.description,
     gameType: game.gameType.getName(),
     theme: game.theme,
+    categoryId: game.categoryId,
     status: game.status.getName(),
     creatorUserId: game.creatorUserId,
     createdAt: game.createdAt,

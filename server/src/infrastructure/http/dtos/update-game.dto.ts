@@ -26,6 +26,10 @@ export class UpdateGameDto {
   theme?: GameThemeDto;
 
   @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;
 
