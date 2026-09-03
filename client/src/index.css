@@ -230,6 +230,55 @@ code {
   }
 }
 
+/* Entrada de popups (Modal.tsx): el fondo se desvanece y el panel aparece
+ * con un ligero scale-up, para que abrir un popup se sienta como una
+ * transición y no como un cambio brusco de contenido. */
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Todo control interactivo transiciona sus propiedades visuales por
+ * defecto: sin esto, cada componente tendría que declarar su propia
+ * `transition`, y es fácil olvidarlo en un botón nuevo. Va en @layer base
+ * (misma razón que h1/h2 arriba) para que una utility de Tailwind como
+ * `transition-transform` en un componente concreto siga ganando por orden
+ * de capa en vez de pelear por especificidad con esta regla de elemento. */
+@layer base {
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition:
+      background-color 0.18s ease,
+      border-color 0.18s ease,
+      color 0.18s ease,
+      opacity 0.18s ease,
+      box-shadow 0.18s ease,
+      transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
