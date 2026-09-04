@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-seed/
+.env
+.env.*
+!.env.example
+server/src/generated/
+*.tsbuildinfo
