@@ -14,6 +14,8 @@ export function useGuessWhoRoom(token: string | null) {
   const [room, setRoom] = useState<RoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
+  const [rematchRejectedMessage, setRematchRejectedMessage] = useState<string | null>(null)
+  const [dealCountdownMs, setDealCountdownMs] = useState<number | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -29,8 +31,23 @@ export function useGuessWhoRoom(token: string | null) {
     socket.on('room:state', (state: RoomStateView) => {
       setRoom(state)
       setError(null)
+      // Si llegó un nuevo estado de sala, la cuenta regresiva de reparto ya
+      // terminó del lado del servidor (dealNewGame emite room:state).
+      setDealCountdownMs(null)
     })
     socket.on('room:error', (payload: { message: string }) => setError(payload.message))
+    // Aviso de que el servidor va a repartir cartas nuevas en `countdownMs`:
+    // dispara la animación de barajado/countdown en el cliente antes de que
+    // llegue el room:state con las cartas ya repartidas.
+    socket.on('room:dealing', (payload: { countdownMs: number }) => {
+      setDealCountdownMs(payload.countdownMs)
+    })
+    // El rival votó "no" a la revancha: el servidor ya cerró la sala, así
+    // que aquí solo mostramos el aviso y limpiamos el estado local.
+    socket.on('room:rematch-rejected', (payload: { message: string }) => {
+      setRematchRejectedMessage(payload.message)
+      setRoom(null)
+    })
 
     return () => {
       socket.disconnect()
@@ -58,10 +75,32 @@ export function useGuessWhoRoom(token: string | null) {
     socketRef.current?.emit('room:accuse', { cardId })
   }, [])
 
+  const voteRematch = useCallback((accept: boolean) => {
+    socketRef.current?.emit('room:rematch-vote', { accept })
+  }, [])
+
+  const passTurn = useCallback(() => {
+    socketRef.current?.emit('room:pass-turn')
+  }, [])
+
   const leaveRoom = useCallback(() => {
     socketRef.current?.emit('room:leave')
     setRoom(null)
   }, [])
 
-  return { room, error, connecting, createRoom, joinRoom, startGame, discardCard, accuseCard, leaveRoom }
+  return {
+    room,
+    error,
+    connecting,
+    rematchRejectedMessage,
+    dealCountdownMs,
+    createRoom,
+    joinRoom,
+    startGame,
+    discardCard,
+    accuseCard,
+    voteRematch,
+    passTurn,
+    leaveRoom,
+  }
 }
