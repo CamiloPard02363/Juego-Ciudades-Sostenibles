@@ -19,8 +19,19 @@ type EntryChoice = 'undecided' | 'creating' | 'joining'
 
 export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   const { token, user } = useAuth()
-  const { room, error, connecting, createRoom, joinRoom, startGame, discardCard, accuseCard, leaveRoom } =
-    useGuessWhoRoom(token)
+  const {
+    room,
+    error,
+    connecting,
+    rematchRejectedMessage,
+    createRoom,
+    joinRoom,
+    startGame,
+    discardCard,
+    accuseCard,
+    voteRematch,
+    leaveRoom,
+  } = useGuessWhoRoom(token)
   const [entryChoice, setEntryChoice] = useState<EntryChoice>('undecided')
   const [joinCode, setJoinCode] = useState('')
   const [accusing, setAccusing] = useState(false)
@@ -28,6 +39,30 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   function handleExit() {
     leaveRoom()
     onExit()
+  }
+
+  // El rival votó "no" a la revancha: el servidor ya cerró la sala, así que
+  // solo queda avisar y devolver a la persona a la pantalla anterior.
+  if (rematchRejectedMessage) {
+    return (
+      <Modal onClose={onExit} maxWidthClassName="max-w-[420px]">
+        <div className="flex flex-col items-center gap-3 py-4 text-center animate-[fade-in-up_0.3s_ease-out]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-danger/15 text-danger">
+            <LogOut className="h-6 w-6" strokeWidth={2} />
+          </span>
+          <p className="text-[15px] font-semibold text-text-h">Saliste de la partida</p>
+          <p className="text-[13px] text-text">{rematchRejectedMessage}</p>
+          <button
+            type="button"
+            className="mt-2 w-full rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={onExit}
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
+    )
   }
 
   // Antes de tocar el socket, cada jugador elige explícitamente si va a
@@ -200,16 +235,23 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
           </div>
 
           <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
-            {room.cards.map((card) => {
+            {room.cards.map((card, index) => {
               const discarded = self.discardedCardIds.includes(card.cardId)
               return (
                 <button
                   key={card.cardId}
                   type="button"
-                  className={`group relative overflow-hidden rounded-lg border text-left transition-opacity ${
-                    discarded ? 'border-border opacity-30' : 'border-border hover:border-accent'
+                  className={`group relative overflow-hidden rounded-lg border text-left transition-[transform,border-color] duration-200 ${
+                    discarded
+                      ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out]'
+                      : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
                   }`}
-                  onClick={() => discardCard(card.cardId)}
+                  style={{
+                    animation: discarded
+                      ? undefined
+                      : `card-pop-in 0.3s ease-out ${Math.min(index, 12) * 0.03}s backwards`,
+                  }}
+                  onClick={() => !discarded && discardCard(card.cardId)}
                 >
                   <img src={card.imageUrl} alt="" className="h-20 w-full object-cover" />
                   <p className="truncate bg-surface px-1.5 py-1 text-[11px] font-medium text-text-h">
@@ -218,7 +260,7 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
                   {card.audioUrl && (
                     <button
                       type="button"
-                      className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100"
+                      className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
                       onClick={(event) => {
                         event.stopPropagation()
                         new Audio(card.audioUrl as string).play().catch(() => {})
@@ -234,7 +276,7 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
           </div>
 
           {canAccuse && (
-            <div className="rounded-xl border border-accent/40 bg-accent/5 p-4">
+            <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 animate-[fade-in-up_0.35s_ease-out]">
               <p className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold text-text-h">
                 <Swords className="h-4 w-4 text-accent" strokeWidth={2} />
                 Quedan {room.maxAccusationCount} o menos — ¿cuál crees que es la tarjeta de{' '}
@@ -242,13 +284,15 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
               </p>
               <button
                 type="button"
-                className="rounded-lg border border-accent px-3.5 py-2 text-[12.5px] font-semibold text-accent disabled:opacity-50"
+                className={`rounded-lg border border-accent px-3.5 py-2 text-[12.5px] font-semibold text-accent transition-transform hover:-translate-y-0.5 disabled:opacity-50 ${
+                  !accusing ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''
+                }`}
                 onClick={() => setAccusing((current) => !current)}
               >
                 {accusing ? 'Cancelar acusación' : 'Acusar una tarjeta'}
               </button>
               {accusing && (
-                <p className="mt-2 text-[12px] text-text">
+                <p className="mt-2 text-[12px] text-text animate-[fade-in-up_0.2s_ease-out]">
                   Toca la tarjeta correspondiente arriba para confirmar tu acusación.
                 </p>
               )}
@@ -269,41 +313,66 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
         />
       )}
 
-      {room.phase === 'FINISHED' && opponent && (
+      {room.phase === 'FINISHED' && opponent && self && (
         <div className="flex flex-col items-center gap-4 py-6 text-center">
           <span
-            className="flex h-14 w-14 items-center justify-center rounded-full text-white"
+            className="flex h-14 w-14 items-center justify-center rounded-full text-white animate-[trophy-pop-in_0.5s_cubic-bezier(0.16,1,0.3,1)]"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
           >
             <Trophy className="h-7 w-7" strokeWidth={1.75} />
           </span>
-          <p className="text-[18px] font-semibold text-text-h">
+          <p className="text-[18px] font-semibold text-text-h animate-[fade-in-up_0.4s_ease-out_0.1s_backwards]">
             {winnerIsSelf ? '¡Ganaste!' : `Ganó ${room.players.find((p) => p.userId === room.winnerUserId)?.displayName}`}
           </p>
-          <p className="text-[13px] text-text">
+          <p className="text-[13px] text-text animate-[fade-in-up_0.4s_ease-out_0.2s_backwards]">
             La tarjeta secreta de {opponent.displayName} era{' '}
             <strong className="text-text-h">
               {room.cards.find((card) => card.cardId === opponent.secretCardId)?.label}
             </strong>
             .
           </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)]"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={startGame}
-            >
-              Jugar de nuevo
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
-              onClick={handleExit}
-            >
-              Salir
-            </button>
-          </div>
+
+          {!self.hasVotedRematch && (
+            <div className="flex w-full max-w-[320px] flex-col gap-3 rounded-xl border border-border p-4 animate-[fade-in-up_0.4s_ease-out_0.3s_backwards]">
+              <p className="text-[13px] font-medium text-text-h">¿Quieres jugar otra ronda?</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+                  style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                  onClick={() => voteRematch(true)}
+                >
+                  Sí, seguir
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
+                  onClick={() => voteRematch(false)}
+                >
+                  No, salir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {self.hasVotedRematch && (
+            <div className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-4 py-3 text-[13px] font-medium text-text-h animate-[fade-in-up_0.3s_ease-out]">
+              Esperando la respuesta de {opponent.displayName}
+              <span className="flex items-center gap-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent animate-[waiting-dot-bounce_1.2s_ease-in-out_infinite]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-accent animate-[waiting-dot-bounce_1.2s_ease-in-out_0.15s_infinite]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-accent animate-[waiting-dot-bounce_1.2s_ease-in-out_0.3s_infinite]" />
+              </span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="text-[12.5px] font-medium text-text underline-offset-2 hover:text-text-h hover:underline"
+            onClick={handleExit}
+          >
+            Salir sin votar
+          </button>
         </div>
       )}
     </Modal>
@@ -325,21 +394,22 @@ function AccusationOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-5"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out]"
       role="presentation"
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-[420px] rounded-2xl border border-border bg-surface p-6"
+        className="w-full max-w-[420px] rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] animate-[accusation-overlay-pop-in_0.25s_cubic-bezier(0.16,1,0.3,1)]"
         onClick={(event) => event.stopPropagation()}
       >
         <h3 className="mb-4 text-[16px] font-semibold text-text-h">Elige la tarjeta del rival</h3>
         <div className="grid grid-cols-3 gap-2.5">
-          {remaining.map((card) => (
+          {remaining.map((card, index) => (
             <button
               key={card.cardId}
               type="button"
-              className="overflow-hidden rounded-lg border border-border text-left hover:border-accent"
+              className="overflow-hidden rounded-lg border border-border text-left transition-transform hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]"
+              style={{ animation: `card-pop-in 0.25s ease-out ${index * 0.03}s backwards` }}
               onClick={() => onAccuse(card.cardId)}
             >
               <img src={card.imageUrl} alt="" className="h-16 w-full object-cover" />
@@ -351,7 +421,7 @@ function AccusationOverlay({
         </div>
         <button
           type="button"
-          className="mt-4 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-medium text-text-h"
+          className="mt-4 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
           onClick={onCancel}
         >
           Cancelar

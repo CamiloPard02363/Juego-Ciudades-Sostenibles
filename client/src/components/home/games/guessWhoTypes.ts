@@ -13,6 +13,7 @@ export type RoomPlayerView = {
   discardedCardIds: string[]
   secretCardId: string | null
   isSelf: boolean
+  hasVotedRematch: boolean
 }
 
 export type RoomStateView = {

@@ -14,6 +14,7 @@ export function useGuessWhoRoom(token: string | null) {
   const [room, setRoom] = useState<RoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
+  const [rematchRejectedMessage, setRematchRejectedMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -31,6 +32,12 @@ export function useGuessWhoRoom(token: string | null) {
       setError(null)
     })
     socket.on('room:error', (payload: { message: string }) => setError(payload.message))
+    // El rival votó "no" a la revancha: el servidor ya cerró la sala, así
+    // que aquí solo mostramos el aviso y limpiamos el estado local.
+    socket.on('room:rematch-rejected', (payload: { message: string }) => {
+      setRematchRejectedMessage(payload.message)
+      setRoom(null)
+    })
 
     return () => {
       socket.disconnect()
@@ -58,10 +65,26 @@ export function useGuessWhoRoom(token: string | null) {
     socketRef.current?.emit('room:accuse', { cardId })
   }, [])
 
+  const voteRematch = useCallback((accept: boolean) => {
+    socketRef.current?.emit('room:rematch-vote', { accept })
+  }, [])
+
   const leaveRoom = useCallback(() => {
     socketRef.current?.emit('room:leave')
     setRoom(null)
   }, [])
 
-  return { room, error, connecting, createRoom, joinRoom, startGame, discardCard, accuseCard, leaveRoom }
+  return {
+    room,
+    error,
+    connecting,
+    rematchRejectedMessage,
+    createRoom,
+    joinRoom,
+    startGame,
+    discardCard,
+    accuseCard,
+    voteRematch,
+    leaveRoom,
+  }
 }

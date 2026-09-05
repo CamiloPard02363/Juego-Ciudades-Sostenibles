@@ -24,6 +24,13 @@ export interface RoomState {
   players: RoomPlayer[];
   winnerUserId: string | null;
   createdAt: number;
+  /**
+   * Votos de revancha tras terminar la partida (fase FINISHED): userId -> true/false.
+   * Se reinicia cada vez que se entra a FINISHED. Si algún jugador vota false,
+   * la sala se cierra y se expulsa al otro; solo se reinicia la partida
+   * cuando ambos votan true.
+   */
+  rematchVotes: Record<string, boolean>;
 }
 
 /** Almacén efímero en memoria: la sala vive solo mientras el proceso corre (ver RoomsGateway). */

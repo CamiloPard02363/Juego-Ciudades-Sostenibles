@@ -58,6 +58,7 @@ function toClientView(room: RoomState, forSocketId: string) {
       // la del rival nunca viaja a este socket.
       secretCardId: player.socketId === forSocketId ? player.secretCardId : null,
       isSelf: player.socketId === forSocketId,
+      hasVotedRematch: room.rematchVotes[player.userId] !== undefined,
     })),
   };
 }
@@ -160,6 +161,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ],
       winnerUserId: null,
       createdAt: Date.now(),
+      rematchVotes: {},
     };
 
     this.roomStore.create(room);
@@ -201,14 +203,62 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleStart(@ConnectedSocket() socket: AuthenticatedSocket) {
     const room = this.roomStore.findBySocketId(socket.id);
     if (!room) throw new Error('No estás en ninguna sala.');
+    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
     if (room.players.length !== 2) throw new Error('Se necesitan 2 jugadores para iniciar.');
 
+    this.dealNewGame(room);
+  }
+
+  /**
+   * Voto de revancha tras terminar una partida (fase FINISHED). Ambos
+   * jugadores deben votar "sí" para reiniciar; si uno vota "no", el otro es
+   * expulsado con un aviso en vez de quedarse esperando indefinidamente.
+   */
+  @SubscribeMessage('room:rematch-vote')
+  handleRematchVote(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { accept: boolean },
+  ) {
+    const room = this.roomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'FINISHED') throw new Error('No hay una partida terminada para votar revancha.');
+
+    const voter = room.players.find((p) => p.socketId === socket.id);
+    if (!voter) throw new Error('No estás en esta sala.');
+
+    room.rematchVotes[voter.userId] = body.accept;
+
+    if (body.accept === false) {
+      const opponent = room.players.find((p) => p.userId !== voter.userId);
+      if (opponent) {
+        this.server.to(opponent.socketId).emit('room:rematch-rejected', {
+          message: `${voter.displayName} no quiso seguir jugando.`,
+        });
+      }
+      this.roomStore.delete(room.code);
+      return;
+    }
+
+    const allAccepted =
+      room.players.length === 2 && room.players.every((p) => room.rematchVotes[p.userId] === true);
+
+    if (allAccepted) {
+      this.dealNewGame(room);
+      return;
+    }
+
+    this.roomStore.set(room);
+    this.broadcastState(room);
+  }
+
+  /** Baraja cartas nuevas, reparte y pasa la sala a PLAYING (usada por inicio y revancha). */
+  private dealNewGame(room: RoomState) {
     const shuffled = shuffle(room.cards);
     room.players[0].secretCardId = shuffled[0].cardId;
     room.players[1].secretCardId = shuffled[1].cardId;
     room.players.forEach((player) => (player.discardedCardIds = []));
     room.phase = 'PLAYING';
     room.winnerUserId = null;
+    room.rematchVotes = {};
 
     this.roomStore.set(room);
     this.broadcastState(room);
@@ -252,6 +302,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     room.phase = 'FINISHED';
     room.winnerUserId = body.cardId === opponent.secretCardId ? accuser.userId : opponent.userId;
+    room.rematchVotes = {};
 
     this.roomStore.set(room);
     this.broadcastState(room);

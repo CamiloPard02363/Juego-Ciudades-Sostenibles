@@ -253,6 +253,83 @@ code {
   }
 }
 
+/* Usadas por GuessWhoRoom.tsx (modo "¿Quién Es?"): dar peso físico a
+ * descartar/voltear una tarjeta y a la revelación del resultado, en vez de
+ * los cambios instantáneos de opacidad/render que tenía antes. */
+@keyframes card-flip-out {
+  from {
+    transform: rotateY(0deg) scale(1);
+    filter: grayscale(0);
+  }
+  50% {
+    transform: rotateY(90deg) scale(0.92);
+  }
+  to {
+    transform: rotateY(0deg) scale(1);
+    filter: grayscale(1);
+  }
+}
+
+@keyframes card-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes trophy-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-15deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15) rotate(8deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes result-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
+@keyframes waiting-dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes accusation-overlay-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 /* Todo control interactivo transiciona sus propiedades visuales por
  * defecto: sin esto, cada componente tendría que declarar su propia
  * `transition`, y es fácil olvidarlo en un botón nuevo. Va en @layer base
