@@ -20,6 +20,8 @@ export interface RoomState {
   gameTitle: string;
   cards: GuessWhoCard[];
   maxAccusationCount: number;
+  /** Segundos que tiene el jugador activo antes de que su turno pase automático. Viene de game.config. */
+  turnDurationSeconds: number;
   phase: RoomPhase;
   players: RoomPlayer[];
   winnerUserId: string | null;
@@ -31,6 +33,15 @@ export interface RoomState {
    * cuando ambos votan true.
    */
   rematchVotes: Record<string, boolean>;
+  /** userId del jugador que tiene el turno actual (solo relevante en fase PLAYING). */
+  activePlayerUserId: string | null;
+  /**
+   * Timestamp (Date.now() + 15000) en el que vence el turno actual si nadie
+   * lo pasa antes. Se manda al cliente para que dibuje su propio countdown
+   * sin depender de un tick del servidor; el servidor igual aplica el límite
+   * real con un timer propio (ver RoomsGateway.turnTimers).
+   */
+  turnDeadline: number | null;
 }
 
 /** Almacén efímero en memoria: la sala vive solo mientras el proceso corre (ver RoomsGateway). */

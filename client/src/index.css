@@ -330,6 +330,70 @@ code {
   }
 }
 
+/* Cuenta regresiva 3-2-1 antes de repartir (GuessWhoRoom.tsx): cada número
+ * entra grande y se encoge mientras se desvanece, para que se sienta como un
+ * pulso en vez de un simple cambio de texto. */
+@keyframes countdown-number-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
+/* Reparto de cartas (GuessWhoRoom.tsx): una carta boca abajo "vuela" desde
+ * el centro de la mesa hacia el jugador (self: hacia abajo/cerca, rival:
+ * hacia arriba/lejos), y al llegar se voltea para revelar el contenido solo
+ * si es la propia. */
+@keyframes deal-card-to-self {
+  0% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.6) rotateY(0deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateY(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateY(180deg);
+  }
+}
+
+@keyframes deal-card-to-opponent {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Indicador de "es tu turno" (GuessWhoRoom.tsx): un resplandor que respira
+ * para que el cambio de turno sea imposible de pasar por alto. */
+@keyframes turn-banner-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
 /* Todo control interactivo transiciona sus propiedades visuales por
  * defecto: sin esto, cada componente tendría que declarar su propia
  * `transition`, y es fácil olvidarlo en un botón nuevo. Va en @layer base

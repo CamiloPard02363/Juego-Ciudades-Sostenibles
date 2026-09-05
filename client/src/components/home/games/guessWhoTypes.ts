@@ -21,7 +21,11 @@ export type RoomStateView = {
   gameTitle: string
   cards: GuessWhoCard[]
   maxAccusationCount: number
+  turnDurationSeconds: number
   phase: RoomPhase
   winnerUserId: string | null
+  activePlayerUserId: string | null
+  /** Timestamp (epoch ms) en el que vence el turno actual, para dibujar el countdown. */
+  turnDeadline: number | null
   players: RoomPlayerView[]
 }

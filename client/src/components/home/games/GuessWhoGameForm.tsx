@@ -18,6 +18,8 @@ type CardDraft = {
 
 const EMPTY_CARD: CardDraft = { imageUrl: null, label: '', audioUrl: null }
 const MIN_CARDS = 12
+const DEFAULT_MAX_ACCUSATION_COUNT = 6
+const DEFAULT_TURN_DURATION_SECONDS = 15
 
 type GuessWhoGameFormProps = {
   onClose: () => void
@@ -46,6 +48,8 @@ export function GuessWhoGameForm({
   const [cards, setCards] = useState<CardDraft[]>(
     Array.from({ length: MIN_CARDS }, () => ({ ...EMPTY_CARD })),
   )
+  const [maxAccusationCount, setMaxAccusationCount] = useState(DEFAULT_MAX_ACCUSATION_COUNT)
+  const [turnDurationSeconds, setTurnDurationSeconds] = useState(DEFAULT_TURN_DURATION_SECONDS)
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [categoryId, setCategoryId] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -110,6 +114,14 @@ export function GuessWhoGameForm({
       setError(`Necesitas al menos ${MIN_CARDS} tarjetas.`)
       return
     }
+    if (!Number.isInteger(maxAccusationCount) || maxAccusationCount < 2 || maxAccusationCount > 12) {
+      setError('Las cartas restantes para acusar deben ser un entero entre 2 y 12.')
+      return
+    }
+    if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
+      setError('Los segundos por turno deben ser un entero entre 5 y 120.')
+      return
+    }
     const incompleteCard = cards.some((card) => !card.label.trim() || !card.imageUrl)
     if (incompleteCard) {
       setError('Cada tarjeta necesita una imagen y un nombre antes de crear el juego.')
@@ -130,6 +142,7 @@ export function GuessWhoGameForm({
           label: card.label.trim(),
           audioUrl: card.audioUrl,
         })),
+        config: { maxAccusationCount, turnDurationSeconds },
       })
       await publishGame(token, game.id)
       showToast('Juego creado', 'success')
@@ -181,6 +194,43 @@ export function GuessWhoGameForm({
           disabled={submitting}
           onChange={setCoverImageUrl}
         />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="max-accusation-count">
+              Cartas restantes para poder acusar
+            </label>
+            <input
+              id="max-accusation-count"
+              type="number"
+              min={2}
+              max={12}
+              className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
+              value={maxAccusationCount}
+              disabled={submitting}
+              onChange={(event) => setMaxAccusationCount(Number(event.target.value))}
+            />
+            <p className="mt-1 text-[11.5px] text-text">Entre 2 y 12 tarjetas.</p>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="turn-duration-seconds">
+              Segundos por turno
+            </label>
+            <input
+              id="turn-duration-seconds"
+              type="number"
+              min={5}
+              max={120}
+              className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
+              value={turnDurationSeconds}
+              disabled={submitting}
+              onChange={(event) => setTurnDurationSeconds(Number(event.target.value))}
+            />
+            <p className="mt-1 text-[11.5px] text-text">
+              Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
+            </p>
+          </div>
+        </div>
 
         <div>
           <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="game-category">

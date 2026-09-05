@@ -41,6 +41,9 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
+/** Cuenta regresiva antes de repartir cartas (3-2-1), igual para el inicio y cada revancha. */
+const DEAL_COUNTDOWN_MS = 3_000;
+
 /** Vista pública de la sala que se envía a un jugador dado: oculta la carta secreta ajena. */
 function toClientView(room: RoomState, forSocketId: string) {
   return {
@@ -48,8 +51,11 @@ function toClientView(room: RoomState, forSocketId: string) {
     gameTitle: room.gameTitle,
     cards: room.cards,
     maxAccusationCount: room.maxAccusationCount,
+    turnDurationSeconds: room.turnDurationSeconds,
     phase: room.phase,
     winnerUserId: room.winnerUserId,
+    activePlayerUserId: room.activePlayerUserId,
+    turnDeadline: room.turnDeadline,
     players: room.players.map((player) => ({
       userId: player.userId,
       displayName: player.displayName,
@@ -85,6 +91,15 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly logger = new Logger(RoomsGateway.name);
 
+  /**
+   * Timers de turno en memoria, uno por sala activa (código -> handle de
+   * setTimeout). No viven en RoomState porque un NodeJS.Timeout no es un
+   * dato serializable de la sala, es un efecto colateral de este gateway.
+   * El servidor es quien manda: si nadie actúa a tiempo, este timer pasa el
+   * turno igual que si el jugador hubiera pulsado "Pasar turno".
+   */
+  private readonly turnTimers = new Map<string, NodeJS.Timeout>();
+
   constructor(
     private readonly jwtService: JwtService,
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
@@ -116,6 +131,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = this.roomStore.findBySocketId(socket.id);
     if (!room) return;
 
+    this.clearTurnTimer(room.code);
     room.players = room.players.filter((player) => player.socketId !== socket.id);
 
     if (room.players.length === 0) {
@@ -124,6 +140,8 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     room.phase = room.phase === 'FINISHED' ? room.phase : 'WAITING';
+    room.activePlayerUserId = null;
+    room.turnDeadline = null;
     this.roomStore.set(room);
     this.broadcastState(room);
   }
@@ -149,6 +167,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       gameTitle: game.title,
       cards: game.content as GuessWhoCard[],
       maxAccusationCount: (game.config.maxAccusationCount as number | undefined) ?? 6,
+      turnDurationSeconds: (game.config.turnDurationSeconds as number | undefined) ?? 15,
       phase: 'WAITING',
       players: [
         {
@@ -162,6 +181,8 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       winnerUserId: null,
       createdAt: Date.now(),
       rematchVotes: {},
+      activePlayerUserId: null,
+      turnDeadline: null,
     };
 
     this.roomStore.create(room);
@@ -206,7 +227,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
     if (room.players.length !== 2) throw new Error('Se necesitan 2 jugadores para iniciar.');
 
-    this.dealNewGame(room);
+    this.startDealCountdown(room);
   }
 
   /**
@@ -242,7 +263,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       room.players.length === 2 && room.players.every((p) => room.rematchVotes[p.userId] === true);
 
     if (allAccepted) {
-      this.dealNewGame(room);
+      this.startDealCountdown(room);
       return;
     }
 
@@ -250,7 +271,23 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.broadcastState(room);
   }
 
-  /** Baraja cartas nuevas, reparte y pasa la sala a PLAYING (usada por inicio y revancha). */
+  /**
+   * Cuenta regresiva de 3-2-1 antes de repartir (mismo aviso para el primer
+   * inicio y cada revancha): se avisa a los clientes vía `room:dealing` para
+   * que muestren la animación de barajado, y solo al final se reparten
+   * cartas y arranca el turno.
+   */
+  private startDealCountdown(room: RoomState) {
+    this.server.to(room.code).emit('room:dealing', { countdownMs: DEAL_COUNTDOWN_MS });
+    setTimeout(() => {
+      // La sala pudo cerrarse (alguien se desconectó) durante la cuenta regresiva.
+      const current = this.roomStore.get(room.code);
+      if (!current || current.players.length !== 2) return;
+      this.dealNewGame(current);
+    }, DEAL_COUNTDOWN_MS);
+  }
+
+  /** Baraja cartas nuevas, reparte, elige turno al azar y pasa la sala a PLAYING. */
   private dealNewGame(room: RoomState) {
     const shuffled = shuffle(room.cards);
     room.players[0].secretCardId = shuffled[0].cardId;
@@ -260,8 +297,24 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     room.winnerUserId = null;
     room.rematchVotes = {};
 
-    this.roomStore.set(room);
-    this.broadcastState(room);
+    const firstPlayer = room.players[Math.floor(Math.random() * room.players.length)];
+    this.setActiveTurn(room, firstPlayer.userId);
+  }
+
+  /**
+   * Pasar el turno manualmente (botón "Pasar turno"). Solo el jugador activo
+   * puede hacerlo — no tiene sentido que el rival ceda un turno que no es
+   * suyo.
+   */
+  @SubscribeMessage('room:pass-turn')
+  handlePassTurn(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const room = this.roomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') throw new Error('La partida no está en curso.');
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (!player || player.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
+
+    this.advanceTurn(room);
   }
 
   @SubscribeMessage('room:discard')
@@ -274,6 +327,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const player = room.players.find((p) => p.socketId === socket.id);
     if (!player) throw new Error('No estás en esta sala.');
+    if (player.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
 
     if (!player.discardedCardIds.includes(body.cardId)) {
       player.discardedCardIds.push(body.cardId);
@@ -294,15 +348,19 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const accuser = room.players.find((p) => p.socketId === socket.id);
     const opponent = room.players.find((p) => p.socketId !== socket.id);
     if (!accuser || !opponent) throw new Error('Falta el rival para acusar.');
+    if (accuser.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
 
     const remaining = room.cards.length - accuser.discardedCardIds.length;
     if (remaining > room.maxAccusationCount) {
       throw new Error(`Solo puedes acusar con ${room.maxAccusationCount} cartas o menos en el tablero.`);
     }
 
+    this.clearTurnTimer(room.code);
     room.phase = 'FINISHED';
     room.winnerUserId = body.cardId === opponent.secretCardId ? accuser.userId : opponent.userId;
     room.rematchVotes = {};
+    room.activePlayerUserId = null;
+    room.turnDeadline = null;
 
     this.roomStore.set(room);
     this.broadcastState(room);
@@ -312,6 +370,38 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleLeave(@ConnectedSocket() socket: AuthenticatedSocket) {
     this.handleDisconnect(socket);
     socket.disconnect();
+  }
+
+  /** Fija el turno activo, arranca su deadline y programa el auto-pase server-side. */
+  private setActiveTurn(room: RoomState, userId: string) {
+    room.activePlayerUserId = userId;
+    room.turnDeadline = Date.now() + room.turnDurationSeconds * 1000;
+
+    this.roomStore.set(room);
+    this.broadcastState(room);
+
+    this.clearTurnTimer(room.code);
+    const timer = setTimeout(() => {
+      const current = this.roomStore.get(room.code);
+      if (!current || current.phase !== 'PLAYING' || current.activePlayerUserId !== userId) return;
+      this.advanceTurn(current);
+    }, room.turnDurationSeconds * 1000);
+    this.turnTimers.set(room.code, timer);
+  }
+
+  /** Pasa el turno al otro jugador (usada tanto por "Pasar turno" como por el vencimiento del timer). */
+  private advanceTurn(room: RoomState) {
+    const next = room.players.find((p) => p.userId !== room.activePlayerUserId);
+    if (!next) return;
+    this.setActiveTurn(room, next.userId);
+  }
+
+  private clearTurnTimer(code: string) {
+    const timer = this.turnTimers.get(code);
+    if (timer) {
+      clearTimeout(timer);
+      this.turnTimers.delete(code);
+    }
   }
 
   private broadcastState(room: RoomState) {

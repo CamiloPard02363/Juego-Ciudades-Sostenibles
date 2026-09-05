@@ -1,8 +1,31 @@
-import { useState } from 'react'
-import { Copy, LogOut, Swords, Trophy, Users, Volume2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Copy, LogOut, SkipForward, Swords, Trophy, Users, Volume2 } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
 import { Modal } from './Modal'
+
+/**
+ * Cuenta el tiempo restante hasta `deadline` (epoch ms) y se refresca cada
+ * 200ms. Usado tanto por el countdown de reparto (3-2-1) como por la barra
+ * de tiempo del turno — 200ms es suficiente para que se vea fluido sin
+ * generar un re-render por frame.
+ */
+function useCountdown(deadline: number | null): number {
+  const [remainingMs, setRemainingMs] = useState(0)
+
+  useEffect(() => {
+    if (deadline === null) {
+      setRemainingMs(0)
+      return
+    }
+    const tick = () => setRemainingMs(Math.max(0, deadline - Date.now()))
+    tick()
+    const interval = setInterval(tick, 200)
+    return () => clearInterval(interval)
+  }, [deadline])
+
+  return remainingMs
+}
 
 type GuessWhoRoomProps = {
   gameId: string
@@ -24,17 +47,32 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
     error,
     connecting,
     rematchRejectedMessage,
+    dealCountdownMs,
     createRoom,
     joinRoom,
     startGame,
     discardCard,
     accuseCard,
     voteRematch,
+    passTurn,
     leaveRoom,
   } = useGuessWhoRoom(token)
   const [entryChoice, setEntryChoice] = useState<EntryChoice>('undecided')
   const [joinCode, setJoinCode] = useState('')
   const [accusing, setAccusing] = useState(false)
+  // dealCountdownMs es una duración (ms) que llega una sola vez con el evento
+  // room:dealing; se ancla a un deadline absoluto apenas cambia, para que
+  // useCountdown pueda tickear sin depender de que el padre re-renderice.
+  const [dealDeadline, setDealDeadline] = useState<number | null>(null)
+  useEffect(() => {
+    if (dealCountdownMs === null) {
+      setDealDeadline(null)
+      return
+    }
+    setDealDeadline(Date.now() + dealCountdownMs)
+  }, [dealCountdownMs])
+  const dealRemainingMs = useCountdown(dealDeadline)
+  const turnRemainingMs = useCountdown(room?.turnDeadline ?? null)
 
   function handleExit() {
     leaveRoom()
@@ -137,11 +175,15 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   const self = room.players.find((player) => player.isSelf)
   const opponent = room.players.find((player) => !player.isSelf)
   const remainingForSelf = self ? room.cards.length - self.discardedCardIds.length : room.cards.length
-  const canAccuse = room.phase === 'PLAYING' && remainingForSelf <= room.maxAccusationCount
+  const isMyTurn = room.phase === 'PLAYING' && room.activePlayerUserId === self?.userId
+  const canAccuse = room.phase === 'PLAYING' && isMyTurn && remainingForSelf <= room.maxAccusationCount
   const winnerIsSelf = room.winnerUserId === user?.id
+  const dealing = dealDeadline !== null && dealRemainingMs > 0
 
   return (
     <Modal onClose={handleExit} maxWidthClassName="max-w-[760px]">
+      {dealing && <DealCountdownOverlay remainingMs={dealRemainingMs} />}
+
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-[19px] tracking-tight text-text-h">{room.gameTitle}</h2>
@@ -218,8 +260,15 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
         </div>
       )}
 
-      {room.phase === 'PLAYING' && self && (
+      {room.phase === 'PLAYING' && self && opponent && (
         <div className="flex flex-col gap-5">
+          <TurnBanner
+            isMyTurn={isMyTurn}
+            opponentName={opponent.displayName}
+            remainingMs={turnRemainingMs}
+            turnDurationSeconds={room.turnDurationSeconds}
+          />
+
           <div className="flex items-center justify-between rounded-xl border border-accent/40 bg-accent/5 p-4">
             <div>
               <p className="text-[11.5px] font-semibold tracking-wide text-accent uppercase">
@@ -234,24 +283,28 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+          <div className={`grid grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>
             {room.cards.map((card, index) => {
               const discarded = self.discardedCardIds.includes(card.cardId)
+              const locked = !isMyTurn || discarded
               return (
                 <button
                   key={card.cardId}
                   type="button"
+                  disabled={locked}
                   className={`group relative overflow-hidden rounded-lg border text-left transition-[transform,border-color] duration-200 ${
                     discarded
                       ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out]'
-                      : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
+                      : locked
+                        ? 'cursor-not-allowed border-border'
+                        : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
                   }`}
                   style={{
                     animation: discarded
                       ? undefined
                       : `card-pop-in 0.3s ease-out ${Math.min(index, 12) * 0.03}s backwards`,
                   }}
-                  onClick={() => !discarded && discardCard(card.cardId)}
+                  onClick={() => !locked && discardCard(card.cardId)}
                 >
                   <img src={card.imageUrl} alt="" className="h-20 w-full object-cover" />
                   <p className="truncate bg-surface px-1.5 py-1 text-[11px] font-medium text-text-h">
@@ -274,6 +327,17 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
               )
             })}
           </div>
+
+          {isMyTurn && (
+            <button
+              type="button"
+              className="flex items-center justify-center gap-1.5 self-start rounded-lg border border-border px-3.5 py-2 text-[12.5px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
+              onClick={passTurn}
+            >
+              <SkipForward className="h-3.5 w-3.5" strokeWidth={2} />
+              Pasar turno
+            </button>
+          )}
 
           {canAccuse && (
             <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 animate-[fade-in-up_0.35s_ease-out]">
@@ -376,6 +440,97 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
         </div>
       )}
     </Modal>
+  )
+}
+
+/**
+ * Cuenta regresiva 3-2-1 antes de repartir cartas nuevas (inicio o
+ * revancha): mientras baja el número, dos cartas boca abajo "vuelan" desde
+ * el centro — una hacia el jugador (self) que se voltea y revela su nombre,
+ * y otra hacia el rival que se queda boca abajo, dejando claro que cada
+ * quien solo conoce su propia carta secreta.
+ */
+function DealCountdownOverlay({ remainingMs }: { remainingMs: number }) {
+  const secondsLeft = Math.ceil(remainingMs / 1000)
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-8 bg-black/70 backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out]">
+      <div className="flex items-center gap-10">
+        <div className="flex flex-col items-center gap-2">
+          <div
+            className="flex h-20 w-14 items-center justify-center rounded-lg border-2 border-white/30 bg-gradient-to-br from-white/20 to-white/5 shadow-lg animate-[deal-card-to-opponent_0.6s_ease-out_backwards]"
+            style={{ animationDelay: '0.1s' }}
+          >
+            <span className="text-[10px] font-semibold tracking-widest text-white/50 uppercase">Rival</span>
+          </div>
+          <p className="text-[11px] font-medium text-white/60">Carta oculta</p>
+        </div>
+
+        <div className="flex flex-col items-center gap-2">
+          <div
+            className="flex h-20 w-14 items-center justify-center rounded-lg border-2 border-accent bg-gradient-to-br from-[color-mix(in_srgb,var(--accent)_60%,white)] to-[var(--accent)] text-center shadow-[0_8px_20px_-6px_var(--accent)] [backface-visibility:hidden] animate-[deal-card-to-self_0.7s_ease-out_backwards]"
+            style={{ animationDelay: '0.1s' }}
+          >
+            <span className="px-1 text-[10px] font-semibold text-white">Tú</span>
+          </div>
+          <p className="text-[11px] font-medium text-white/60">Tu carta se revela primero</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center gap-3 text-center">
+        <p className="text-[14px] font-medium tracking-wide text-white/80 uppercase">Barajando cartas…</p>
+        <span
+          key={secondsLeft}
+          className="text-[72px] font-bold text-white animate-[countdown-number-pulse_1s_ease-out]"
+        >
+          {secondsLeft > 0 ? secondsLeft : '¡Ya!'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** Banner que muestra de quién es el turno y cuánto tiempo le queda antes del auto-pase. */
+function TurnBanner({
+  isMyTurn,
+  opponentName,
+  remainingMs,
+  turnDurationSeconds,
+}: {
+  isMyTurn: boolean
+  opponentName: string
+  remainingMs: number
+  turnDurationSeconds: number
+}) {
+  const secondsLeft = Math.ceil(remainingMs / 1000)
+  const progress = Math.max(0, Math.min(1, remainingMs / (turnDurationSeconds * 1000)))
+  const urgent = secondsLeft <= 5
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors ${
+        isMyTurn
+          ? 'border-accent/50 bg-accent/10 animate-[turn-banner-glow_2s_ease-in-out_infinite]'
+          : 'border-border bg-code-bg'
+      }`}
+    >
+      <p className="text-[13.5px] font-semibold text-text-h">
+        {isMyTurn ? 'Es tu turno' : `Turno de ${opponentName}`}
+      </p>
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border">
+          <div
+            className={`h-full rounded-full transition-[width] duration-200 ease-linear ${
+              urgent ? 'bg-danger' : 'bg-accent'
+            }`}
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
+        <span className={`w-5 text-right text-[13px] font-semibold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
+          {secondsLeft}
+        </span>
+      </div>
+    </div>
   )
 }
 
