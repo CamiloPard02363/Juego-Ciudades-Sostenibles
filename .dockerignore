@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.env
+**/.env
+**/.env.*
+*.log
+**/*.log
+server/test
+client/src
+client/public
