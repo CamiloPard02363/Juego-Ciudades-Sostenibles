@@ -371,9 +371,23 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new Error(`Solo puedes acusar con ${room.maxAccusationCount} cartas o menos en el tablero.`);
     }
 
+    const correct = body.cardId === opponent.secretCardId;
+
+    this.server.to(room.code).emit('room:accusation-result', {
+      accuserUserId: accuser.userId,
+      accuserName: accuser.displayName,
+      correct,
+    });
+
+    if (!correct) {
+      // Acusación fallida: el juego continúa, solo pasa el turno al rival.
+      this.advanceTurn(room);
+      return;
+    }
+
     this.clearTurnTimer(room.code);
     room.phase = 'FINISHED';
-    room.winnerUserId = body.cardId === opponent.secretCardId ? accuser.userId : opponent.userId;
+    room.winnerUserId = accuser.userId;
     room.rematchVotes = {};
     room.activePlayerUserId = null;
     room.turnDeadline = null;
