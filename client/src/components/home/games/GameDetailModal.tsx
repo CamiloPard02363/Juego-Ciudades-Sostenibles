@@ -30,7 +30,6 @@ export function GameDetailModal({
   const [editingConfig, setEditingConfig] = useState(false)
   const config = game.config as { maxAccusationCount?: number; turnDurationSeconds?: number }
   const [maxAccusationCount, setMaxAccusationCount] = useState(config.maxAccusationCount ?? 6)
-  const [turnDurationSeconds, setTurnDurationSeconds] = useState(config.turnDurationSeconds ?? 15)
   const [savingConfig, setSavingConfig] = useState(false)
   const [configError, setConfigError] = useState<string | null>(null)
 
@@ -40,15 +39,14 @@ export function GameDetailModal({
       setConfigError('Las cartas restantes para acusar deben ser un entero entre 2 y 12.')
       return
     }
-    if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
-      setConfigError('Los segundos por turno deben ser un entero entre 5 y 120.')
-      return
-    }
     setSavingConfig(true)
     setConfigError(null)
     try {
+      // El turno del juego ya no se edita aquí (vive en la sala de juego),
+      // pero hay que reenviar el valor ya guardado: la API reemplaza el
+      // config entero y de lo contrario lo resetearía a su default.
       const updated = await updateGame(token, game.id, {
-        config: { maxAccusationCount, turnDurationSeconds },
+        config: { maxAccusationCount, turnDurationSeconds: config.turnDurationSeconds },
       })
       onUpdated(updated)
       setEditingConfig(false)
@@ -115,44 +113,27 @@ export function GameDetailModal({
       {editingConfig ? (
         <div className="mb-6 rounded-xl border border-border p-4">
           <p className="mb-3 text-[13.5px] font-semibold text-text-h">Configuración de la partida</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label
-                className="mb-1.5 block text-[13px] font-medium text-text-h"
-                htmlFor="edit-max-accusation-count"
-              >
-                Cartas restantes para acusar
-              </label>
-              <input
-                id="edit-max-accusation-count"
-                type="number"
-                min={2}
-                max={12}
-                className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
-                value={maxAccusationCount}
-                disabled={savingConfig}
-                onChange={(event) => setMaxAccusationCount(Number(event.target.value))}
-              />
-            </div>
-            <div>
-              <label
-                className="mb-1.5 block text-[13px] font-medium text-text-h"
-                htmlFor="edit-turn-duration-seconds"
-              >
-                Segundos por turno
-              </label>
-              <input
-                id="edit-turn-duration-seconds"
-                type="number"
-                min={5}
-                max={120}
-                className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
-                value={turnDurationSeconds}
-                disabled={savingConfig}
-                onChange={(event) => setTurnDurationSeconds(Number(event.target.value))}
-              />
-            </div>
+          <div>
+            <label
+              className="mb-1.5 block text-[13px] font-medium text-text-h"
+              htmlFor="edit-max-accusation-count"
+            >
+              Cartas restantes para acusar
+            </label>
+            <input
+              id="edit-max-accusation-count"
+              type="number"
+              min={2}
+              max={12}
+              className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
+              value={maxAccusationCount}
+              disabled={savingConfig}
+              onChange={(event) => setMaxAccusationCount(Number(event.target.value))}
+            />
           </div>
+          <p className="mt-2 text-[11.5px] text-text">
+            Los segundos por turno se eligen al abrir la sala, justo antes de empezar la partida.
+          </p>
           {configError && (
             <p className="mt-3 text-[12.5px] text-danger" role="alert">
               {configError}
@@ -175,7 +156,6 @@ export function GameDetailModal({
                 setEditingConfig(false)
                 setConfigError(null)
                 setMaxAccusationCount(config.maxAccusationCount ?? 6)
-                setTurnDurationSeconds(config.turnDurationSeconds ?? 15)
               }}
               disabled={savingConfig}
             >

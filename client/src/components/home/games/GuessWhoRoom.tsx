@@ -73,6 +73,16 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   }, [dealCountdownMs])
   const dealRemainingMs = useCountdown(dealDeadline)
   const turnRemainingMs = useCountdown(room?.turnDeadline ?? null)
+  // Segundos por turno para la próxima partida: se elige aquí, en la sala,
+  // no al crear el juego — cada partida en vivo puede querer un ritmo
+  // distinto. Se sincroniza con el valor del juego solo al entrar a una
+  // sala nueva (room.code cambia), para no pisar lo que la persona ya
+  // esté escribiendo cuando el rival se une y llega un room:state nuevo.
+  const [turnDurationInput, setTurnDurationInput] = useState(15)
+  useEffect(() => {
+    if (room?.turnDurationSeconds !== undefined) setTurnDurationInput(room.turnDurationSeconds)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.code])
 
   function handleExit() {
     leaveRoom()
@@ -248,12 +258,30 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
             </div>
           )}
 
+          <div>
+            <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="turn-duration-input">
+              Segundos por turno
+            </label>
+            <input
+              id="turn-duration-input"
+              type="number"
+              min={5}
+              max={120}
+              className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
+              value={turnDurationInput}
+              onChange={(event) => setTurnDurationInput(Number(event.target.value))}
+            />
+            <p className="mt-1 text-[11.5px] text-text">
+              Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
+            </p>
+          </div>
+
           <button
             type="button"
             className="rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             disabled={room.players.length !== 2}
-            onClick={startGame}
+            onClick={() => startGame(turnDurationInput)}
           >
             {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
           </button>

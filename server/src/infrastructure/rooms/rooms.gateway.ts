@@ -221,11 +221,27 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('room:start')
-  handleStart(@ConnectedSocket() socket: AuthenticatedSocket) {
+  handleStart(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { turnDurationSeconds?: number },
+  ) {
     const room = this.roomStore.findBySocketId(socket.id);
     if (!room) throw new Error('No estás en ninguna sala.');
     if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
     if (room.players.length !== 2) throw new Error('Se necesitan 2 jugadores para iniciar.');
+
+    // El tiempo por turno se elige en la sala (no en la creación del
+    // juego), así que cada partida puede tener su propio ritmo; si viene
+    // fuera de rango o no llega, se conserva el valor con el que se creó
+    // la sala (heredado de la configuración del juego).
+    if (body?.turnDurationSeconds !== undefined) {
+      const { turnDurationSeconds } = body;
+      if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
+        throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
+      }
+      room.turnDurationSeconds = turnDurationSeconds;
+      this.roomStore.set(room);
+    }
 
     this.startDealCountdown(room);
   }

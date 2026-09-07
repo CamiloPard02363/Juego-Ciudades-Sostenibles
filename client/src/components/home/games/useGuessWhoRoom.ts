@@ -63,8 +63,8 @@ export function useGuessWhoRoom(token: string | null) {
     socketRef.current?.emit('room:join', { code })
   }, [])
 
-  const startGame = useCallback(() => {
-    socketRef.current?.emit('room:start')
+  const startGame = useCallback((turnDurationSeconds?: number) => {
+    socketRef.current?.emit('room:start', { turnDurationSeconds })
   }, [])
 
   const discardCard = useCallback((cardId: string) => {
