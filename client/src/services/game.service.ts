@@ -117,6 +117,19 @@ export function createGame(token: string, input: CreateGameInput): Promise<GameD
   })
 }
 
+/** PATCH /games/:id — edición parcial; solo el creador o un admin. */
+export function updateGame(
+  token: string,
+  gameId: string,
+  input: { config?: Record<string, unknown> },
+): Promise<GameDetail> {
+  return request<GameDetail>(`/games/${gameId}`, {
+    method: 'PATCH',
+    token,
+    body: input,
+  })
+}
+
 /** PATCH /games/:id/publish — solo el creador o un admin. */
 export function publishGame(token: string, gameId: string): Promise<GameDetail> {
   return request<GameDetail>(`/games/${gameId}/publish`, { method: 'PATCH', token })

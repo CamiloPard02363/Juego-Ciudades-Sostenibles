@@ -411,7 +411,15 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
                 <button
                   type="button"
                   className="flex-1 rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
-                  onClick={() => voteRematch(false)}
+                  onClick={() => {
+                    // El servidor borra la sala apenas recibe un rechazo (no
+                    // hay vuelta atrás), así que quien rechaza no espera
+                    // ningún room:state nuevo — sale directo en vez de
+                    // quedarse pegado en esta pantalla esperando una
+                    // respuesta que nunca llega.
+                    voteRematch(false)
+                    handleExit()
+                  }}
                 >
                   No, salir
                 </button>

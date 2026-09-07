@@ -431,6 +431,10 @@ export function GamesSection({ searchQuery, searchNonce }: GamesSectionProps) {
           onClose={() => setSelectedGame(null)}
           onPlay={handlePlayClick}
           onDelete={handleDelete}
+          onUpdated={(updated) => {
+            setSelectedGame(updated)
+            reload()
+          }}
         />
       )}
 
