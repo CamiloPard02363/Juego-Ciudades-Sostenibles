@@ -48,6 +48,8 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
     connecting,
     rematchRejectedMessage,
     dealCountdownMs,
+    accusationFailedMessage,
+    clearAccusationFailedMessage,
     createRoom,
     joinRoom,
     startGame,
@@ -88,6 +90,14 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
     leaveRoom()
     onExit()
   }
+
+  // Aviso temporal de acusación fallida: se autolimpia para no quedar
+  // pegado en pantalla una vez el jugador ya vio el mensaje.
+  useEffect(() => {
+    if (!accusationFailedMessage) return
+    const timeout = setTimeout(clearAccusationFailedMessage, 3500)
+    return () => clearTimeout(timeout)
+  }, [accusationFailedMessage, clearAccusationFailedMessage])
 
   // El rival votó "no" a la revancha: el servidor ya cerró la sala, así que
   // solo queda avisar y devolver a la persona a la pantalla anterior.
@@ -226,6 +236,15 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
           role="alert"
         >
           {error}
+        </p>
+      )}
+
+      {accusationFailedMessage && (
+        <p
+          className="mb-4 rounded-lg border border-border bg-code-bg px-[13px] py-[11px] text-sm leading-snug text-text-h animate-[fade-in-up_0.2s_ease-out]"
+          role="status"
+        >
+          {accusationFailedMessage}
         </p>
       )}
 
