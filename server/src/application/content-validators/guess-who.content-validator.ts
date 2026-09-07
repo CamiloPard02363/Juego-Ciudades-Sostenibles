@@ -12,10 +12,13 @@ export interface GuessWhoCard {
 
 export interface GuessWhoConfig {
   maxAccusationCount: number;
+  /** Segundos que tiene el jugador activo para descartar/pasar turno antes de que pase automático. */
+  turnDurationSeconds: number;
 }
 
 const DEFAULT_CONFIG: GuessWhoConfig = {
   maxAccusationCount: 6,
+  turnDurationSeconds: 15,
 };
 
 const MAX_LABEL_LENGTH = 120;
@@ -43,12 +46,16 @@ export class GuessWhoContentValidator implements ContentValidator {
   validateConfig(config: unknown): Record<string, unknown> {
     const raw = (config ?? {}) as Partial<GuessWhoConfig>;
     const maxAccusationCount = raw.maxAccusationCount ?? DEFAULT_CONFIG.maxAccusationCount;
+    const turnDurationSeconds = raw.turnDurationSeconds ?? DEFAULT_CONFIG.turnDurationSeconds;
 
     if (!Number.isInteger(maxAccusationCount) || maxAccusationCount < 2 || maxAccusationCount > 12) {
       throw new InvalidGameContentError('maxAccusationCount debe ser un entero entre 2 y 12.');
     }
+    if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
+      throw new InvalidGameContentError('turnDurationSeconds debe ser un entero entre 5 y 120.');
+    }
 
-    return { maxAccusationCount };
+    return { maxAccusationCount, turnDurationSeconds };
   }
 
   validateContent(content: unknown): unknown[] {
