@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, LogOut, Swords, Trophy, Users, Volume2 } from 'lucide-react'
+import { Copy, LogOut, SkipForward, Swords, Trophy, Users, Volume2 } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
 import { Modal } from './Modal'
@@ -19,8 +19,18 @@ type EntryChoice = 'undecided' | 'creating' | 'joining'
 
 export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   const { token, user } = useAuth()
-  const { room, error, connecting, createRoom, joinRoom, startGame, discardCard, accuseCard, leaveRoom } =
-    useGuessWhoRoom(token)
+  const {
+    room,
+    error,
+    connecting,
+    createRoom,
+    joinRoom,
+    startGame,
+    discardCard,
+    accuseCard,
+    passTurn,
+    leaveRoom,
+  } = useGuessWhoRoom(token)
   const [entryChoice, setEntryChoice] = useState<EntryChoice>('undecided')
   const [joinCode, setJoinCode] = useState('')
   const [accusing, setAccusing] = useState(false)
@@ -102,7 +112,8 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   const self = room.players.find((player) => player.isSelf)
   const opponent = room.players.find((player) => !player.isSelf)
   const remainingForSelf = self ? room.cards.length - self.discardedCardIds.length : room.cards.length
-  const canAccuse = room.phase === 'PLAYING' && remainingForSelf <= room.maxAccusationCount
+  const isMyTurn = room.phase === 'PLAYING' && room.currentTurnUserId === self?.userId
+  const canAccuse = room.phase === 'PLAYING' && isMyTurn && remainingForSelf <= room.maxAccusationCount
   const winnerIsSelf = room.winnerUserId === user?.id
 
   return (
@@ -185,6 +196,27 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
 
       {room.phase === 'PLAYING' && self && (
         <div className="flex flex-col gap-5">
+          <div
+            className={`flex items-center justify-between rounded-xl border p-3.5 text-[13.5px] font-semibold ${
+              isMyTurn
+                ? 'border-accent/50 bg-accent/10 text-accent'
+                : 'border-border bg-code-bg text-text'
+            }`}
+            role="status"
+          >
+            <span>{isMyTurn ? 'Es tu turno' : `Turno de ${opponent?.displayName ?? 'tu rival'}`}</span>
+            {isMyTurn && (
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-lg border border-accent px-3 py-1.5 text-[12.5px] font-semibold text-accent"
+                onClick={passTurn}
+              >
+                <SkipForward className="h-3.5 w-3.5" strokeWidth={2} />
+                Pasar turno
+              </button>
+            )}
+          </div>
+
           <div className="flex items-center justify-between rounded-xl border border-accent/40 bg-accent/5 p-4">
             <div>
               <p className="text-[11.5px] font-semibold tracking-wide text-accent uppercase">
@@ -206,9 +238,10 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
                 <button
                   key={card.cardId}
                   type="button"
+                  disabled={!isMyTurn}
                   className={`group relative overflow-hidden rounded-lg border text-left transition-opacity ${
                     discarded ? 'border-border opacity-30' : 'border-border hover:border-accent'
-                  }`}
+                  } ${!isMyTurn ? 'cursor-not-allowed opacity-60' : ''}`}
                   onClick={() => discardCard(card.cardId)}
                 >
                   <img src={card.imageUrl} alt="" className="h-20 w-full object-cover" />

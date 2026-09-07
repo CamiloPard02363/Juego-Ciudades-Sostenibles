@@ -57,17 +57,32 @@ export class AuthController {
     if (refreshToken) {
       await this.logoutUseCase.execute({ refreshToken });
     }
-    response.clearCookie(REFRESH_TOKEN_COOKIE, { path: '/auth' });
+    response.clearCookie(REFRESH_TOKEN_COOKIE, {
+      path: '/auth',
+      secure: this.isCrossSiteDeployment(),
+      sameSite: this.isCrossSiteDeployment() ? 'none' : 'lax',
+    });
   }
 
   private setRefreshTokenCookie(response: Response, refreshToken: string): void {
+    // En producción el cliente y el servidor suelen vivir en dominios
+    // distintos (ej. frontend en Vercel/Netlify y este backend en Railway).
+    // Una cookie SameSite=Lax nunca viaja en ese caso porque el navegador la
+    // trata como cross-site, así que el refresh fallaría siempre y forzaría
+    // reiniciar sesión en cada carga. SameSite=None (que exige Secure) sí
+    // viaja entre dominios distintos y sigue funcionando en same-site.
+    const crossSite = this.isCrossSiteDeployment();
     response.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: crossSite,
+      sameSite: crossSite ? 'none' : 'lax',
       path: '/auth',
       maxAge: REFRESH_TOKEN_MAX_AGE_MS,
     });
+  }
+
+  private isCrossSiteDeployment(): boolean {
+    return process.env.NODE_ENV === 'production';
   }
 
   private extractRefreshTokenCookie(request: Request): string | undefined {

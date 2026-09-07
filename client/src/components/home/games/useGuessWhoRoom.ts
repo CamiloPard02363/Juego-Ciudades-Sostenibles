@@ -58,10 +58,25 @@ export function useGuessWhoRoom(token: string | null) {
     socketRef.current?.emit('room:accuse', { cardId })
   }, [])
 
+  const passTurn = useCallback(() => {
+    socketRef.current?.emit('room:pass-turn')
+  }, [])
+
   const leaveRoom = useCallback(() => {
     socketRef.current?.emit('room:leave')
     setRoom(null)
   }, [])
 
-  return { room, error, connecting, createRoom, joinRoom, startGame, discardCard, accuseCard, leaveRoom }
+  return {
+    room,
+    error,
+    connecting,
+    createRoom,
+    joinRoom,
+    startGame,
+    discardCard,
+    accuseCard,
+    passTurn,
+    leaveRoom,
+  }
 }

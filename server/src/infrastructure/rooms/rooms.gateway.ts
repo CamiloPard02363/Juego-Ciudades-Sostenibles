@@ -50,6 +50,7 @@ function toClientView(room: RoomState, forSocketId: string) {
     maxAccusationCount: room.maxAccusationCount,
     phase: room.phase,
     winnerUserId: room.winnerUserId,
+    currentTurnUserId: room.currentTurnUserId,
     players: room.players.map((player) => ({
       userId: player.userId,
       displayName: player.displayName,
@@ -123,6 +124,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     room.phase = room.phase === 'FINISHED' ? room.phase : 'WAITING';
+    if (room.phase === 'WAITING') room.currentTurnUserId = null;
     this.roomStore.set(room);
     this.broadcastState(room);
   }
@@ -159,6 +161,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
       ],
       winnerUserId: null,
+      currentTurnUserId: null,
       createdAt: Date.now(),
     };
 
@@ -209,6 +212,9 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     room.players.forEach((player) => (player.discardedCardIds = []));
     room.phase = 'PLAYING';
     room.winnerUserId = null;
+    // Turno inicial al azar para no favorecer siempre a quien crea la sala.
+    room.currentTurnUserId =
+      room.players[Math.random() < 0.5 ? 0 : 1].userId;
 
     this.roomStore.set(room);
     this.broadcastState(room);
@@ -224,6 +230,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const player = room.players.find((p) => p.socketId === socket.id);
     if (!player) throw new Error('No estás en esta sala.');
+    if (room.currentTurnUserId !== player.userId) throw new Error('No es tu turno.');
 
     if (!player.discardedCardIds.includes(body.cardId)) {
       player.discardedCardIds.push(body.cardId);
@@ -244,6 +251,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const accuser = room.players.find((p) => p.socketId === socket.id);
     const opponent = room.players.find((p) => p.socketId !== socket.id);
     if (!accuser || !opponent) throw new Error('Falta el rival para acusar.');
+    if (room.currentTurnUserId !== accuser.userId) throw new Error('No es tu turno.');
 
     const remaining = room.cards.length - accuser.discardedCardIds.length;
     if (remaining > room.maxAccusationCount) {
@@ -252,6 +260,22 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     room.phase = 'FINISHED';
     room.winnerUserId = body.cardId === opponent.secretCardId ? accuser.userId : opponent.userId;
+
+    this.roomStore.set(room);
+    this.broadcastState(room);
+  }
+
+  @SubscribeMessage('room:pass-turn')
+  handlePassTurn(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const room = this.roomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') throw new Error('La partida no está en curso.');
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    const opponent = room.players.find((p) => p.socketId !== socket.id);
+    if (!player || !opponent) throw new Error('Falta el rival para pasar el turno.');
+    if (room.currentTurnUserId !== player.userId) throw new Error('No es tu turno.');
+
+    room.currentTurnUserId = opponent.userId;
 
     this.roomStore.set(room);
     this.broadcastState(room);

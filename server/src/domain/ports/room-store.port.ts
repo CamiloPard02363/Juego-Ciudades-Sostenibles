@@ -23,6 +23,8 @@ export interface RoomState {
   phase: RoomPhase;
   players: RoomPlayer[];
   winnerUserId: string | null;
+  /** Id del jugador que puede descartar/acusar ahora mismo. `null` fuera de la fase PLAYING. */
+  currentTurnUserId: string | null;
   createdAt: number;
 }
 

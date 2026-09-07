@@ -36,6 +36,9 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
           </span>
           <h1 className="mt-4.5 mb-2 text-[28px] tracking-tight text-text-h">
             NexusPlay
+
+
+
           </h1>
           <p className="text-[15px]">Inicia sesión para continuar tu partida.</p>
         </header>
