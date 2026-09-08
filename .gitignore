@@ -6,3 +6,4 @@ dist-seed/
 !.env.example
 server/src/generated/
 *.tsbuildinfo
+.scratch/

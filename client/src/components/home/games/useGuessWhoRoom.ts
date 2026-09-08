@@ -16,6 +16,7 @@ export function useGuessWhoRoom(token: string | null) {
   const [connecting, setConnecting] = useState(true)
   const [rematchRejectedMessage, setRematchRejectedMessage] = useState<string | null>(null)
   const [dealCountdownMs, setDealCountdownMs] = useState<number | null>(null)
+  const [accusationFailedMessage, setAccusationFailedMessage] = useState<string | null>(null)
   const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
 
   useEffect(() => {
@@ -49,6 +50,14 @@ export function useGuessWhoRoom(token: string | null) {
       setRematchRejectedMessage(payload.message)
       setRoom(null)
     })
+    // Acusación fallida: el juego sigue, solo mostramos un aviso temporal.
+    socket.on(
+      'room:accusation-result',
+      (payload: { accuserUserId: string; accuserName: string; correct: boolean }) => {
+        if (payload.correct) return
+        setAccusationFailedMessage(`${payload.accuserName} acusó y falló. El juego continúa.`)
+      },
+    )
     socket.on('room:chat-message', (message: GuessWhoChatMessage) => {
       setMessages((current) => [...current, message])
     })
@@ -105,6 +114,8 @@ export function useGuessWhoRoom(token: string | null) {
     connecting,
     rematchRejectedMessage,
     dealCountdownMs,
+    accusationFailedMessage,
+    clearAccusationFailedMessage: () => setAccusationFailedMessage(null),
     messages,
     createRoom,
     joinRoom,
