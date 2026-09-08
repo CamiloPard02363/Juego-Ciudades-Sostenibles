@@ -320,6 +320,27 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  /**
+   * Resuelve un código a ciegas (el usuario solo tiene el código, no sabe si
+   * es de una sala 1v1 o de un torneo grupal) para que el cliente sepa a qué
+   * pantalla enrutar antes de intentar unirse.
+   */
+  @SubscribeMessage('room:resolve-code')
+  handleResolveCode(@MessageBody() body: { code: string }) {
+    const code = body.code?.trim().toUpperCase();
+    if (!code) throw new Error('Ingresa un código.');
+
+    const room = this.roomStore.get(code);
+    if (room) return { kind: 'room' as const, gameId: room.gameId, gameTitle: room.gameTitle };
+
+    const tournament = this.tournamentStore.get(code);
+    if (tournament) {
+      return { kind: 'tournament' as const, gameId: tournament.gameId, gameTitle: tournament.gameTitle };
+    }
+
+    throw new Error('No existe ninguna sala con ese código.');
+  }
+
   @SubscribeMessage('room:join')
   handleJoin(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { code: string }) {
     const code = body.code?.trim().toUpperCase();

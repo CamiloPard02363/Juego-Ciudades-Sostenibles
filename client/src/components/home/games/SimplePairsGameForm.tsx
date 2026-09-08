@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
 import { Modal } from './Modal'
+import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
@@ -41,6 +42,7 @@ export function SimplePairsGameForm({
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [createdGameId, setCreatedGameId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -118,16 +120,27 @@ export function SimplePairsGameForm({
           label: pair.label.trim(),
         })),
       })
-      // El creador ve su propio juego de inmediato; publicarlo lo hace
-      // visible para el resto de la plataforma sin un paso manual extra.
-      await publishGame(token, game.id)
-      showToast('Juego creado', 'success')
-      onCreated()
+      // El juego queda en DRAFT; la elección de dónde guardarlo (privado o
+      // publicado a la comunidad) se hace en el paso siguiente.
+      setCreatedGameId(game.id)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear el juego.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleChooseVisibility(visibility: 'private' | 'community') {
+    if (!token || !createdGameId) return
+    if (visibility === 'community') {
+      await publishGame(token, createdGameId)
+    }
+    showToast('Juego creado', 'success')
+    onCreated()
+  }
+
+  if (createdGameId) {
+    return <SaveVisibilityModal onChoose={handleChooseVisibility} />
   }
 
   return (
@@ -271,7 +284,7 @@ export function SimplePairsGameForm({
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             disabled={submitting}
           >
-            {submitting ? 'Creando…' : 'Crear y publicar'}
+            {submitting ? 'Creando…' : 'Crear juego'}
           </button>
           <button
             type="button"

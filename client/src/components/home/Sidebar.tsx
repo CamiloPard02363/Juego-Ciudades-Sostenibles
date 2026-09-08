@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { BookOpen, ChevronLeft, Lock, Users, Users2, Zap } from 'lucide-react'
+import { BookOpen, ChevronLeft, Gamepad2, Lock, Users, Users2, Zap } from 'lucide-react'
 import { ThemeToggle } from '../ThemeToggle'
 
-export type HomeSection = 'categories' | 'community' | 'my-games' | 'admin-users'
+export type HomeSection = 'all' | 'categories' | 'community' | 'my-games' | 'admin-users'
 
 type SidebarProps = {
   activeSection: HomeSection
@@ -73,6 +73,13 @@ export function Sidebar({ activeSection, onSelectSection, canManageUsers }: Side
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navegación principal">
+        <SidebarItem
+          label="Inicio"
+          collapsed={collapsed}
+          active={activeSection === 'all'}
+          onClick={() => onSelectSection('all')}
+          icon={<Gamepad2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+        />
         <SidebarItem
           label="Materias"
           collapsed={collapsed}

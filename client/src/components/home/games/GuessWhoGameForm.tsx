@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
 import { Modal } from './Modal'
+import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { AudioUploadField } from './AudioUploadField'
 import { useAuth } from '../../../hooks/useAuth'
@@ -54,6 +55,7 @@ export function GuessWhoGameForm({
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [createdGameId, setCreatedGameId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -138,14 +140,27 @@ export function GuessWhoGameForm({
         })),
         config: { maxAccusationCount },
       })
-      await publishGame(token, game.id)
-      showToast('Juego creado', 'success')
-      onCreated()
+      // El juego queda en DRAFT; la elección de dónde guardarlo (privado o
+      // publicado a la comunidad) se hace en el paso siguiente.
+      setCreatedGameId(game.id)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear el juego.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleChooseVisibility(visibility: 'private' | 'community') {
+    if (!token || !createdGameId) return
+    if (visibility === 'community') {
+      await publishGame(token, createdGameId)
+    }
+    showToast('Juego creado', 'success')
+    onCreated()
+  }
+
+  if (createdGameId) {
+    return <SaveVisibilityModal onChoose={handleChooseVisibility} />
   }
 
   return (

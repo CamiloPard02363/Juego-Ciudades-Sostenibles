@@ -11,6 +11,13 @@ import { TournamentRoom } from './TournamentRoom'
 type GuessWhoRoomProps = {
   gameId: string
   onExit: () => void
+  /**
+   * Cuando se entra desde "Unirme con código" (botón agnóstico del home), ya
+   * se sabe de antemano si la sala es individual o grupal y con qué código
+   * — así que se saltan las pantallas de elección y se va directo a unirse.
+   */
+  initialJoinCode?: string
+  initialMode?: 'individual' | 'group'
 }
 
 /**
@@ -21,8 +28,8 @@ type GuessWhoRoomProps = {
  */
 type GameMode = 'undecided' | 'individual' | 'group'
 
-export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
-  const [mode, setMode] = useState<GameMode>('undecided')
+export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode }: GuessWhoRoomProps) {
+  const [mode, setMode] = useState<GameMode>(initialMode ?? 'undecided')
 
   if (mode === 'undecided') {
     return (
@@ -58,10 +65,10 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   }
 
   if (mode === 'group') {
-    return <TournamentRoom gameId={gameId} onExit={onExit} />
+    return <TournamentRoom gameId={gameId} onExit={onExit} initialJoinCode={initialJoinCode} />
   }
 
-  return <IndividualGuessWhoRoom gameId={gameId} onExit={onExit} />
+  return <IndividualGuessWhoRoom gameId={gameId} onExit={onExit} initialJoinCode={initialJoinCode} />
 }
 
 /**
@@ -73,7 +80,7 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
  */
 type EntryChoice = 'undecided' | 'joining-input' | 'creating' | 'joining'
 
-function IndividualGuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
+function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode }: GuessWhoRoomProps) {
   const { token, user } = useAuth()
   const {
     room,
@@ -94,8 +101,15 @@ function IndividualGuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
     sendChatMessage,
     leaveRoom,
   } = useGuessWhoRoom(token)
-  const [entryChoice, setEntryChoice] = useState<EntryChoice>('undecided')
-  const [joinCode, setJoinCode] = useState('')
+  const [entryChoice, setEntryChoice] = useState<EntryChoice>(initialJoinCode ? 'joining' : 'undecided')
+  const [joinCode, setJoinCode] = useState(initialJoinCode ?? '')
+  const joinedWithInitialCode = useRef(false)
+  useEffect(() => {
+    if (!initialJoinCode || joinedWithInitialCode.current) return
+    joinedWithInitialCode.current = true
+    joinRoom(initialJoinCode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialJoinCode])
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   useEffect(() => {

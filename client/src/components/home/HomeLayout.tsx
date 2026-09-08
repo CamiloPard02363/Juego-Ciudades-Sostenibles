@@ -11,7 +11,7 @@ import { trackEvent } from '../../services/analytics.service'
 
 export function HomeLayout() {
   const { user, token, signOut } = useAuth()
-  const [section, setSection] = useState<HomeSection>('categories')
+  const [section, setSection] = useState<HomeSection>('all')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -53,7 +53,7 @@ export function HomeLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 sm:p-8">
-          {(section === 'categories' || section === 'community' || section === 'my-games') && (
+          {(section === 'all' || section === 'categories' || section === 'community' || section === 'my-games') && (
             <GamesSection
               mode={section}
               searchQuery={submittedQuery}
