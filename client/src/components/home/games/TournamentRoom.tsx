@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Crown, LogOut, Skull, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoTournament } from './useGuessWhoTournament'
@@ -8,6 +8,7 @@ import { MatchBoard } from './MatchBoard'
 type TournamentRoomProps = {
   gameId: string
   onExit: () => void
+  initialJoinCode?: string
 }
 
 /** Antes de entrar a la sala grupal, cada jugador decide si crea una sala nueva o se une con un código. */
@@ -26,7 +27,7 @@ function isValidStartCount(count: number): boolean {
  * MatchBoard) y, si se es eliminado, ver el resumen del torneo en vez de la
  * partida de los demás.
  */
-export function TournamentRoom({ gameId, onExit }: TournamentRoomProps) {
+export function TournamentRoom({ gameId, onExit, initialJoinCode }: TournamentRoomProps) {
   const { token, user } = useAuth()
   const {
     tournament,
@@ -45,10 +46,17 @@ export function TournamentRoom({ gameId, onExit }: TournamentRoomProps) {
     passMatchTurn,
   } = useGuessWhoTournament(token)
 
-  const [entryChoice, setEntryChoice] = useState<EntryChoice>('undecided')
-  const [joinCode, setJoinCode] = useState('')
+  const [entryChoice, setEntryChoice] = useState<EntryChoice>(initialJoinCode ? 'joining' : 'undecided')
+  const [joinCode, setJoinCode] = useState(initialJoinCode ?? '')
   const [maxParticipantsInput, setMaxParticipantsInput] = useState(4)
   const [showPairingOverlay, setShowPairingOverlay] = useState(false)
+  const joinedWithInitialCode = useRef(false)
+  useEffect(() => {
+    if (!initialJoinCode || joinedWithInitialCode.current) return
+    joinedWithInitialCode.current = true
+    joinTournament(initialJoinCode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialJoinCode])
 
   // El anuncio de compañero se muestra unos segundos y luego se auto-cierra
   // para dar paso al tablero del match, que ya llega vía tournament:state.

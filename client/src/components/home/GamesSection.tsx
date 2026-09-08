@@ -5,6 +5,7 @@ import {
   Calculator,
   Dna,
   Globe2,
+  KeyRound,
   Landmark,
   Languages,
   Leaf,
@@ -13,6 +14,7 @@ import {
   PlusCircle,
   Sparkles,
   Stethoscope,
+  Trash2,
   Trophy,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -26,6 +28,7 @@ import {
 } from '../../services/game.service'
 import {
   listCategories,
+  createCategory,
   deleteCategory,
   type CategoryWithGameCount,
 } from '../../services/category.service'
@@ -33,7 +36,8 @@ import { ApiError } from '../../utils/http'
 import { trackEvent } from '../../services/analytics.service'
 import { GameCard } from './games/GameCard'
 import { GameDetailModal } from './games/GameDetailModal'
-import { CategoriesManagerModal } from './games/CategoriesManagerModal'
+import { Modal } from './games/Modal'
+import { JoinByCodeModal } from './games/JoinByCodeModal'
 import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
@@ -54,7 +58,7 @@ type CreateFlowStep =
   | 'pairs-form'
   | 'guess-who-form'
 
-export type GamesSectionMode = 'categories' | 'community' | 'my-games'
+export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
 
 type GamesSectionProps = {
   mode: GamesSectionMode
@@ -127,10 +131,19 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
   const [showPlayOptions, setShowPlayOptions] = useState(false)
   const [playSession, setPlaySession] = useState<PlaySession | null>(null)
   const [guessWhoRoomGameId, setGuessWhoRoomGameId] = useState<string | null>(null)
+  const [joinCodeContext, setJoinCodeContext] = useState<{
+    code: string
+    initialMode: 'individual' | 'group'
+  } | null>(null)
+  const [joinByCodeOpen, setJoinByCodeOpen] = useState(false)
   const [createFlowStep, setCreateFlowStep] = useState<CreateFlowStep>('closed')
   const [deleting, setDeleting] = useState(false)
-  const [showCategoriesManager, setShowCategoriesManager] = useState(false)
   const [deletingCategory, setDeletingCategory] = useState(false)
+  const [pendingDeleteCategory, setPendingDeleteCategory] = useState<CategoryWithGameCount | null>(null)
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [categoryError, setCategoryError] = useState<string | null>(null)
+  const [savingCategory, setSavingCategory] = useState(false)
   const resultsRef = useRef<HTMLDivElement>(null)
 
   // `searchNonce` sube en cada Enter aunque el texto no cambie, así que este
@@ -142,8 +155,13 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchNonce])
 
+  // En modo "categories" (Materias) no hay lista de juegos hasta elegir una
+  // materia — la grilla de materias se muestra sola, y solo entonces se
+  // carga el catálogo filtrado por esa categoría (dentro del pop-up).
+  const shouldLoadGames = mode !== 'categories' || activeCategoryId !== null
+
   const reload = useCallback(() => {
-    if (!token) return
+    if (!token || !shouldLoadGames) return
     setLoading(true)
     setError(null)
     listGames(token, {
@@ -160,7 +178,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       })
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, mode, searchQuery, activeCategoryId, searchNonce])
+  }, [token, mode, searchQuery, activeCategoryId, searchNonce, shouldLoadGames])
 
   useEffect(() => {
     reload()
@@ -200,16 +218,16 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     }
   }
 
-  async function handleDeleteCategory(category: CategoryWithGameCount): Promise<boolean> {
-    if (!token) return false
+  async function confirmDeleteCategory() {
+    if (!token || !pendingDeleteCategory) return
     setDeletingCategory(true)
     try {
-      await deleteCategory(token, category.id)
-      setCategories((current) => current.filter((c) => c.id !== category.id))
-      if (activeCategoryId === category.id) setActiveCategoryId(null)
-      return true
-    } catch {
-      return false
+      await deleteCategory(token, pendingDeleteCategory.id)
+      setCategories((current) => current.filter((c) => c.id !== pendingDeleteCategory.id))
+      if (activeCategoryId === pendingDeleteCategory.id) setActiveCategoryId(null)
+      setPendingDeleteCategory(null)
+    } catch (err) {
+      setCategoryError(err instanceof ApiError ? err.message : 'No se pudo eliminar la materia.')
     } finally {
       setDeletingCategory(false)
     }
@@ -227,6 +245,22 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     listCategories(token)
       .then((items) => setCategories(sortByGameCount(items)))
       .catch(() => {})
+  }
+
+  async function handleCreateCategory() {
+    if (!token || !newCategoryName.trim()) return
+    setSavingCategory(true)
+    setCategoryError(null)
+    try {
+      await createCategory(token, newCategoryName.trim())
+      setNewCategoryName('')
+      setCreatingCategory(false)
+      refreshCategories()
+    } catch (err) {
+      setCategoryError(err instanceof ApiError ? err.message : 'No se pudo crear la materia.')
+    } finally {
+      setSavingCategory(false)
+    }
   }
 
   function handleCreated() {
@@ -253,9 +287,259 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     setShowPlayOptions(true)
   }
 
+  // La grilla de "Materias" es una pantalla propia: mientras no se elige una
+  // materia, no se carga ni se muestra el catálogo de juegos general.
+  if (mode === 'categories') {
+    return (
+      <section className="flex flex-col gap-8">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Materias</h2>
+            <p className="text-[14px] text-text">Elige una materia para ver sus juegos publicados.</p>
+          </div>
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={() => setCreatingCategory(true)}
+          >
+            <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+            Crear materia
+          </button>
+        </div>
+
+        {categories.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+            <span
+              className="mb-3 flex h-12 w-12 items-center justify-center rounded-full text-white"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              aria-hidden="true"
+            >
+              <Sparkles className="h-6 w-6" strokeWidth={2} />
+            </span>
+            <p className="text-[15px] font-medium text-text-h">Aún no hay materias creadas.</p>
+            <p className="mt-1 max-w-[320px] text-[13px] text-text">Crea la primera para organizar los juegos.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {categories.map((category, index) => {
+              const color = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]
+              const Icon = iconForCategory(category.name)
+              return (
+                <div
+                  key={category.id}
+                  className="group relative rounded-2xl border border-border p-4 text-left transition-transform hover:-translate-y-0.5"
+                  style={{ background: 'var(--surface)' }}
+                >
+                  <button type="button" onClick={() => setActiveCategoryId(category.id)} className="w-full text-left">
+                    <span
+                      className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg text-white"
+                      style={{ background: color }}
+                      aria-hidden="true"
+                    >
+                      <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+                    </span>
+                    <p className="truncate pr-6 text-[14px] font-semibold text-text-h">{category.name}</p>
+                    <p className="text-[12px] text-text">
+                      {category.gameCount} {category.gameCount === 1 ? 'juego' : 'juegos'}
+                    </p>
+                  </button>
+                  {canDeleteCategory(category) && (
+                    <button
+                      type="button"
+                      aria-label={`Eliminar materia ${category.name}`}
+                      title="Eliminar materia"
+                      className="absolute top-3 right-3 rounded-lg p-1 text-text/50 opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
+                      onClick={() => setPendingDeleteCategory(category)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {creatingCategory && (
+          <Modal onClose={() => (savingCategory ? null : setCreatingCategory(false))} maxWidthClassName="max-w-[400px]">
+            <h2 className="mb-1 text-[18px] tracking-tight text-text-h">Nueva materia</h2>
+            <p className="mb-4 text-[13px] text-text">Dale un nombre claro y corto.</p>
+            <input
+              type="text"
+              autoFocus
+              value={newCategoryName}
+              disabled={savingCategory}
+              onChange={(event) => setNewCategoryName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') handleCreateCategory()
+              }}
+              placeholder="Ej. Matemáticas"
+              className="w-full rounded-lg border border-border bg-bg px-[13px] py-2.5 text-[13px] text-text-h outline-none focus:border-accent"
+            />
+            {categoryError && (
+              <p className="mt-3 text-[13px] text-danger" role="alert">
+                {categoryError}
+              </p>
+            )}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                disabled={savingCategory || !newCategoryName.trim()}
+                onClick={handleCreateCategory}
+              >
+                {savingCategory ? 'Creando…' : 'Crear'}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
+                onClick={() => setCreatingCategory(false)}
+                disabled={savingCategory}
+              >
+                Cancelar
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {pendingDeleteCategory && (
+          <Modal
+            onClose={() => (deletingCategory ? null : setPendingDeleteCategory(null))}
+            maxWidthClassName="max-w-[420px]"
+          >
+            <h2 className="mb-2 text-[18px] tracking-tight text-text-h">Eliminar materia</h2>
+            <p className="mb-6 text-[14px] leading-relaxed text-text">
+              ¿Eliminar "{pendingDeleteCategory.name}"? Esta acción no se puede deshacer.
+            </p>
+            {categoryError && (
+              <p
+                className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
+                role="alert"
+              >
+                {categoryError}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg bg-danger px-4 py-3 text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={confirmDeleteCategory}
+                disabled={deletingCategory}
+              >
+                {deletingCategory ? 'Eliminando…' : 'Sí, eliminar'}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-4 py-3 text-[15px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => setPendingDeleteCategory(null)}
+                disabled={deletingCategory}
+              >
+                Cancelar
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {activeCategoryId && (
+          <Modal onClose={() => setActiveCategoryId(null)} maxWidthClassName="max-w-[880px]">
+            <h2 className="mb-1 text-[22px] tracking-tight text-text-h">
+              {categories.find((c) => c.id === activeCategoryId)?.name ?? 'Materia'}
+            </h2>
+            <p className="mb-6 text-[14px] text-text">Juegos publicados en esta materia.</p>
+
+            {error && (
+              <p
+                className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
+                role="alert"
+              >
+                {error}
+              </p>
+            )}
+
+            {loading ? (
+              <p className="py-8 text-center text-[14px] text-text">Cargando juegos…</p>
+            ) : games.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                <p className="text-[15px] font-medium text-text-h">Aún no hay juegos en esta materia.</p>
+              </div>
+            ) : (
+              <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                {games.map((game) => (
+                  <GameCard key={game.id} game={game} onClick={() => openGame(game)} />
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
+              onClick={() => setActiveCategoryId(null)}
+            >
+              Cerrar
+            </button>
+          </Modal>
+        )}
+
+        {selectedGame && !showPlayOptions && (
+          <GameDetailModal
+            game={selectedGame}
+            canDelete={Boolean(user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId))}
+            deleting={deleting}
+            onClose={() => setSelectedGame(null)}
+            onPlay={handlePlayClick}
+            onDelete={handleDelete}
+            onUpdated={(updated) => {
+              setSelectedGame(updated)
+              reload()
+            }}
+          />
+        )}
+
+        {guessWhoRoomGameId && (
+          <GuessWhoRoom gameId={guessWhoRoomGameId} onExit={() => setGuessWhoRoomGameId(null)} />
+        )}
+
+        {selectedGame && showPlayOptions && (
+          <PlayOptionsPopup
+            game={selectedGame}
+            onClose={() => setShowPlayOptions(false)}
+            onStart={(options) => {
+              setPlaySession({ game: selectedGame, ...options })
+              setShowPlayOptions(false)
+              setSelectedGame(null)
+            }}
+          />
+        )}
+
+        {playSession && (
+          <MemoryMatchGame
+            title={playSession.game.title}
+            primaryColor={playSession.game.theme.primaryColor}
+            pairs={playSession.game.content as MemoryMatchPair[]}
+            pairCount={playSession.pairCount}
+            difficulty={playSession.difficulty}
+            showPreview={playSession.showPreview}
+            perZone={(playSession.game.config as Partial<MemoryMatchConfig>).perZone ?? DEFAULT_MEMORY_CONFIG.perZone}
+            timePerZoneSeconds={
+              (playSession.game.config as Partial<MemoryMatchConfig>).timePerZoneSeconds ??
+              DEFAULT_MEMORY_CONFIG.timePerZoneSeconds
+            }
+            previewSeconds={
+              (playSession.game.config as Partial<MemoryMatchConfig>).previewSeconds ??
+              DEFAULT_MEMORY_CONFIG.previewSeconds
+            }
+            onExit={() => setPlaySession(null)}
+          />
+        )}
+      </section>
+    )
+  }
+
   return (
     <section className="flex flex-col gap-10">
-      {mode === 'categories' && (
+      {mode === 'all' && (
         <div
           className="relative overflow-hidden rounded-3xl border border-border p-8 sm:p-10"
           style={{
@@ -288,15 +572,26 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
                 Matemáticas, biología, geografía, medicina — arma retos, invita a tu equipo y
                 compite en tiempo real.
               </p>
-              <button
-                type="button"
-                className="mt-6 flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
-                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-                onClick={() => setCreateFlowStep('picking-type')}
-              >
-                <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
-                Crear nueva partida
-              </button>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
+                  style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                  onClick={() => setCreateFlowStep('picking-type')}
+                >
+                  <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+                  Crear un juego nuevo
+                </button>
+                <button
+                  type="button"
+                  className="animate-pulse flex items-center gap-2 rounded-xl border-2 border-accent-2 px-5 py-[11px] text-[14px] font-semibold text-accent-2 transition-transform hover:-translate-y-0.5"
+                  style={{ background: 'color-mix(in srgb, var(--accent-2) 12%, transparent)' }}
+                  onClick={() => setJoinByCodeOpen(true)}
+                >
+                  <KeyRound className="h-[18px] w-[18px]" strokeWidth={2} />
+                  Unirme con código
+                </button>
+              </div>
             </div>
 
             <div
@@ -309,7 +604,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         </div>
       )}
 
-      {mode !== 'categories' && (
+      {mode !== 'all' && (
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="mb-1 text-[22px] tracking-tight text-text-h">
@@ -333,68 +628,8 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         </div>
       )}
 
-      {categories.length > 0 && (
-        <div>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-[15px] font-semibold text-text-h">Explorar materias</h3>
-            <div className="flex items-center gap-4">
-              {activeCategoryId && (
-                <button
-                  type="button"
-                  className="text-[12.5px] font-medium text-accent hover:underline"
-                  onClick={() => setActiveCategoryId(null)}
-                >
-                  Quitar filtro
-                </button>
-              )}
-              <button
-                type="button"
-                className="text-[12.5px] font-medium text-accent hover:underline"
-                onClick={() => setShowCategoriesManager(true)}
-              >
-                Ver todas las materias
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {categories.map((category, index) => {
-              const color = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]
-              const active = activeCategoryId === category.id
-              const Icon = iconForCategory(category.name)
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => setActiveCategoryId(active ? null : category.id)}
-                  className={`rounded-2xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${
-                    active ? 'border-transparent' : 'border-border'
-                  }`}
-                  style={
-                    active
-                      ? { background: `${color}22`, boxShadow: `0 0 0 1.5px ${color}` }
-                      : { background: 'var(--surface)' }
-                  }
-                >
-                  <span
-                    className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg text-white"
-                    style={{ background: color }}
-                    aria-hidden="true"
-                  >
-                    <Icon className="h-4 w-4" strokeWidth={2} />
-                  </span>
-                  <p className="truncate text-[13px] font-semibold text-text-h">{category.name}</p>
-                  <p className="text-[11.5px] text-text">
-                    {category.gameCount} {category.gameCount === 1 ? 'juego' : 'juegos'}
-                  </p>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       <div ref={resultsRef} className="scroll-mt-6">
-        {mode === 'categories' && (
+        {mode === 'all' && (
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Juegos</h2>
@@ -478,24 +713,27 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         />
       )}
 
-      {showCategoriesManager && (
-        <CategoriesManagerModal
-          categories={categories}
-          colorFor={(index) => CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]}
-          iconFor={iconForCategory}
-          canDelete={canDeleteCategory}
-          deleting={deletingCategory}
-          onSelect={(categoryId) => {
-            setActiveCategoryId(categoryId)
-            setShowCategoriesManager(false)
+      {guessWhoRoomGameId && (
+        <GuessWhoRoom
+          gameId={guessWhoRoomGameId}
+          onExit={() => {
+            setGuessWhoRoomGameId(null)
+            setJoinCodeContext(null)
           }}
-          onDelete={handleDeleteCategory}
-          onClose={() => setShowCategoriesManager(false)}
+          initialJoinCode={joinCodeContext?.code}
+          initialMode={joinCodeContext?.initialMode}
         />
       )}
 
-      {guessWhoRoomGameId && (
-        <GuessWhoRoom gameId={guessWhoRoomGameId} onExit={() => setGuessWhoRoomGameId(null)} />
+      {joinByCodeOpen && (
+        <JoinByCodeModal
+          onClose={() => setJoinByCodeOpen(false)}
+          onResolved={(resolved, code) => {
+            setJoinByCodeOpen(false)
+            setJoinCodeContext({ code, initialMode: resolved.kind === 'tournament' ? 'group' : 'individual' })
+            setGuessWhoRoomGameId(resolved.gameId)
+          }}
+        />
       )}
 
       {selectedGame && showPlayOptions && (
