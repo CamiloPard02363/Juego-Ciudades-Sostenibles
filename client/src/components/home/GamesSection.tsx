@@ -584,11 +584,11 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
                 </button>
                 <button
                   type="button"
-                  className="animate-pulse flex items-center gap-2 rounded-xl border-2 border-accent-2 px-5 py-[11px] text-[14px] font-semibold text-accent-2 transition-transform hover:-translate-y-0.5"
-                  style={{ background: 'color-mix(in srgb, var(--accent-2) 12%, transparent)' }}
+                  className="join-code-glow-btn relative flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5"
+                  style={{ background: 'linear-gradient(135deg, var(--accent-2), #c81d63)' }}
                   onClick={() => setJoinByCodeOpen(true)}
                 >
-                  <KeyRound className="h-[18px] w-[18px]" strokeWidth={2} />
+                  <KeyRound className="h-[18px] w-[18px]" strokeWidth={2.5} />
                   Unirme con código
                 </button>
               </div>

@@ -9,6 +9,8 @@ type TournamentRoomProps = {
   gameId: string
   onExit: () => void
   initialJoinCode?: string
+  /** El modo "grupo" ya se decidió un nivel arriba: salta directo a la config de cupo para crear. */
+  skipEntryChoice?: boolean
 }
 
 /** Antes de entrar a la sala grupal, cada jugador decide si crea una sala nueva o se une con un código. */
@@ -27,7 +29,7 @@ function isValidStartCount(count: number): boolean {
  * MatchBoard) y, si se es eliminado, ver el resumen del torneo en vez de la
  * partida de los demás.
  */
-export function TournamentRoom({ gameId, onExit, initialJoinCode }: TournamentRoomProps) {
+export function TournamentRoom({ gameId, onExit, initialJoinCode, skipEntryChoice }: TournamentRoomProps) {
   const { token, user } = useAuth()
   const {
     tournament,
@@ -46,7 +48,9 @@ export function TournamentRoom({ gameId, onExit, initialJoinCode }: TournamentRo
     passMatchTurn,
   } = useGuessWhoTournament(token)
 
-  const [entryChoice, setEntryChoice] = useState<EntryChoice>(initialJoinCode ? 'joining' : 'undecided')
+  const [entryChoice, setEntryChoice] = useState<EntryChoice>(
+    initialJoinCode ? 'joining' : skipEntryChoice ? 'choosing-create' : 'undecided',
+  )
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '')
   const [maxParticipantsInput, setMaxParticipantsInput] = useState(4)
   const [showPairingOverlay, setShowPairingOverlay] = useState(false)
@@ -137,7 +141,7 @@ export function TournamentRoom({ gameId, onExit, initialJoinCode }: TournamentRo
               <button
                 type="button"
                 className="flex-1 rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
-                onClick={() => setEntryChoice('undecided')}
+                onClick={() => (skipEntryChoice ? handleExit() : setEntryChoice('undecided'))}
               >
                 Atrás
               </button>

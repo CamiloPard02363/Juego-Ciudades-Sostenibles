@@ -7,6 +7,7 @@ import type { GuessWhoChatMessage } from './guessWhoTypes'
 import { Modal } from './Modal'
 import { DealCountdownOverlay, MatchBoard, useCountdown } from './MatchBoard'
 import { TournamentRoom } from './TournamentRoom'
+import { JoinByCodeModal } from './JoinByCodeModal'
 
 type GuessWhoRoomProps = {
   gameId: string
@@ -18,20 +19,59 @@ type GuessWhoRoomProps = {
    */
   initialJoinCode?: string
   initialMode?: 'individual' | 'group'
+  /**
+   * El modo ya se decidió un nivel arriba (se viene de "Crear sala nueva"),
+   * así que este componente debe saltar directo a crear en vez de volver a
+   * preguntar crear/unirse.
+   */
+  skipEntryChoice?: boolean
 }
 
 /**
- * Punto de entrada de "¿Quién Es?": primero se elige Individual (flujo 1v1
- * de siempre, sin cambios funcionales) o Grupo (torneo eliminatorio, ver
- * TournamentRoom). La elección vive aquí porque ambos modos comparten el
- * mismo overlay de salida y el mismo gameId de origen.
+ * Punto de entrada de "¿Quién Es?": primero se decide "crear sala nueva" o
+ * "ingresar a una sala" (con código, agnóstico a individual/grupo — lo
+ * resuelve el propio código vía room:resolve-code). Solo al crear se
+ * pregunta el modo (Individual o Grupo), porque al unirse el modo ya lo
+ * define la sala a la que se entra. Esto evita la doble pregunta que había
+ * antes (elegir modo y luego, otra vez, crear/unirse dentro de cada modo).
  */
-type GameMode = 'undecided' | 'individual' | 'group'
+type EntryStep = 'undecided' | 'joining-by-code' | 'choosing-mode-to-create'
+type GameMode = 'individual' | 'group'
 
 export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode }: GuessWhoRoomProps) {
-  const [mode, setMode] = useState<GameMode>(initialMode ?? 'undecided')
+  const [step, setStep] = useState<EntryStep>('undecided')
+  const [mode, setMode] = useState<GameMode | null>(initialMode ?? null)
+  const [joinCode, setJoinCode] = useState<string | undefined>(initialJoinCode)
 
-  if (mode === 'undecided') {
+  if (mode && joinCode) {
+    return mode === 'group' ? (
+      <TournamentRoom gameId={gameId} onExit={onExit} initialJoinCode={joinCode} />
+    ) : (
+      <IndividualGuessWhoRoom gameId={gameId} onExit={onExit} initialJoinCode={joinCode} />
+    )
+  }
+
+  if (mode) {
+    return mode === 'group' ? (
+      <TournamentRoom gameId={gameId} onExit={onExit} skipEntryChoice />
+    ) : (
+      <IndividualGuessWhoRoom gameId={gameId} onExit={onExit} skipEntryChoice />
+    )
+  }
+
+  if (step === 'joining-by-code') {
+    return (
+      <JoinByCodeModal
+        onClose={onExit}
+        onResolved={(resolved, code) => {
+          setMode(resolved.kind === 'tournament' ? 'group' : 'individual')
+          setJoinCode(code)
+        }}
+      />
+    )
+  }
+
+  if (step === 'choosing-mode-to-create') {
     return (
       <Modal onClose={onExit} maxWidthClassName="max-w-[420px]">
         <h2 className="mb-1 text-[19px] tracking-tight text-text-h">¿Quién Es?</h2>
@@ -56,19 +96,44 @@ export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode }: G
         <button
           type="button"
           className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
-          onClick={onExit}
+          onClick={() => setStep('undecided')}
         >
-          Cancelar
+          Atrás
         </button>
       </Modal>
     )
   }
 
-  if (mode === 'group') {
-    return <TournamentRoom gameId={gameId} onExit={onExit} initialJoinCode={initialJoinCode} />
-  }
-
-  return <IndividualGuessWhoRoom gameId={gameId} onExit={onExit} initialJoinCode={initialJoinCode} />
+  return (
+    <Modal onClose={onExit} maxWidthClassName="max-w-[420px]">
+      <h2 className="mb-1 text-[19px] tracking-tight text-text-h">¿Quién Es?</h2>
+      <p className="mb-6 text-[13px] text-text">¿Vas a crear una sala nueva o a ingresar a una existente?</p>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          className="rounded-lg px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+          onClick={() => setStep('choosing-mode-to-create')}
+        >
+          Crear sala nueva
+        </button>
+        <button
+          type="button"
+          className="rounded-lg border border-border px-4 py-3 text-[14.5px] font-semibold text-text-h transition-transform hover:-translate-y-0.5"
+          onClick={() => setStep('joining-by-code')}
+        >
+          Ingresar a una sala
+        </button>
+      </div>
+      <button
+        type="button"
+        className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
+        onClick={onExit}
+      >
+        Cancelar
+      </button>
+    </Modal>
+  )
 }
 
 /**
@@ -80,7 +145,7 @@ export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode }: G
  */
 type EntryChoice = 'undecided' | 'joining-input' | 'creating' | 'joining'
 
-function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode }: GuessWhoRoomProps) {
+function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode, skipEntryChoice }: GuessWhoRoomProps) {
   const { token, user } = useAuth()
   const {
     room,
@@ -101,8 +166,17 @@ function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode }: GuessWhoRoo
     sendChatMessage,
     leaveRoom,
   } = useGuessWhoRoom(token)
-  const [entryChoice, setEntryChoice] = useState<EntryChoice>(initialJoinCode ? 'joining' : 'undecided')
+  const [entryChoice, setEntryChoice] = useState<EntryChoice>(
+    initialJoinCode ? 'joining' : skipEntryChoice ? 'creating' : 'undecided',
+  )
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '')
+  const startedCreatingRef = useRef(false)
+  useEffect(() => {
+    if (!skipEntryChoice || initialJoinCode || startedCreatingRef.current) return
+    startedCreatingRef.current = true
+    createRoom(gameId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skipEntryChoice, initialJoinCode])
   const joinedWithInitialCode = useRef(false)
   useEffect(() => {
     if (!initialJoinCode || joinedWithInitialCode.current) return
