@@ -41,6 +41,11 @@ export function GameCard({ game, onClick }: GameCardProps) {
       <div className="flex flex-1 flex-col gap-1.5 p-4">
         <h3 className="text-[15px] font-semibold text-text-h">{game.title}</h3>
         <p className="line-clamp-2 text-[13px] leading-snug text-text">{game.description}</p>
+        {game.creatorDisplayName && (
+          <p className="mt-auto pt-1 text-[11.5px] font-medium text-text/70">
+            Por {game.creatorDisplayName}
+          </p>
+        )}
       </div>
     </button>
   )

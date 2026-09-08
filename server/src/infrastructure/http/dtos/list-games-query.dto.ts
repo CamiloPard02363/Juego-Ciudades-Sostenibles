@@ -11,6 +11,12 @@ export class ListGamesQueryDto {
   @IsBoolean()
   onlyMine?: boolean;
 
+  /** Sección "Comunidad": juegos publicados por otros usuarios, con el nombre del creador. */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  community?: boolean;
+
   @IsOptional()
   @IsString()
   search?: string;

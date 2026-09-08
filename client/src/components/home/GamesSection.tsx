@@ -30,6 +30,7 @@ import {
   type CategoryWithGameCount,
 } from '../../services/category.service'
 import { ApiError } from '../../utils/http'
+import { trackEvent } from '../../services/analytics.service'
 import { GameCard } from './games/GameCard'
 import { GameDetailModal } from './games/GameDetailModal'
 import { CategoriesManagerModal } from './games/CategoriesManagerModal'
@@ -53,7 +54,10 @@ type CreateFlowStep =
   | 'pairs-form'
   | 'guess-who-form'
 
+export type GamesSectionMode = 'categories' | 'community' | 'my-games'
+
 type GamesSectionProps = {
+  mode: GamesSectionMode
   searchQuery: string
   searchNonce: number
 }
@@ -109,7 +113,7 @@ function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameC
   return [...categories].sort((a, b) => b.gameCount - a.gameCount)
 }
 
-export function GamesSection({ searchQuery, searchNonce }: GamesSectionProps) {
+export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionProps) {
   const { token, user } = useAuth()
   const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -144,7 +148,10 @@ export function GamesSection({ searchQuery, searchNonce }: GamesSectionProps) {
     setError(null)
     listGames(token, {
       search: searchQuery || undefined,
-      categoryId: activeCategoryId ?? undefined,
+      categoryId: mode === 'categories' ? activeCategoryId ?? undefined : undefined,
+      onlyMine: mode === 'my-games' || undefined,
+      status: mode === 'my-games' ? 'DRAFT' : undefined,
+      community: mode === 'community' || undefined,
       pageSize: 40,
     })
       .then((result) => setGames(result.items))
@@ -153,18 +160,18 @@ export function GamesSection({ searchQuery, searchNonce }: GamesSectionProps) {
       })
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, searchQuery, activeCategoryId, searchNonce])
+  }, [token, mode, searchQuery, activeCategoryId, searchNonce])
 
   useEffect(() => {
     reload()
   }, [reload])
 
   useEffect(() => {
-    if (!token) return
+    if (!token || mode !== 'categories') return
     listCategories(token)
       .then((items) => setCategories(sortByGameCount(items)))
       .catch(() => {})
-  }, [token])
+  }, [token, mode])
 
   async function openGame(summary: GameSummary) {
     if (!token) return
@@ -172,6 +179,7 @@ export function GamesSection({ searchQuery, searchNonce }: GamesSectionProps) {
     try {
       const detail = await getGameBySlug(token, summary.slug)
       setSelectedGame(detail)
+      trackEvent(token, 'game_opened', { gameId: detail.id, metadata: { section: mode } })
     } catch (err) {
       setDetailError(err instanceof ApiError ? err.message : 'No se pudo abrir el juego.')
     }
@@ -247,57 +255,83 @@ export function GamesSection({ searchQuery, searchNonce }: GamesSectionProps) {
 
   return (
     <section className="flex flex-col gap-10">
-      <div
-        className="relative overflow-hidden rounded-3xl border border-border p-8 sm:p-10"
-        style={{
-          background:
-            'radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 55%), radial-gradient(circle at 85% 85%, color-mix(in srgb, var(--accent-2) 30%, transparent), transparent 50%), var(--surface)',
-        }}
-      >
+      {mode === 'categories' && (
         <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.15]"
+          className="relative overflow-hidden rounded-3xl border border-border p-8 sm:p-10"
           style={{
-            backgroundImage:
-              'linear-gradient(var(--accent) 1px, transparent 1px), linear-gradient(90deg, var(--accent) 1px, transparent 1px)',
-            backgroundSize: '42px 42px',
-            maskImage: 'radial-gradient(circle at 25% 30%, black, transparent 70%)',
-            WebkitMaskImage: 'radial-gradient(circle at 25% 30%, black, transparent 70%)',
+            background:
+              'radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 55%), radial-gradient(circle at 85% 85%, color-mix(in srgb, var(--accent-2) 30%, transparent), transparent 50%), var(--surface)',
           }}
-        />
-
-        <div className="relative flex flex-wrap items-center justify-between gap-8">
-          <div className="max-w-[440px]">
-            <p className="mb-3 flex items-center gap-2 text-[12px] font-semibold tracking-wide text-accent uppercase">
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
-              Modo creación · Cualquier materia
-            </p>
-            <h2 className="text-[30px] leading-[1.1] font-bold tracking-tight text-text-h">
-              Convierte cualquier tema en un juego
-            </h2>
-            <p className="mt-3 text-[14.5px] leading-relaxed text-text">
-              Matemáticas, biología, geografía, medicina — arma retos, invita a tu equipo y
-              compite en tiempo real.
-            </p>
-            <button
-              type="button"
-              className="mt-6 flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={() => setCreateFlowStep('picking-type')}
-            >
-              <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
-              Crear nueva partida
-            </button>
-          </div>
-
+        >
           <div
-            className="flex h-[130px] w-[130px] shrink-0 items-center justify-center rounded-3xl border border-border"
-            style={{ background: 'var(--bg)' }}
-          >
-            <Trophy className="h-14 w-14 text-accent-2" strokeWidth={1.5} />
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.15]"
+            style={{
+              backgroundImage:
+                'linear-gradient(var(--accent) 1px, transparent 1px), linear-gradient(90deg, var(--accent) 1px, transparent 1px)',
+              backgroundSize: '42px 42px',
+              maskImage: 'radial-gradient(circle at 25% 30%, black, transparent 70%)',
+              WebkitMaskImage: 'radial-gradient(circle at 25% 30%, black, transparent 70%)',
+            }}
+          />
+
+          <div className="relative flex flex-wrap items-center justify-between gap-8">
+            <div className="max-w-[440px]">
+              <p className="mb-3 flex items-center gap-2 text-[12px] font-semibold tracking-wide text-accent uppercase">
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Modo creación · Cualquier materia
+              </p>
+              <h2 className="text-[30px] leading-[1.1] font-bold tracking-tight text-text-h">
+                Convierte cualquier tema en un juego
+              </h2>
+              <p className="mt-3 text-[14.5px] leading-relaxed text-text">
+                Matemáticas, biología, geografía, medicina — arma retos, invita a tu equipo y
+                compite en tiempo real.
+              </p>
+              <button
+                type="button"
+                className="mt-6 flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
+                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                onClick={() => setCreateFlowStep('picking-type')}
+              >
+                <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+                Crear nueva partida
+              </button>
+            </div>
+
+            <div
+              className="flex h-[130px] w-[130px] shrink-0 items-center justify-center rounded-3xl border border-border"
+              style={{ background: 'var(--bg)' }}
+            >
+              <Trophy className="h-14 w-14 text-accent-2" strokeWidth={1.5} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {mode !== 'categories' && (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="mb-1 text-[22px] tracking-tight text-text-h">
+              {mode === 'community' ? 'Juegos de la comunidad' : 'Mis juegos privados'}
+            </h2>
+            <p className="text-[14px] text-text">
+              {mode === 'community'
+                ? 'Juegos que otros usuarios crearon y decidieron publicar.'
+                : 'Solo tú los ves. Comparte el código de la sala para que otros se unan.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={() => setCreateFlowStep('picking-type')}
+          >
+            <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+            Crear juego
+          </button>
+        </div>
+      )}
 
       {categories.length > 0 && (
         <div>
@@ -360,12 +394,14 @@ export function GamesSection({ searchQuery, searchNonce }: GamesSectionProps) {
       )}
 
       <div ref={resultsRef} className="scroll-mt-6">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Juegos</h2>
-            <p className="text-[14px] text-text">Elige un juego para empezar a aprender jugando.</p>
+        {mode === 'categories' && (
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Juegos</h2>
+              <p className="text-[14px] text-text">Elige un juego para empezar a aprender jugando.</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {error && (
           <p
@@ -398,7 +434,11 @@ export function GamesSection({ searchQuery, searchNonce }: GamesSectionProps) {
             <p className="text-[15px] font-medium text-text-h">
               {searchQuery
                 ? `Sin resultados para "${searchQuery}".`
-                : 'Aún no hay juegos disponibles.'}
+                : mode === 'community'
+                  ? 'Aún nadie ha publicado juegos en la comunidad.'
+                  : mode === 'my-games'
+                    ? 'Aún no tienes juegos privados.'
+                    : 'Aún no hay juegos disponibles.'}
             </p>
             <p className="mt-1 max-w-[320px] text-[13px] text-text">
               {searchQuery

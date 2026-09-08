@@ -7,10 +7,12 @@ import { ProfileMenu } from './ProfileMenu'
 import { GamesSection } from './GamesSection'
 import { ProfileSettings } from './ProfileSettings'
 import { AdminUsersSection } from './AdminUsersSection'
+import { trackEvent } from '../../services/analytics.service'
 
 export function HomeLayout() {
-  const { user, signOut } = useAuth()
-  const [section, setSection] = useState<HomeSection>('games')
+  const { user, token, signOut } = useAuth()
+  const [section, setSection] = useState<HomeSection>('categories')
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   // Se incrementa en cada Enter, incluso si el texto no cambió, para que la
@@ -23,6 +25,11 @@ export function HomeLayout() {
     setSearchNonce((n) => n + 1)
   }
 
+  function handleSelectSection(next: HomeSection) {
+    setSection(next)
+    if (token) trackEvent(token, 'section_viewed', { metadata: { section: next } })
+  }
+
   if (!user) return null
 
   const canManageUsers = user.role === 'ADMIN'
@@ -31,7 +38,7 @@ export function HomeLayout() {
     <div className="fixed inset-0 flex text-left">
       <Sidebar
         activeSection={section}
-        onSelectSection={setSection}
+        onSelectSection={handleSelectSection}
         canManageUsers={canManageUsers}
       />
 
@@ -40,19 +47,24 @@ export function HomeLayout() {
           <SearchBar value={searchInput} onChange={setSearchInput} onSearch={handleSearch} />
           <ProfileMenu
             user={user}
-            onOpenSettings={() => setSection('settings')}
+            onOpenSettings={() => setSettingsOpen(true)}
             onSignOut={signOut}
           />
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 sm:p-8">
-          {section === 'games' && (
-            <GamesSection searchQuery={submittedQuery} searchNonce={searchNonce} />
+          {(section === 'categories' || section === 'community' || section === 'my-games') && (
+            <GamesSection
+              mode={section}
+              searchQuery={submittedQuery}
+              searchNonce={searchNonce}
+            />
           )}
-          {section === 'settings' && <ProfileSettings />}
           {section === 'admin-users' && canManageUsers && <AdminUsersSection />}
         </main>
       </div>
+
+      {settingsOpen && <ProfileSettings onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

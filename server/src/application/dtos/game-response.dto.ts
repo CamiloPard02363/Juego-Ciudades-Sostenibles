@@ -10,6 +10,8 @@ export interface GameSummaryDto {
   categoryId: string;
   status: string;
   creatorUserId: string;
+  /** Solo se llena en el listado de "Comunidad", donde se muestra quién creó cada juego. */
+  creatorDisplayName?: string;
   createdAt: Date;
   updatedAt: Date;
 }

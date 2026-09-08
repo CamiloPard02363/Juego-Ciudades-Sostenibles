@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UserModule } from './user.module.js';
+import { AnalyticsModule } from './analytics.module.js';
 import { GAME_REPOSITORY } from '../domain/ports/game.repository.port.js';
 import { ROOM_STORE } from '../domain/ports/room-store.port.js';
 import { TOURNAMENT_STORE } from '../domain/ports/tournament-store.port.js';
@@ -10,7 +11,7 @@ import { InMemoryTournamentStore } from './rooms/in-memory-tournament.store.js';
 import { RoomsGateway } from './rooms/rooms.gateway.js';
 
 @Module({
-  imports: [UserModule],
+  imports: [UserModule, AnalyticsModule],
   providers: [
     MongoService,
     { provide: GAME_REPOSITORY, useClass: MongoGameRepository },
