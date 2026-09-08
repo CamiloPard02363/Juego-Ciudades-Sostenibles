@@ -21,6 +21,7 @@ export interface PaginatedResult<T> {
 export interface UserRepository {
   save(user: User): Promise<void>;
   findById(id: string): Promise<User | null>;
+  findByIds(ids: string[]): Promise<User[]>;
   findByEmail(email: Email): Promise<User | null>;
   existsByEmail(email: Email): Promise<boolean>;
   findAll(filter: FindAllUsersFilter): Promise<PaginatedResult<User>>;

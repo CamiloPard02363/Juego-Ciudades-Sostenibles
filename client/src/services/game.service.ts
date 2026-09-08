@@ -15,6 +15,8 @@ export type GameSummary = {
   categoryId: string
   status: 'DRAFT' | 'PUBLISHED' | 'FLAGGED' | 'REMOVED'
   creatorUserId: string
+  /** Solo viene en el listado de "Comunidad". */
+  creatorDisplayName?: string
   createdAt: string
   updatedAt: string
 }
@@ -37,6 +39,8 @@ export type ListGamesParams = {
   search?: string
   status?: GameSummary['status']
   onlyMine?: boolean
+  /** Sección "Comunidad": juegos publicados por otros usuarios, con el nombre del creador. */
+  community?: boolean
   categoryId?: string
 }
 
@@ -48,6 +52,7 @@ export function listGames(token: string, params: ListGamesParams = {}): Promise<
   if (params.search) query.set('search', params.search)
   if (params.status) query.set('status', params.status)
   if (params.onlyMine) query.set('onlyMine', 'true')
+  if (params.community) query.set('community', 'true')
   if (params.categoryId) query.set('categoryId', params.categoryId)
 
   const queryString = query.toString()

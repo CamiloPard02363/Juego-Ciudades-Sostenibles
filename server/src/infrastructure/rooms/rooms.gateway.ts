@@ -21,6 +21,7 @@ import {
   type TournamentParticipant,
 } from '../../domain/ports/tournament-store.port.js';
 import type { GuessWhoCard } from '../../application/content-validators/guess-who.content-validator.js';
+import { AnalyticsTrackerService } from '../../application/services/analytics-tracker.service.js';
 import { WsExceptionFilter } from './ws-exception.filter.js';
 
 interface AuthenticatedSocket extends Socket {
@@ -212,6 +213,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(ROOM_STORE) private readonly roomStore: RoomStore,
     @Inject(TOURNAMENT_STORE) private readonly tournamentStore: TournamentStore,
+    private readonly analyticsTracker: AnalyticsTrackerService,
   ) {}
 
   async handleConnection(socket: AuthenticatedSocket) {
@@ -304,6 +306,13 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.roomStore.create(room);
     socket.join(code);
     socket.emit('room:state', toClientView(room, socket.id));
+
+    void this.analyticsTracker.track({
+      type: 'room_created',
+      userId: socket.data.userId,
+      gameId: game.id,
+      metadata: { mode: 'individual', turnDurationSeconds: room.turnDurationSeconds },
+    });
   }
 
   @SubscribeMessage('room:join')
@@ -612,6 +621,13 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.tournamentStore.create(tournament);
     socket.join(`tournament:${code}`);
     socket.emit('tournament:state', toTournamentClientView(tournament, socket.data.userId));
+
+    void this.analyticsTracker.track({
+      type: 'room_created',
+      userId: socket.data.userId,
+      gameId: game.id,
+      metadata: { mode: 'group', maxParticipants, turnDurationSeconds: tournament.turnDurationSeconds },
+    });
   }
 
   @SubscribeMessage('tournament:join')

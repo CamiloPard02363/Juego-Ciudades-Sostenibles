@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { ChevronLeft, Gamepad2, Settings, Users, Zap } from 'lucide-react'
+import { BookOpen, ChevronLeft, Lock, Users, Users2, Zap } from 'lucide-react'
 import { ThemeToggle } from '../ThemeToggle'
 
-export type HomeSection = 'games' | 'settings' | 'admin-users'
+export type HomeSection = 'categories' | 'community' | 'my-games' | 'admin-users'
 
 type SidebarProps = {
   activeSection: HomeSection
@@ -74,18 +74,25 @@ export function Sidebar({ activeSection, onSelectSection, canManageUsers }: Side
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navegación principal">
         <SidebarItem
-          label="Juegos"
+          label="Materias"
           collapsed={collapsed}
-          active={activeSection === 'games'}
-          onClick={() => onSelectSection('games')}
-          icon={<Gamepad2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+          active={activeSection === 'categories'}
+          onClick={() => onSelectSection('categories')}
+          icon={<BookOpen className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         <SidebarItem
-          label="Configuración"
+          label="Comunidad"
           collapsed={collapsed}
-          active={activeSection === 'settings'}
-          onClick={() => onSelectSection('settings')}
-          icon={<Settings className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+          active={activeSection === 'community'}
+          onClick={() => onSelectSection('community')}
+          icon={<Users2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+        />
+        <SidebarItem
+          label="Mis juegos privados"
+          collapsed={collapsed}
+          active={activeSection === 'my-games'}
+          onClick={() => onSelectSection('my-games')}
+          icon={<Lock className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         {canManageUsers && (
           <>
