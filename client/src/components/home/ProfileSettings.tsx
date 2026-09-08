@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { X } from 'lucide-react'
 import { TextField } from '../TextField'
 import { useAuth } from '../../hooks/useAuth'
 import { ApiError } from '../../utils/http'
 import { validateRequiredName } from '../../utils/validation'
+import { Modal } from './games/Modal'
 
-export function ProfileSettings() {
+type ProfileSettingsProps = {
+  onClose: () => void
+}
+
+export function ProfileSettings({ onClose }: ProfileSettingsProps) {
   const { user, updateProfile } = useAuth()
 
   const [firstName, setFirstName] = useState(user?.firstName ?? '')
@@ -52,11 +58,21 @@ export function ProfileSettings() {
   }
 
   return (
-    <section className="max-w-[520px]">
-      <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Configuración</h2>
-      <p className="mb-6 text-[14px] text-text">
-        Actualiza los datos de tu perfil en NexusPlay.
-      </p>
+    <Modal onClose={onClose} maxWidthClassName="max-w-[520px]">
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Configuración</h2>
+          <p className="text-[14px] text-text">Actualiza los datos de tu perfil en NexusPlay.</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          className="shrink-0 rounded-lg p-1.5 text-text transition-colors hover:bg-code-bg hover:text-text-h"
+          onClick={onClose}
+        >
+          <X className="h-5 w-5" strokeWidth={2} />
+        </button>
+      </div>
 
       <form className="flex flex-col gap-[18px]" onSubmit={handleSubmit} noValidate>
         <div className="grid grid-cols-2 gap-[14px]">
@@ -125,6 +141,6 @@ export function ProfileSettings() {
           {submitting ? 'Guardando…' : 'Guardar cambios'}
         </button>
       </form>
-    </section>
+    </Modal>
   )
 }
