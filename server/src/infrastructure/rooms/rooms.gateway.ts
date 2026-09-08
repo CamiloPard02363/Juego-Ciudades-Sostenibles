@@ -653,7 +653,10 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * todos sin dejar a nadie afuera desde el arranque.
    */
   @SubscribeMessage('tournament:start')
-  handleTournamentStart(@ConnectedSocket() socket: AuthenticatedSocket) {
+  handleTournamentStart(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { turnDurationSeconds?: number },
+  ) {
     const tournament = this.tournamentStore.findBySocketId(socket.id);
     if (!tournament) throw new Error('No estás en ninguna sala grupal.');
     if (tournament.creatorUserId !== socket.data.userId) {
@@ -664,6 +667,14 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const count = tournament.participants.length;
     if (count < 2 || count % 2 !== 0) {
       throw new Error('Se necesita un número par de jugadores (2, 4, 6, 8 o 10) para iniciar.');
+    }
+
+    if (body?.turnDurationSeconds !== undefined) {
+      const { turnDurationSeconds } = body;
+      if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
+        throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
+      }
+      tournament.turnDurationSeconds = turnDurationSeconds;
     }
 
     tournament.phase = 'RUNNING';

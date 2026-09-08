@@ -69,7 +69,7 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
  * layout de tablero — separar en 3 pantallas obligaría a pasar la conexión
  * entre ellas sin ganar nada.
  */
-type EntryChoice = 'undecided' | 'creating' | 'joining'
+type EntryChoice = 'undecided' | 'joining-input' | 'creating' | 'joining'
 
 function IndividualGuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   const { token, user } = useAuth()
@@ -161,7 +161,7 @@ function IndividualGuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
       <Modal onClose={handleExit} maxWidthClassName="max-w-[420px]">
         <h2 className="mb-1 text-[19px] tracking-tight text-text-h">¿Quién Es?</h2>
         <p className="mb-6 text-[13px] text-text">¿Vas a crear la sala o a unirte con un código?</p>
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
             className="rounded-lg px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
@@ -173,27 +173,13 @@ function IndividualGuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
           >
             Crear sala nueva
           </button>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              className="flex-1 rounded-lg border border-border bg-bg px-3 py-2.5 text-[13px] tracking-widest uppercase text-text-h outline-none focus:border-accent"
-              placeholder="CÓDIGO DE SALA"
-              value={joinCode}
-              maxLength={6}
-              onChange={(event) => setJoinCode(event.target.value)}
-            />
-            <button
-              type="button"
-              className="shrink-0 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={joinCode.trim().length !== 6}
-              onClick={() => {
-                setEntryChoice('joining')
-                joinRoom(joinCode.trim())
-              }}
-            >
-              Unirme
-            </button>
-          </div>
+          <button
+            type="button"
+            className="rounded-lg border border-border px-4 py-3 text-[14.5px] font-semibold text-text-h transition-transform hover:-translate-y-0.5"
+            onClick={() => setEntryChoice('joining-input')}
+          >
+            Unirme a sala
+          </button>
         </div>
         <button
           type="button"
@@ -201,6 +187,44 @@ function IndividualGuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
           onClick={handleExit}
         >
           Cancelar
+        </button>
+      </Modal>
+    )
+  }
+
+  if (entryChoice === 'joining-input') {
+    return (
+      <Modal onClose={handleExit} maxWidthClassName="max-w-[420px]">
+        <h2 className="mb-1 text-[19px] tracking-tight text-text-h">Unirme a sala</h2>
+        <p className="mb-6 text-[13px] text-text">Ingresa el código de 6 caracteres que te compartieron.</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            autoFocus
+            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2.5 text-[13px] tracking-widest uppercase text-text-h outline-none focus:border-accent"
+            placeholder="CÓDIGO DE SALA"
+            value={joinCode}
+            maxLength={6}
+            onChange={(event) => setJoinCode(event.target.value)}
+          />
+          <button
+            type="button"
+            className="shrink-0 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={joinCode.trim().length !== 6}
+            onClick={() => {
+              setEntryChoice('joining')
+              joinRoom(joinCode.trim())
+            }}
+          >
+            Unirme
+          </button>
+        </div>
+        <button
+          type="button"
+          className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
+          onClick={() => setEntryChoice('undecided')}
+        >
+          Atrás
         </button>
       </Modal>
     )

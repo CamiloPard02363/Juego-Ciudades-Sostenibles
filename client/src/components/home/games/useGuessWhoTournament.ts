@@ -61,8 +61,8 @@ export function useGuessWhoTournament(token: string | null) {
     socketRef.current?.emit('tournament:join', { code })
   }, [])
 
-  const startTournament = useCallback(() => {
-    socketRef.current?.emit('tournament:start')
+  const startTournament = useCallback((turnDurationSeconds: number) => {
+    socketRef.current?.emit('tournament:start', { turnDurationSeconds })
   }, [])
 
   const leaveTournament = useCallback(() => {

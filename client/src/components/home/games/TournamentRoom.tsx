@@ -11,7 +11,7 @@ type TournamentRoomProps = {
 }
 
 /** Antes de entrar a la sala grupal, cada jugador decide si crea una sala nueva o se une con un código. */
-type EntryChoice = 'undecided' | 'creating' | 'joining'
+type EntryChoice = 'undecided' | 'choosing-create' | 'joining-input' | 'creating' | 'joining'
 
 // Cupos válidos para poder iniciar sin llegar al máximo configurado: hace
 // falta un número PAR de jugadores unidos (no el cupo completo).
@@ -73,66 +73,117 @@ export function TournamentRoom({ gameId, onExit }: TournamentRoomProps) {
     onExit()
   }
 
-  if (entryChoice === 'undecided') {
+  if (entryChoice === 'undecided' || entryChoice === 'choosing-create') {
+    const isChoosingCreate = entryChoice === 'choosing-create'
     return (
       <Modal onClose={handleExit} maxWidthClassName="max-w-[420px]">
         <h2 className="mb-1 text-[19px] tracking-tight text-text-h">Modo grupo</h2>
         <p className="mb-6 text-[13px] text-text">¿Vas a crear la sala o a unirte con un código?</p>
-        <div className="flex flex-col gap-4">
-          <div className="rounded-xl border border-border p-4">
-            <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="max-participants-input">
-              Cupo máximo (hasta 10)
-            </label>
-            <input
-              id="max-participants-input"
-              type="number"
-              min={2}
-              max={10}
-              className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
-              value={maxParticipantsInput}
-              onChange={(event) => setMaxParticipantsInput(Number(event.target.value))}
-            />
-            <button
-              type="button"
-              className="mt-3 w-full rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={() => {
-                setEntryChoice('creating')
-                createTournament(gameId, Math.min(10, Math.max(2, maxParticipantsInput)))
-              }}
-            >
-              Crear sala
-            </button>
-          </div>
 
-          <div className="flex gap-2">
-            <input
-              type="text"
-              className="flex-1 rounded-lg border border-border bg-bg px-3 py-2.5 text-[13px] tracking-widest uppercase text-text-h outline-none focus:border-accent"
-              placeholder="CÓDIGO DE SALA"
-              value={joinCode}
-              maxLength={6}
-              onChange={(event) => setJoinCode(event.target.value)}
-            />
+        {!isChoosingCreate && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className="rounded-lg px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                onClick={() => setEntryChoice('choosing-create')}
+              >
+                Crear sala
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-4 py-3 text-[14.5px] font-semibold text-text-h transition-transform hover:-translate-y-0.5"
+                onClick={() => setEntryChoice('joining-input')}
+              >
+                Unirme a sala
+              </button>
+            </div>
             <button
               type="button"
-              className="shrink-0 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={joinCode.trim().length !== 6}
-              onClick={() => {
-                setEntryChoice('joining')
-                joinTournament(joinCode.trim())
-              }}
+              className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
+              onClick={handleExit}
             >
-              Unirme
+              Cancelar
             </button>
+          </>
+        )}
+
+        {isChoosingCreate && (
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl border border-border p-4">
+              <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="max-participants-input">
+                Cupo máximo (hasta 10)
+              </label>
+              <input
+                id="max-participants-input"
+                type="number"
+                min={2}
+                max={10}
+                className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
+                value={maxParticipantsInput}
+                onChange={(event) => setMaxParticipantsInput(Number(event.target.value))}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
+                onClick={() => setEntryChoice('undecided')}
+              >
+                Atrás
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                onClick={() => {
+                  setEntryChoice('creating')
+                  createTournament(gameId, Math.min(10, Math.max(2, maxParticipantsInput)))
+                }}
+              >
+                Crear sala
+              </button>
+            </div>
           </div>
+        )}
+      </Modal>
+    )
+  }
+
+  if (entryChoice === 'joining-input') {
+    return (
+      <Modal onClose={handleExit} maxWidthClassName="max-w-[420px]">
+        <h2 className="mb-1 text-[19px] tracking-tight text-text-h">Unirme a sala grupal</h2>
+        <p className="mb-6 text-[13px] text-text">Ingresa el código de 6 caracteres que te compartieron.</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            autoFocus
+            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2.5 text-[13px] tracking-widest uppercase text-text-h outline-none focus:border-accent"
+            placeholder="CÓDIGO DE SALA"
+            value={joinCode}
+            maxLength={6}
+            onChange={(event) => setJoinCode(event.target.value)}
+          />
+          <button
+            type="button"
+            className="shrink-0 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={joinCode.trim().length !== 6}
+            onClick={() => {
+              setEntryChoice('joining')
+              joinTournament(joinCode.trim())
+            }}
+          >
+            Unirme
+          </button>
         </div>
         <button
           type="button"
           className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
-          onClick={handleExit}
+          onClick={() => setEntryChoice('undecided')}
         >
-          Cancelar
+          Atrás
         </button>
       </Modal>
     )
@@ -267,10 +318,18 @@ function WaitingLobby({
 }: {
   tournament: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>
   isCreator: boolean
-  onStart: () => void
+  onStart: (turnDurationSeconds: number) => void
 }) {
   const count = tournament.participants.length
   const canStart = isValidStartCount(count)
+  // Segundos por turno para el torneo: solo el creador lo ajusta antes de
+  // iniciar, igual que en el modo individual. Se sincroniza con el valor
+  // del torneo solo al entrar a una sala nueva (tournament.code cambia).
+  const [turnDurationInput, setTurnDurationInput] = useState(tournament.turnDurationSeconds)
+  useEffect(() => {
+    setTurnDurationInput(tournament.turnDurationSeconds)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament.code])
 
   return (
     <div className="flex flex-col gap-5">
@@ -300,13 +359,33 @@ function WaitingLobby({
         </p>
       </div>
 
+      {isCreator && (
+        <div>
+          <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="tournament-turn-duration-input">
+            Segundos por turno
+          </label>
+          <input
+            id="tournament-turn-duration-input"
+            type="number"
+            min={5}
+            max={120}
+            className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
+            value={turnDurationInput}
+            onChange={(event) => setTurnDurationInput(Number(event.target.value))}
+          />
+          <p className="mt-1 text-[11.5px] text-text">
+            Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
+          </p>
+        </div>
+      )}
+
       {isCreator ? (
         <button
           type="button"
           className="rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
           disabled={!canStart}
-          onClick={onStart}
+          onClick={() => onStart(turnDurationInput)}
         >
           {canStart ? 'Iniciar partida' : 'Se necesita un número par de jugadores (2, 4, 6, 8 o 10)'}
         </button>
