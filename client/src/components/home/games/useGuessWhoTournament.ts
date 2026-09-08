@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
-import type { TournamentPairingAnnouncement, TournamentStateView } from './guessWhoTypes'
+import type { TournamentMatchStateView, TournamentPairingAnnouncement, TournamentStateView } from './guessWhoTypes'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000'
 
@@ -38,6 +38,14 @@ export function useGuessWhoTournament(token: string | null) {
     // "Tu compañero es: [nombre]" antes de que el match arranque de lleno.
     socket.on('tournament:pairing-announced', (payload: TournamentPairingAnnouncement) => {
       setPairingAnnouncement(payload)
+    })
+    // El servidor emite esto en cada acción dentro de un match (descartar,
+    // pasar turno, acusación fallida) para no tener que reconstruir y
+    // reenviar el torneo entero por cada jugada — sin este listener el
+    // tablero se queda congelado en el reparto inicial aunque el servidor
+    // sí siga procesando las jugadas.
+    socket.on('tournament:match-state', (matchState: TournamentMatchStateView) => {
+      setTournament((current) => (current ? { ...current, myMatch: matchState } : current))
     })
     socket.on(
       'tournament:match-accusation-result',
