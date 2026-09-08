@@ -44,6 +44,9 @@ function shuffle<T>(items: T[]): T[] {
 /** Cuenta regresiva antes de repartir cartas (3-2-1), igual para el inicio y cada revancha. */
 const DEAL_COUNTDOWN_MS = 3_000;
 
+/** Largo máximo de un mensaje de chat de sala; se recorta, no se rechaza. */
+const MAX_CHAT_MESSAGE_LENGTH = 500;
+
 /** Vista pública de la sala que se envía a un jugador dado: oculta la carta secreta ajena. */
 function toClientView(room: RoomState, forSocketId: string) {
   return {
@@ -65,6 +68,7 @@ function toClientView(room: RoomState, forSocketId: string) {
       secretCardId: player.socketId === forSocketId ? player.secretCardId : null,
       isSelf: player.socketId === forSocketId,
       hasVotedRematch: room.rematchVotes[player.userId] !== undefined,
+      isHost: player.userId === room.hostUserId,
     })),
   };
 }
@@ -166,6 +170,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       gameId: game.id,
       gameTitle: game.title,
       cards: game.content as GuessWhoCard[],
+      hostUserId: socket.data.userId,
       maxAccusationCount: (game.config.maxAccusationCount as number | undefined) ?? 6,
       turnDurationSeconds: (game.config.turnDurationSeconds as number | undefined) ?? 15,
       phase: 'WAITING',
@@ -233,8 +238,10 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // El tiempo por turno se elige en la sala (no en la creación del
     // juego), así que cada partida puede tener su propio ritmo; si viene
     // fuera de rango o no llega, se conserva el valor con el que se creó
-    // la sala (heredado de la configuración del juego).
-    if (body?.turnDurationSeconds !== undefined) {
+    // la sala (heredado de la configuración del juego). Solo el anfitrión
+    // puede fijarlo — si quien se unió con el código manda un valor, se
+    // ignora en vez de fallar, para no bloquear el inicio de la partida.
+    if (body?.turnDurationSeconds !== undefined && socket.data.userId === room.hostUserId) {
       const { turnDurationSeconds } = body;
       if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
         throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
@@ -380,6 +387,31 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.roomStore.set(room);
     this.broadcastState(room);
+  }
+
+  /**
+   * Chat de texto de la sala: pensado para que los dos jugadores puedan
+   * coordinarse sin llamada ni estar en persona. No se persiste en
+   * RoomState ni en base de datos — es un simple relay en vivo a los
+   * sockets de la sala, igual de efímero que el resto de la partida.
+   */
+  @SubscribeMessage('room:chat')
+  handleChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
+    const room = this.roomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+
+    const sender = room.players.find((p) => p.socketId === socket.id);
+    if (!sender) throw new Error('No estás en esta sala.');
+
+    const text = body?.text?.trim().slice(0, MAX_CHAT_MESSAGE_LENGTH);
+    if (!text) return;
+
+    this.server.to(room.code).emit('room:chat-message', {
+      userId: sender.userId,
+      displayName: sender.displayName,
+      text,
+      sentAt: Date.now(),
+    });
   }
 
   @SubscribeMessage('room:leave')

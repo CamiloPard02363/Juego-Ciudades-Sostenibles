@@ -19,6 +19,8 @@ export interface RoomState {
   gameId: string;
   gameTitle: string;
   cards: GuessWhoCard[];
+  /** userId de quien creó la sala — solo puede fijar los segundos por turno. */
+  hostUserId: string;
   maxAccusationCount: number;
   /** Segundos que tiene el jugador activo antes de que su turno pase automático. Viene de game.config. */
   turnDurationSeconds: number;

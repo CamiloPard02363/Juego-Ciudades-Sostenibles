@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
-import type { RoomStateView } from './guessWhoTypes'
+import type { GuessWhoChatMessage, RoomStateView } from './guessWhoTypes'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000'
 
@@ -16,6 +16,7 @@ export function useGuessWhoRoom(token: string | null) {
   const [connecting, setConnecting] = useState(true)
   const [rematchRejectedMessage, setRematchRejectedMessage] = useState<string | null>(null)
   const [dealCountdownMs, setDealCountdownMs] = useState<number | null>(null)
+  const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
 
   useEffect(() => {
     if (!token) return
@@ -47,6 +48,9 @@ export function useGuessWhoRoom(token: string | null) {
     socket.on('room:rematch-rejected', (payload: { message: string }) => {
       setRematchRejectedMessage(payload.message)
       setRoom(null)
+    })
+    socket.on('room:chat-message', (message: GuessWhoChatMessage) => {
+      setMessages((current) => [...current, message])
     })
 
     return () => {
@@ -83,9 +87,16 @@ export function useGuessWhoRoom(token: string | null) {
     socketRef.current?.emit('room:pass-turn')
   }, [])
 
+  const sendChatMessage = useCallback((text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    socketRef.current?.emit('room:chat', { text: trimmed })
+  }, [])
+
   const leaveRoom = useCallback(() => {
     socketRef.current?.emit('room:leave')
     setRoom(null)
+    setMessages([])
   }, [])
 
   return {
@@ -94,6 +105,7 @@ export function useGuessWhoRoom(token: string | null) {
     connecting,
     rematchRejectedMessage,
     dealCountdownMs,
+    messages,
     createRoom,
     joinRoom,
     startGame,
@@ -101,6 +113,7 @@ export function useGuessWhoRoom(token: string | null) {
     accuseCard,
     voteRematch,
     passTurn,
+    sendChatMessage,
     leaveRoom,
   }
 }

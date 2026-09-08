@@ -14,6 +14,8 @@ export type RoomPlayerView = {
   secretCardId: string | null
   isSelf: boolean
   hasVotedRematch: boolean
+  /** true solo para quien creó la sala — es el único que puede fijar los segundos por turno. */
+  isHost: boolean
 }
 
 export type RoomStateView = {
@@ -28,4 +30,11 @@ export type RoomStateView = {
   /** Timestamp (epoch ms) en el que vence el turno actual, para dibujar el countdown. */
   turnDeadline: number | null
   players: RoomPlayerView[]
+}
+
+export type GuessWhoChatMessage = {
+  userId: string
+  displayName: string
+  text: string
+  sentAt: number
 }

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Copy, LogOut, SkipForward, Swords, Trophy, Users, Volume2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { Copy, LogOut, MessageCircle, Send, SkipForward, Swords, Trophy, Users, Volume2, X } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
+import type { GuessWhoChatMessage } from './guessWhoTypes'
 import { Modal } from './Modal'
 
 /**
@@ -48,6 +50,7 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
     connecting,
     rematchRejectedMessage,
     dealCountdownMs,
+    messages,
     createRoom,
     joinRoom,
     startGame,
@@ -55,11 +58,19 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
     accuseCard,
     voteRematch,
     passTurn,
+    sendChatMessage,
     leaveRoom,
   } = useGuessWhoRoom(token)
   const [entryChoice, setEntryChoice] = useState<EntryChoice>('undecided')
   const [joinCode, setJoinCode] = useState('')
   const [accusing, setAccusing] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  useEffect(() => {
+    if (messages.length === 0) return
+    if (!chatOpen) setUnreadCount((current) => current + 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length])
   // dealCountdownMs es una duración (ms) que llega una sola vez con el evento
   // room:dealing; se ancla a un deadline absoluto apenas cambia, para que
   // useCountdown pueda tickear sin depender de que el padre re-renderice.
@@ -191,7 +202,8 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
   const dealing = dealDeadline !== null && dealRemainingMs > 0
 
   return (
-    <Modal onClose={handleExit} maxWidthClassName="max-w-[760px]">
+    <>
+      <Modal onClose={handleExit} maxWidthClassName="max-w-[760px]">
       {dealing && <DealCountdownOverlay remainingMs={dealRemainingMs} />}
 
       <div className="mb-5 flex items-center justify-between gap-3">
@@ -210,14 +222,32 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
             </button>
           </p>
         </div>
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-text-h"
-          onClick={handleExit}
-        >
-          <LogOut className="h-4 w-4" strokeWidth={2} />
-          Salir
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            className="relative flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-text-h"
+            onClick={() => {
+              setChatOpen((current) => !current)
+              setUnreadCount(0)
+            }}
+          >
+            <MessageCircle className="h-4 w-4" strokeWidth={2} />
+            Chat
+            {!chatOpen && unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-text-h"
+            onClick={handleExit}
+          >
+            <LogOut className="h-4 w-4" strokeWidth={2} />
+            Salir
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -258,23 +288,30 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
             </div>
           )}
 
-          <div>
-            <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="turn-duration-input">
-              Segundos por turno
-            </label>
-            <input
-              id="turn-duration-input"
-              type="number"
-              min={5}
-              max={120}
-              className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
-              value={turnDurationInput}
-              onChange={(event) => setTurnDurationInput(Number(event.target.value))}
-            />
-            <p className="mt-1 text-[11.5px] text-text">
-              Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
+          {self?.isHost ? (
+            <div>
+              <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="turn-duration-input">
+                Segundos por turno
+              </label>
+              <input
+                id="turn-duration-input"
+                type="number"
+                min={5}
+                max={120}
+                className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
+                value={turnDurationInput}
+                onChange={(event) => setTurnDurationInput(Number(event.target.value))}
+              />
+              <p className="mt-1 text-[11.5px] text-text">
+                Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[12.5px] text-text">
+              Segundos por turno: <strong className="text-text-h">{turnDurationInput}</strong> (lo define
+              quien creó la sala).
             </p>
-          </div>
+          )}
 
           <button
             type="button"
@@ -475,7 +512,124 @@ export function GuessWhoRoom({ gameId, onExit }: GuessWhoRoomProps) {
           </button>
         </div>
       )}
-    </Modal>
+      </Modal>
+
+      {chatOpen && (
+        <ChatPanel
+          messages={messages}
+          selfUserId={self?.userId ?? null}
+          onClose={() => setChatOpen(false)}
+          onSend={sendChatMessage}
+        />
+      )}
+    </>
+  )
+}
+
+/**
+ * Panel de chat de la sala: flota sobre el modal del juego para que los dos
+ * jugadores puedan coordinarse por texto sin llamada ni estar en persona.
+ * No guarda historial en el servidor — solo lo que llegó mientras el socket
+ * de este cliente estuvo conectado a la sala.
+ */
+function ChatPanel({
+  messages,
+  selfUserId,
+  onClose,
+  onSend,
+}: {
+  messages: GuessWhoChatMessage[]
+  selfUserId: string | null
+  onClose: () => void
+  onSend: (text: string) => void
+}) {
+  const [text, setText] = useState('')
+  const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
+  }, [messages.length])
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (!text.trim()) return
+    onSend(text)
+    setText('')
+  }
+
+  return (
+    <div
+      className="fixed right-5 bottom-5 z-[80] flex h-[420px] w-[320px] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow)] animate-[modal-panel-in_0.2s_cubic-bezier(0.16,1,0.3,1)]"
+      role="dialog"
+      aria-label="Chat de la sala"
+    >
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-text-h">
+          <MessageCircle className="h-4 w-4 text-accent" strokeWidth={2} />
+          Chat de la partida
+        </p>
+        <button
+          type="button"
+          className="text-text hover:text-accent"
+          onClick={onClose}
+          aria-label="Cerrar chat"
+        >
+          <X className="h-4 w-4" strokeWidth={2} />
+        </button>
+      </div>
+
+      <div ref={listRef} className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-3">
+        {messages.length === 0 ? (
+          <p className="m-auto text-center text-[12.5px] text-text">
+            Todavía no hay mensajes. Escribe algo para coordinar con tu rival.
+          </p>
+        ) : (
+          messages.map((message, index) => {
+            const isSelf = message.userId === selfUserId
+            return (
+              <div
+                key={`${message.sentAt}-${index}`}
+                className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'}`}
+              >
+                {!isSelf && (
+                  <span className="mb-0.5 px-1 text-[10.5px] font-medium text-text">
+                    {message.displayName}
+                  </span>
+                )}
+                <span
+                  className={`max-w-[85%] rounded-lg px-3 py-1.5 text-[13px] leading-snug break-words ${
+                    isSelf ? 'text-white' : 'border border-border text-text-h'
+                  }`}
+                  style={isSelf ? { background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' } : undefined}
+                >
+                  {message.text}
+                </span>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <form className="flex gap-2 border-t border-border p-3" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-[13px] text-text-h outline-none focus:border-accent"
+          placeholder="Escribe un mensaje…"
+          maxLength={500}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+        />
+        <button
+          type="submit"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+          disabled={!text.trim()}
+          aria-label="Enviar mensaje"
+        >
+          <Send className="h-4 w-4" strokeWidth={2} />
+        </button>
+      </form>
+    </div>
   )
 }
 
