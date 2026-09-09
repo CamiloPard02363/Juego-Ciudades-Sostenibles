@@ -12,6 +12,7 @@ import {
   Music,
   Palette,
   PlusCircle,
+  Puzzle,
   Sparkles,
   Stethoscope,
   Trash2,
@@ -48,6 +49,7 @@ import { OppositesGameForm } from './games/OppositesGameForm'
 import { SimplePairsGameForm } from './games/SimplePairsGameForm'
 import { GuessWhoGameForm } from './games/GuessWhoGameForm'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
+import { DominoGame } from './games/DominoGame'
 import type { MemoryMatchPair, MemoryMatchConfig, MemoryMatchMode } from './games/memoryMatchTypes'
 
 type CreateFlowStep =
@@ -160,6 +162,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     initialMode: 'individual' | 'group'
   } | null>(null)
   const [joinByCodeOpen, setJoinByCodeOpen] = useState(false)
+  const [dominoOpen, setDominoOpen] = useState(false)
   const [createFlowStep, setCreateFlowStep] = useState<CreateFlowStep>('closed')
   const [deleting, setDeleting] = useState(false)
   const [deletingCategory, setDeletingCategory] = useState(false)
@@ -343,6 +346,34 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
           >
             <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
             Crear materia
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-border p-5 sm:p-6">
+          <div className="flex items-center gap-3.5">
+            <span
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white"
+              style={{ background: 'linear-gradient(135deg, #22c55e, #06b6d4)' }}
+              aria-hidden="true"
+            >
+              <Puzzle className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <div>
+              <p className="text-[14.5px] font-semibold text-text-h">
+                Nexus Play: Ecosistemas Sostenibles
+              </p>
+              <p className="text-[12.5px] text-text">
+                Dominó temático — conecta paneles solares, zonas verdes, reciclaje y más.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="shrink-0 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_#22c55e] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, #22c55e, #06b6d4)' }}
+            onClick={() => setDominoOpen(true)}
+          >
+            Jugar
           </button>
         </div>
 
@@ -539,6 +570,8 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         {guessWhoRoomGameId && (
           <GuessWhoRoom gameId={guessWhoRoomGameId} onExit={() => setGuessWhoRoomGameId(null)} />
         )}
+
+        {dominoOpen && <DominoGame onExit={() => setDominoOpen(false)} />}
 
         {selectedGame && showPlayOptions && (
           <PlayOptionsPopup
