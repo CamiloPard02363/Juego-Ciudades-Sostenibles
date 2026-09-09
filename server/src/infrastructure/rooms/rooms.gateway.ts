@@ -743,6 +743,32 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * El creador ajusta los segundos por turno mientras espera participantes
+   * en la sala grupal (antes de tournament:start); se difunde en vivo para
+   * que el resto vea el valor actualizado, igual que en el modo individual.
+   */
+  @SubscribeMessage('tournament:update-turn-duration')
+  handleTournamentUpdateTurnDuration(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { turnDurationSeconds: number },
+  ) {
+    const tournament = this.tournamentStore.findBySocketId(socket.id);
+    if (!tournament) throw new Error('No estás en ninguna sala grupal.');
+    if (tournament.phase !== 'WAITING') throw new Error('El torneo ya inició.');
+    if (tournament.creatorUserId !== socket.data.userId) {
+      throw new Error('Solo quien creó la sala puede cambiar los segundos por turno.');
+    }
+
+    const { turnDurationSeconds } = body ?? {};
+    if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
+      throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
+    }
+
+    tournament.turnDurationSeconds = turnDurationSeconds;
+    this.broadcastTournamentState(tournament);
+  }
+
+  /**
    * Arranca la primera ronda del torneo. Requiere un número PAR de
    * participantes (2, 4, 6, 8 o 10) — no hace falta llegar al cupo
    * configurado, solo que el número actual sea par para poder emparejar a
