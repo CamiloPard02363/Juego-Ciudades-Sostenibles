@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
 /* Toggle manual de tema: dark: se activa por [data-theme=dark] en <html>,
@@ -45,6 +45,26 @@
   --color-accent: #a685f5;
   --color-accent-2: #ff6ba3;
   --color-danger: #ff6b7d;
+}
+
+/*
+ * Modo niños: paleta cálida y saturada en los acentos (naranja + turquesa,
+ * como bloques de juguete) sobre un fondo pastel claro — psicología del
+ * color para infancia: tonos vivos en botones/CTAs transmiten energía y
+ * diversión sin volverse agresivos, mientras el fondo suave y cálido evita
+ * la sobreestimulación y se siente acogedor. Contraste alto texto/fondo
+ * para facilitar lectura a lectores primerizos.
+ */
+:root[data-theme='kids'] {
+  --color-text: #5b4636;
+  --color-text-h: #3a2a6d;
+  --color-bg: #fff8e7;
+  --color-surface: #ffffff;
+  --color-border: #ffe0a3;
+  --color-code-bg: #e6f7ff;
+  --color-accent: #ff7a1a;
+  --color-accent-2: #06b6d4;
+  --color-danger: #ff4d6d;
 }
 
 :root {
@@ -125,8 +145,44 @@
   }
 }
 
+:root[data-theme='kids'] {
+  --text: #5b4636;
+  --text-h: #3a2a6d;
+  --bg: #fff8e7;
+  --surface: #ffffff;
+  --border: #ffe0a3;
+  --code-bg: #e6f7ff;
+  --accent: #ff7a1a;
+  --accent-2: #06b6d4;
+  --accent-bg: rgba(255, 122, 26, 0.12);
+  --accent-border: rgba(255, 122, 26, 0.45);
+  --social-bg: rgba(230, 247, 255, 0.7);
+  --shadow: 0 20px 45px -20px rgba(255, 122, 26, 0.35);
+  --glow: 0 0 32px -4px rgba(255, 122, 26, 0.5);
+  color-scheme: light;
+
+  /* Tipografía redondeada y juguetona, distinta al resto de temas. */
+  --sans: 'Quicksand', var(--font-sans);
+  --heading: 'Baloo 2', var(--font-heading);
+}
+
 :root[data-theme='light'] {
   color-scheme: light;
+}
+
+/*
+ * Fondo con manchas de color suaves (naranja/turquesa/verde/rosa) fijo
+ * detrás de toda la app en modo niños — "dibujitos" sutiles sin necesitar
+ * imágenes, para que la personalización se sienta en cada pantalla y no
+ * solo en botones/acentos puntuales.
+ */
+[data-theme='kids'] body {
+  background-image:
+    radial-gradient(circle at 6% 12%, rgba(255, 122, 26, 0.14) 0, transparent 40%),
+    radial-gradient(circle at 88% 18%, rgba(6, 182, 212, 0.16) 0, transparent 42%),
+    radial-gradient(circle at 16% 88%, rgba(34, 197, 94, 0.14) 0, transparent 40%),
+    radial-gradient(circle at 92% 82%, rgba(236, 72, 153, 0.14) 0, transparent 40%);
+  background-attachment: fixed;
 }
 
 #root {

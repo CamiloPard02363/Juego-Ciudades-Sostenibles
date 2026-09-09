@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export type Theme = 'light' | 'dark'
+export type Theme = 'light' | 'dark' | 'kids'
 
 const STORAGE_KEY = 'nexusplay-theme'
 
@@ -10,7 +10,7 @@ function getSystemTheme(): Theme {
 
 function readStoredTheme(): Theme | null {
   const stored = localStorage.getItem(STORAGE_KEY)
-  return stored === 'light' || stored === 'dark' ? stored : null
+  return stored === 'light' || stored === 'dark' || stored === 'kids' ? stored : null
 }
 
 function applyTheme(theme: Theme) {

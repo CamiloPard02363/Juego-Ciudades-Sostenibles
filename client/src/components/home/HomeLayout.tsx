@@ -7,6 +7,7 @@ import { ProfileMenu } from './ProfileMenu'
 import { GamesSection } from './GamesSection'
 import { ProfileSettings } from './ProfileSettings'
 import { AdminUsersSection } from './AdminUsersSection'
+import { ThemesSection } from './ThemesSection'
 import { trackEvent } from '../../services/analytics.service'
 
 export function HomeLayout() {
@@ -60,6 +61,7 @@ export function HomeLayout() {
               searchNonce={searchNonce}
             />
           )}
+          {section === 'themes' && <ThemesSection />}
           {section === 'admin-users' && canManageUsers && <AdminUsersSection />}
         </main>
       </div>

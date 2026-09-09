@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { BookOpen, ChevronLeft, Gamepad2, Lock, Users, Users2, Zap } from 'lucide-react'
+import { BookOpen, ChevronLeft, Gamepad2, Lock, Palette, Users, Users2, Zap } from 'lucide-react'
 import { ThemeToggle } from '../ThemeToggle'
 
-export type HomeSection = 'all' | 'categories' | 'community' | 'my-games' | 'admin-users'
+export type HomeSection = 'all' | 'categories' | 'community' | 'my-games' | 'themes' | 'admin-users'
 
 type SidebarProps = {
   activeSection: HomeSection
@@ -100,6 +100,13 @@ export function Sidebar({ activeSection, onSelectSection, canManageUsers }: Side
           active={activeSection === 'my-games'}
           onClick={() => onSelectSection('my-games')}
           icon={<Lock className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+        />
+        <SidebarItem
+          label="Temas"
+          collapsed={collapsed}
+          active={activeSection === 'themes'}
+          onClick={() => onSelectSection('themes')}
+          icon={<Palette className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         {canManageUsers && (
           <>
