@@ -405,6 +405,33 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * RoomState ni en base de datos — es un simple relay en vivo a los
    * sockets de la sala, igual de efímero que el resto de la partida.
    */
+  /**
+   * El anfitrión ajusta los segundos por turno mientras espera al rival en
+   * la sala (antes de room:start); se difunde en vivo para que el otro
+   * jugador vea el valor actualizado sin esperar a que la partida arranque.
+   */
+  @SubscribeMessage('room:update-turn-duration')
+  handleUpdateTurnDuration(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { turnDurationSeconds: number },
+  ) {
+    const room = this.roomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
+    if (socket.data.userId !== room.hostUserId) {
+      throw new Error('Solo quien creó la sala puede cambiar los segundos por turno.');
+    }
+
+    const { turnDurationSeconds } = body ?? {};
+    if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
+      throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
+    }
+
+    room.turnDurationSeconds = turnDurationSeconds;
+    this.roomStore.set(room);
+    this.broadcastState(room);
+  }
+
   @SubscribeMessage('room:chat')
   handleChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
     const room = this.roomStore.findBySocketId(socket.id);
