@@ -7,9 +7,9 @@ import { InvalidGameTypeError } from '../errors/game.errors.js';
  * que no tiene sentido que sea data en DB — es la mecánica del juego, no una
  * instancia de contenido.
  */
-export type GameTypeName = 'MEMORY_MATCH' | 'GUESS_WHO';
+export type GameTypeName = 'MEMORY_MATCH' | 'GUESS_WHO' | 'DOMINO';
 
-const VALID_GAME_TYPES: readonly GameTypeName[] = ['MEMORY_MATCH', 'GUESS_WHO'];
+const VALID_GAME_TYPES: readonly GameTypeName[] = ['MEMORY_MATCH', 'GUESS_WHO', 'DOMINO'];
 
 export class GameType {
   private static readonly instances = new Map<GameTypeName, GameType>();
@@ -43,6 +43,10 @@ export class GameType {
 
   static guessWho(): GameType {
     return GameType.create('GUESS_WHO');
+  }
+
+  static domino(): GameType {
+    return GameType.create('DOMINO');
   }
 
   getName(): GameTypeName {

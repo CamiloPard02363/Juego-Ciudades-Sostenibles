@@ -5,6 +5,7 @@ import { MongoService } from './persistence/mongo/mongo.service.js';
 import { MongoGameRepository } from './persistence/mongo/mongo-game.repository.js';
 import { MemoryMatchContentValidator } from '../application/content-validators/memory-match.content-validator.js';
 import { GuessWhoContentValidator } from '../application/content-validators/guess-who.content-validator.js';
+import { DominoContentValidator } from '../application/content-validators/domino.content-validator.js';
 import { ContentValidatorRegistry } from '../application/content-validators/content-validator.registry.js';
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
 import { CreateGameUseCase } from '../application/use-cases/create-game.use-case.js';
@@ -25,6 +26,7 @@ import { GameController } from './http/controllers/game.controller.js';
     { provide: GAME_REPOSITORY, useClass: MongoGameRepository },
     MemoryMatchContentValidator,
     GuessWhoContentValidator,
+    DominoContentValidator,
     ContentValidatorRegistry,
     RequesterAdminResolver,
     CreateGameUseCase,

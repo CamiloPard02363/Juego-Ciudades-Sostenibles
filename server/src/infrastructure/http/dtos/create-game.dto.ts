@@ -19,7 +19,7 @@ export class CreateGameDto {
   @MinLength(10)
   description!: string;
 
-  @IsIn(['MEMORY_MATCH', 'GUESS_WHO'])
+  @IsIn(['MEMORY_MATCH', 'GUESS_WHO', 'DOMINO'])
   gameType!: string;
 
   @IsString()
