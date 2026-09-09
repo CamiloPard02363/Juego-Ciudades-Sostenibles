@@ -80,6 +80,10 @@ export function useGuessWhoRoom(token: string | null) {
     socketRef.current?.emit('room:start', { turnDurationSeconds })
   }, [])
 
+  const updateTurnDuration = useCallback((turnDurationSeconds: number) => {
+    socketRef.current?.emit('room:update-turn-duration', { turnDurationSeconds })
+  }, [])
+
   const discardCard = useCallback((cardId: string) => {
     socketRef.current?.emit('room:discard', { cardId })
   }, [])
@@ -120,6 +124,7 @@ export function useGuessWhoRoom(token: string | null) {
     createRoom,
     joinRoom,
     startGame,
+    updateTurnDuration,
     discardCard,
     accuseCard,
     voteRematch,

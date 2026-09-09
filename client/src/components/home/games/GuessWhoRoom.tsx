@@ -159,6 +159,7 @@ function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode, skipEntryChoi
     createRoom,
     joinRoom,
     startGame,
+    updateTurnDuration,
     discardCard,
     accuseCard,
     voteRematch,
@@ -203,14 +204,23 @@ function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode, skipEntryChoi
     setDealDeadline(Date.now() + dealCountdownMs)
   }, [dealCountdownMs])
   const dealRemainingMs = useCountdown(dealDeadline)
-  // Segundos por turno para la próxima partida: se elige aquí, en la sala,
-  // no al crear el juego — cada partida en vivo puede querer un ritmo
-  // distinto. Se sincroniza con el valor del juego solo al entrar a una
-  // sala nueva (room.code cambia), para no pisar lo que la persona ya
-  // esté escribiendo cuando el rival se une y llega un room:state nuevo.
-  const [turnDurationInput, setTurnDurationInput] = useState(15)
+  // Segundos por turno para la próxima partida: solo el host lo edita (se
+  // guarda como texto, no número, para poder dejar el campo vacío mientras
+  // se reescribe sin que un input controlado lo fuerce de vuelta a "0"). Se
+  // emite al servidor en cada cambio válido para que el rival lo vea en
+  // vivo vía room:update-turn-duration. Para quien NO es host, se
+  // resincroniza en cada room:state (así ve el valor del host en vivo); para
+  // el host solo al entrar a una sala nueva, para no pisar lo que esté
+  // escribiendo cuando le llegue de vuelta su propio cambio ya confirmado.
+  const isHostSelf = room?.players.find((player) => player.isSelf)?.isHost ?? false
+  const [turnDurationText, setTurnDurationText] = useState('15')
   useEffect(() => {
-    if (room?.turnDurationSeconds !== undefined) setTurnDurationInput(room.turnDurationSeconds)
+    if (room?.turnDurationSeconds === undefined) return
+    if (isHostSelf) return
+    setTurnDurationText(String(room.turnDurationSeconds))
+  }, [room?.turnDurationSeconds, isHostSelf])
+  useEffect(() => {
+    if (room?.turnDurationSeconds !== undefined) setTurnDurationText(String(room.turnDurationSeconds))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.code])
 
@@ -459,8 +469,15 @@ function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode, skipEntryChoi
                 min={5}
                 max={120}
                 className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
-                value={turnDurationInput}
-                onChange={(event) => setTurnDurationInput(Number(event.target.value))}
+                value={turnDurationText}
+                onChange={(event) => {
+                  const raw = event.target.value
+                  setTurnDurationText(raw)
+                  const parsed = Number(raw)
+                  if (raw.trim() !== '' && Number.isInteger(parsed) && parsed >= 5 && parsed <= 120) {
+                    updateTurnDuration(parsed)
+                  }
+                }}
               />
               <p className="mt-1 text-[11.5px] text-text">
                 Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
@@ -468,7 +485,7 @@ function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode, skipEntryChoi
             </div>
           ) : (
             <p className="text-[12.5px] text-text">
-              Segundos por turno: <strong className="text-text-h">{turnDurationInput}</strong> (lo define
+              Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define
               quien creó la sala).
             </p>
           )}
@@ -478,7 +495,7 @@ function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode, skipEntryChoi
             className="rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             disabled={room.players.length !== 2}
-            onClick={() => startGame(turnDurationInput)}
+            onClick={() => startGame(Number(turnDurationText) || undefined)}
           >
             {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
           </button>
