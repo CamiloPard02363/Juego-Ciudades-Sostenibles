@@ -4,9 +4,16 @@ import type { GameSummary } from '../../../services/game.service'
 type GameCardProps = {
   game: GameSummary
   onClick: () => void
+  /**
+   * Color por psicología del color según la materia del juego (ver
+   * `colorForGame` en GamesSection). Si no llega, cae al color que haya
+   * elegido quien creó el juego (`game.theme.primaryColor`).
+   */
+  color?: string
 }
 
-export function GameCard({ game, onClick }: GameCardProps) {
+export function GameCard({ game, onClick, color }: GameCardProps) {
+  const accentColor = color ?? game.theme.primaryColor
   return (
     <button
       type="button"
@@ -16,7 +23,7 @@ export function GameCard({ game, onClick }: GameCardProps) {
       <div
         className="flex h-28 items-center justify-center text-3xl transition-[filter] group-hover:brightness-110"
         style={{
-          background: `linear-gradient(135deg, ${game.theme.primaryColor}55, ${game.theme.primaryColor}15)`,
+          background: `linear-gradient(135deg, ${accentColor}55, ${accentColor}15)`,
         }}
       >
         {game.theme.coverImageUrl ? (
@@ -30,8 +37,8 @@ export function GameCard({ game, onClick }: GameCardProps) {
             aria-hidden="true"
             className="flex h-12 w-12 items-center justify-center rounded-xl text-white"
             style={{
-              background: game.theme.primaryColor,
-              boxShadow: `0 0 24px -4px ${game.theme.primaryColor}`,
+              background: accentColor,
+              boxShadow: `0 0 24px -4px ${accentColor}`,
             }}
           >
             <Gamepad2 className="h-6 w-6" strokeWidth={2} />

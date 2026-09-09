@@ -80,22 +80,40 @@ const DEFAULT_MEMORY_CONFIG: MemoryMatchConfig = {
   previewSeconds: 5,
 }
 
-const CATEGORY_PALETTE = ['#7c3aed', '#ff3d8a', '#22c55e', '#3b82f6', '#f59e0b', '#ec4899']
+/** Color de respaldo para una materia que no calza con ninguna regla: azul grisáceo neutro (profesional, no compite con ningún grupo). */
+const DEFAULT_CATEGORY_COLOR = '#64748b'
 
-/** Palabras clave -> ícono representativo. Las categorías son texto libre creado
- * por usuarios, así que esto es una heurística por nombre, con Sparkles de respaldo. */
-const CATEGORY_ICON_RULES: Array<{ keywords: string[]; icon: LucideIcon }> = [
-  { keywords: ['matematic', 'algebra', 'geometr', 'calculo', 'aritmetic'], icon: Calculator },
-  { keywords: ['biolog', 'natural', 'ecolog', 'ambiente', 'plantas', 'botanic'], icon: Leaf },
-  { keywords: ['geografia', 'geograf', 'mundo', 'pais', 'capital'], icon: Globe2 },
-  { keywords: ['medicin', 'salud', 'anatomi', 'clinic'], icon: Stethoscope },
-  { keywords: ['historia', 'civic', 'sociales'], icon: Landmark },
-  { keywords: ['fisica', 'quimic', 'ciencia'], icon: Atom },
-  { keywords: ['genetic', 'adn'], icon: Dna },
-  { keywords: ['idioma', 'ingles', 'frances', 'lengua', 'lenguaje'], icon: Languages },
-  { keywords: ['arte', 'dibujo', 'pintura'], icon: Palette },
-  { keywords: ['musica', 'sonido'], icon: Music },
-  { keywords: ['logica', 'psicolog', 'mente', 'razonamiento'], icon: Brain },
+/**
+ * Palabras clave -> ícono y color representativos, elegidos por psicología
+ * del color (no por índice/orden de creación): cada materia transmite algo
+ * consistente sin importar cuántas materias existan o en qué orden se
+ * crearon. Las categorías son texto libre creado por usuarios, así que esto
+ * es una heurística por nombre, con Sparkles + DEFAULT_CATEGORY_COLOR de
+ * respaldo cuando ninguna palabra clave calza.
+ */
+const CATEGORY_RULES: Array<{ keywords: string[]; icon: LucideIcon; color: string }> = [
+  // Azul: lógica, confianza, orden — asociación clásica con lo racional/exacto.
+  { keywords: ['matematic', 'algebra', 'geometr', 'calculo', 'aritmetic'], icon: Calculator, color: '#3b82f6' },
+  // Verde: naturaleza, crecimiento, calma.
+  { keywords: ['biolog', 'natural', 'ecolog', 'ambiente', 'plantas', 'botanic'], icon: Leaf, color: '#22c55e' },
+  // Turquesa: exploración, apertura, horizontes amplios.
+  { keywords: ['geografia', 'geograf', 'mundo', 'pais', 'capital'], icon: Globe2, color: '#14b8a6' },
+  // Rojo coral: vitalidad, atención, cuidado — sin ser tan intenso como una alerta.
+  { keywords: ['medicin', 'salud', 'anatomi', 'clinic'], icon: Stethoscope, color: '#f43f5e' },
+  // Ámbar/dorado: tradición, solidez, herencia — tono "tierra".
+  { keywords: ['historia', 'civic', 'sociales'], icon: Landmark, color: '#b45309' },
+  // Índigo: profundidad, precisión, misterio de lo científico.
+  { keywords: ['fisica', 'quimic', 'ciencia'], icon: Atom, color: '#6366f1' },
+  // Violeta: descubrimiento, innovación.
+  { keywords: ['genetic', 'adn'], icon: Dna, color: '#8b5cf6' },
+  // Cian: comunicación, claridad.
+  { keywords: ['idioma', 'ingles', 'frances', 'lengua', 'lenguaje'], icon: Languages, color: '#06b6d4' },
+  // Naranja: creatividad, energía, expresión.
+  { keywords: ['arte', 'dibujo', 'pintura'], icon: Palette, color: '#f97316' },
+  // Rosa/magenta: pasión, emoción, expresión artística.
+  { keywords: ['musica', 'sonido'], icon: Music, color: '#ec4899' },
+  // Púrpura: introspección, sabiduría, lo abstracto de la mente.
+  { keywords: ['logica', 'psicolog', 'mente', 'razonamiento'], icon: Brain, color: '#7c3aed' },
 ]
 
 function normalize(text: string): string {
@@ -105,12 +123,18 @@ function normalize(text: string): string {
     .replace(/[̀-ͯ]/g, '')
 }
 
-function iconForCategory(name: string): LucideIcon {
+function matchCategoryRule(name: string) {
   const normalized = normalize(name)
-  const match = CATEGORY_ICON_RULES.find((rule) =>
-    rule.keywords.some((keyword) => normalized.includes(keyword)),
-  )
-  return match?.icon ?? Sparkles
+  return CATEGORY_RULES.find((rule) => rule.keywords.some((keyword) => normalized.includes(keyword)))
+}
+
+function iconForCategory(name: string): LucideIcon {
+  return matchCategoryRule(name)?.icon ?? Sparkles
+}
+
+/** Color por psicología del color según la materia (ver CATEGORY_RULES); mismo criterio para el badge de la materia y para cada tarjeta de juego que pertenece a ella. */
+function colorForCategory(name: string): string {
+  return matchCategoryRule(name)?.color ?? DEFAULT_CATEGORY_COLOR
 }
 
 function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameCount[] {
@@ -184,12 +208,26 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     reload()
   }, [reload])
 
+  // Se carga siempre (no solo en mode 'categories'): el color por psicología
+  // del color de cada tarjeta de juego (colorForGame) necesita el nombre de
+  // la materia sin importar la sección activa (Home, Comunidad, Mis juegos).
   useEffect(() => {
-    if (!token || mode !== 'categories') return
+    if (!token) return
     listCategories(token)
       .then((items) => setCategories(sortByGameCount(items)))
       .catch(() => {})
-  }, [token, mode])
+  }, [token])
+
+  /**
+   * Color de un juego por psicología del color según su materia (ver
+   * CATEGORY_RULES), en vez del color que haya elegido quien lo creó — así
+   * el color transmite consistentemente de qué trata el juego, sin importar
+   * quién lo hizo. Si la materia todavía no cargó, cae al color neutro.
+   */
+  function colorForGame(game: GameSummary): string {
+    const category = categories.find((c) => c.id === game.categoryId)
+    return category ? colorForCategory(category.name) : DEFAULT_CATEGORY_COLOR
+  }
 
   async function openGame(summary: GameSummary) {
     if (!token) return
@@ -322,8 +360,8 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {categories.map((category, index) => {
-              const color = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]
+            {categories.map((category) => {
+              const color = colorForCategory(category.name)
               const Icon = iconForCategory(category.name)
               return (
                 <div
@@ -467,7 +505,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
             ) : (
               <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
                 {games.map((game) => (
-                  <GameCard key={game.id} game={game} onClick={() => openGame(game)} />
+                  <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
                 ))}
               </div>
             )}
@@ -485,6 +523,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         {selectedGame && !showPlayOptions && (
           <GameDetailModal
             game={selectedGame}
+            color={colorForGame(selectedGame)}
             canDelete={Boolean(user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId))}
             deleting={deleting}
             onClose={() => setSelectedGame(null)}
@@ -516,7 +555,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         {playSession && (
           <MemoryMatchGame
             title={playSession.game.title}
-            primaryColor={playSession.game.theme.primaryColor}
+            primaryColor={colorForGame(playSession.game)}
             pairs={playSession.game.content as MemoryMatchPair[]}
             pairCount={playSession.pairCount}
             difficulty={playSession.difficulty}
@@ -689,7 +728,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
                 className="animate-[fade-in-up_0.35s_ease-out_backwards]"
                 style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
               >
-                <GameCard game={game} onClick={() => openGame(game)} />
+                <GameCard game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
               </div>
             ))}
           </div>
@@ -699,6 +738,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       {selectedGame && !showPlayOptions && (
         <GameDetailModal
           game={selectedGame}
+          color={colorForGame(selectedGame)}
           canDelete={Boolean(
             user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId),
           )}
@@ -751,7 +791,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       {playSession && (
         <MemoryMatchGame
           title={playSession.game.title}
-          primaryColor={playSession.game.theme.primaryColor}
+          primaryColor={colorForGame(playSession.game)}
           pairs={playSession.game.content as MemoryMatchPair[]}
           pairCount={playSession.pairCount}
           difficulty={playSession.difficulty}
