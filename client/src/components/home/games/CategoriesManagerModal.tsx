@@ -6,7 +6,7 @@ import { Modal } from './Modal'
 
 type CategoriesManagerModalProps = {
   categories: CategoryWithGameCount[]
-  colorFor: (index: number) => string
+  colorFor: (name: string) => string
   iconFor: (name: string) => LucideIcon
   canDelete: (category: CategoryWithGameCount) => boolean
   deleting: boolean
@@ -104,8 +104,7 @@ export function CategoriesManagerModal({
       ) : (
         <ul className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
           {filtered.map((category) => {
-            const originalIndex = categories.indexOf(category)
-            const color = colorFor(originalIndex)
+            const color = colorFor(category.name)
             const Icon = iconFor(category.name)
 
             return (

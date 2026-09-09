@@ -13,6 +13,8 @@ type GameDetailModalProps = {
   onPlay: () => void
   onDelete: () => void
   onUpdated: (game: GameDetail) => void
+  /** Color por psicología del color según la materia (ver `colorForGame` en GamesSection); si no llega, usa el del creador. */
+  color?: string
 }
 
 export function GameDetailModal({
@@ -23,8 +25,10 @@ export function GameDetailModal({
   onPlay,
   onDelete,
   onUpdated,
+  color,
 }: GameDetailModalProps) {
   const { token } = useAuth()
+  const accentColor = color ?? game.theme.primaryColor
   const isGuessWho = game.gameType === 'GUESS_WHO'
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
@@ -62,7 +66,7 @@ export function GameDetailModal({
       <div
         className="mb-5 flex h-32 items-center justify-center rounded-xl text-4xl"
         style={{
-          background: `linear-gradient(135deg, ${game.theme.primaryColor}22, ${game.theme.primaryColor}0a)`,
+          background: `linear-gradient(135deg, ${accentColor}22, ${accentColor}0a)`,
         }}
       >
         {game.theme.coverImageUrl ? (
@@ -72,7 +76,7 @@ export function GameDetailModal({
             className="h-full w-full rounded-xl object-cover"
           />
         ) : (
-          <span aria-hidden="true" style={{ color: game.theme.primaryColor }}>
+          <span aria-hidden="true" style={{ color: accentColor }}>
 
           </span>
         )}
