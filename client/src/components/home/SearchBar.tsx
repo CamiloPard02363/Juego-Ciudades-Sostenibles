@@ -7,7 +7,12 @@ type SearchBarProps = {
   placeholder?: string
 }
 
-/** Los resultados (o "sin resultados") solo se actualizan al presionar Enter. */
+/**
+ * Los resultados (o "sin resultados") solo se actualizan al presionar Enter,
+ * excepto al limpiar la búsqueda por completo (Enter, "x" nativa del input,
+ * o borrando todo a mano): eso siempre dispara la búsqueda vacía de una vez,
+ * para que la sección activa vuelva a mostrar su listado por defecto.
+ */
 export function SearchBar({ value, onChange, onSearch, placeholder }: SearchBarProps) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -42,7 +47,15 @@ export function SearchBar({ value, onChange, onSearch, placeholder }: SearchBarP
         value={value}
         placeholder={placeholder ?? 'Buscar juegos…'}
         aria-label="Buscar juegos"
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          const next = event.target.value
+          onChange(next)
+          // Limpiar con la "x" nativa del input (o borrando todo a mano) no
+          // dispara un submit del form, así que sin esto la búsqueda enviada
+          // se queda con el término anterior y el listado no vuelve a
+          // mostrar el contenido por defecto de la sección.
+          if (next === '') onSearch('')
+        }}
         className="w-full min-w-0 bg-transparent text-[14px] text-text-h outline-none placeholder:text-text/60"
       />
     </form>
