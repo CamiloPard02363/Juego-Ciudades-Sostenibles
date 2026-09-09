@@ -22,6 +22,10 @@ function isValidStartCount(count: number): boolean {
   return count >= 2 && count % 2 === 0
 }
 
+/** Debe coincidir con TOURNAMENT_MAX_PARTICIPANTS del gateway. */
+const MAX_PARTICIPANTS_LIMIT = 10
+const MIN_PARTICIPANTS_LIMIT = 2
+
 /**
  * Sala de torneo eliminatorio (modo grupo de "¿Quién Es?"): crear/unirse a
  * una sala grupal, esperar a que el creador inicie, ver el anuncio de
@@ -53,7 +57,8 @@ export function TournamentRoom({ gameId, onExit, initialJoinCode, skipEntryChoic
     initialJoinCode ? 'joining' : skipEntryChoice ? 'choosing-create' : 'undecided',
   )
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '')
-  const [maxParticipantsInput, setMaxParticipantsInput] = useState(4)
+  const [maxParticipantsText, setMaxParticipantsText] = useState('4')
+  const [maxParticipantsWarning, setMaxParticipantsWarning] = useState<string | null>(null)
   const [showPairingOverlay, setShowPairingOverlay] = useState(false)
   const joinedWithInitialCode = useRef(false)
   useEffect(() => {
@@ -131,12 +136,29 @@ export function TournamentRoom({ gameId, onExit, initialJoinCode, skipEntryChoic
               <input
                 id="max-participants-input"
                 type="number"
-                min={2}
-                max={10}
+                min={MIN_PARTICIPANTS_LIMIT}
+                max={MAX_PARTICIPANTS_LIMIT}
                 className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
-                value={maxParticipantsInput}
-                onChange={(event) => setMaxParticipantsInput(Number(event.target.value))}
+                value={maxParticipantsText}
+                onChange={(event) => {
+                  const raw = event.target.value
+                  const parsed = Number(raw)
+
+                  if (raw.trim() !== '' && Number.isInteger(parsed) && parsed > MAX_PARTICIPANTS_LIMIT) {
+                    setMaxParticipantsText(String(MAX_PARTICIPANTS_LIMIT))
+                    setMaxParticipantsWarning(`El máximo son ${MAX_PARTICIPANTS_LIMIT} jugadores.`)
+                    return
+                  }
+
+                  setMaxParticipantsText(raw)
+                  setMaxParticipantsWarning(null)
+                }}
               />
+              {maxParticipantsWarning && (
+                <p className="mt-1.5 text-[12px] font-medium text-danger" role="alert">
+                  {maxParticipantsWarning}
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               <button
@@ -151,8 +173,12 @@ export function TournamentRoom({ gameId, onExit, initialJoinCode, skipEntryChoic
                 className="flex-1 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
                 style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
                 onClick={() => {
+                  const parsed = Number(maxParticipantsText)
+                  const safeValue = Number.isInteger(parsed)
+                    ? Math.min(MAX_PARTICIPANTS_LIMIT, Math.max(MIN_PARTICIPANTS_LIMIT, parsed))
+                    : MIN_PARTICIPANTS_LIMIT
                   setEntryChoice('creating')
-                  createTournament(gameId, Math.min(10, Math.max(2, maxParticipantsInput)))
+                  createTournament(gameId, safeValue)
                 }}
               >
                 Crear sala
