@@ -78,6 +78,14 @@ export type SimplePairInput = {
   label: string
 }
 
+export type DominoConceptInput = {
+  label: string
+  /** Clave del catálogo DOMINO_ICONS del cliente. */
+  icon: string
+  /** Color hexadecimal (#rgb o #rrggbb). */
+  color: string
+}
+
 export type GuessWhoCardInput = {
   imageUrl: string
   label: string
@@ -111,6 +119,15 @@ export type CreateGameInput =
       theme?: { primaryColor?: string; coverImageUrl?: string | null }
       config?: Record<string, unknown>
       content: GuessWhoCardInput[]
+    }
+  | {
+      title: string
+      description: string
+      gameType: 'DOMINO'
+      categoryId: string
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config?: { handSize?: number } & Record<string, unknown>
+      content: DominoConceptInput[]
     }
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */

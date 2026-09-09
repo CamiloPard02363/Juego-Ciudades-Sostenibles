@@ -1,7 +1,7 @@
-import { Layers, UserRoundSearch } from 'lucide-react'
+import { Layers, Puzzle, UserRoundSearch } from 'lucide-react'
 import { Modal } from './Modal'
 
-export type GameTypeChoice = 'CARDS' | 'GUESS_WHO'
+export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO'
 
 type GameTypePickerProps = {
   onClose: () => void
@@ -25,6 +25,13 @@ const TYPE_OPTIONS: Array<{
     title: '¿Quién Es?',
     description: 'Es un juego parecido a Adivina Quién: dos jugadores, cada uno adivina la tarjeta secreta del otro.',
     icon: UserRoundSearch,
+  },
+  {
+    choice: 'DOMINO',
+    title: 'Dominó',
+    description:
+      'Dominó temático: cada mitad de ficha es un concepto tuyo en vez de un número. Un jugador contra el tablero.',
+    icon: Puzzle,
   },
 ]
 

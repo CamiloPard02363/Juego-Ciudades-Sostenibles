@@ -1,36 +1,23 @@
-import { useEffect, useState } from 'react'
-import type { LucideIcon } from 'lucide-react'
-import { Droplets, Frown, Leaf, LogOut, Recycle, RotateCcw, Sun, Trophy, Wind, Zap } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Frown, LogOut, RotateCcw, Trophy } from 'lucide-react'
 import { Modal } from './Modal'
+import {
+  DEFAULT_DOMINO_CONFIG,
+  iconForConcept,
+  type DominoConcept,
+} from './dominoTypes'
 
 /**
- * Dominó temático "Nexus Play: Ecosistemas Sostenibles": en vez de números,
- * cada mitad de una ficha es un concepto de sostenibilidad urbana/ambiental.
- * Juego de un solo jugador contra el tablero (sin backend, sin rival) — la
- * mecánica de dominó (empatar extremos abiertos) es el reto en sí mismo.
+ * Reproductor genérico de dominó temático: en vez de números, cada mitad de
+ * una ficha es un concepto que llega por props (`concepts`), así que el mismo
+ * componente sirve para cualquier dominó publicado por la comunidad — el
+ * primero fue "Nexus Play: Ecosistemas Sostenibles". Juego de un solo jugador
+ * contra el tablero (sin backend, sin rival): la mecánica de dominó (empatar
+ * extremos abiertos) es el reto en sí mismo.
  */
 
-type ConceptId = 0 | 1 | 2 | 3 | 4 | 5
-
-type Concept = {
-  id: ConceptId
-  label: string
-  icon: LucideIcon
-  color: string
-}
-
-const CONCEPTS: Concept[] = [
-  { id: 0, label: 'Paneles Solares', icon: Sun, color: '#f59e0b' },
-  { id: 1, label: 'Zonas Verdes', icon: Leaf, color: '#22c55e' },
-  { id: 2, label: 'Movilidad Eléctrica', icon: Zap, color: '#3b82f6' },
-  { id: 3, label: 'Reciclaje', icon: Recycle, color: '#14b8a6' },
-  { id: 4, label: 'Purificación de Agua', icon: Droplets, color: '#06b6d4' },
-  { id: 5, label: 'Energía Eólica', icon: Wind, color: '#8b5cf6' },
-]
-
-function conceptOf(id: ConceptId): Concept {
-  return CONCEPTS[id]
-}
+/** Índice dentro del arreglo `concepts` recibido por props. */
+type ConceptId = number
 
 /** Una ficha "en mano": sus dos mitades, sin orientar todavía. */
 type Tile = {
@@ -50,12 +37,13 @@ type PlacedTile = {
 
 type GameStatus = 'playing' | 'won' | 'blocked'
 
-/** Set completo double-six temático: para 6 conceptos (0..5), todas las combinaciones
- * a<=b dan exactamente 21 fichas únicas (6+5+4+3+2+1), cumpliendo el mínimo de 15. */
-function generateTiles(): Tile[] {
+/** Set completo temático: para N conceptos, todas las combinaciones a<=b dan
+ * N*(N+1)/2 fichas únicas (con los 6 conceptos mínimos, 21 fichas — el tamaño
+ * del "double-six" tradicional). */
+function generateTiles(conceptCount: number): Tile[] {
   const tiles: Tile[] = []
-  for (let a = 0 as ConceptId; a <= 5; a = (a + 1) as ConceptId) {
-    for (let b = a; b <= 5; b = (b + 1) as ConceptId) {
+  for (let a = 0; a < conceptCount; a++) {
+    for (let b = a; b < conceptCount; b++) {
       tiles.push({ id: `${a}-${b}`, a, b })
     }
   }
@@ -71,18 +59,24 @@ function shuffle<T>(items: T[]): T[] {
   return copy
 }
 
-const HAND_SIZE = 7
-
-function dealNewGame(): { hand: Tile[]; pozo: Tile[] } {
-  const shuffled = shuffle(generateTiles())
-  return { hand: shuffled.slice(0, HAND_SIZE), pozo: shuffled.slice(HAND_SIZE) }
-}
-
 type DominoGameProps = {
+  /** Título del juego publicado; encabeza el modal. */
+  title: string
+  /** Conceptos que reemplazan a los números de las fichas (mínimo 6). */
+  concepts: DominoConcept[]
+  /** Fichas que recibe el jugador al repartir; el resto va al pozo. */
+  handSize?: number
   onExit: () => void
 }
 
-export function DominoGame({ onExit }: DominoGameProps) {
+export function DominoGame({ title, concepts, handSize, onExit }: DominoGameProps) {
+  const conceptCount = concepts.length
+  const effectiveHandSize = handSize ?? DEFAULT_DOMINO_CONFIG.handSize
+
+  function conceptOf(id: ConceptId): DominoConcept {
+    return concepts[id]
+  }
+
   const [hand, setHand] = useState<Tile[]>([])
   const [pozo, setPozo] = useState<Tile[]>([])
   const [board, setBoard] = useState<PlacedTile[]>([])
@@ -90,21 +84,21 @@ export function DominoGame({ onExit }: DominoGameProps) {
   const [status, setStatus] = useState<GameStatus>('playing')
   const [moves, setMoves] = useState(0)
 
-  function restart() {
-    const { hand: newHand, pozo: newPozo } = dealNewGame()
-    setHand(newHand)
-    setPozo(newPozo)
+  const restart = useCallback(() => {
+    const shuffled = shuffle(generateTiles(conceptCount))
+    setHand(shuffled.slice(0, effectiveHandSize))
+    setPozo(shuffled.slice(effectiveHandSize))
     setBoard([])
     setSelectedTileId(null)
     setStatus('playing')
     setMoves(0)
-  }
+  }, [conceptCount, effectiveHandSize])
 
-  // Reparto inicial al montar (equivalente a "al inicio de la partida").
+  // Reparto inicial al montar, y re-reparto si cambia el contenido del juego
+  // (otro dominó publicado con distinta cantidad de conceptos o de fichas en mano).
   useEffect(() => {
     restart()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [restart])
 
   const leftEnd = board[0]?.left
   const rightEnd = board[board.length - 1]?.right
@@ -199,9 +193,9 @@ export function DominoGame({ onExit }: DominoGameProps) {
     <Modal onClose={onExit} maxWidthClassName="max-w-[980px]">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-[19px] tracking-tight text-text-h">Nexus Play: Ecosistemas Sostenibles</h2>
+          <h2 className="text-[19px] tracking-tight text-text-h">{title}</h2>
           <p className="text-[12.5px] text-text">
-            Conecta conceptos de sostenibilidad como en el dominó tradicional.
+            Conecta los conceptos como en el dominó tradicional.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -279,7 +273,7 @@ export function DominoGame({ onExit }: DominoGameProps) {
               onClick={() => handleEndClick('left')}
             />
             {board.map((placed) => (
-              <BoardTileView key={placed.id} placed={placed} />
+              <BoardTileView key={placed.id} placed={placed} conceptOf={conceptOf} />
             ))}
             <EndDropZone
               active={status === 'playing' && Boolean(selectedTile) && canPlaceRight}
@@ -320,6 +314,7 @@ export function DominoGame({ onExit }: DominoGameProps) {
                 tile={tile}
                 selected={selectedTileId === tile.id}
                 dimmed={!playable}
+                conceptOf={conceptOf}
                 onClick={() => handleHandTileClick(tile)}
               />
             )
@@ -330,9 +325,8 @@ export function DominoGame({ onExit }: DominoGameProps) {
   )
 }
 
-function ConceptHalf({ conceptId, size = 'md' }: { conceptId: ConceptId; size?: 'sm' | 'md' }) {
-  const concept = conceptOf(conceptId)
-  const Icon = concept.icon
+function ConceptHalf({ concept, size = 'md' }: { concept: DominoConcept; size?: 'sm' | 'md' }) {
+  const Icon = iconForConcept(concept.icon)
   return (
     <div
       className={`flex flex-1 flex-col items-center justify-center gap-1 ${size === 'sm' ? 'px-1 py-1.5' : 'px-1.5 py-2.5'}`}
@@ -351,22 +345,22 @@ function ConceptHalf({ conceptId, size = 'md' }: { conceptId: ConceptId; size?: 
   )
 }
 
-function BoardTileView({ placed }: { placed: PlacedTile }) {
+function BoardTileView({ placed, conceptOf }: { placed: PlacedTile; conceptOf: (id: ConceptId) => DominoConcept }) {
   // Las fichas dobles se rotan 90° para distinguirse, como en el dominó tradicional.
   if (placed.isDouble) {
     return (
       <div className="flex h-[76px] w-[46px] shrink-0 flex-col overflow-hidden rounded-md border-2 border-border bg-surface shadow-[var(--shadow)] animate-[fade-in-up_0.25s_ease-out]">
-        <ConceptHalf conceptId={placed.left} size="sm" />
+        <ConceptHalf concept={conceptOf(placed.left)} size="sm" />
         <div className="h-px w-full bg-border" />
-        <ConceptHalf conceptId={placed.right} size="sm" />
+        <ConceptHalf concept={conceptOf(placed.right)} size="sm" />
       </div>
     )
   }
   return (
     <div className="flex h-[46px] w-[92px] shrink-0 overflow-hidden rounded-md border-2 border-border bg-surface shadow-[var(--shadow)] animate-[fade-in-up_0.25s_ease-out]">
-      <ConceptHalf conceptId={placed.left} size="sm" />
+      <ConceptHalf concept={conceptOf(placed.left)} size="sm" />
       <div className="h-full w-px bg-border" />
-      <ConceptHalf conceptId={placed.right} size="sm" />
+      <ConceptHalf concept={conceptOf(placed.right)} size="sm" />
     </div>
   )
 }
@@ -393,11 +387,13 @@ function HandTileView({
   tile,
   selected,
   dimmed,
+  conceptOf,
   onClick,
 }: {
   tile: Tile
   selected: boolean
   dimmed: boolean
+  conceptOf: (id: ConceptId) => DominoConcept
   onClick: () => void
 }) {
   return (
@@ -408,9 +404,9 @@ function HandTileView({
         selected ? 'border-accent' : 'border-border'
       } ${dimmed ? 'opacity-45' : ''}`}
     >
-      <ConceptHalf conceptId={tile.a} />
+      <ConceptHalf concept={conceptOf(tile.a)} />
       <div className="h-full w-px bg-border" />
-      <ConceptHalf conceptId={tile.b} />
+      <ConceptHalf concept={conceptOf(tile.b)} />
     </button>
   )
 }
