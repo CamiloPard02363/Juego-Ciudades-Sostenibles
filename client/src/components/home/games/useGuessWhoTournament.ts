@@ -73,6 +73,10 @@ export function useGuessWhoTournament(token: string | null) {
     socketRef.current?.emit('tournament:start', { turnDurationSeconds })
   }, [])
 
+  const updateTurnDuration = useCallback((turnDurationSeconds: number) => {
+    socketRef.current?.emit('tournament:update-turn-duration', { turnDurationSeconds })
+  }, [])
+
   const leaveTournament = useCallback(() => {
     socketRef.current?.emit('tournament:leave')
     setTournament(null)
@@ -101,6 +105,7 @@ export function useGuessWhoTournament(token: string | null) {
     createTournament,
     joinTournament,
     startTournament,
+    updateTurnDuration,
     leaveTournament,
     discardMatchCard,
     accuseMatchCard,

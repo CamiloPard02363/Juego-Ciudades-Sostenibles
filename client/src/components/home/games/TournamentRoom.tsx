@@ -42,6 +42,7 @@ export function TournamentRoom({ gameId, onExit, initialJoinCode, skipEntryChoic
     createTournament,
     joinTournament,
     startTournament,
+    updateTurnDuration,
     leaveTournament,
     discardMatchCard,
     accuseMatchCard,
@@ -272,6 +273,7 @@ export function TournamentRoom({ gameId, onExit, initialJoinCode, skipEntryChoic
           tournament={tournament}
           isCreator={isCreator}
           onStart={startTournament}
+          onUpdateTurnDuration={updateTurnDuration}
         />
       )}
 
@@ -327,19 +329,28 @@ function WaitingLobby({
   tournament,
   isCreator,
   onStart,
+  onUpdateTurnDuration,
 }: {
   tournament: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>
   isCreator: boolean
   onStart: (turnDurationSeconds: number) => void
+  onUpdateTurnDuration: (turnDurationSeconds: number) => void
 }) {
   const count = tournament.participants.length
   const canStart = isValidStartCount(count)
-  // Segundos por turno para el torneo: solo el creador lo ajusta antes de
-  // iniciar, igual que en el modo individual. Se sincroniza con el valor
-  // del torneo solo al entrar a una sala nueva (tournament.code cambia).
-  const [turnDurationInput, setTurnDurationInput] = useState(tournament.turnDurationSeconds)
+  // Segundos por turno para el torneo: solo el creador lo edita (como
+  // texto, no número, para poder dejar el campo vacío mientras se
+  // reescribe sin que quede pegado en "0"). Se emite en cada cambio válido
+  // para que el resto lo vea en vivo; quien no es creador resincroniza en
+  // cada actualización del torneo, y el creador solo al entrar a una sala
+  // nueva, para no pisar lo que esté escribiendo.
+  const [turnDurationText, setTurnDurationText] = useState(String(tournament.turnDurationSeconds))
   useEffect(() => {
-    setTurnDurationInput(tournament.turnDurationSeconds)
+    if (isCreator) return
+    setTurnDurationText(String(tournament.turnDurationSeconds))
+  }, [tournament.turnDurationSeconds, isCreator])
+  useEffect(() => {
+    setTurnDurationText(String(tournament.turnDurationSeconds))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournament.code])
 
@@ -371,6 +382,13 @@ function WaitingLobby({
         </p>
       </div>
 
+      {!isCreator && (
+        <p className="text-[12.5px] text-text">
+          Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define quien
+          creó la sala).
+        </p>
+      )}
+
       {isCreator && (
         <div>
           <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="tournament-turn-duration-input">
@@ -382,8 +400,15 @@ function WaitingLobby({
             min={5}
             max={120}
             className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
-            value={turnDurationInput}
-            onChange={(event) => setTurnDurationInput(Number(event.target.value))}
+            value={turnDurationText}
+            onChange={(event) => {
+              const raw = event.target.value
+              setTurnDurationText(raw)
+              const parsed = Number(raw)
+              if (raw.trim() !== '' && Number.isInteger(parsed) && parsed >= 5 && parsed <= 120) {
+                onUpdateTurnDuration(parsed)
+              }
+            }}
           />
           <p className="mt-1 text-[11.5px] text-text">
             Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
@@ -397,7 +422,7 @@ function WaitingLobby({
           className="rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
           disabled={!canStart}
-          onClick={() => onStart(turnDurationInput)}
+          onClick={() => onStart(Number(turnDurationText) || tournament.turnDurationSeconds)}
         >
           {canStart ? 'Iniciar partida' : 'Se necesita un número par de jugadores (2, 4, 6, 8 o 10)'}
         </button>
