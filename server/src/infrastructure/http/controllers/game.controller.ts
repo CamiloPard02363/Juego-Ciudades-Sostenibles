@@ -19,11 +19,13 @@ import { UpdateGameUseCase } from '../../../application/use-cases/update-game.us
 import { PublishGameUseCase } from '../../../application/use-cases/publish-game.use-case.js';
 import { UnpublishGameUseCase } from '../../../application/use-cases/unpublish-game.use-case.js';
 import { DeleteGameUseCase } from '../../../application/use-cases/delete-game.use-case.js';
+import { DonateGameToOrganizationUseCase } from '../../../application/use-cases/donate-game-to-organization.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { CreateGameDto } from '../dtos/create-game.dto.js';
 import { UpdateGameDto } from '../dtos/update-game.dto.js';
 import { ListGamesQueryDto } from '../dtos/list-games-query.dto.js';
+import { DonateGameDto } from '../dtos/donate-game.dto.js';
 
 @Controller('games')
 @UseGuards(JwtAuthGuard)
@@ -37,6 +39,7 @@ export class GameController {
     private readonly publishGameUseCase: PublishGameUseCase,
     private readonly unpublishGameUseCase: UnpublishGameUseCase,
     private readonly deleteGameUseCase: DeleteGameUseCase,
+    private readonly donateGameUseCase: DonateGameToOrganizationUseCase,
   ) {}
 
   @Post()
@@ -87,6 +90,20 @@ export class GameController {
   @Patch(':id/unpublish')
   unpublish(@CurrentUserId() requestingUserId: string, @Param('id') gameId: string) {
     return this.unpublishGameUseCase.execute({ gameId, requestingUserId });
+  }
+
+  /** Dona un juego personal a una organización. `creatorUserId` no cambia. */
+  @Patch(':id/donate')
+  donate(
+    @CurrentUserId() requestingUserId: string,
+    @Param('id') gameId: string,
+    @Body() dto: DonateGameDto,
+  ) {
+    return this.donateGameUseCase.execute({
+      gameId,
+      requestingUserId,
+      organizationId: dto.organizationId,
+    });
   }
 
   @Delete(':id')

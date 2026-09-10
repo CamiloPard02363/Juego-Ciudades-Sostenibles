@@ -11,6 +11,9 @@ import {
   GameSlugAlreadyTakenError,
   InvalidCredentialsError,
   InvalidImageError,
+  NotAnOrganizationMemberError,
+  OrganizationDomainAlreadyClaimedError,
+  OrganizationNotFoundError,
   UserInactiveError,
   UserNotFoundError,
 } from '../../../application/errors/application.errors.js';
@@ -26,6 +29,9 @@ const STATUS_BY_ERROR = new Map<Function, HttpStatus>([
   [CategoryNotFoundError, HttpStatus.NOT_FOUND],
   [CategorySlugAlreadyTakenError, HttpStatus.CONFLICT],
   [InvalidImageError, HttpStatus.BAD_REQUEST],
+  [OrganizationNotFoundError, HttpStatus.NOT_FOUND],
+  [OrganizationDomainAlreadyClaimedError, HttpStatus.CONFLICT],
+  [NotAnOrganizationMemberError, HttpStatus.FORBIDDEN],
 ]);
 
 @Catch(DomainError, ApplicationError)
