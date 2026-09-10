@@ -53,6 +53,29 @@ export class CategorySlugAlreadyTakenError extends ApplicationError {
   }
 }
 
+export class OrganizationNotFoundError extends ApplicationError {
+  constructor(identifier: string) {
+    super(`No se encontró una organización con identificador "${identifier}".`);
+  }
+}
+
+/**
+ * Error de negocio explícito para la carrera por dominio: se lanza tanto en el
+ * chequeo previo como al traducir la violación del índice único de
+ * `organizations.domain`, para que el segundo creador nunca reciba un 500.
+ */
+export class OrganizationDomainAlreadyClaimedError extends ApplicationError {
+  constructor(domain: string) {
+    super(`El dominio "${domain}" ya fue reclamado por otra organización.`);
+  }
+}
+
+export class NotAnOrganizationMemberError extends ApplicationError {
+  constructor(organizationId: string) {
+    super(`No pertenece a la organización "${organizationId}".`);
+  }
+}
+
 export class InvalidImageError extends ApplicationError {
   constructor(reason: string) {
     super(reason);

@@ -16,6 +16,7 @@ import { ID_GENERATOR, type IdGenerator } from '../../domain/ports/id-generator.
 import { EmailAlreadyRegisteredError } from '../errors/application.errors.js';
 import { toUserResponseDto, type UserResponseDto } from '../dtos/user-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
+import { OrganizationAutoJoinService } from '../services/organization-auto-join.service.js';
 
 export interface RegisterUserInput {
   email: string;
@@ -34,6 +35,7 @@ export class RegisterUserUseCase implements UseCase<RegisterUserInput, UserRespo
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(PASSWORD_HASHER) private readonly passwordHasher: PasswordHasher,
     @Inject(ID_GENERATOR) private readonly idGenerator: IdGenerator,
+    private readonly organizationAutoJoin: OrganizationAutoJoinService,
   ) {}
 
   async execute(input: RegisterUserInput): Promise<UserResponseDto> {
@@ -62,6 +64,10 @@ export class RegisterUserUseCase implements UseCase<RegisterUserInput, UserRespo
     });
 
     await this.userRepository.save(user);
+
+    // Auto-join por dominio: si alguien ya reclamó el dominio de este correo,
+    // el usuario entra como STUDENT de esa organización sin acción manual.
+    await this.organizationAutoJoin.joinByEmailDomain(user.id, email);
 
     return toUserResponseDto(user);
   }
