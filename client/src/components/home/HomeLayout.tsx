@@ -7,6 +7,7 @@ import { ProfileMenu } from './ProfileMenu'
 import { ProfileSettings } from './ProfileSettings'
 import { trackEvent } from '../../services/analytics.service'
 import { HomeSearchContext } from './homeSearchContext'
+import { KidsMascot } from '../kids/KidsMascot'
 
 export function HomeLayout() {
   const { user, token, signOut } = useAuth()
@@ -51,6 +52,7 @@ export function HomeLayout() {
       </div>
 
       {settingsOpen && <ProfileSettings onClose={() => setSettingsOpen(false)} />}
+      <KidsMascot />
     </div>
   )
 
