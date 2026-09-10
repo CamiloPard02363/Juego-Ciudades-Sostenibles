@@ -8,6 +8,7 @@ import { Modal } from './Modal'
 import { DealCountdownOverlay, MatchBoard, useCountdown } from './MatchBoard'
 import { TournamentRoom } from './TournamentRoom'
 import { JoinByCodeModal } from './JoinByCodeModal'
+import { ConfettiBurst } from '../../kids/ConfettiBurst'
 
 type GuessWhoRoomProps = {
   gameId: string
@@ -542,7 +543,8 @@ function IndividualGuessWhoRoom({
       )}
 
       {room.phase === 'FINISHED' && opponent && self && (
-        <div className="flex flex-col items-center gap-4 py-6 text-center">
+        <div className="relative flex flex-col items-center gap-4 py-6 text-center">
+          {winnerIsSelf && <ConfettiBurst trigger={room.winnerUserId ?? 'win'} />}
           <span
             className="flex h-14 w-14 items-center justify-center rounded-full text-white animate-[trophy-pop-in_0.5s_cubic-bezier(0.16,1,0.3,1)]"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
