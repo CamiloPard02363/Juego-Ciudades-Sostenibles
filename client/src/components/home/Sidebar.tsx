@@ -1,13 +1,10 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { BookOpen, ChevronLeft, Gamepad2, Lock, Palette, Users, Users2, Zap } from 'lucide-react'
 import { ThemeToggle } from '../ThemeToggle'
 
-export type HomeSection = 'all' | 'categories' | 'community' | 'my-games' | 'themes' | 'admin-users'
-
 type SidebarProps = {
-  activeSection: HomeSection
-  onSelectSection: (section: HomeSection) => void
   canManageUsers: boolean
 }
 
@@ -24,8 +21,10 @@ function readStoredCollapsed(): boolean {
   }
 }
 
-export function Sidebar({ activeSection, onSelectSection, canManageUsers }: SidebarProps) {
+export function Sidebar({ canManageUsers }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(readStoredCollapsed)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   function toggleCollapsed() {
     setCollapsed((current) => {
@@ -76,36 +75,36 @@ export function Sidebar({ activeSection, onSelectSection, canManageUsers }: Side
         <SidebarItem
           label="Inicio"
           collapsed={collapsed}
-          active={activeSection === 'all'}
-          onClick={() => onSelectSection('all')}
+          active={location.pathname === '/'}
+          onClick={() => navigate('/')}
           icon={<Gamepad2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         <SidebarItem
           label="Materias"
           collapsed={collapsed}
-          active={activeSection === 'categories'}
-          onClick={() => onSelectSection('categories')}
+          active={location.pathname === '/materias'}
+          onClick={() => navigate('/materias')}
           icon={<BookOpen className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         <SidebarItem
           label="Comunidad"
           collapsed={collapsed}
-          active={activeSection === 'community'}
-          onClick={() => onSelectSection('community')}
+          active={location.pathname === '/comunidad'}
+          onClick={() => navigate('/comunidad')}
           icon={<Users2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         <SidebarItem
           label="Mis juegos privados"
           collapsed={collapsed}
-          active={activeSection === 'my-games'}
-          onClick={() => onSelectSection('my-games')}
+          active={location.pathname === '/mis-juegos'}
+          onClick={() => navigate('/mis-juegos')}
           icon={<Lock className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         <SidebarItem
           label="Temas"
           collapsed={collapsed}
-          active={activeSection === 'themes'}
-          onClick={() => onSelectSection('themes')}
+          active={location.pathname === '/temas'}
+          onClick={() => navigate('/temas')}
           icon={<Palette className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         {canManageUsers && (
@@ -118,8 +117,8 @@ export function Sidebar({ activeSection, onSelectSection, canManageUsers }: Side
             <SidebarItem
               label="Usuarios"
               collapsed={collapsed}
-              active={activeSection === 'admin-users'}
-              onClick={() => onSelectSection('admin-users')}
+              active={location.pathname === '/usuarios'}
+              onClick={() => navigate('/usuarios')}
               icon={<Users className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
             />
           </>
