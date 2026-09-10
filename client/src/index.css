@@ -185,6 +185,57 @@
   background-attachment: fixed;
 }
 
+/*
+ * Look "caricatura de bloques de juguete" para el modo niños: bordes gruesos
+ * de cómic, esquinas bien redondeadas y sombras "sólidas" (offset, sin
+ * blur) en vez de las sombras difusas del resto de temas — así tarjetas y
+ * botones se sienten como piezas de juguete con las que se puede interactuar,
+ * en lugar de superficies planas de una app "seria". Todo vía overrides de
+ * variables/álgebra CSS, sin tocar componentes: mismo patrón que el resto de
+ * temas (ver comentario en ThemesSection.tsx).
+ */
+[data-theme='kids'] {
+  --kids-comic-border: 3px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  --kids-comic-shadow: 4px 5px 0 0 color-mix(in srgb, var(--text-h) 16%, transparent);
+  --kids-comic-shadow-hover: 6px 7px 0 0 color-mix(in srgb, var(--text-h) 20%, transparent);
+}
+
+[data-theme='kids'] button:not(.join-code-glow-btn),
+[data-theme='kids'] a[class*='rounded'] {
+  border-radius: 999px;
+}
+
+[data-theme='kids'] .rounded-2xl,
+[data-theme='kids'] .rounded-xl,
+[data-theme='kids'] .rounded-lg {
+  border-radius: 22px !important;
+}
+
+/* Tarjetas/superficies de contenido ganan borde grueso + sombra "sólida" de
+ * juguete; se excluyen los fondos decorativos con opacidad (bg-*/10, /20…)
+ * para no ponerle un borde de cómic a un halo de color. */
+[data-theme='kids'] .bg-surface {
+  border: var(--kids-comic-border);
+  box-shadow: var(--kids-comic-shadow);
+}
+
+[data-theme='kids'] button.bg-accent,
+[data-theme='kids'] a.bg-accent {
+  border: 3px solid color-mix(in srgb, var(--text-h) 25%, var(--accent));
+  box-shadow: var(--kids-comic-shadow);
+}
+
+[data-theme='kids'] button.bg-accent:not(:disabled):hover,
+[data-theme='kids'] a.bg-accent:hover {
+  box-shadow: var(--kids-comic-shadow-hover);
+  transform: translate(-1px, -1px);
+}
+
+[data-theme='kids'] button.bg-accent:not(:disabled):active {
+  box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--text-h) 16%, transparent);
+  transform: translate(2px, 2px) scale(0.98);
+}
+
 #root {
   width: 100%;
   min-height: 100svh;
