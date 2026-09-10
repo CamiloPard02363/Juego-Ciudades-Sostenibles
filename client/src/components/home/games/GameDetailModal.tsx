@@ -30,6 +30,7 @@ export function GameDetailModal({
   const { token } = useAuth()
   const accentColor = color ?? game.theme.primaryColor
   const isGuessWho = game.gameType === 'GUESS_WHO'
+  const opensLiveRoom = isGuessWho || game.gameType === 'DOMINO'
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
   const config = game.config as { maxAccusationCount?: number; turnDurationSeconds?: number }
@@ -200,7 +201,7 @@ export function GameDetailModal({
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             onClick={onPlay}
           >
-            {isGuessWho ? 'Abrir sala' : 'Jugar'}
+            {opensLiveRoom ? 'Abrir sala' : 'Jugar'}
           </button>
           <button
             type="button"

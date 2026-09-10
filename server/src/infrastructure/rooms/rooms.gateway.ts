@@ -21,6 +21,14 @@ import {
   type TournamentParticipant,
 } from '../../domain/ports/tournament-store.port.js';
 import type { GuessWhoCard } from '../../application/content-validators/guess-who.content-validator.js';
+import type { DominoConcept } from '../../application/content-validators/domino.content-validator.js';
+import {
+  DOMINO_ROOM_STORE,
+  type DominoRoomStore,
+  type DominoRoomState,
+  type DominoTile,
+  type DominoPlacedTile,
+} from '../../domain/ports/domino-room-store.port.js';
 import { AnalyticsTrackerService } from '../../application/services/analytics-tracker.service.js';
 import { WsExceptionFilter } from './ws-exception.filter.js';
 
@@ -145,6 +153,60 @@ function toMatchClientView(match: TournamentMatch, tournament: TournamentState, 
   };
 }
 
+/** Set completo para N conceptos: todas las combinaciones a<=b, N*(N+1)/2 fichas únicas. */
+function generateDominoTiles(conceptCount: number): DominoTile[] {
+  const tiles: DominoTile[] = [];
+  for (let a = 0; a < conceptCount; a++) {
+    for (let b = a; b < conceptCount; b++) {
+      tiles.push({ id: `${a}-${b}`, a, b });
+    }
+  }
+  return tiles;
+}
+
+/** true si `tile` tiene una mitad igual a `end` (o si el tablero está vacío, end===undefined). */
+function dominoTileMatchesEnd(tile: DominoTile, end: number | undefined): boolean {
+  if (end === undefined) return true;
+  return tile.a === end || tile.b === end;
+}
+
+function dominoBoardEnds(board: DominoPlacedTile[]): { left: number | undefined; right: number | undefined } {
+  return { left: board[0]?.left, right: board[board.length - 1]?.right };
+}
+
+function dominoHasValidMove(hand: DominoTile[], board: DominoPlacedTile[]): boolean {
+  if (board.length === 0) return hand.length > 0;
+  const { left, right } = dominoBoardEnds(board);
+  return hand.some((tile) => dominoTileMatchesEnd(tile, left) || dominoTileMatchesEnd(tile, right));
+}
+
+/** Vista pública de la sala de dominó para un jugador dado: la mano ajena solo se ve como cantidad. */
+function toDominoClientView(room: DominoRoomState, forSocketId: string) {
+  return {
+    code: room.code,
+    gameTitle: room.gameTitle,
+    concepts: room.concepts,
+    handSize: room.handSize,
+    turnDurationSeconds: room.turnDurationSeconds,
+    phase: room.phase,
+    board: room.board,
+    boneyardCount: room.boneyard.length,
+    winnerUserId: room.winnerUserId,
+    endedByBlock: room.endedByBlock,
+    activePlayerUserId: room.activePlayerUserId,
+    turnDeadline: room.turnDeadline,
+    players: room.players.map((player) => ({
+      userId: player.userId,
+      displayName: player.displayName,
+      handCount: player.hand.length,
+      hand: player.socketId === forSocketId ? player.hand : null,
+      isSelf: player.socketId === forSocketId,
+      hasVotedRematch: room.rematchVotes[player.userId] !== undefined,
+      isHost: player.userId === room.hostUserId,
+    })),
+  };
+}
+
 /** Vista pública de la sala que se envía a un jugador dado: oculta la carta secreta ajena. */
 function toClientView(room: RoomState, forSocketId: string) {
   return {
@@ -211,12 +273,16 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    */
   private readonly tournamentTurnTimers = new Map<string, NodeJS.Timeout>();
 
+  /** Timers de turno de salas de dominó, mismo criterio que `turnTimers` para "¿Quién Es?". */
+  private readonly dominoTurnTimers = new Map<string, NodeJS.Timeout>();
+
   constructor(
     private readonly jwtService: JwtService,
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(ROOM_STORE) private readonly roomStore: RoomStore,
     @Inject(TOURNAMENT_STORE) private readonly tournamentStore: TournamentStore,
+    @Inject(DOMINO_ROOM_STORE) private readonly dominoRoomStore: DominoRoomStore,
     private readonly analyticsTracker: AnalyticsTrackerService,
   ) {}
 
@@ -265,6 +331,22 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const tournament = this.tournamentStore.findBySocketId(socket.id);
     if (tournament) {
       this.tournamentStore.set(tournament);
+    }
+
+    const dominoRoom = this.dominoRoomStore.findBySocketId(socket.id);
+    if (dominoRoom) {
+      this.clearDominoTurnTimer(dominoRoom.code);
+      dominoRoom.players = dominoRoom.players.filter((player) => player.socketId !== socket.id);
+
+      if (dominoRoom.players.length === 0) {
+        this.dominoRoomStore.delete(dominoRoom.code);
+      } else {
+        dominoRoom.phase = dominoRoom.phase === 'FINISHED' ? dominoRoom.phase : 'WAITING';
+        dominoRoom.activePlayerUserId = null;
+        dominoRoom.turnDeadline = null;
+        this.dominoRoomStore.set(dominoRoom);
+        this.broadcastDominoState(dominoRoom);
+      }
     }
   }
 
@@ -1077,6 +1159,374 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server
         .to(participant.socketId)
         .emit('tournament:state', toTournamentClientView(tournament, participant.userId));
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Dominó 1v1 en tiempo real: mismo patrón de sala/turnos/timers que
+  // "¿Quién Es?" arriba, pero el contenido es un set de fichas generado a
+  // partir de los conceptos publicados (game.content) en vez de cartas —
+  // nada de tiles hardcodeadas, todo sale del juego guardado.
+  // ---------------------------------------------------------------------
+
+  @SubscribeMessage('domino:create')
+  async handleDominoCreate(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { gameId: string },
+  ) {
+    const game = await this.gameRepository.findById(body.gameId);
+    if (!game || game.gameType.getName() !== 'DOMINO') {
+      throw new Error('Juego no encontrado o no es de tipo Dominó.');
+    }
+
+    let code = generateRoomCode();
+    while (this.dominoRoomStore.get(code)) {
+      code = generateRoomCode();
+    }
+
+    const room: DominoRoomState = {
+      code,
+      gameId: game.id,
+      gameTitle: game.title,
+      concepts: game.content as DominoConcept[],
+      handSize: (game.config.handSize as number | undefined) ?? 7,
+      hostUserId: socket.data.userId,
+      turnDurationSeconds: (game.config.turnDurationSeconds as number | undefined) ?? 20,
+      phase: 'WAITING',
+      players: [
+        {
+          socketId: socket.id,
+          userId: socket.data.userId,
+          displayName: socket.data.displayName,
+          hand: [],
+        },
+      ],
+      boneyard: [],
+      board: [],
+      activePlayerUserId: null,
+      turnDeadline: null,
+      winnerUserId: null,
+      endedByBlock: false,
+      createdAt: Date.now(),
+      rematchVotes: {},
+      consecutivePasses: 0,
+    };
+
+    this.dominoRoomStore.create(room);
+    socket.join(`domino:${code}`);
+    socket.emit('domino:state', toDominoClientView(room, socket.id));
+
+    void this.analyticsTracker.track({
+      type: 'room_created',
+      userId: socket.data.userId,
+      gameId: game.id,
+      metadata: { mode: 'domino', turnDurationSeconds: room.turnDurationSeconds },
+    });
+  }
+
+  @SubscribeMessage('domino:join')
+  handleDominoJoin(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { code: string }) {
+    const code = body.code?.trim().toUpperCase();
+    const room = this.dominoRoomStore.get(code);
+
+    if (!room) throw new Error('No existe una sala de dominó con ese código.');
+    if (room.players.length >= 2 && !room.players.some((p) => p.userId === socket.data.userId)) {
+      throw new Error('La sala ya está llena.');
+    }
+
+    const existing = room.players.find((player) => player.userId === socket.data.userId);
+    if (existing) {
+      existing.socketId = socket.id;
+    } else {
+      room.players.push({
+        socketId: socket.id,
+        userId: socket.data.userId,
+        displayName: socket.data.displayName,
+        hand: [],
+      });
+    }
+
+    this.dominoRoomStore.set(room);
+    socket.join(`domino:${code}`);
+    this.broadcastDominoState(room);
+  }
+
+  @SubscribeMessage('domino:start')
+  handleDominoStart(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { turnDurationSeconds?: number },
+  ) {
+    const room = this.dominoRoomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
+    if (room.players.length !== 2) throw new Error('Se necesitan 2 jugadores para iniciar.');
+
+    // Igual que en "¿Quién Es?": solo el anfitrión puede fijar el tiempo por
+    // turno; si el otro jugador manda un valor al iniciar, se ignora en vez
+    // de bloquear el arranque de la partida.
+    if (body?.turnDurationSeconds !== undefined && socket.data.userId === room.hostUserId) {
+      const { turnDurationSeconds } = body;
+      if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
+        throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
+      }
+      room.turnDurationSeconds = turnDurationSeconds;
+      this.dominoRoomStore.set(room);
+    }
+
+    this.startDominoDealCountdown(room);
+  }
+
+  @SubscribeMessage('domino:update-turn-duration')
+  handleDominoUpdateTurnDuration(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { turnDurationSeconds: number },
+  ) {
+    const room = this.dominoRoomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
+    if (socket.data.userId !== room.hostUserId) {
+      throw new Error('Solo quien creó la sala puede cambiar los segundos por turno.');
+    }
+
+    const { turnDurationSeconds } = body ?? {};
+    if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
+      throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
+    }
+
+    room.turnDurationSeconds = turnDurationSeconds;
+    this.dominoRoomStore.set(room);
+    this.broadcastDominoState(room);
+  }
+
+  private startDominoDealCountdown(room: DominoRoomState) {
+    this.server.to(`domino:${room.code}`).emit('domino:dealing', { countdownMs: DEAL_COUNTDOWN_MS });
+    setTimeout(() => {
+      const current = this.dominoRoomStore.get(room.code);
+      if (!current || current.players.length !== 2) return;
+      this.dealNewDominoGame(current);
+    }, DEAL_COUNTDOWN_MS);
+  }
+
+  /** Genera el set completo desde los conceptos publicados, baraja y reparte `handSize` fichas a cada jugador. */
+  private dealNewDominoGame(room: DominoRoomState) {
+    const shuffled = shuffle(generateDominoTiles(room.concepts.length));
+    const handSize = Math.min(room.handSize, Math.floor(shuffled.length / 2));
+
+    room.players[0].hand = shuffled.slice(0, handSize);
+    room.players[1].hand = shuffled.slice(handSize, handSize * 2);
+    room.boneyard = shuffled.slice(handSize * 2);
+    room.board = [];
+    room.phase = 'PLAYING';
+    room.winnerUserId = null;
+    room.endedByBlock = false;
+    room.rematchVotes = {};
+    room.consecutivePasses = 0;
+
+    const firstPlayer = room.players[Math.floor(Math.random() * room.players.length)];
+    this.setActiveDominoTurn(room, firstPlayer.userId);
+  }
+
+  /** Coloca una ficha de la mano propia en un extremo del tablero. */
+  @SubscribeMessage('domino:play')
+  handleDominoPlay(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { tileId: string; side: 'left' | 'right' },
+  ) {
+    const room = this.dominoRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') throw new Error('La partida no está en curso.');
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (!player) throw new Error('No estás en esta sala.');
+    if (player.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
+
+    const tile = player.hand.find((t) => t.id === body.tileId);
+    if (!tile) throw new Error('Esa ficha no está en tu mano.');
+
+    const { left, right } = dominoBoardEnds(room.board);
+    let placed: DominoPlacedTile;
+
+    if (room.board.length === 0) {
+      placed = { id: tile.id, left: tile.a, right: tile.b, isDouble: tile.a === tile.b, placedByUserId: player.userId };
+      room.board = [placed];
+    } else if (body.side === 'right') {
+      if (!dominoTileMatchesEnd(tile, right)) throw new Error('Esa ficha no encaja en ese extremo.');
+      placed =
+        tile.a === right
+          ? { id: tile.id, left: tile.a, right: tile.b, isDouble: tile.a === tile.b, placedByUserId: player.userId }
+          : { id: tile.id, left: tile.b, right: tile.a, isDouble: tile.a === tile.b, placedByUserId: player.userId };
+      room.board = [...room.board, placed];
+    } else {
+      if (!dominoTileMatchesEnd(tile, left)) throw new Error('Esa ficha no encaja en ese extremo.');
+      placed =
+        tile.a === left
+          ? { id: tile.id, left: tile.b, right: tile.a, isDouble: tile.a === tile.b, placedByUserId: player.userId }
+          : { id: tile.id, left: tile.a, right: tile.b, isDouble: tile.a === tile.b, placedByUserId: player.userId };
+      room.board = [placed, ...room.board];
+    }
+
+    player.hand = player.hand.filter((t) => t.id !== tile.id);
+    room.consecutivePasses = 0;
+
+    if (player.hand.length === 0) {
+      this.finishDominoGame(room, player.userId, false);
+      return;
+    }
+
+    this.advanceDominoTurn(room);
+  }
+
+  /** Roba una ficha del pozo — solo válido si el jugador activo no tiene ninguna jugada posible. */
+  @SubscribeMessage('domino:draw')
+  handleDominoDraw(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const room = this.dominoRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') throw new Error('La partida no está en curso.');
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (!player) throw new Error('No estás en esta sala.');
+    if (player.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
+    if (room.boneyard.length === 0) throw new Error('El pozo está vacío.');
+    if (dominoHasValidMove(player.hand, room.board)) {
+      throw new Error('Ya tienes una jugada posible, no puedes robar.');
+    }
+
+    const [drawn, ...rest] = room.boneyard;
+    player.hand = [...player.hand, drawn];
+    room.boneyard = rest;
+
+    this.dominoRoomStore.set(room);
+    this.broadcastDominoState(room);
+  }
+
+  /** Pasa el turno — solo válido si no hay jugada posible y el pozo ya está vacío. */
+  @SubscribeMessage('domino:pass')
+  handleDominoPass(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const room = this.dominoRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') throw new Error('La partida no está en curso.');
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (!player) throw new Error('No estás en esta sala.');
+    if (player.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
+    if (room.boneyard.length > 0) throw new Error('Todavía puedes robar del pozo.');
+    if (dominoHasValidMove(player.hand, room.board)) {
+      throw new Error('Tienes una jugada posible, no puedes pasar.');
+    }
+
+    room.consecutivePasses += 1;
+
+    // Ambos jugadores pasaron seguido sin poder jugar y sin pozo: la partida
+    // está bloqueada. Gana quien tenga menos fichas en la mano; empate si
+    // ambos tienen la misma cantidad (no hay ganador).
+    if (room.consecutivePasses >= 2) {
+      const [a, b] = room.players;
+      const winnerUserId =
+        a.hand.length === b.hand.length ? null : a.hand.length < b.hand.length ? a.userId : b.userId;
+      this.finishDominoGame(room, winnerUserId, true);
+      return;
+    }
+
+    this.advanceDominoTurn(room);
+  }
+
+  @SubscribeMessage('domino:rematch-vote')
+  handleDominoRematchVote(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { accept: boolean },
+  ) {
+    const room = this.dominoRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'FINISHED') throw new Error('No hay una partida terminada para votar revancha.');
+
+    const voter = room.players.find((p) => p.socketId === socket.id);
+    if (!voter) throw new Error('No estás en esta sala.');
+
+    room.rematchVotes[voter.userId] = body.accept;
+
+    if (body.accept === false) {
+      const opponent = room.players.find((p) => p.userId !== voter.userId);
+      if (opponent) {
+        this.server.to(opponent.socketId).emit('domino:rematch-rejected', {
+          message: `${voter.displayName} no quiso seguir jugando.`,
+        });
+      }
+      this.dominoRoomStore.delete(room.code);
+      return;
+    }
+
+    const allAccepted =
+      room.players.length === 2 && room.players.every((p) => room.rematchVotes[p.userId] === true);
+
+    if (allAccepted) {
+      this.startDominoDealCountdown(room);
+      return;
+    }
+
+    this.dominoRoomStore.set(room);
+    this.broadcastDominoState(room);
+  }
+
+  @SubscribeMessage('domino:leave')
+  handleDominoLeave(@ConnectedSocket() socket: AuthenticatedSocket) {
+    this.handleDisconnect(socket);
+    socket.disconnect();
+  }
+
+  private finishDominoGame(room: DominoRoomState, winnerUserId: string | null, endedByBlock: boolean) {
+    this.clearDominoTurnTimer(room.code);
+    room.phase = 'FINISHED';
+    room.winnerUserId = winnerUserId;
+    room.endedByBlock = endedByBlock;
+    room.rematchVotes = {};
+    room.activePlayerUserId = null;
+    room.turnDeadline = null;
+
+    this.dominoRoomStore.set(room);
+    this.broadcastDominoState(room);
+  }
+
+  private setActiveDominoTurn(room: DominoRoomState, userId: string) {
+    room.activePlayerUserId = userId;
+    room.turnDeadline = Date.now() + room.turnDurationSeconds * 1000;
+
+    this.dominoRoomStore.set(room);
+    this.broadcastDominoState(room);
+
+    this.clearDominoTurnTimer(room.code);
+    const timer = setTimeout(() => {
+      const current = this.dominoRoomStore.get(room.code);
+      if (!current || current.phase !== 'PLAYING' || current.activePlayerUserId !== userId) return;
+      // Si nadie actúa a tiempo, el servidor decide por el jugador inactivo:
+      // pasa si no tiene jugada posible y no hay pozo, o roba/pasa según
+      // corresponda, para que la partida nunca quede colgada esperando.
+      const player = current.players.find((p) => p.userId === userId);
+      if (player && current.boneyard.length > 0 && !dominoHasValidMove(player.hand, current.board)) {
+        const [drawn, ...rest] = current.boneyard;
+        player.hand = [...player.hand, drawn];
+        current.boneyard = rest;
+        this.dominoRoomStore.set(current);
+        this.broadcastDominoState(current);
+        return;
+      }
+      this.advanceDominoTurn(current);
+    }, room.turnDurationSeconds * 1000);
+    this.dominoTurnTimers.set(room.code, timer);
+  }
+
+  private advanceDominoTurn(room: DominoRoomState) {
+    const next = room.players.find((p) => p.userId !== room.activePlayerUserId);
+    if (!next) return;
+    this.setActiveDominoTurn(room, next.userId);
+  }
+
+  private clearDominoTurnTimer(code: string) {
+    const timer = this.dominoTurnTimers.get(code);
+    if (timer) {
+      clearTimeout(timer);
+      this.dominoTurnTimers.delete(code);
+    }
+  }
+
+  private broadcastDominoState(room: DominoRoomState) {
+    for (const player of room.players) {
+      this.server.to(player.socketId).emit('domino:state', toDominoClientView(room, player.socketId));
     }
   }
 }

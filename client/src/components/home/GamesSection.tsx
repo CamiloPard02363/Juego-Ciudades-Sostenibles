@@ -43,9 +43,6 @@ import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
-import { DominoGame } from './games/DominoGame'
-import type { DominoConcept, DominoConfig } from './games/dominoTypes'
-import { DEFAULT_DOMINO_CONFIG } from './games/dominoTypes'
 import type { MemoryMatchPair, MemoryMatchConfig } from './games/memoryMatchTypes'
 
 export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
@@ -181,9 +178,6 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     window.history.replaceState(null, '', url)
   }
   const [joinByCodeOpen, setJoinByCodeOpen] = useState(false)
-  // Sesión de dominó en curso: el juego publicado que se está jugando (su
-  // contenido son los conceptos que alimentan al reproductor genérico).
-  const [dominoSession, setDominoSession] = useState<GameDetail | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deletingCategory, setDeletingCategory] = useState(false)
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<CategoryWithGameCount | null>(null)
@@ -346,32 +340,15 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       closeGame()
       return
     }
-    // El dominó no usa PlayOptionsPopup (esas opciones son de MEMORY_MATCH):
-    // se abre directo el reproductor con los conceptos del juego publicado.
+    // El dominó ahora es una sala 1v1 en tiempo real con página propia (ver
+    // DominoRoomPage/App.tsx) en vez de un pop-up de un solo jugador: se
+    // navega a la ruta, que crea la sala apenas monta (?gameId=).
     if (selectedGame.gameType === 'DOMINO') {
-      setDominoSession(selectedGame)
       closeGame()
+      navigate(`/domino/sala?gameId=${selectedGame.id}`)
       return
     }
     setShowPlayOptions(true)
-  }
-
-  /**
-   * Reproductor de dominó para el juego seleccionado: el contenido publicado
-   * son los conceptos, y `handSize` sale del config del propio juego.
-   */
-  function renderDominoSession() {
-    if (!dominoSession) return null
-    return (
-      <DominoGame
-        title={dominoSession.title}
-        concepts={dominoSession.content as DominoConcept[]}
-        handSize={
-          (dominoSession.config as Partial<DominoConfig>).handSize ?? DEFAULT_DOMINO_CONFIG.handSize
-        }
-        onExit={() => setDominoSession(null)}
-      />
-    )
   }
 
   /**
@@ -411,8 +388,6 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
             onRoomCodeChange={handleRoomCodeChange}
           />
         )}
-
-        {renderDominoSession()}
 
         {selectedGame && showPlayOptions && (
           <PlayOptionsPopup
