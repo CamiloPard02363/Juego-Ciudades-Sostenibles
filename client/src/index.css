@@ -484,6 +484,22 @@ code {
   }
 }
 
+/* Usado por ConfettiBurst.tsx (modo niños): cada pieza vuela desde el
+ * centro hacia su propio (--kids-confetti-dx, --kids-confetti-dy),
+ * girando y desvaneciéndose, para simular una explosión de confeti. */
+@keyframes kids-confetti-piece {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%)
+      translate(var(--kids-confetti-dx), calc(var(--kids-confetti-dy) + 40px)) rotate(340deg)
+      scale(0.6);
+  }
+}
+
 /* Botón "Unirme con código": glow pulsante para atraer la atención,
  * usa un halo animado (box-shadow) en vez de opacity para no perder contraste. */
 .join-code-glow-btn {

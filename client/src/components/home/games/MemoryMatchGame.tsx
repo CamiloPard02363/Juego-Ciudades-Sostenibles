@@ -1,6 +1,7 @@
 import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
 import { useMemoryMatchGame } from './useMemoryMatchGame'
+import { ConfettiBurst } from '../../kids/ConfettiBurst'
 
 type MemoryMatchGameProps = {
   title: string
@@ -84,7 +85,8 @@ export function MemoryMatchGame({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {game.matchedInZone > 0 && <ConfettiBurst trigger={game.matchedInZone} />}
           {game.currentZone?.cards.map((card) => {
             const isFlipped =
               game.phase === 'preview' ||
@@ -174,6 +176,7 @@ export function MemoryMatchGame({
             actionLabel={game.zoneIndex + 1 < game.zones.length ? 'Siguiente zona' : 'Ver resultado'}
             onAction={game.advanceZone}
             onExit={onExit}
+            celebrate
           />
         )}
 
@@ -195,6 +198,7 @@ export function MemoryMatchGame({
             onAction={onExit}
             onExit={onExit}
             hideSecondaryAction
+            celebrate
           />
         )}
       </div>
@@ -218,6 +222,7 @@ function GameEndOverlay({
   onAction,
   onExit,
   hideSecondaryAction,
+  celebrate,
 }: {
   title: string
   message: string
@@ -225,10 +230,12 @@ function GameEndOverlay({
   onAction: () => void
   onExit: () => void
   hideSecondaryAction?: boolean
+  celebrate?: boolean
 }) {
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/50 p-5">
-      <div className="w-full max-w-[360px] rounded-2xl border border-border bg-bg p-7 text-center shadow-[var(--shadow)]">
+      <div className="relative w-full max-w-[360px] rounded-2xl border border-border bg-bg p-7 text-center shadow-[var(--shadow)]">
+        {celebrate && <ConfettiBurst trigger={title} />}
         <h2 className="mb-2 text-[20px] tracking-tight text-text-h">{title}</h2>
         <p className="mb-6 text-[14px] text-text">{message}</p>
         <div className="flex flex-col gap-2">
