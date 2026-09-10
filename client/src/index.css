@@ -185,6 +185,57 @@
   background-attachment: fixed;
 }
 
+/*
+ * Look "caricatura de bloques de juguete" para el modo niños: bordes gruesos
+ * de cómic, esquinas bien redondeadas y sombras "sólidas" (offset, sin
+ * blur) en vez de las sombras difusas del resto de temas — así tarjetas y
+ * botones se sienten como piezas de juguete con las que se puede interactuar,
+ * en lugar de superficies planas de una app "seria". Todo vía overrides de
+ * variables/álgebra CSS, sin tocar componentes: mismo patrón que el resto de
+ * temas (ver comentario en ThemesSection.tsx).
+ */
+[data-theme='kids'] {
+  --kids-comic-border: 3px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  --kids-comic-shadow: 4px 5px 0 0 color-mix(in srgb, var(--text-h) 16%, transparent);
+  --kids-comic-shadow-hover: 6px 7px 0 0 color-mix(in srgb, var(--text-h) 20%, transparent);
+}
+
+[data-theme='kids'] button:not(.join-code-glow-btn),
+[data-theme='kids'] a[class*='rounded'] {
+  border-radius: 999px;
+}
+
+[data-theme='kids'] .rounded-2xl,
+[data-theme='kids'] .rounded-xl,
+[data-theme='kids'] .rounded-lg {
+  border-radius: 22px !important;
+}
+
+/* Tarjetas/superficies de contenido ganan borde grueso + sombra "sólida" de
+ * juguete; se excluye .bg-surface con opacidad (variantes bg-surface con
+ * porcentaje) para no ponerle un borde de cómic a un halo de color. */
+[data-theme='kids'] .bg-surface {
+  border: var(--kids-comic-border);
+  box-shadow: var(--kids-comic-shadow);
+}
+
+[data-theme='kids'] button.bg-accent,
+[data-theme='kids'] a.bg-accent {
+  border: 3px solid color-mix(in srgb, var(--text-h) 25%, var(--accent));
+  box-shadow: var(--kids-comic-shadow);
+}
+
+[data-theme='kids'] button.bg-accent:not(:disabled):hover,
+[data-theme='kids'] a.bg-accent:hover {
+  box-shadow: var(--kids-comic-shadow-hover);
+  transform: translate(-1px, -1px);
+}
+
+[data-theme='kids'] button.bg-accent:not(:disabled):active {
+  box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--text-h) 16%, transparent);
+  transform: translate(2px, 2px) scale(0.98);
+}
+
 #root {
   width: 100%;
   min-height: 100svh;
@@ -498,6 +549,76 @@ code {
       translate(var(--kids-confetti-dx), calc(var(--kids-confetti-dy) + 40px)) rotate(340deg)
       scale(0.6);
   }
+}
+
+/*
+ * Modo niños: los botones "cobran vida" — un pequeño wiggle constante para
+ * invitar al toque, un salto exagerado al presionar y un destello al soltar.
+ * Pensado para 3-10 años: el movimiento de reposo funciona como affordance
+ * ("esto se puede tocar") sin depender de leer texto, y el rebote al hacer
+ * clic da una recompensa sensorial inmediata a cada interacción.
+ * Respeta prefers-reduced-motion (regla de arriba lo apaga globalmente).
+ */
+@keyframes kids-btn-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-2.5deg);
+  }
+  75% {
+    transform: rotate(2.5deg);
+  }
+}
+
+@keyframes kids-btn-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.14) rotate(-3deg);
+  }
+  70% {
+    transform: scale(0.94) rotate(2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes kids-btn-sparkle-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-2) 65%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent-2) 0%, transparent);
+  }
+}
+
+[data-theme='kids'] button:not(:disabled),
+[data-theme='kids'] a[role='button']:not([aria-disabled='true']) {
+  animation: kids-btn-wiggle 2.6s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+/* El wiggle de reposo solo corre mientras el puntero está encima: quieto
+ * por defecto para no distraer de la lectura, "vivo" al pasar el mouse. */
+[data-theme='kids'] button:not(:disabled):hover,
+[data-theme='kids'] a[role='button']:not([aria-disabled='true']):hover {
+  animation-play-state: running;
+}
+
+[data-theme='kids'] button:not(:disabled):active,
+[data-theme='kids'] a[role='button']:not([aria-disabled='true']):active {
+  animation: kids-btn-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-theme='kids'] button:not(:disabled):focus-visible,
+[data-theme='kids'] a[role='button']:not([aria-disabled='true']):focus-visible {
+  animation: kids-btn-sparkle-ring 0.6s ease-out;
+  outline: 3px solid var(--accent-2);
+  outline-offset: 2px;
 }
 
 /* Botón "Unirme con código": glow pulsante para atraer la atención,
