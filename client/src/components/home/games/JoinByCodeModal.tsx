@@ -1,11 +1,7 @@
 import { useState } from 'react'
-import { io } from 'socket.io-client'
 import { Modal } from './Modal'
 import { useAuth } from '../../../hooks/useAuth'
-
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000'
-
-type ResolvedRoom = { kind: 'room' | 'tournament'; gameId: string; gameTitle: string }
+import { resolveRoomCode, type ResolvedRoom } from './resolveRoomCode'
 
 type JoinByCodeModalProps = {
   onClose: () => void
@@ -14,8 +10,9 @@ type JoinByCodeModalProps = {
 
 /**
  * Modal agnóstico al juego: solo pide un código, lo resuelve contra el
- * gateway de salas (que revisa tanto salas 1v1 como torneos grupales) y le
- * pasa al llamador a qué juego/modo pertenece para que abra la sala correcta.
+ * gateway de salas (que revisa salas 1v1, torneos grupales y salas de
+ * dominó) y le pasa al llamador a qué juego/modo pertenece para que abra la
+ * sala correcta.
  */
 export function JoinByCodeModal({ onClose, onResolved }: JoinByCodeModalProps) {
   const { token } = useAuth()
@@ -30,30 +27,10 @@ export function JoinByCodeModal({ onClose, onResolved }: JoinByCodeModalProps) {
     setResolving(true)
     setError(null)
 
-    const socket = io(`${API_URL}/rooms`, { auth: { token }, transports: ['websocket'] })
-
-    // El gateway no resuelve el ack cuando el código no existe (el filtro de
-    // excepciones solo emite "room:error"), así que ese evento es el único
-    // camino confiable para el caso de error — el ack solo se usa si sí trae
-    // el resultado resuelto.
-    socket.on('room:error', (payload: { message: string }) => {
-      socket.disconnect()
-      setResolving(false)
-      setError(payload.message)
-    })
-    socket.on('connect', () => {
-      socket.emit('room:resolve-code', { code: trimmed }, (response?: ResolvedRoom) => {
-        if (response && 'kind' in response) {
-          socket.disconnect()
-          onResolved(response, trimmed)
-        }
-      })
-    })
-    socket.on('connect_error', () => {
-      socket.disconnect()
-      setResolving(false)
-      setError('No se pudo conectar. Intenta de nuevo.')
-    })
+    resolveRoomCode(token, trimmed)
+      .then((resolved) => onResolved(resolved, trimmed))
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setResolving(false))
   }
 
   return (
