@@ -38,8 +38,51 @@ model UserModel {
   createdAt        DateTime          @default(now()) @map("created_at")
   lastUpdate       DateTime          @updatedAt @map("last_update")
   refreshTokens    RefreshTokenModel[]
+  organizationsCreated  OrganizationModel[]           @relation("OrganizationCreatedBy")
+  organizationMemberships OrganizationMembershipModel[]
 
   @@map("users")
+}
+
+/// Rol de un usuario DENTRO de una organización. Eje ortogonal al rol global
+/// de plataforma (tabla `roles`): un STUDENT global puede ser ADMIN de una
+/// organización. Ver `domain/value-objects/organization-role.vo.ts`.
+enum OrganizationRoleEnum {
+  STUDENT
+  TEACHER
+  ADMIN
+
+  @@map("organization_role")
+}
+
+model OrganizationModel {
+  id              String    @id @default(uuid())
+  name            String
+  /// Dominio de correo reclamado (ej. "colegio.edu.co"). Único a nivel global:
+  /// el constraint es la garantía real ante dos creaciones simultáneas.
+  domain          String?   @unique
+  createdByUserId String    @map("created_by_user_id")
+  createdBy       UserModel @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  memberships     OrganizationMembershipModel[]
+
+  @@index([createdByUserId])
+  @@map("organizations")
+}
+
+model OrganizationMembershipModel {
+  id             String               @id @default(uuid())
+  organizationId String               @map("organization_id")
+  organization   OrganizationModel    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String               @map("user_id")
+  user           UserModel            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgRole        OrganizationRoleEnum @map("org_role")
+  joinedAt       DateTime             @default(now()) @map("joined_at")
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_memberships")
 }
 
 model RefreshTokenModel {
