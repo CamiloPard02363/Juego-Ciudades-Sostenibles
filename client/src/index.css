@@ -535,6 +535,76 @@ code {
   }
 }
 
+/*
+ * Modo niños: los botones "cobran vida" — un pequeño wiggle constante para
+ * invitar al toque, un salto exagerado al presionar y un destello al soltar.
+ * Pensado para 3-10 años: el movimiento de reposo funciona como affordance
+ * ("esto se puede tocar") sin depender de leer texto, y el rebote al hacer
+ * clic da una recompensa sensorial inmediata a cada interacción.
+ * Respeta prefers-reduced-motion (regla de arriba lo apaga globalmente).
+ */
+@keyframes kids-btn-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-2.5deg);
+  }
+  75% {
+    transform: rotate(2.5deg);
+  }
+}
+
+@keyframes kids-btn-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.14) rotate(-3deg);
+  }
+  70% {
+    transform: scale(0.94) rotate(2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes kids-btn-sparkle-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-2) 65%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent-2) 0%, transparent);
+  }
+}
+
+[data-theme='kids'] button:not(:disabled),
+[data-theme='kids'] a[role='button']:not([aria-disabled='true']) {
+  animation: kids-btn-wiggle 2.6s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+/* El wiggle de reposo solo corre mientras el puntero está encima: quieto
+ * por defecto para no distraer de la lectura, "vivo" al pasar el mouse. */
+[data-theme='kids'] button:not(:disabled):hover,
+[data-theme='kids'] a[role='button']:not([aria-disabled='true']):hover {
+  animation-play-state: running;
+}
+
+[data-theme='kids'] button:not(:disabled):active,
+[data-theme='kids'] a[role='button']:not([aria-disabled='true']):active {
+  animation: kids-btn-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-theme='kids'] button:not(:disabled):focus-visible,
+[data-theme='kids'] a[role='button']:not([aria-disabled='true']):focus-visible {
+  animation: kids-btn-sparkle-ring 0.6s ease-out;
+  outline: 3px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
 /* Botón "Unirme con código": glow pulsante para atraer la atención,
  * usa un halo animado (box-shadow) en vez de opacity para no perder contraste. */
 .join-code-glow-btn {
