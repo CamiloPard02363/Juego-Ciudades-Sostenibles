@@ -162,6 +162,24 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     code: string
     initialMode: 'individual' | 'group'
   } | null>(null)
+
+  /**
+   * Refleja el código de sala activo en la URL (para compartir/ver de un
+   * vistazo en qué sala se está) SIN pasar por react-router: la sala vive
+   * fuera del árbol de <Route> (es un overlay condicional, igual que antes
+   * de esta migración), así que tocar la URL con `navigate` arriesgaría un
+   * remount de esta sección por un cambio de ruta no relacionado. El socket
+   * y su ciclo de vida no se enteran de este cambio en absoluto.
+   */
+  function handleRoomCodeChange(code: string | null) {
+    const url = new URL(window.location.href)
+    if (code) {
+      url.searchParams.set('sala', code)
+    } else {
+      url.searchParams.delete('sala')
+    }
+    window.history.replaceState(null, '', url)
+  }
   const [joinByCodeOpen, setJoinByCodeOpen] = useState(false)
   // Sesión de dominó en curso: el juego publicado que se está jugando (su
   // contenido son los conceptos que alimentan al reproductor genérico).
@@ -386,9 +404,11 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
             onExit={() => {
               setGuessWhoRoomGameId(null)
               setJoinCodeContext(null)
+              handleRoomCodeChange(null)
             }}
             initialJoinCode={joinCodeContext?.code}
             initialMode={joinCodeContext?.initialMode}
+            onRoomCodeChange={handleRoomCodeChange}
           />
         )}
 
