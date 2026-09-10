@@ -26,7 +26,21 @@ export function CreateGameLayout() {
           </p>
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto">
+      <main className="relative flex-1 overflow-y-auto">
+        {/* Fondo decorativo difuminado, fijo detrás del formulario: sin
+            contenido real, solo para que la mirada se quede en la tarjeta de
+            configuración del centro en vez de perderse en el resto de la
+            pantalla — igual de vacía que estar en un juego a medio configurar. */}
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+          <div
+            className="absolute -top-24 -left-24 h-72 w-72 rounded-full opacity-25 blur-3xl"
+            style={{ background: 'var(--accent)' }}
+          />
+          <div
+            className="absolute top-1/2 -right-24 h-80 w-80 -translate-y-1/2 rounded-full opacity-20 blur-3xl"
+            style={{ background: 'var(--accent-2)' }}
+          />
+        </div>
         <Outlet />
       </main>
     </div>
