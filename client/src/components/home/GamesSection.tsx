@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   Atom,
   Brain,
@@ -49,6 +49,13 @@ import { DEFAULT_DOMINO_CONFIG } from './games/dominoTypes'
 import type { MemoryMatchPair, MemoryMatchConfig } from './games/memoryMatchTypes'
 
 export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
+
+const BASE_PATH_BY_MODE: Record<GamesSectionMode, string> = {
+  all: '/',
+  categories: '/materias',
+  community: '/comunidad',
+  'my-games': '/mis-juegos',
+}
 
 type GamesSectionProps = {
   mode: GamesSectionMode
@@ -133,6 +140,8 @@ function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameC
 
 export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionProps) {
   const navigate = useNavigate()
+  const { slug: slugFromUrl } = useParams<{ slug?: string }>()
+  const basePath = BASE_PATH_BY_MODE[mode]
   const { token, user } = useAuth()
   const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -141,6 +150,9 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
 
+  // El detalle abierto se deriva de la URL (slug en la ruta), no de un click
+  // aislado: así el juego es compartible/recargable y el botón atrás cierra
+  // el modal. `selectedGame` guarda el detalle ya cargado del slug actual.
   const [selectedGame, setSelectedGame] = useState<GameDetail | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [showPlayOptions, setShowPlayOptions] = useState(false)
@@ -222,16 +234,31 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     return category ? colorForCategory(category.name) : DEFAULT_CATEGORY_COLOR
   }
 
-  async function openGame(summary: GameSummary) {
-    if (!token) return
-    setDetailError(null)
-    try {
-      const detail = await getGameBySlug(token, summary.slug)
-      setSelectedGame(detail)
-      trackEvent(token, 'game_opened', { gameId: detail.id, metadata: { section: mode } })
-    } catch (err) {
-      setDetailError(err instanceof ApiError ? err.message : 'No se pudo abrir el juego.')
+  // Carga el detalle cuando la URL trae un slug (clic en tarjeta, recarga
+  // directa en /juego-slug, o navegación con atrás/adelante del navegador).
+  useEffect(() => {
+    if (!token || !slugFromUrl) {
+      setSelectedGame(null)
+      return
     }
+    setDetailError(null)
+    getGameBySlug(token, slugFromUrl)
+      .then((detail) => {
+        setSelectedGame(detail)
+        trackEvent(token, 'game_opened', { gameId: detail.id, metadata: { section: mode } })
+      })
+      .catch((err: unknown) => {
+        setDetailError(err instanceof ApiError ? err.message : 'No se pudo abrir el juego.')
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, slugFromUrl])
+
+  function openGame(summary: GameSummary) {
+    navigate(`${basePath === '/' ? '' : basePath}/${summary.slug}`)
+  }
+
+  function closeGame() {
+    navigate(basePath)
   }
 
   async function handleDelete() {
@@ -240,7 +267,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     setDetailError(null)
     try {
       await deleteGame(token, selectedGame.id)
-      setSelectedGame(null)
+      closeGame()
       reload()
     } catch (err) {
       setDetailError(err instanceof ApiError ? err.message : 'No se pudo eliminar el juego.')
@@ -298,14 +325,14 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     if (!selectedGame) return
     if (selectedGame.gameType === 'GUESS_WHO') {
       setGuessWhoRoomGameId(selectedGame.id)
-      setSelectedGame(null)
+      closeGame()
       return
     }
     // El dominó no usa PlayOptionsPopup (esas opciones son de MEMORY_MATCH):
     // se abre directo el reproductor con los conceptos del juego publicado.
     if (selectedGame.gameType === 'DOMINO') {
       setDominoSession(selectedGame)
-      setSelectedGame(null)
+      closeGame()
       return
     }
     setShowPlayOptions(true)
@@ -326,6 +353,80 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         }
         onExit={() => setDominoSession(null)}
       />
+    )
+  }
+
+  /**
+   * Overlays de detalle/juego compartidos entre las dos ramas de render
+   * (grilla de Materias y el resto de secciones): antes este bloque estaba
+   * duplicado literalmente entre ambas.
+   */
+  function renderGameOverlays() {
+    return (
+      <>
+        {selectedGame && !showPlayOptions && (
+          <GameDetailModal
+            game={selectedGame}
+            color={colorForGame(selectedGame)}
+            canDelete={Boolean(user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId))}
+            deleting={deleting}
+            onClose={closeGame}
+            onPlay={handlePlayClick}
+            onDelete={handleDelete}
+            onUpdated={(updated) => {
+              setSelectedGame(updated)
+              reload()
+            }}
+          />
+        )}
+
+        {guessWhoRoomGameId && (
+          <GuessWhoRoom
+            gameId={guessWhoRoomGameId}
+            onExit={() => {
+              setGuessWhoRoomGameId(null)
+              setJoinCodeContext(null)
+            }}
+            initialJoinCode={joinCodeContext?.code}
+            initialMode={joinCodeContext?.initialMode}
+          />
+        )}
+
+        {renderDominoSession()}
+
+        {selectedGame && showPlayOptions && (
+          <PlayOptionsPopup
+            game={selectedGame}
+            onClose={() => setShowPlayOptions(false)}
+            onStart={(options) => {
+              setPlaySession({ game: selectedGame, ...options })
+              setShowPlayOptions(false)
+              closeGame()
+            }}
+          />
+        )}
+
+        {playSession && (
+          <MemoryMatchGame
+            title={playSession.game.title}
+            primaryColor={colorForGame(playSession.game)}
+            pairs={playSession.game.content as MemoryMatchPair[]}
+            pairCount={playSession.pairCount}
+            difficulty={playSession.difficulty}
+            showPreview={playSession.showPreview}
+            perZone={(playSession.game.config as Partial<MemoryMatchConfig>).perZone ?? DEFAULT_MEMORY_CONFIG.perZone}
+            timePerZoneSeconds={
+              (playSession.game.config as Partial<MemoryMatchConfig>).timePerZoneSeconds ??
+              DEFAULT_MEMORY_CONFIG.timePerZoneSeconds
+            }
+            previewSeconds={
+              (playSession.game.config as Partial<MemoryMatchConfig>).previewSeconds ??
+              DEFAULT_MEMORY_CONFIG.previewSeconds
+            }
+            onExit={() => setPlaySession(null)}
+          />
+        )}
+      </>
     )
   }
 
@@ -524,60 +625,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
           </Modal>
         )}
 
-        {selectedGame && !showPlayOptions && (
-          <GameDetailModal
-            game={selectedGame}
-            color={colorForGame(selectedGame)}
-            canDelete={Boolean(user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId))}
-            deleting={deleting}
-            onClose={() => setSelectedGame(null)}
-            onPlay={handlePlayClick}
-            onDelete={handleDelete}
-            onUpdated={(updated) => {
-              setSelectedGame(updated)
-              reload()
-            }}
-          />
-        )}
-
-        {guessWhoRoomGameId && (
-          <GuessWhoRoom gameId={guessWhoRoomGameId} onExit={() => setGuessWhoRoomGameId(null)} />
-        )}
-
-        {renderDominoSession()}
-
-        {selectedGame && showPlayOptions && (
-          <PlayOptionsPopup
-            game={selectedGame}
-            onClose={() => setShowPlayOptions(false)}
-            onStart={(options) => {
-              setPlaySession({ game: selectedGame, ...options })
-              setShowPlayOptions(false)
-              setSelectedGame(null)
-            }}
-          />
-        )}
-
-        {playSession && (
-          <MemoryMatchGame
-            title={playSession.game.title}
-            primaryColor={colorForGame(playSession.game)}
-            pairs={playSession.game.content as MemoryMatchPair[]}
-            pairCount={playSession.pairCount}
-            difficulty={playSession.difficulty}
-            showPreview={playSession.showPreview}
-            perZone={(playSession.game.config as Partial<MemoryMatchConfig>).perZone ?? DEFAULT_MEMORY_CONFIG.perZone}
-            timePerZoneSeconds={
-              (playSession.game.config as Partial<MemoryMatchConfig>).timePerZoneSeconds ??
-              DEFAULT_MEMORY_CONFIG.timePerZoneSeconds
-            }
-            previewSeconds={
-              (playSession.game.config as Partial<MemoryMatchConfig>).previewSeconds ??
-              DEFAULT_MEMORY_CONFIG.previewSeconds
-            }
-            onExit={() => setPlaySession(null)}
-          />
-        )}
+        {renderGameOverlays()}
       </section>
     )
   }
@@ -741,36 +789,6 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         )}
       </div>
 
-      {selectedGame && !showPlayOptions && (
-        <GameDetailModal
-          game={selectedGame}
-          color={colorForGame(selectedGame)}
-          canDelete={Boolean(
-            user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId),
-          )}
-          deleting={deleting}
-          onClose={() => setSelectedGame(null)}
-          onPlay={handlePlayClick}
-          onDelete={handleDelete}
-          onUpdated={(updated) => {
-            setSelectedGame(updated)
-            reload()
-          }}
-        />
-      )}
-
-      {guessWhoRoomGameId && (
-        <GuessWhoRoom
-          gameId={guessWhoRoomGameId}
-          onExit={() => {
-            setGuessWhoRoomGameId(null)
-            setJoinCodeContext(null)
-          }}
-          initialJoinCode={joinCodeContext?.code}
-          initialMode={joinCodeContext?.initialMode}
-        />
-      )}
-
       {joinByCodeOpen && (
         <JoinByCodeModal
           onClose={() => setJoinByCodeOpen(false)}
@@ -782,40 +800,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         />
       )}
 
-      {selectedGame && showPlayOptions && (
-        <PlayOptionsPopup
-          game={selectedGame}
-          onClose={() => setShowPlayOptions(false)}
-          onStart={(options) => {
-            setPlaySession({ game: selectedGame, ...options })
-            setShowPlayOptions(false)
-            setSelectedGame(null)
-          }}
-        />
-      )}
-
-      {playSession && (
-        <MemoryMatchGame
-          title={playSession.game.title}
-          primaryColor={colorForGame(playSession.game)}
-          pairs={playSession.game.content as MemoryMatchPair[]}
-          pairCount={playSession.pairCount}
-          difficulty={playSession.difficulty}
-          showPreview={playSession.showPreview}
-          perZone={(playSession.game.config as Partial<MemoryMatchConfig>).perZone ?? DEFAULT_MEMORY_CONFIG.perZone}
-          timePerZoneSeconds={
-            (playSession.game.config as Partial<MemoryMatchConfig>).timePerZoneSeconds ??
-            DEFAULT_MEMORY_CONFIG.timePerZoneSeconds
-          }
-          previewSeconds={
-            (playSession.game.config as Partial<MemoryMatchConfig>).previewSeconds ??
-            DEFAULT_MEMORY_CONFIG.previewSeconds
-          }
-          onExit={() => setPlaySession(null)}
-        />
-      )}
-
-      {renderDominoSession()}
+      {renderGameOverlays()}
     </section>
   )
 }
