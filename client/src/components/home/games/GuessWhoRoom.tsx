@@ -25,6 +25,12 @@ type GuessWhoRoomProps = {
    * preguntar crear/unirse.
    */
   skipEntryChoice?: boolean
+  /**
+   * Avisa hacia arriba el código de sala en cuanto el servidor lo confirma,
+   * para que quien monta este componente pueda reflejarlo en la URL sin que
+   * eso afecte el ciclo de vida del socket ni de la sala misma.
+   */
+  onRoomCodeChange?: (code: string | null) => void
 }
 
 /**
@@ -38,24 +44,29 @@ type GuessWhoRoomProps = {
 type EntryStep = 'undecided' | 'joining-by-code' | 'choosing-mode-to-create'
 type GameMode = 'individual' | 'group'
 
-export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode }: GuessWhoRoomProps) {
+export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode, onRoomCodeChange }: GuessWhoRoomProps) {
   const [step, setStep] = useState<EntryStep>('undecided')
   const [mode, setMode] = useState<GameMode | null>(initialMode ?? null)
   const [joinCode, setJoinCode] = useState<string | undefined>(initialJoinCode)
 
   if (mode && joinCode) {
     return mode === 'group' ? (
-      <TournamentRoom gameId={gameId} onExit={onExit} initialJoinCode={joinCode} />
+      <TournamentRoom gameId={gameId} onExit={onExit} initialJoinCode={joinCode} onRoomCodeChange={onRoomCodeChange} />
     ) : (
-      <IndividualGuessWhoRoom gameId={gameId} onExit={onExit} initialJoinCode={joinCode} />
+      <IndividualGuessWhoRoom
+        gameId={gameId}
+        onExit={onExit}
+        initialJoinCode={joinCode}
+        onRoomCodeChange={onRoomCodeChange}
+      />
     )
   }
 
   if (mode) {
     return mode === 'group' ? (
-      <TournamentRoom gameId={gameId} onExit={onExit} skipEntryChoice />
+      <TournamentRoom gameId={gameId} onExit={onExit} skipEntryChoice onRoomCodeChange={onRoomCodeChange} />
     ) : (
-      <IndividualGuessWhoRoom gameId={gameId} onExit={onExit} skipEntryChoice />
+      <IndividualGuessWhoRoom gameId={gameId} onExit={onExit} skipEntryChoice onRoomCodeChange={onRoomCodeChange} />
     )
   }
 
@@ -145,7 +156,13 @@ export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode }: G
  */
 type EntryChoice = 'undecided' | 'joining-input' | 'creating' | 'joining'
 
-function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode, skipEntryChoice }: GuessWhoRoomProps) {
+function IndividualGuessWhoRoom({
+  gameId,
+  onExit,
+  initialJoinCode,
+  skipEntryChoice,
+  onRoomCodeChange,
+}: GuessWhoRoomProps) {
   const { token, user } = useAuth()
   const {
     room,
@@ -185,6 +202,12 @@ function IndividualGuessWhoRoom({ gameId, onExit, initialJoinCode, skipEntryChoi
     joinRoom(initialJoinCode)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialJoinCode])
+  // Solo refleja el código hacia arriba (para la URL); no participa del
+  // ciclo de vida del socket ni de la sala.
+  useEffect(() => {
+    onRoomCodeChange?.(room?.code ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.code])
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   useEffect(() => {

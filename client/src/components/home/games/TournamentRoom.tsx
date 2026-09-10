@@ -11,6 +11,11 @@ type TournamentRoomProps = {
   initialJoinCode?: string
   /** El modo "grupo" ya se decidió un nivel arriba: salta directo a la config de cupo para crear. */
   skipEntryChoice?: boolean
+  /**
+   * Avisa hacia arriba el código de sala en cuanto el servidor lo confirma,
+   * para reflejarlo en la URL sin afectar el ciclo de vida del socket.
+   */
+  onRoomCodeChange?: (code: string | null) => void
 }
 
 /** Antes de entrar a la sala grupal, cada jugador decide si crea una sala nueva o se une con un código. */
@@ -33,7 +38,13 @@ const MIN_PARTICIPANTS_LIMIT = 2
  * MatchBoard) y, si se es eliminado, ver el resumen del torneo en vez de la
  * partida de los demás.
  */
-export function TournamentRoom({ gameId, onExit, initialJoinCode, skipEntryChoice }: TournamentRoomProps) {
+export function TournamentRoom({
+  gameId,
+  onExit,
+  initialJoinCode,
+  skipEntryChoice,
+  onRoomCodeChange,
+}: TournamentRoomProps) {
   const { token, user } = useAuth()
   const {
     tournament,
@@ -67,6 +78,12 @@ export function TournamentRoom({ gameId, onExit, initialJoinCode, skipEntryChoic
     joinTournament(initialJoinCode)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialJoinCode])
+  // Solo refleja el código hacia arriba (para la URL); no participa del
+  // ciclo de vida del socket ni del torneo.
+  useEffect(() => {
+    onRoomCodeChange?.(tournament?.code ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament?.code])
 
   // El anuncio de compañero se muestra unos segundos y luego se auto-cierra
   // para dar paso al tablero del match, que ya llega vía tournament:state.
