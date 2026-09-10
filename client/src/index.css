@@ -551,6 +551,28 @@ code {
   }
 }
 
+/* Mascota flotante del modo niños (KidsMascot.tsx): flota suavemente y
+ * balancea sus rayos, para sentirse "viva" sin llamar demasiado la atención. */
+@keyframes kids-mascot-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes kids-mascot-sway {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
 /*
  * Modo niños: los botones "cobran vida" — un pequeño wiggle constante para
  * invitar al toque, un salto exagerado al presionar y un destello al soltar.
