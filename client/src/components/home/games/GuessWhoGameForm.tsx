@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
-import { Modal } from './Modal'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { AudioUploadField } from './AudioUploadField'
@@ -164,7 +163,7 @@ export function GuessWhoGameForm({
   }
 
   return (
-    <Modal onClose={onClose} maxWidthClassName="max-w-[640px]">
+    <div className="mx-auto max-w-[640px] p-8">
       <button
         type="button"
         className="mb-3 text-[12.5px] font-medium text-accent hover:underline"
@@ -343,6 +342,6 @@ export function GuessWhoGameForm({
           </button>
         </div>
       </form>
-    </Modal>
+    </div>
   )
 }

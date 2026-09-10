@@ -1,5 +1,4 @@
 import { Layers, Puzzle, UserRoundSearch } from 'lucide-react'
-import { Modal } from './Modal'
 
 export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO'
 
@@ -38,7 +37,7 @@ const TYPE_OPTIONS: Array<{
 /** Primer paso al crear un juego: elegir la mecánica base. */
 export function GameTypePicker({ onClose, onSelect }: GameTypePickerProps) {
   return (
-    <Modal onClose={onClose} maxWidthClassName="max-w-[520px]">
+    <div className="mx-auto max-w-[520px] p-8">
       <h2 className="mb-1 text-[20px] tracking-tight text-text-h">Nueva partida</h2>
       <p className="mb-6 text-[13px] text-text">Elige qué tipo de juego quieres crear.</p>
 
@@ -71,6 +70,6 @@ export function GameTypePicker({ onClose, onSelect }: GameTypePickerProps) {
       >
         Cancelar
       </button>
-    </Modal>
+    </div>
   )
 }

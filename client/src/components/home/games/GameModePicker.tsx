@@ -1,5 +1,4 @@
 import { GitCompareArrows, ImageIcon, Layers } from 'lucide-react'
-import { Modal } from './Modal'
 import type { MemoryMatchMode } from './memoryMatchTypes'
 
 type GameModePickerProps = {
@@ -30,7 +29,7 @@ const MODE_OPTIONS: Array<{
 /** Primer paso al crear un juego de cartas: elegir la variante de la mecánica de memoria. */
 export function GameModePicker({ onClose, onSelect }: GameModePickerProps) {
   return (
-    <Modal onClose={onClose} maxWidthClassName="max-w-[520px]">
+    <div className="mx-auto max-w-[520px] p-8">
       <div className="mb-6 flex items-center gap-3">
         <span
           className="flex h-10 w-10 items-center justify-center rounded-xl text-white"
@@ -70,6 +69,6 @@ export function GameModePicker({ onClose, onSelect }: GameModePickerProps) {
       >
         Cancelar
       </button>
-    </Modal>
+    </div>
   )
 }

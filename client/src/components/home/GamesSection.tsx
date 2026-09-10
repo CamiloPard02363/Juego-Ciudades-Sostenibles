@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Atom,
   Brain,
@@ -41,27 +42,11 @@ import { JoinByCodeModal } from './games/JoinByCodeModal'
 import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
-import { GameTypePicker } from './games/GameTypePicker'
-import type { GameTypeChoice } from './games/GameTypePicker'
-import { GameModePicker } from './games/GameModePicker'
-import { OppositesGameForm } from './games/OppositesGameForm'
-import { SimplePairsGameForm } from './games/SimplePairsGameForm'
-import { GuessWhoGameForm } from './games/GuessWhoGameForm'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
 import { DominoGame } from './games/DominoGame'
-import { DominoGameForm } from './games/DominoGameForm'
 import type { DominoConcept, DominoConfig } from './games/dominoTypes'
 import { DEFAULT_DOMINO_CONFIG } from './games/dominoTypes'
-import type { MemoryMatchPair, MemoryMatchConfig, MemoryMatchMode } from './games/memoryMatchTypes'
-
-type CreateFlowStep =
-  | 'closed'
-  | 'picking-type'
-  | 'picking-mode'
-  | 'opposites-form'
-  | 'pairs-form'
-  | 'guess-who-form'
-  | 'domino-form'
+import type { MemoryMatchPair, MemoryMatchConfig } from './games/memoryMatchTypes'
 
 export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
 
@@ -147,6 +132,7 @@ function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameC
 }
 
 export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionProps) {
+  const navigate = useNavigate()
   const { token, user } = useAuth()
   const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -168,7 +154,6 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
   // Sesión de dominó en curso: el juego publicado que se está jugando (su
   // contenido son los conceptos que alimentan al reproductor genérico).
   const [dominoSession, setDominoSession] = useState<GameDetail | null>(null)
-  const [createFlowStep, setCreateFlowStep] = useState<CreateFlowStep>('closed')
   const [deleting, setDeleting] = useState(false)
   const [deletingCategory, setDeletingCategory] = useState(false)
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<CategoryWithGameCount | null>(null)
@@ -307,28 +292,6 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     } finally {
       setSavingCategory(false)
     }
-  }
-
-  function handleCreated() {
-    setCreateFlowStep('closed')
-    reload()
-    refreshCategories()
-  }
-
-  function handleSelectMode(mode: MemoryMatchMode) {
-    setCreateFlowStep(mode === 'PAIRS' ? 'pairs-form' : 'opposites-form')
-  }
-
-  function handleSelectType(choice: GameTypeChoice) {
-    if (choice === 'GUESS_WHO') {
-      setCreateFlowStep('guess-who-form')
-      return
-    }
-    if (choice === 'DOMINO') {
-      setCreateFlowStep('domino-form')
-      return
-    }
-    setCreateFlowStep('picking-mode')
   }
 
   function handlePlayClick() {
@@ -659,7 +622,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
                   type="button"
                   className="flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
                   style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-                  onClick={() => setCreateFlowStep('picking-type')}
+                  onClick={() => navigate('/juegos/crear')}
                 >
                   <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
                   Crear un juego nuevo
@@ -702,7 +665,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
             type="button"
             className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            onClick={() => setCreateFlowStep('picking-type')}
+            onClick={() => navigate('/juegos/crear')}
           >
             <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
             Crear juego
@@ -849,50 +812,6 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
             DEFAULT_MEMORY_CONFIG.previewSeconds
           }
           onExit={() => setPlaySession(null)}
-        />
-      )}
-
-      {createFlowStep === 'picking-type' && (
-        <GameTypePicker onClose={() => setCreateFlowStep('closed')} onSelect={handleSelectType} />
-      )}
-
-      {createFlowStep === 'picking-mode' && (
-        <GameModePicker onClose={() => setCreateFlowStep('closed')} onSelect={handleSelectMode} />
-      )}
-
-      {createFlowStep === 'opposites-form' && (
-        <OppositesGameForm
-          onClose={() => setCreateFlowStep('closed')}
-          onBack={() => setCreateFlowStep('picking-mode')}
-          onCreated={handleCreated}
-          onCategoryCreated={refreshCategories}
-        />
-      )}
-
-      {createFlowStep === 'pairs-form' && (
-        <SimplePairsGameForm
-          onClose={() => setCreateFlowStep('closed')}
-          onBack={() => setCreateFlowStep('picking-mode')}
-          onCreated={handleCreated}
-          onCategoryCreated={refreshCategories}
-        />
-      )}
-
-      {createFlowStep === 'guess-who-form' && (
-        <GuessWhoGameForm
-          onClose={() => setCreateFlowStep('closed')}
-          onBack={() => setCreateFlowStep('picking-type')}
-          onCreated={handleCreated}
-          onCategoryCreated={refreshCategories}
-        />
-      )}
-
-      {createFlowStep === 'domino-form' && (
-        <DominoGameForm
-          onClose={() => setCreateFlowStep('closed')}
-          onBack={() => setCreateFlowStep('picking-type')}
-          onCreated={handleCreated}
-          onCategoryCreated={refreshCategories}
         />
       )}
 
