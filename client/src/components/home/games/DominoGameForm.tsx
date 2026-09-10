@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
-import { Modal } from './Modal'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
+import { IconPickerField } from './IconPickerField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { createGame, publishGame } from '../../../services/game.service'
@@ -203,7 +203,7 @@ export function DominoGameForm({
   const tileCount = (concepts.length * (concepts.length + 1)) / 2
 
   return (
-    <Modal onClose={onClose} maxWidthClassName="max-w-[640px]">
+    <div className="mx-auto max-w-[640px] p-8">
       <button
         type="button"
         className="mb-3 text-[12.5px] font-medium text-accent hover:underline"
@@ -339,19 +339,13 @@ export function DominoGameForm({
                     >
                       Ícono
                     </label>
-                    <select
+                    <IconPickerField
                       id={`concept-icon-${index}`}
-                      className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
                       value={concept.icon}
+                      labels={DOMINO_ICON_LABELS}
                       disabled={submitting}
-                      onChange={(event) => updateConcept(index, 'icon', event.target.value)}
-                    >
-                      {DOMINO_ICON_KEYS.map((key) => (
-                        <option key={key} value={key}>
-                          {DOMINO_ICON_LABELS[key] ?? key}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(key) => updateConcept(index, 'icon', key)}
+                    />
                   </div>
                   <div>
                     <label
@@ -414,6 +408,6 @@ export function DominoGameForm({
           </button>
         </div>
       </form>
-    </Modal>
+    </div>
   )
 }
