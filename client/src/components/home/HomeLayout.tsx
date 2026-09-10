@@ -1,18 +1,15 @@
 import { useState } from 'react'
+import { Outlet } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { Sidebar } from './Sidebar'
-import type { HomeSection } from './Sidebar'
 import { SearchBar } from './SearchBar'
 import { ProfileMenu } from './ProfileMenu'
-import { GamesSection } from './GamesSection'
 import { ProfileSettings } from './ProfileSettings'
-import { AdminUsersSection } from './AdminUsersSection'
-import { ThemesSection } from './ThemesSection'
 import { trackEvent } from '../../services/analytics.service'
+import { HomeSearchContext } from './homeSearchContext'
 
 export function HomeLayout() {
   const { user, token, signOut } = useAuth()
-  const [section, setSection] = useState<HomeSection>('all')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -26,22 +23,13 @@ export function HomeLayout() {
     setSearchNonce((n) => n + 1)
   }
 
-  function handleSelectSection(next: HomeSection) {
-    setSection(next)
-    if (token) trackEvent(token, 'section_viewed', { metadata: { section: next } })
-  }
-
   if (!user) return null
 
   const canManageUsers = user.role === 'ADMIN'
 
   return (
     <div className="fixed inset-0 flex text-left">
-      <Sidebar
-        activeSection={section}
-        onSelectSection={handleSelectSection}
-        canManageUsers={canManageUsers}
-      />
+      <Sidebar canManageUsers={canManageUsers} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-6 py-4">
@@ -54,19 +42,19 @@ export function HomeLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 sm:p-8">
-          {(section === 'all' || section === 'categories' || section === 'community' || section === 'my-games') && (
-            <GamesSection
-              mode={section}
-              searchQuery={submittedQuery}
-              searchNonce={searchNonce}
-            />
-          )}
-          {section === 'themes' && <ThemesSection />}
-          {section === 'admin-users' && canManageUsers && <AdminUsersSection />}
+          <HomeSearchContext.Provider
+            value={{ searchQuery: submittedQuery, searchNonce, onSectionViewed: trackSection }}
+          >
+            <Outlet />
+          </HomeSearchContext.Provider>
         </main>
       </div>
 
       {settingsOpen && <ProfileSettings onClose={() => setSettingsOpen(false)} />}
     </div>
   )
+
+  function trackSection(section: string) {
+    if (token) trackEvent(token, 'section_viewed', { metadata: { section } })
+  }
 }

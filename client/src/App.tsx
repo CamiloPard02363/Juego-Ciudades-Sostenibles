@@ -2,6 +2,12 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { LoginPage } from './components/LoginPage'
 import { RegisterPage } from './components/RegisterPage'
 import { HomeLayout } from './components/home/HomeLayout'
+import { HomePage } from './components/home/sections/HomePage'
+import { CategoriesPage } from './components/home/sections/CategoriesPage'
+import { CommunityPage } from './components/home/sections/CommunityPage'
+import { MyGamesPage } from './components/home/sections/MyGamesPage'
+import { ThemesPage } from './components/home/sections/ThemesPage'
+import { AdminUsersPage } from './components/home/sections/AdminUsersPage'
 import { CreateGameLayout } from './components/home/games/create/CreateGameLayout'
 import { GameTypePickerPage } from './components/home/games/create/GameTypePickerPage'
 import { GameModePickerPage } from './components/home/games/create/GameModePickerPage'
@@ -52,7 +58,15 @@ function App() {
         <Route path="quien-es" element={<GuessWhoGameFormPage />} />
         <Route path="domino" element={<DominoGameFormPage />} />
       </Route>
-      <Route path="/*" element={<HomeLayout />} />
+      <Route path="/" element={<HomeLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="materias" element={<CategoriesPage />} />
+        <Route path="comunidad" element={<CommunityPage />} />
+        <Route path="mis-juegos" element={<MyGamesPage />} />
+        <Route path="temas" element={<ThemesPage />} />
+        <Route path="usuarios" element={<AdminUsersPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
