@@ -10,6 +10,8 @@ export interface GameSummaryDto {
   categoryId: string;
   status: string;
   creatorUserId: string;
+  /** `null` = juego personal; con valor = institucional de esa organización. */
+  organizationId: string | null;
   /** Solo se llena en el listado de "Comunidad", donde se muestra quién creó cada juego. */
   creatorDisplayName?: string;
   createdAt: Date;
@@ -32,6 +34,7 @@ export function toGameSummaryDto(game: Game): GameSummaryDto {
     categoryId: game.categoryId,
     status: game.status.getName(),
     creatorUserId: game.creatorUserId,
+    organizationId: game.organizationId,
     createdAt: game.createdAt,
     updatedAt: game.updatedAt,
   };

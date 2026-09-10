@@ -8,7 +8,7 @@ import { ForbiddenActionError } from '../../domain/errors/authorization.errors.j
 import { toGameDetailDto, type GameDetailDto } from '../dtos/game-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
 import { ContentValidatorRegistry } from '../content-validators/content-validator.registry.js';
-import { RequesterAdminResolver } from '../services/requester-admin-resolver.service.js';
+import { GameAuthorizationService } from '../services/game-authorization.service.js';
 
 /** El slug es inmutable tras crear el juego: cambiar de URL rompería enlaces ya compartidos. */
 export interface UpdateGameInput {
@@ -27,7 +27,7 @@ export class UpdateGameUseCase implements UseCase<UpdateGameInput, GameDetailDto
   constructor(
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
     private readonly contentValidators: ContentValidatorRegistry,
-    private readonly requesterAdminResolver: RequesterAdminResolver,
+    private readonly gameAuthorization: GameAuthorizationService,
   ) {}
 
   async execute(input: UpdateGameInput): Promise<GameDetailDto> {
@@ -37,8 +37,8 @@ export class UpdateGameUseCase implements UseCase<UpdateGameInput, GameDetailDto
       throw new GameNotFoundError(input.gameId);
     }
 
-    const isAdmin = await this.requesterAdminResolver.resolve(input.requestingUserId);
-    if (!game.canBeManagedBy(input.requestingUserId, isAdmin)) {
+    const canManage = await this.gameAuthorization.canManage(game, input.requestingUserId);
+    if (!canManage) {
       throw new ForbiddenActionError('editar este juego');
     }
 

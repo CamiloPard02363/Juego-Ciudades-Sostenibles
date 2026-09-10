@@ -9,6 +9,8 @@ export interface FindAllGamesFilter {
   /** Excluye los juegos del creador dado — usado para "Comunidad" (juegos de otros). */
   excludeCreatorUserId?: string;
   categoryId?: string;
+  /** Filtra juegos institucionales de una organización concreta. */
+  organizationId?: string;
   search?: string;
   page: number;
   pageSize: number;
