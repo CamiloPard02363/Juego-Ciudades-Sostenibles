@@ -60,9 +60,13 @@ function App() {
       </Route>
       <Route path="/" element={<HomeLayout />}>
         <Route index element={<HomePage />} />
+        <Route path=":slug" element={<HomePage />} />
         <Route path="materias" element={<CategoriesPage />} />
+        <Route path="materias/:slug" element={<CategoriesPage />} />
         <Route path="comunidad" element={<CommunityPage />} />
+        <Route path="comunidad/:slug" element={<CommunityPage />} />
         <Route path="mis-juegos" element={<MyGamesPage />} />
+        <Route path="mis-juegos/:slug" element={<MyGamesPage />} />
         <Route path="temas" element={<ThemesPage />} />
         <Route path="usuarios" element={<AdminUsersPage />} />
       </Route>
