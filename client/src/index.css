@@ -212,8 +212,8 @@
 }
 
 /* Tarjetas/superficies de contenido ganan borde grueso + sombra "sólida" de
- * juguete; se excluyen los fondos decorativos con opacidad (bg-*/10, /20…)
- * para no ponerle un borde de cómic a un halo de color. */
+ * juguete; se excluye .bg-surface con opacidad (variantes bg-surface con
+ * porcentaje) para no ponerle un borde de cómic a un halo de color. */
 [data-theme='kids'] .bg-surface {
   border: var(--kids-comic-border);
   box-shadow: var(--kids-comic-shadow);
