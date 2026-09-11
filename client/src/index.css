@@ -510,13 +510,33 @@ code {
 
 /* Indicador de "es tu turno" (GuessWhoRoom.tsx): un resplandor que respira
  * para que el cambio de turno sea imposible de pasar por alto. */
-@keyframes turn-banner-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
+/* Usadas por TurnPopBanner (MatchBoard.tsx): el aviso de cambio de turno
+ * entra con un pequeño overshoot centrado en pantalla y, tras quedarse
+ * quieto un momento, se desvanece solo — reemplaza al banner de texto fijo
+ * que antes vivía arriba del tablero. */
+@keyframes turn-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
   }
-  50% {
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent);
+  60% {
+    opacity: 1;
+    transform: scale(1.05) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes turn-pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92);
   }
 }
 

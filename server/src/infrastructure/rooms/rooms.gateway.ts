@@ -668,6 +668,12 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(room.code).emit('room:accusation-result', {
       accuserUserId: accuser.userId,
       accuserName: accuser.displayName,
+      // A quién le pertenecía la carta que se intentó adivinar (el rival del
+      // acusador), para que el cliente arme el mensaje sin tener que
+      // adivinar de qué lado de la sala está mirando.
+      targetUserId: opponent.userId,
+      targetName: opponent.displayName,
+      cardId: body.cardId,
       correct,
     });
 

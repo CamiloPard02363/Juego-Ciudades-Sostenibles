@@ -5,7 +5,7 @@ import { useAuth } from '../../../hooks/useAuth'
 import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
 import type { DominoPlacedTileView, DominoTileView } from './dominoRoomTypes'
-import { DealCountdownOverlay, TurnBanner, useCountdown } from './MatchBoard'
+import { DealCountdownOverlay, TurnBanner, TurnPopBanner, useCountdown } from './MatchBoard'
 
 /**
  * Sala de Dominó 1v1 en tiempo real: página propia (ruta `/domino/sala/:code?`,
@@ -251,12 +251,8 @@ export function DominoRoomPage() {
 
         {room && room.phase === 'PLAYING' && opponent && (
           <div className="flex flex-col gap-5">
-            <TurnBanner
-              isMyTurn={isMyTurn}
-              opponentName={opponent.displayName}
-              remainingMs={remainingMs}
-              turnDurationSeconds={room.turnDurationSeconds}
-            />
+            <TurnPopBanner isMyTurn={isMyTurn} opponentName={opponent.displayName} />
+            <TurnBanner isMyTurn={isMyTurn} remainingMs={remainingMs} turnDurationSeconds={room.turnDurationSeconds} />
 
             <div className="flex items-center justify-between text-[12.5px] text-text">
               <span>

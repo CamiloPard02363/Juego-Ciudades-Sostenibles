@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
-import type { GuessWhoChatMessage, RoomStateView } from './guessWhoTypes'
+import type { AccusationResult, GuessWhoChatMessage, RoomStateView } from './guessWhoTypes'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000'
 
@@ -16,7 +16,7 @@ export function useGuessWhoRoom(token: string | null) {
   const [connecting, setConnecting] = useState(true)
   const [rematchRejectedMessage, setRematchRejectedMessage] = useState<string | null>(null)
   const [dealCountdownMs, setDealCountdownMs] = useState<number | null>(null)
-  const [accusationFailedMessage, setAccusationFailedMessage] = useState<string | null>(null)
+  const [lastFailedAccusation, setLastFailedAccusation] = useState<AccusationResult | null>(null)
   const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
 
   useEffect(() => {
@@ -51,13 +51,14 @@ export function useGuessWhoRoom(token: string | null) {
       setRoom(null)
     })
     // Acusación fallida: el juego sigue, solo mostramos un aviso temporal.
-    socket.on(
-      'room:accusation-result',
-      (payload: { accuserUserId: string; accuserName: string; correct: boolean }) => {
-        if (payload.correct) return
-        setAccusationFailedMessage(`${payload.accuserName} acusó y falló. El juego continúa.`)
-      },
-    )
+    // Se guarda el resultado completo (no un mensaje ya armado) para que
+    // GuessWhoRoom pueda redactar el aviso según desde qué lado se mira —
+    // "esa no es la tarjeta de X" para quien acusó, "X intentó adivinar tu
+    // tarjeta" para el otro jugador.
+    socket.on('room:accusation-result', (payload: AccusationResult) => {
+      if (payload.correct) return
+      setLastFailedAccusation(payload)
+    })
     socket.on('room:chat-message', (message: GuessWhoChatMessage) => {
       setMessages((current) => [...current, message])
     })
@@ -118,8 +119,8 @@ export function useGuessWhoRoom(token: string | null) {
     connecting,
     rematchRejectedMessage,
     dealCountdownMs,
-    accusationFailedMessage,
-    clearAccusationFailedMessage: () => setAccusationFailedMessage(null),
+    lastFailedAccusation,
+    clearLastFailedAccusation: () => setLastFailedAccusation(null),
     messages,
     createRoom,
     joinRoom,

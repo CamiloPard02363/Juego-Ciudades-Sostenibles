@@ -36,6 +36,17 @@ export type RoomStateView = {
   players: RoomPlayerView[]
 }
 
+/** Resultado de una acusación (room:accusation-result), tal como llega del servidor. */
+export type AccusationResult = {
+  accuserUserId: string
+  accuserName: string
+  /** Dueño de la carta que se intentó adivinar (el rival de quien acusó). */
+  targetUserId: string
+  targetName: string
+  cardId: string
+  correct: boolean
+}
+
 /** Mensaje del chat de una sala 1v1 — relay en vivo, sin historial persistido. */
 export type GuessWhoChatMessage = {
   userId: string

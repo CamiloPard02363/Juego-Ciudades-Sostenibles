@@ -24,15 +24,18 @@ export function useCountdown(deadline: number | null): number {
   return remainingMs
 }
 
-/** Banner que muestra de quién es el turno y cuánto tiempo le queda antes del auto-pase. */
+/**
+ * Barra compacta de tiempo restante del turno (sin el texto "Es tu turno" —
+ * ese aviso ahora es el pop centrado de abajo, `TurnPopBanner`). Se conserva
+ * como barra de progreso + segundos para que durante todo el turno se pueda
+ * seguir viendo cuánto tiempo queda, algo que un pop transitorio no cubre.
+ */
 export function TurnBanner({
   isMyTurn,
-  opponentName,
   remainingMs,
   turnDurationSeconds,
 }: {
   isMyTurn: boolean
-  opponentName: string
   remainingMs: number
   turnDurationSeconds: number
 }) {
@@ -42,27 +45,56 @@ export function TurnBanner({
 
   return (
     <div
-      className={`flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors ${
-        isMyTurn
-          ? 'border-accent/50 bg-accent/10 animate-[turn-banner-glow_2s_ease-in-out_infinite]'
-          : 'border-border bg-code-bg'
+      className={`flex items-center justify-end gap-2 rounded-xl border p-3 transition-colors ${
+        isMyTurn ? 'border-accent/50 bg-accent/10' : 'border-border bg-code-bg'
       }`}
     >
-      <p className="text-[13.5px] font-semibold text-text-h">
-        {isMyTurn ? 'Es tu turno' : `Turno de ${opponentName}`}
-      </p>
-      <div className="flex items-center gap-2">
-        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border">
-          <div
-            className={`h-full rounded-full transition-[width] duration-200 ease-linear ${
-              urgent ? 'bg-danger' : 'bg-accent'
-            }`}
-            style={{ width: `${progress * 100}%` }}
-          />
-        </div>
-        <span className={`w-5 text-right text-[13px] font-semibold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
-          {secondsLeft}
-        </span>
+      <span className="sr-only">{isMyTurn ? 'Es tu turno' : 'Turno del rival'}</span>
+      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border">
+        <div
+          className={`h-full rounded-full transition-[width] duration-200 ease-linear ${
+            urgent ? 'bg-danger' : 'bg-accent'
+          }`}
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+      <span className={`w-5 text-right text-[13px] font-semibold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
+        {secondsLeft}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Aviso de cambio de turno como mensaje "pop" centrado en pantalla, en vez
+ * del texto fijo que antes vivía arriba del todo — pedido explícito para que
+ * sea más intuitivo notar de quién es el turno. Aparece con cada cambio de
+ * `isMyTurn` (en una sala 1v1 solo hay dos jugadores, así que cualquier
+ * cambio de este booleano es, por definición, un cambio de turno) y se
+ * autooculta solo; `pointer-events-none` para no bloquear ningún clic
+ * mientras está en pantalla.
+ */
+export function TurnPopBanner({ isMyTurn, opponentName }: { isMyTurn: boolean; opponentName: string }) {
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    setVisible(true)
+    const timeout = setTimeout(() => setVisible(false), 1700)
+    return () => clearTimeout(timeout)
+  }, [isMyTurn])
+
+  if (!visible) return null
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[55] flex items-center justify-center p-5">
+      <div
+        className={`rounded-2xl border px-8 py-5 text-center shadow-[var(--shadow)] backdrop-blur-sm animate-[turn-pop-in_0.35s_cubic-bezier(0.16,1,0.3,1),turn-pop-out_0.3s_ease-in_1.35s_forwards] ${
+          isMyTurn ? 'border-accent/50 bg-accent/15' : 'border-border bg-surface/95'
+        }`}
+      >
+        <p className={`text-[22px] font-bold tracking-tight ${isMyTurn ? 'text-accent' : 'text-text-h'}`}>
+          {isMyTurn ? '¡Es tu turno!' : `Turno de ${opponentName}`}
+        </p>
       </div>
     </div>
   )
@@ -201,12 +233,8 @@ export function MatchBoard({
 
   return (
     <div className="flex flex-col gap-5">
-      <TurnBanner
-        isMyTurn={isMyTurn}
-        opponentName={opponent.displayName}
-        remainingMs={turnRemainingMs}
-        turnDurationSeconds={turnDurationSeconds}
-      />
+      <TurnPopBanner isMyTurn={isMyTurn} opponentName={opponent.displayName} />
+      <TurnBanner isMyTurn={isMyTurn} remainingMs={turnRemainingMs} turnDurationSeconds={turnDurationSeconds} />
 
       <div className="flex items-center justify-between rounded-xl border border-accent/40 bg-accent/5 p-4">
         <div>

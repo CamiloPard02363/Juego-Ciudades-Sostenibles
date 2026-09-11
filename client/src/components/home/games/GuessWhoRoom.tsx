@@ -171,8 +171,8 @@ function IndividualGuessWhoRoom({
     connecting,
     rematchRejectedMessage,
     dealCountdownMs,
-    accusationFailedMessage,
-    clearAccusationFailedMessage,
+    lastFailedAccusation,
+    clearLastFailedAccusation,
     messages,
     createRoom,
     joinRoom,
@@ -256,10 +256,20 @@ function IndividualGuessWhoRoom({
   // Aviso temporal de acusación fallida: se autolimpia para no quedar
   // pegado en pantalla una vez el jugador ya vio el mensaje.
   useEffect(() => {
-    if (!accusationFailedMessage) return
-    const timeout = setTimeout(clearAccusationFailedMessage, 3500)
+    if (!lastFailedAccusation) return
+    const timeout = setTimeout(clearLastFailedAccusation, 3500)
     return () => clearTimeout(timeout)
-  }, [accusationFailedMessage, clearAccusationFailedMessage])
+  }, [lastFailedAccusation, clearLastFailedAccusation])
+
+  // Redacta el aviso según desde qué lado se mira: a quien acusó y falló se
+  // le dice explícitamente de quién NO era la carta (lo que pidió el
+  // reporte: "esa no es la [tarjeta] de fulano"); al otro jugador se le
+  // avisa que intentaron adivinar la suya y no lo lograron.
+  const accusationFailedMessage =
+    lastFailedAccusation &&
+    (lastFailedAccusation.accuserUserId === user?.id
+      ? `Esa no es la tarjeta de ${lastFailedAccusation.targetName}. Sigue intentando.`
+      : `${lastFailedAccusation.accuserName} intentó adivinar tu tarjeta y falló.`)
 
   // El rival votó "no" a la revancha: el servidor ya cerró la sala, así que
   // solo queda avisar y devolver a la persona a la pantalla anterior.
@@ -514,15 +524,28 @@ function IndividualGuessWhoRoom({
             </p>
           )}
 
-          <button
-            type="button"
-            className="rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            disabled={room.players.length !== 2}
-            onClick={() => startGame(Number(turnDurationText) || undefined)}
-          >
-            {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
-          </button>
+          {isHostSelf ? (
+            <button
+              type="button"
+              className="rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              disabled={room.players.length !== 2}
+              onClick={() => startGame(Number(turnDurationText) || undefined)}
+            >
+              {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
+            </button>
+          ) : (
+            // Solo el anfitrión puede iniciar (mismo criterio que el modo
+            // torneo): si cualquiera pudiera arrancar, el rival podría
+            // presionar "empezar" antes de que el cambio de segundos por
+            // turno del anfitrión llegue al servidor, y la partida arrancaría
+            // con el valor por defecto en vez del que se acababa de fijar.
+            <p className="rounded-lg border border-dashed border-border px-4 py-3 text-center text-[13px] text-text">
+              {room.players.length === 2
+                ? 'Esperando a que el anfitrión inicie la partida…'
+                : 'Esperando al segundo jugador…'}
+            </p>
+          )}
         </div>
       )}
 
@@ -554,13 +577,23 @@ function IndividualGuessWhoRoom({
           <p className="text-[18px] font-semibold text-text-h animate-[fade-in-up_0.4s_ease-out_0.1s_backwards]">
             {winnerIsSelf ? '¡Ganaste!' : `Ganó ${room.players.find((p) => p.userId === room.winnerUserId)?.displayName}`}
           </p>
-          <p className="text-[13px] text-text animate-[fade-in-up_0.4s_ease-out_0.2s_backwards]">
-            La tarjeta secreta de {opponent.displayName} era{' '}
-            <strong className="text-text-h">
-              {room.cards.find((card) => card.cardId === opponent.secretCardId)?.label}
-            </strong>
-            .
-          </p>
+
+          {/* Se revelan ambas tarjetas secretas (con imagen, no solo texto)
+              para que quien perdió vea exactamente qué tarjeta era la del
+              rival y en qué se equivocó, en vez de un simple mensaje de
+              texto. */}
+          <div className="flex items-start justify-center gap-4 animate-[fade-in-up_0.4s_ease-out_0.2s_backwards]">
+            <RevealedSecretCard
+              ownerLabel="Tu tarjeta era"
+              card={room.cards.find((card) => card.cardId === self.secretCardId)}
+              isWinner={self.userId === room.winnerUserId}
+            />
+            <RevealedSecretCard
+              ownerLabel={`Tarjeta de ${opponent.displayName}`}
+              card={room.cards.find((card) => card.cardId === opponent.secretCardId)}
+              isWinner={opponent.userId === room.winnerUserId}
+            />
+          </div>
 
           {!self.hasVotedRematch && (
             <div className="flex w-full max-w-[320px] flex-col gap-3 rounded-xl border border-border p-4 animate-[fade-in-up_0.4s_ease-out_0.3s_backwards]">
@@ -624,6 +657,39 @@ function IndividualGuessWhoRoom({
         />
       )}
     </>
+  )
+}
+
+/**
+ * Tarjeta secreta revelada al terminar la partida: imagen + etiqueta reales
+ * en vez del texto plano de antes, para que se entienda de un vistazo qué
+ * tarjeta tenía cada quien. La del ganador lleva una insignia de trofeo.
+ */
+function RevealedSecretCard({
+  ownerLabel,
+  card,
+  isWinner,
+}: {
+  ownerLabel: string
+  card: { imageUrl: string; label: string } | undefined
+  isWinner: boolean
+}) {
+  if (!card) return null
+  return (
+    <div className="flex w-[112px] flex-col items-center gap-1.5">
+      <div
+        className={`relative overflow-hidden rounded-lg border-2 ${isWinner ? 'border-accent' : 'border-border'}`}
+      >
+        <img src={card.imageUrl} alt="" className="h-24 w-full object-cover" />
+        {isWinner && (
+          <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-white">
+            <Trophy className="h-3 w-3" strokeWidth={2.5} />
+          </span>
+        )}
+      </div>
+      <p className="text-[11px] font-medium text-text">{ownerLabel}</p>
+      <p className="text-[12.5px] font-semibold text-text-h">{card.label}</p>
+    </div>
   )
 }
 
