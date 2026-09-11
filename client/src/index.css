@@ -388,6 +388,25 @@ code {
   }
 }
 
+/* Usada por DominoRoomPage.tsx: la ficha recién colocada por cualquiera de
+ * los dos jugadores entra con un pequeño golpe (overshoot + asentamiento),
+ * para que "quién jugó" se sienta como una jugada física y no un simple
+ * re-render de la lista del tablero. */
+@keyframes domino-tile-play-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.75) rotate(-6deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.06) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
 @keyframes trophy-pop-in {
   0% {
     opacity: 0;

@@ -39,13 +39,11 @@ import { GameCard } from './games/GameCard'
 import { GameDetailModal } from './games/GameDetailModal'
 import { Modal } from './games/Modal'
 import { JoinByCodeModal } from './games/JoinByCodeModal'
+import type { ResolvedRoom } from './games/resolveRoomCode'
 import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
-import { DominoGame } from './games/DominoGame'
-import type { DominoConcept, DominoConfig } from './games/dominoTypes'
-import { DEFAULT_DOMINO_CONFIG } from './games/dominoTypes'
 import type { MemoryMatchPair, MemoryMatchConfig } from './games/memoryMatchTypes'
 
 export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
@@ -180,10 +178,23 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     }
     window.history.replaceState(null, '', url)
   }
+
+  /**
+   * Abre la sala/match correcto según lo que resolvió el código: dominó
+   * navega a su página propia (ver DominoRoomPage), y "¿Quién Es?" (1v1 o
+   * torneo) abre el overlay existente con el modo correspondiente. Se usa
+   * tanto desde el botón agnóstico "Unirme con código" como desde el campo
+   * de código propio de cada juego en su detalle.
+   */
+  function handleCodeResolved(resolved: ResolvedRoom, code: string) {
+    if (resolved.kind === 'domino') {
+      navigate(`/domino/sala/${code}`)
+      return
+    }
+    setJoinCodeContext({ code, initialMode: resolved.kind === 'tournament' ? 'group' : 'individual' })
+    setGuessWhoRoomGameId(resolved.gameId)
+  }
   const [joinByCodeOpen, setJoinByCodeOpen] = useState(false)
-  // Sesión de dominó en curso: el juego publicado que se está jugando (su
-  // contenido son los conceptos que alimentan al reproductor genérico).
-  const [dominoSession, setDominoSession] = useState<GameDetail | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deletingCategory, setDeletingCategory] = useState(false)
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<CategoryWithGameCount | null>(null)
@@ -346,32 +357,15 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       closeGame()
       return
     }
-    // El dominó no usa PlayOptionsPopup (esas opciones son de MEMORY_MATCH):
-    // se abre directo el reproductor con los conceptos del juego publicado.
+    // El dominó ahora es una sala 1v1 en tiempo real con página propia (ver
+    // DominoRoomPage/App.tsx) en vez de un pop-up de un solo jugador: se
+    // navega a la ruta, que crea la sala apenas monta (?gameId=).
     if (selectedGame.gameType === 'DOMINO') {
-      setDominoSession(selectedGame)
       closeGame()
+      navigate(`/domino/sala?gameId=${selectedGame.id}`)
       return
     }
     setShowPlayOptions(true)
-  }
-
-  /**
-   * Reproductor de dominó para el juego seleccionado: el contenido publicado
-   * son los conceptos, y `handSize` sale del config del propio juego.
-   */
-  function renderDominoSession() {
-    if (!dominoSession) return null
-    return (
-      <DominoGame
-        title={dominoSession.title}
-        concepts={dominoSession.content as DominoConcept[]}
-        handSize={
-          (dominoSession.config as Partial<DominoConfig>).handSize ?? DEFAULT_DOMINO_CONFIG.handSize
-        }
-        onExit={() => setDominoSession(null)}
-      />
-    )
   }
 
   /**
@@ -390,6 +384,10 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
             deleting={deleting}
             onClose={closeGame}
             onPlay={handlePlayClick}
+            onJoinByCode={(resolved, code) => {
+              closeGame()
+              handleCodeResolved(resolved, code)
+            }}
             onDelete={handleDelete}
             onUpdated={(updated) => {
               setSelectedGame(updated)
@@ -411,8 +409,6 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
             onRoomCodeChange={handleRoomCodeChange}
           />
         )}
-
-        {renderDominoSession()}
 
         {selectedGame && showPlayOptions && (
           <PlayOptionsPopup
@@ -814,8 +810,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
           onClose={() => setJoinByCodeOpen(false)}
           onResolved={(resolved, code) => {
             setJoinByCodeOpen(false)
-            setJoinCodeContext({ code, initialMode: resolved.kind === 'tournament' ? 'group' : 'individual' })
-            setGuessWhoRoomGameId(resolved.gameId)
+            handleCodeResolved(resolved, code)
           }}
         />
       )}
