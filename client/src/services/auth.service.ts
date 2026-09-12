@@ -159,3 +159,32 @@ export function updateProfile(
     body: input,
   })
 }
+
+/** PATCH /users/:id/deactivate — desactiva un usuario. Solo ADMIN global. */
+export function deactivateUser(token: string, userId: string): Promise<AuthUser> {
+  return request<AuthUser>(`/users/${userId}/deactivate`, {
+    method: 'PATCH',
+    token,
+  })
+}
+
+/** PATCH /users/:id/reactivate — reactiva un usuario previamente desactivado. Solo ADMIN global. */
+export function reactivateUser(token: string, userId: string): Promise<AuthUser> {
+  return request<AuthUser>(`/users/${userId}/reactivate`, {
+    method: 'PATCH',
+    token,
+  })
+}
+
+/** PATCH /users/:id/role — cambia el rol global de un usuario. Solo ADMIN global. */
+export function updateUserRole(
+  token: string,
+  userId: string,
+  role: string,
+): Promise<AuthUser> {
+  return request<AuthUser>(`/users/${userId}/role`, {
+    method: 'PATCH',
+    token,
+    body: { newRole: role },
+  })
+}
