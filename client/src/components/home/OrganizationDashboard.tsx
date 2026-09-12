@@ -30,9 +30,18 @@ const MEMBER_ROLE_STYLES: Record<string, string> = {
 export function OrganizationDashboard() {
   const { token, user } = useAuth()
   const navigate = useNavigate()
+  const isGlobalAdmin = user?.role === 'ADMIN'
 
   const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
   const [loadingOrganizations, setLoadingOrganizations] = useState(true)
+
+  // Solo para ADMIN global: listado completo de organizaciones de la
+  // plataforma, sin restricción de membresía (ver `GET /organizations/all`).
+  // Es un eje distinto al de `organizations` (las propias) — un ADMIN global
+  // administra esto por su rol de dueño de la app, no por pertenecer a ellas.
+  const [allOrganizations, setAllOrganizations] = useState<Organization[]>([])
+  const [loadingAllOrganizations, setLoadingAllOrganizations] = useState(false)
+
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
 
   const [members, setMembers] = useState<OrganizationMember[]>([])
@@ -47,6 +56,13 @@ export function OrganizationDashboard() {
 
   const adminOrganizations = organizations.filter((org) => org.myOrgRole === 'ADMIN')
 
+  // Universo de organizaciones seleccionables en este dashboard: para un
+  // ADMIN global es la plataforma completa; para un ADMIN de organización,
+  // solo aquellas donde administra. Nunca se mezclan en el mismo selector.
+  const selectableOrganizations: Array<{ id: string; name: string }> = isGlobalAdmin
+    ? allOrganizations
+    : adminOrganizations
+
   useEffect(() => {
     if (!token) return
     setLoadingOrganizations(true)
@@ -59,14 +75,25 @@ export function OrganizationDashboard() {
   }, [token])
 
   useEffect(() => {
-    if (adminOrganizations.length === 0) return
+    if (!token || !isGlobalAdmin) return
+    setLoadingAllOrganizations(true)
+    listAllOrganizations(token)
+      .then((items) => setAllOrganizations(items))
+      .catch((err: unknown) => {
+        console.error('No se pudieron cargar todas las organizaciones de la plataforma:', err)
+      })
+      .finally(() => setLoadingAllOrganizations(false))
+  }, [token, isGlobalAdmin])
+
+  useEffect(() => {
+    if (selectableOrganizations.length === 0) return
     setActiveOrgId((current) =>
-      current && adminOrganizations.some((org) => org.id === current)
+      current && selectableOrganizations.some((org) => org.id === current)
         ? current
-        : adminOrganizations[0].id,
+        : selectableOrganizations[0].id,
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizations])
+  }, [organizations, allOrganizations, isGlobalAdmin])
 
   useEffect(() => {
     if (!token || !activeOrgId) return
