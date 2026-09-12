@@ -52,7 +52,9 @@ export function OrganizationDashboard() {
     setLoadingOrganizations(true)
     listMyOrganizations(token)
       .then((items) => setOrganizations(items))
-      .catch(() => {})
+      .catch((err: unknown) => {
+        console.error('No se pudieron cargar las organizaciones del usuario:', err)
+      })
       .finally(() => setLoadingOrganizations(false))
   }, [token])
 
@@ -79,13 +81,29 @@ export function OrganizationDashboard() {
   }, [token, activeOrgId])
 
   // Juegos propios sin donar todavía (organizationId null), candidatos a
-  // donar a la organización activa. onlyMine+status=DRAFT es el mismo filtro
-  // que usa "Mis juegos privados" — ver GamesSection.
+  // donar a la organización activa. Sin filtro de `status`: un juego
+  // PUBLISHED personal también es donable según `Game.donateTo()`, así que
+  // el único filtro real de negocio es "sin organización".
+  //
+  // LIMITACIÓN CONOCIDA (ver PR #35, criterio de aceptación #8 del issue
+  // #34): esta llamada usa `onlyMine: true`, por lo que un ADMIN de
+  // organización solo ve SUS PROPIOS juegos como candidatos a donar, nunca
+  // los de otros miembros. El backend (`DonateGameToOrganizationUseCase`) sí
+  // permite que un ADMIN done un juego ajeno, pero `GET /games` no expone
+  // ningún filtro para listar "juegos personales de terceros sin
+  // organización" sin ampliar el acceso de forma insegura (los únicos
+  // filtros de autoría disponibles son `onlyMine` y `excludeMine`, y este
+  // último expondría también los DRAFT privados de cualquier usuario de la
+  // plataforma). Implementar el criterio #8 correctamente requiere un
+  // endpoint/filtro nuevo de backend con las reglas de autorización propias
+  // de la donación por ADMIN, así que queda fuera del alcance de este PR.
   useEffect(() => {
     if (!token) return
-    listGames(token, { onlyMine: true, status: 'DRAFT', pageSize: 100 })
+    listGames(token, { onlyMine: true, pageSize: 100 })
       .then((result) => setMyGames(result.items.filter((game) => !game.organizationId)))
-      .catch(() => {})
+      .catch((err: unknown) => {
+        console.error('No se pudieron cargar los juegos propios donables:', err)
+      })
   }, [token])
 
   async function handleDonate() {

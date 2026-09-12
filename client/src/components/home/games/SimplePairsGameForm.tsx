@@ -58,7 +58,9 @@ export function SimplePairsGameForm({
     if (!token) return
     listMyOrganizations(token)
       .then((items) => setOrganizations(items))
-      .catch(() => {})
+      .catch((err: unknown) => {
+        console.error('No se pudieron cargar las organizaciones del usuario:', err)
+      })
   }, [token])
 
   async function handleCreateCategory() {

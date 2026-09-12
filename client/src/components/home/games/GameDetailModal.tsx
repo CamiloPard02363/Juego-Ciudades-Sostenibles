@@ -61,7 +61,9 @@ export function GameDetailModal({
     if (!token || !canDonate) return
     listMyOrganizations(token)
       .then((items) => setOrganizations(items))
-      .catch(() => {})
+      .catch((err: unknown) => {
+        console.error('No se pudieron cargar las organizaciones del usuario:', err)
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, canDonate])
 

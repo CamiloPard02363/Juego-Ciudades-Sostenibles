@@ -30,7 +30,9 @@ export function isPublicEmailProviderDomain(domain: string): boolean {
   return PUBLIC_EMAIL_PROVIDER_DOMAINS.has(domain.trim().toLowerCase())
 }
 
+/** Devuelve el dominio de un correo, o '' si no tiene el formato `algo@dominio`. */
 export function getEmailDomain(email: string): string {
   const parts = email.trim().toLowerCase().split('@')
-  return parts[parts.length - 1] ?? ''
+  if (parts.length !== 2 || !parts[1]) return ''
+  return parts[1]
 }
