@@ -60,3 +60,34 @@ export function listOrganizationMembers(
     { token },
   )
 }
+
+/**
+ * Única fuente de verdad de los roles de organización en el cliente. El
+ * servidor tiene su propia copia (DTO `@IsIn` + enum de Prisma) — cruzar el
+ * límite cliente/servidor es tolerable, pero dentro del cliente todo lo que
+ * necesite este literal debería derivarlo de aquí.
+ */
+export const ORGANIZATION_ROLES = ['ADMIN', 'TEACHER', 'STUDENT'] as const
+
+export type OrganizationRoleValue = (typeof ORGANIZATION_ROLES)[number]
+
+export type AddOrganizationMemberInput = {
+  email: string
+  orgRole: OrganizationRoleValue
+}
+
+/**
+ * POST /organizations/:id/members — agrega un usuario ya registrado (con
+ * cualquier dominio de correo) como miembro de la organización. Solo ADMIN de
+ * esa org o ADMIN global.
+ */
+export function addOrganizationMember(
+  token: string,
+  organizationId: string,
+  input: AddOrganizationMemberInput,
+): Promise<OrganizationMember> {
+  return request<OrganizationMember>(
+    `/organizations/${organizationId}/members`,
+    { method: 'POST', token, body: input },
+  )
+}

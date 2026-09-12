@@ -3,7 +3,10 @@ import type { OrganizationRepository } from '../../../domain/ports/organization.
 import type { Organization } from '../../../domain/entities/organization.entity.js';
 import type { OrganizationMembership } from '../../../domain/entities/organization-membership.entity.js';
 import type { EmailDomain } from '../../../domain/value-objects/email-domain.vo.js';
-import { OrganizationDomainAlreadyClaimedError } from '../../../application/errors/application.errors.js';
+import {
+  OrganizationDomainAlreadyClaimedError,
+  UserAlreadyMemberOfOrganizationError,
+} from '../../../application/errors/application.errors.js';
 import { PrismaService } from './prisma.service.js';
 import {
   OrganizationMapper,
@@ -12,7 +15,15 @@ import {
 
 const UNIQUE_CONSTRAINT_ERROR_CODE = 'P2002';
 
-function isUniqueConstraintViolation(error: unknown, target: string): boolean {
+/**
+ * Compara los campos reales del índice violado (`meta.target`) contra los
+ * campos esperados, en vez de comparar substrings contra el nombre del
+ * índice compuesto. Para un índice de un solo campo, Prisma entrega
+ * `meta.target = ['domain']`; para uno compuesto, `['organizationId', 'userId']`
+ * — nunca la cadena concatenada `'organizationId_userId'`, así que hay que
+ * chequear el conjunto de campos, no una substring.
+ */
+function isUniqueConstraintViolation(error: unknown, expectedFields: string[]): boolean {
   if (typeof error !== 'object' || error === null) return false;
 
   const candidate = error as { code?: unknown; meta?: { target?: unknown } };
@@ -23,7 +34,9 @@ function isUniqueConstraintViolation(error: unknown, target: string): boolean {
     ? rawTarget.map(String)
     : [String(rawTarget ?? '')];
 
-  return targets.some((value) => value.includes(target));
+  if (targets.length !== expectedFields.length) return false;
+
+  return expectedFields.every((field) => targets.includes(field));
 }
 
 @Injectable()
@@ -49,7 +62,7 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
         this.prisma.organizationMembershipModel.create({ data: membershipData }),
       ]);
     } catch (error) {
-      if (isUniqueConstraintViolation(error, 'domain')) {
+      if (isUniqueConstraintViolation(error, ['domain'])) {
         throw new OrganizationDomainAlreadyClaimedError(orgData.domain ?? '');
       }
       throw error;
@@ -66,7 +79,7 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
         update: data,
       });
     } catch (error) {
-      if (isUniqueConstraintViolation(error, 'domain')) {
+      if (isUniqueConstraintViolation(error, ['domain'])) {
         throw new OrganizationDomainAlreadyClaimedError(data.domain ?? '');
       }
       throw error;
@@ -118,6 +131,24 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
       create: data,
       update: { orgRole: data.orgRole },
     });
+  }
+
+  /**
+   * A diferencia de `saveMembership` (upsert idempotente del auto-join), aquí
+   * un choque contra el índice único `(organizationId, userId)` es un error
+   * de negocio real: alguien intentó agregar dos veces al mismo usuario.
+   */
+  async createMembership(membership: OrganizationMembership): Promise<void> {
+    const data = OrganizationMembershipMapper.toPersistence(membership);
+
+    try {
+      await this.prisma.organizationMembershipModel.create({ data });
+    } catch (error) {
+      if (isUniqueConstraintViolation(error, ['organizationId', 'userId'])) {
+        throw new UserAlreadyMemberOfOrganizationError(data.organizationId);
+      }
+      throw error;
+    }
   }
 
   async findMembership(

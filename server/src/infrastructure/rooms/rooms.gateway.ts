@@ -5,6 +5,7 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -252,7 +253,7 @@ function toClientView(room: RoomState, forSocketId: string) {
   },
 })
 @UseFilters(WsExceptionFilter)
-export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server!: Server;
 
@@ -289,24 +290,44 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly analyticsTracker: AnalyticsTrackerService,
   ) {}
 
-  async handleConnection(socket: AuthenticatedSocket) {
+  /**
+   * Autentica ANTES de aceptar la conexión, como middleware de Socket.IO
+   * (no como `handleConnection`): un middleware de `server.use()` corre
+   * durante el handshake y Socket.IO no deja pasar al cliente al evento
+   * "connect" hasta que este `next()` se resuelve. Esto importa porque
+   * `handleConnection` es async — con la autenticación ahí, el cliente veía
+   * "connect" en su socket ANTES de que el server terminara de verificar el
+   * JWT y buscar el usuario, dejando una ventana real en la que un mensaje
+   * enviado de inmediato (room:create, room:join) se procesaba con
+   * `socket.data.userId` todavía `undefined`. Como todo socket sin
+   * autenticar tiene ese mismo `undefined`, dos jugadores conectando casi a
+   * la vez podían "calzar" por username indefinido y uno terminaba pisando
+   * la entrada del otro en la sala — la causa real detrás de los segundos
+   * por turno que no se aplicaban y los avisos de turno con datos cruzados.
+   */
+  afterInit(server: Server) {
+    server.use((socket: AuthenticatedSocket, next) => {
+      this.authenticateSocket(socket)
+        .then(() => next())
+        .catch(() => next(new Error('No autenticado.')));
+    });
+  }
+
+  private async authenticateSocket(socket: AuthenticatedSocket): Promise<void> {
     const token = socket.handshake.auth?.token as string | undefined;
-    if (!token) {
-      socket.disconnect();
-      return;
-    }
-    try {
-      const payload = await this.jwtService.verifyAsync<{ sub: string }>(token);
-      const user = await this.userRepository.findById(payload.sub);
-      if (!user) {
-        socket.disconnect();
-        return;
-      }
-      socket.data.userId = payload.sub;
-      socket.data.displayName = user.name.getFullName();
-    } catch {
-      socket.disconnect();
-    }
+    if (!token) throw new Error('No autenticado.');
+
+    const payload = await this.jwtService.verifyAsync<{ sub: string }>(token);
+    const user = await this.userRepository.findById(payload.sub);
+    if (!user) throw new Error('Usuario no encontrado.');
+
+    socket.data.userId = payload.sub;
+    socket.data.displayName = user.name.getFullName();
+  }
+
+  handleConnection() {
+    // La autenticación ya corrió (y, si hubiera fallado, el socket ni
+    // llega acá) en el middleware de `afterInit` — ver el comentario ahí.
   }
 
   handleDisconnect(socket: AuthenticatedSocket) {

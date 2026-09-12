@@ -243,102 +243,107 @@ export function MatchBoard({
       <TurnPopBanner isMyTurn={isMyTurn} opponentName={opponent.displayName} />
       <TurnBanner isMyTurn={isMyTurn} remainingMs={turnRemainingMs} turnDurationSeconds={turnDurationSeconds} />
 
-      <div className="flex items-center justify-between rounded-xl border border-accent/40 bg-accent/5 p-4">
-        <div>
-          <p className="text-[11.5px] font-semibold tracking-wide text-accent uppercase">
-            Tu tarjeta secreta (que el rival debe adivinar)
-          </p>
-          <p className="text-[15px] font-semibold text-text-h">
-            {cards.find((card) => card.cardId === self.secretCardId)?.label ?? '—'}
-          </p>
-        </div>
-        <span className="text-[12.5px] text-text">
-          Quedan {remainingForSelf} de {cards.length}
-        </span>
-      </div>
+      {/* Acciones a la izquierda, tablero de cartas a la derecha: agrupa lo
+          que se puede HACER en un solo lugar fijo (acusar, pasar turno) en
+          vez de mezclarlo entre las cartas y el pie de página — pedido
+          explícito para que el juego se sienta más intuitivo. En pantallas
+          angostas se apila arriba de las cartas en vez de al lado. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="flex shrink-0 flex-col gap-3 sm:w-[190px]">
+          <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
+            <p className="text-[10.5px] font-semibold tracking-wide text-accent uppercase">Tu tarjeta secreta</p>
+            <p className="mt-0.5 text-[14px] font-semibold text-text-h">
+              {cards.find((card) => card.cardId === self.secretCardId)?.label ?? '—'}
+            </p>
+            <p className="mt-1.5 text-[11.5px] text-text">
+              Quedan {remainingForSelf} de {cards.length}
+            </p>
+          </div>
 
-      <div className={`grid grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>
-        {cards.map((card, index) => {
-          const discarded = self.discardedCardIds.includes(card.cardId)
-          const locked = !isMyTurn || discarded
-          return (
+          {isMyTurn && (
             <button
-              key={card.cardId}
               type="button"
-              disabled={locked}
-              className={`group relative overflow-hidden rounded-lg border text-left transition-[transform,border-color] duration-200 ${
-                discarded
-                  ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out]'
-                  : locked
-                    ? 'cursor-not-allowed border-border'
-                    : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
-              }`}
-              style={{
-                animation: discarded
-                  ? undefined
-                  : `card-pop-in 0.3s ease-out ${Math.min(index, 12) * 0.03}s backwards`,
-              }}
-              onClick={() => !locked && onDiscard(card.cardId)}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
+              onClick={onPassTurn}
             >
-              <img src={card.imageUrl} alt="" className="h-20 w-full object-cover" />
-              <p className="truncate bg-surface px-1.5 py-1 text-[11px] font-medium text-text-h">{card.label}</p>
-              {card.audioUrl && (
-                <button
-                  type="button"
-                  className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    new Audio(card.audioUrl as string).play().catch(() => {})
-                  }}
-                  aria-label={`Reproducir audio de ${card.label}`}
-                >
-                  <Volume2 className="h-3 w-3" strokeWidth={2.5} />
-                </button>
-              )}
+              <SkipForward className="h-3.5 w-3.5" strokeWidth={2} />
+              Pasar turno
             </button>
-          )
-        })}
-      </div>
-
-      {isMyTurn && (
-        <button
-          type="button"
-          className="flex items-center justify-center gap-1.5 self-start rounded-lg border border-border px-3.5 py-2 text-[12.5px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
-          onClick={onPassTurn}
-        >
-          <SkipForward className="h-3.5 w-3.5" strokeWidth={2} />
-          Pasar turno
-        </button>
-      )}
-
-      {isMyTurn && (
-        <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 animate-[fade-in-up_0.35s_ease-out]">
-          <p className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold text-text-h">
-            <Swords className="h-4 w-4 text-accent" strokeWidth={2} />
-            ¿Cuál crees que es la tarjeta de {opponent.displayName}?
-          </p>
-          {!minimumDiscardsReached && (
-            <p className="mb-3 rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-text" role="status">
-              Puedes acusar a tu rival después de descartar mínimo dos cartas.
-            </p>
           )}
-          <button
-            type="button"
-            disabled={!canAccuse}
-            className={`rounded-lg border border-accent px-3.5 py-2 text-[12.5px] font-semibold text-accent transition-transform hover:-translate-y-0.5 disabled:opacity-50 ${
-              !accusing ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''
-            }`}
-            onClick={() => setAccusing((current) => !current)}
-          >
-            {accusing ? 'Cancelar acusación' : 'Acusar carta'}
-          </button>
-          {accusing && (
-            <p className="mt-2 text-[12px] text-text animate-[fade-in-up_0.2s_ease-out]">
-              Toca la tarjeta correspondiente arriba para confirmar tu acusación.
-            </p>
+
+          {isMyTurn && (
+            <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5 animate-[fade-in-up_0.35s_ease-out]">
+              <p className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-text-h">
+                <Swords className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={2} />
+                ¿Cuál crees que es la tarjeta de {opponent.displayName}?
+              </p>
+              {!minimumDiscardsReached && (
+                <p className="mb-2.5 rounded-lg border border-border bg-surface px-3 py-2 text-[11.5px] text-text" role="status">
+                  Puedes acusar a tu rival después de descartar mínimo dos cartas.
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={!canAccuse}
+                className={`w-full rounded-lg border border-accent px-3 py-2 text-[12px] font-semibold text-accent transition-transform hover:-translate-y-0.5 disabled:opacity-50 ${
+                  !accusing ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''
+                }`}
+                onClick={() => setAccusing((current) => !current)}
+              >
+                {accusing ? 'Cancelar acusación' : 'Acusar carta'}
+              </button>
+              {accusing && (
+                <p className="mt-2 text-[11px] text-text animate-[fade-in-up_0.2s_ease-out]">
+                  Toca la tarjeta correspondiente para confirmar.
+                </p>
+              )}
+            </div>
           )}
         </div>
-      )}
+
+        <div className={`grid flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>
+          {cards.map((card, index) => {
+            const discarded = self.discardedCardIds.includes(card.cardId)
+            const locked = !isMyTurn || discarded
+            return (
+              <button
+                key={card.cardId}
+                type="button"
+                disabled={locked}
+                className={`group relative overflow-hidden rounded-lg border text-left transition-[transform,border-color] duration-200 ${
+                  discarded
+                    ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out]'
+                    : locked
+                      ? 'cursor-not-allowed border-border'
+                      : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
+                }`}
+                style={{
+                  animation: discarded
+                    ? undefined
+                    : `card-pop-in 0.3s ease-out ${Math.min(index, 12) * 0.03}s backwards`,
+                )}
+
+                {accusing && (
+                <img src={card.imageUrl} alt="" className="h-20 w-full object-cover" />
+                <p className="truncate bg-surface px-1.5 py-1 text-[11px] font-medium text-text-h">{card.label}</p>
+                {card.audioUrl && (
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      new Audio(card.audioUrl as string).play().catch(() => {})
+                    }}
+                    aria-label={`Reproducir audio de ${card.label}`}
+                  >
+                    <Volume2 className="h-3 w-3" strokeWidth={2.5} />
+                  </button>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {accusing && (
         <AccusationOverlay

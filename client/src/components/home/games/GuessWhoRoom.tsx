@@ -95,7 +95,7 @@ export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode, onR
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             onClick={() => setMode('individual')}
           >
-            Individual (1 vs 1)
+            1 contra 1
           </button>
           <button
             type="button"
@@ -404,7 +404,7 @@ function IndividualGuessWhoRoom({
 
   return (
     <>
-      <Modal onClose={handleExit} maxWidthClassName="max-w-[760px]">
+      <Modal onClose={handleExit} maxWidthClassName="max-w-[840px]">
       {dealing && <DealCountdownOverlay remainingMs={dealRemainingMs} />}
 
       <div className="mb-5 flex items-center justify-between gap-3">

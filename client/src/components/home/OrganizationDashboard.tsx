@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Globe2, PlusCircle, Users2 } from 'lucide-react'
+import { Globe2, PlusCircle, UserPlus, Users2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
+  addOrganizationMember,
+  createOrganization,
   listAllOrganizations,
   listMyOrganizations,
   listOrganizationMembers,
+  ORGANIZATION_ROLES,
   type Organization,
   type OrganizationMember,
+  type OrganizationRoleValue,
   type OrganizationWithMyRole,
 } from '../../services/organization.service'
 import { donateGame, listGames, type GameSummary } from '../../services/game.service'
 import { ApiError } from '../../utils/http'
+import { Modal } from './games/Modal'
+
+const ORG_ROLE_OPTIONS = ORGANIZATION_ROLES
 
 const MEMBER_ROLE_STYLES: Record<string, string> = {
   ADMIN: 'bg-accent/10 text-accent',
@@ -58,6 +66,20 @@ export function OrganizationDashboard() {
   const [donateError, setDonateError] = useState<string | null>(null)
   const [donateSuccess, setDonateSuccess] = useState<string | null>(null)
 
+  const [showCreateOrgModal, setShowCreateOrgModal] = useState(false)
+  const [newOrgName, setNewOrgName] = useState('')
+  const [newOrgDomain, setNewOrgDomain] = useState('')
+  const [creatingOrg, setCreatingOrg] = useState(false)
+  const [createOrgError, setCreateOrgError] = useState<string | null>(null)
+
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false)
+  const [newMemberEmail, setNewMemberEmail] = useState('')
+  const [newMemberRole, setNewMemberRole] =
+    useState<OrganizationRoleValue>('STUDENT')
+  const [addingMember, setAddingMember] = useState(false)
+  const [addMemberError, setAddMemberError] = useState<string | null>(null)
+  const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null)
+
   const adminOrganizations = organizations.filter((org) => org.myOrgRole === 'ADMIN')
 
   // Universo de organizaciones seleccionables en este dashboard: para un
@@ -103,6 +125,12 @@ export function OrganizationDashboard() {
     if (!token || !activeOrgId) return
     setLoadingMembers(true)
     setMembersError(null)
+    // El mensaje de éxito de "miembro agregado" es específico de la
+    // organización donde se agregó; si el ADMIN cambia de organización activa
+    // (ej. con el modal abierto), no debe seguir visible refiriéndose a la
+    // anterior.
+    setAddMemberSuccess(null)
+    setAddMemberError(null)
     listOrganizationMembers(token, activeOrgId)
       .then((items) => setMembers(items))
       .catch((err: unknown) => {
@@ -154,6 +182,68 @@ export function OrganizationDashboard() {
     }
   }
 
+  async function handleCreateOrganization(event: FormEvent) {
+    event.preventDefault()
+    if (!token) return
+    setCreatingOrg(true)
+    setCreateOrgError(null)
+    try {
+      const created = await createOrganization(token, {
+        name: newOrgName.trim(),
+        domain: newOrgDomain.trim() || null,
+      })
+      // Refresca ambos ejes: para el ADMIN global entra a `allOrganizations`;
+      // para quien la acaba de fundar, además queda como ADMIN de ella en
+      // `organizations` — pero ese eje solo lo repuebla `listMyOrganizations`,
+      // así que lo consultamos de nuevo en vez de reconstruir el shape a mano.
+      if (isGlobalAdmin) {
+        setAllOrganizations((current) => [created, ...current])
+      }
+      listMyOrganizations(token)
+        .then((items) => setOrganizations(items))
+        .catch((err: unknown) => {
+          console.error('No se pudieron recargar las organizaciones del usuario:', err)
+        })
+      setActiveOrgId(created.id)
+      setNewOrgName('')
+      setNewOrgDomain('')
+      setShowCreateOrgModal(false)
+    } catch (err) {
+      setCreateOrgError(err instanceof ApiError ? err.message : 'No se pudo crear la organización.')
+    } finally {
+      setCreatingOrg(false)
+    }
+  }
+
+  async function handleAddMember(event: FormEvent) {
+    event.preventDefault()
+    if (!token || !activeOrgId) return
+    setAddingMember(true)
+    setAddMemberError(null)
+    setAddMemberSuccess(null)
+    try {
+      const member = await addOrganizationMember(token, activeOrgId, {
+        email: newMemberEmail.trim(),
+        orgRole: newMemberRole,
+      })
+      // Re-fetch desde el servidor (igual que `handleCreateOrganization`) en
+      // vez de anexar el objeto devuelto por el POST: mantiene el listado
+      // consistente con el estado real si hubo cambios concurrentes.
+      listOrganizationMembers(token, activeOrgId)
+        .then((items) => setMembers(items))
+        .catch((err: unknown) => {
+          console.error('No se pudo recargar el listado de miembros:', err)
+        })
+      setAddMemberSuccess(`${member.displayName ?? member.email ?? 'Usuario'} agregado como ${member.orgRole}.`)
+      setNewMemberEmail('')
+      setNewMemberRole('STUDENT')
+    } catch (err) {
+      setAddMemberError(err instanceof ApiError ? err.message : 'No se pudo agregar al miembro.')
+    } finally {
+      setAddingMember(false)
+    }
+  }
+
   if (loadingOrganizations || (isGlobalAdmin && loadingAllOrganizations)) {
     return <p className="text-[14px] text-text">Cargando organización…</p>
   }
@@ -164,18 +254,41 @@ export function OrganizationDashboard() {
     // Caso ADMIN de organización sin membresía ADMIN en ninguna: no
     // administra nada, se le sugiere fundar la suya.
     return (
-      <div className="rounded-2xl border border-dashed border-border py-16 text-center">
-        <p className="text-[15px] font-medium text-text-h">
-          {isGlobalAdmin
-            ? 'Todavía no hay organizaciones registradas en la plataforma.'
-            : 'No administras ninguna organización.'}
-        </p>
-        {!isGlobalAdmin && (
-          <p className="mt-1 text-[13px] text-text">
-            Funda una desde tu perfil si tu institución todavía no está registrada.
+      <>
+        <div className="rounded-2xl border border-dashed border-border py-16 text-center">
+          <p className="text-[15px] font-medium text-text-h">
+            {isGlobalAdmin
+              ? 'Todavía no hay organizaciones registradas en la plataforma.'
+              : 'No administras ninguna organización.'}
           </p>
+          {isGlobalAdmin ? (
+            <button
+              type="button"
+              className="mx-auto mt-4 flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2.5 text-[13.5px] font-medium text-text-h hover:border-accent"
+              onClick={() => setShowCreateOrgModal(true)}
+            >
+              <PlusCircle className="h-4 w-4" strokeWidth={2} />
+              Crear organización
+            </button>
+          ) : (
+            <p className="mt-1 text-[13px] text-text">
+              Funda una desde tu perfil si tu institución todavía no está registrada.
+            </p>
+          )}
+        </div>
+        {showCreateOrgModal && (
+          <CreateOrganizationModal
+            name={newOrgName}
+            domain={newOrgDomain}
+            saving={creatingOrg}
+            error={createOrgError}
+            onNameChange={setNewOrgName}
+            onDomainChange={setNewOrgDomain}
+            onSubmit={handleCreateOrganization}
+            onClose={() => setShowCreateOrgModal(false)}
+          />
         )}
-      </div>
+      </>
     )
   }
 
@@ -202,25 +315,59 @@ export function OrganizationDashboard() {
           </p>
         </div>
 
-        {selectableOrganizations.length > 1 && (
-          <select
-            className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[13.5px] text-text-h outline-none focus:border-accent"
-            value={activeOrg.id}
-            onChange={(event) => setActiveOrgId(event.target.value)}
-          >
-            {selectableOrganizations.map((org) => (
-              <option key={org.id} value={org.id}>
-                {org.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="flex items-center gap-3">
+          {selectableOrganizations.length > 1 && (
+            <select
+              className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[13.5px] text-text-h outline-none focus:border-accent"
+              value={activeOrg.id}
+              onChange={(event) => setActiveOrgId(event.target.value)}
+            >
+              {selectableOrganizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {/*
+            Gateado igual que el botón del estado vacío: un ADMIN de
+            organización no funda instituciones desde este dashboard (lo hace
+            desde su perfil), solo el ADMIN global administra la plataforma
+            desde aquí. El backend permite crear organización a cualquier
+            autenticado, así que esto es coherencia de UX/flujo, no un
+            control de seguridad.
+          */}
+          {isGlobalAdmin && (
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2.5 text-[13.5px] font-medium text-text-h hover:border-accent"
+              onClick={() => setShowCreateOrgModal(true)}
+            >
+              <PlusCircle className="h-4 w-4" strokeWidth={2} />
+              Nueva organización
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-border p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Users2 className="h-[18px] w-[18px] text-text" strokeWidth={2} />
-          <h3 className="text-[15px] font-semibold text-text-h">Miembros</h3>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Users2 className="h-[18px] w-[18px] text-text" strokeWidth={2} />
+            <h3 className="text-[15px] font-semibold text-text-h">Miembros</h3>
+          </div>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-text-h hover:border-accent"
+            onClick={() => {
+              setAddMemberError(null)
+              setAddMemberSuccess(null)
+              setShowAddMemberModal(true)
+            }}
+          >
+            <UserPlus className="h-[15px] w-[15px]" strokeWidth={2} />
+            Agregar miembro
+          </button>
         </div>
 
         {membersError && (
@@ -330,6 +477,207 @@ export function OrganizationDashboard() {
         </div>
       </div>
 
+      {showCreateOrgModal && (
+        <CreateOrganizationModal
+          name={newOrgName}
+          domain={newOrgDomain}
+          saving={creatingOrg}
+          error={createOrgError}
+          onNameChange={setNewOrgName}
+          onDomainChange={setNewOrgDomain}
+          onSubmit={handleCreateOrganization}
+          onClose={() => setShowCreateOrgModal(false)}
+        />
+      )}
+
+      {showAddMemberModal && (
+        <AddMemberModal
+          email={newMemberEmail}
+          orgRole={newMemberRole}
+          saving={addingMember}
+          error={addMemberError}
+          success={addMemberSuccess}
+          organizationName={activeOrg.name}
+          onEmailChange={setNewMemberEmail}
+          onRoleChange={setNewMemberRole}
+          onSubmit={handleAddMember}
+          onClose={() => setShowAddMemberModal(false)}
+        />
+      )}
     </section>
+  )
+}
+
+type CreateOrganizationModalProps = {
+  name: string
+  domain: string
+  saving: boolean
+  error: string | null
+  onNameChange: (value: string) => void
+  onDomainChange: (value: string) => void
+  onSubmit: (event: FormEvent) => void
+  onClose: () => void
+}
+
+function CreateOrganizationModal({
+  name,
+  domain,
+  saving,
+  error,
+  onNameChange,
+  onDomainChange,
+  onSubmit,
+  onClose,
+}: CreateOrganizationModalProps) {
+  return (
+    <Modal onClose={onClose}>
+      <h3 className="mb-4 text-[17px] font-semibold text-text-h">Crear organización</h3>
+      <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-text-h">Nombre</span>
+          <input
+            type="text"
+            required
+            minLength={3}
+            className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[14px] text-text-h outline-none focus:border-accent"
+            placeholder="Colegio San José"
+            value={name}
+            onChange={(event) => onNameChange(event.target.value)}
+            disabled={saving}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-text-h">Dominio institucional (opcional)</span>
+          <input
+            type="text"
+            className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[14px] text-text-h outline-none focus:border-accent"
+            placeholder="colegiosanjose.edu.co"
+            value={domain}
+            onChange={(event) => onDomainChange(event.target.value)}
+            disabled={saving}
+          />
+          <span className="text-[12px] text-text">
+            Habilita el auto-join: cualquiera con correo de este dominio entrará automáticamente
+            como miembro. Déjalo vacío si prefieres agregar miembros manualmente.
+          </span>
+        </label>
+        {error && (
+          <p className="rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-medium text-text-h"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className="rounded-lg px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            disabled={saving}
+          >
+            {saving ? 'Creando…' : 'Crear organización'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+type AddMemberModalProps = {
+  email: string
+  orgRole: OrganizationRoleValue
+  saving: boolean
+  error: string | null
+  success: string | null
+  organizationName: string
+  onEmailChange: (value: string) => void
+  onRoleChange: (value: OrganizationRoleValue) => void
+  onSubmit: (event: FormEvent) => void
+  onClose: () => void
+}
+
+function AddMemberModal({
+  email,
+  orgRole,
+  saving,
+  error,
+  success,
+  organizationName,
+  onEmailChange,
+  onRoleChange,
+  onSubmit,
+  onClose,
+}: AddMemberModalProps) {
+  return (
+    <Modal onClose={onClose}>
+      <h3 className="mb-1 text-[17px] font-semibold text-text-h">Agregar miembro</h3>
+      <p className="mb-4 text-[13px] text-text">
+        Busca un usuario ya registrado por su correo y agrégalo a {organizationName}, sin importar
+        el dominio de su cuenta.
+      </p>
+      <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-text-h">Correo del usuario</span>
+          <input
+            type="email"
+            required
+            className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[14px] text-text-h outline-none focus:border-accent"
+            placeholder="usuario@correo.com"
+            value={email}
+            onChange={(event) => onEmailChange(event.target.value)}
+            disabled={saving}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-text-h">Rol en la organización</span>
+          <select
+            className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[14px] text-text-h outline-none focus:border-accent"
+            value={orgRole}
+            onChange={(event) => onRoleChange(event.target.value as OrganizationRoleValue)}
+            disabled={saving}
+          >
+            {ORG_ROLE_OPTIONS.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error && (
+          <p className="rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger" role="alert">
+            {error}
+          </p>
+        )}
+        {success && (
+          <p className="rounded-lg border border-accent/35 bg-accent/10 px-[13px] py-[11px] text-sm leading-snug text-accent" role="status">
+            {success}
+          </p>
+        )}
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-medium text-text-h"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cerrar
+          </button>
+          <button
+            type="submit"
+            className="rounded-lg px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            disabled={saving}
+          >
+            {saving ? 'Agregando…' : 'Agregar'}
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }
