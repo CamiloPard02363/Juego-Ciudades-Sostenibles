@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { SkipForward, Swords, Volume2 } from 'lucide-react'
+import { Clock3, SkipForward, Swords, Volume2 } from 'lucide-react'
 import type { GuessWhoCard, RoomPlayerView } from './guessWhoTypes'
 
 /**
  * Cuenta el tiempo restante hasta `deadline` (epoch ms) y se refresca cada
- * 200ms. Compartido entre la sala 1v1 y los matches de torneo — ambos
- * dibujan la misma barra de progreso de turno.
+ * 200ms. Compartido entre la sala 1v1 y los matches de torneo.
  */
 export function useCountdown(deadline: number | null): number {
   const [remainingMs, setRemainingMs] = useState(0)
@@ -25,10 +24,8 @@ export function useCountdown(deadline: number | null): number {
 }
 
 /**
- * Barra compacta de tiempo restante del turno (sin el texto "Es tu turno" —
- * ese aviso ahora es el pop centrado de abajo, `TurnPopBanner`). Se conserva
- * como barra de progreso + segundos para que durante todo el turno se pueda
- * seguir viendo cuánto tiempo queda, algo que un pop transitorio no cubre.
+ * Reloj compacto de tiempo restante del turno. El deadline sigue viniendo del
+ * servidor; solo cambia la representación visual de la cuenta regresiva.
  */
 export function TurnBanner({
   isMyTurn,
@@ -40,27 +37,38 @@ export function TurnBanner({
   turnDurationSeconds: number
 }) {
   const secondsLeft = Math.ceil(remainingMs / 1000)
-  const progress = Math.max(0, Math.min(1, remainingMs / (turnDurationSeconds * 1000)))
   const urgent = secondsLeft <= 5
+  const clockProgress = Math.max(0, Math.min(1, remainingMs / (turnDurationSeconds * 1000)))
+  const circumference = 2 * Math.PI * 22
 
   return (
     <div
-      className={`flex items-center justify-end gap-2 rounded-xl border p-3 transition-colors ${
+      className={`flex items-center justify-end gap-3 rounded-xl border p-3 transition-colors ${
         isMyTurn ? 'border-accent/50 bg-accent/10' : 'border-border bg-code-bg'
       }`}
     >
       <span className="sr-only">{isMyTurn ? 'Es tu turno' : 'Turno del rival'}</span>
-      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border">
-        <div
-          className={`h-full rounded-full transition-[width] duration-200 ease-linear ${
-            urgent ? 'bg-danger' : 'bg-accent'
-          }`}
-          style={{ width: `${progress * 100}%` }}
-        />
+      <div className="relative flex h-14 w-14 items-center justify-center">
+        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 52 52" aria-hidden="true">
+          <circle cx="26" cy="26" r="22" fill="none" className="stroke-border" strokeWidth="4" />
+          <circle
+            cx="26"
+            cy="26"
+            r="22"
+            fill="none"
+            className={urgent ? 'stroke-danger' : 'stroke-accent'}
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - clockProgress)}
+          />
+        </svg>
+        <Clock3 className={`h-4 w-4 ${urgent ? 'text-danger' : 'text-accent'}`} strokeWidth={2} />
+        <span className={`absolute text-[11px] font-bold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
+          {secondsLeft}
+        </span>
       </div>
-      <span className={`w-5 text-right text-[13px] font-semibold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
-        {secondsLeft}
-      </span>
+      <span className="text-[12px] font-medium text-text">{isMyTurn ? 'Tu turno' : 'Turno del rival'}</span>
     </div>
   )
 }
@@ -199,7 +207,6 @@ type MatchBoardProps = {
   opponent: RoomPlayerView
   isMyTurn: boolean
   canAccuse: boolean
-  maxAccusationCount: number
   turnDeadline: number | null
   turnDurationSeconds: number
   onDiscard: (cardId: string) => void
@@ -220,7 +227,6 @@ export function MatchBoard({
   opponent,
   isMyTurn,
   canAccuse,
-  maxAccusationCount,
   turnDeadline,
   turnDurationSeconds,
   onDiscard,
@@ -230,6 +236,7 @@ export function MatchBoard({
   const [accusing, setAccusing] = useState(false)
   const turnRemainingMs = useCountdown(turnDeadline)
   const remainingForSelf = cards.length - self.discardedCardIds.length
+  const minimumDiscardsReached = self.discardedCardIds.length >= 2
 
   return (
     <div className="flex flex-col gap-5">
@@ -304,20 +311,26 @@ export function MatchBoard({
         </button>
       )}
 
-      {canAccuse && (
+      {isMyTurn && (
         <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 animate-[fade-in-up_0.35s_ease-out]">
           <p className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold text-text-h">
             <Swords className="h-4 w-4 text-accent" strokeWidth={2} />
-            Quedan {maxAccusationCount} o menos — ¿cuál crees que es la tarjeta de {opponent.displayName}?
+            ¿Cuál crees que es la tarjeta de {opponent.displayName}?
           </p>
+          {!minimumDiscardsReached && (
+            <p className="mb-3 rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-text" role="status">
+              Puedes acusar a tu rival después de descartar mínimo dos cartas.
+            </p>
+          )}
           <button
             type="button"
+            disabled={!canAccuse}
             className={`rounded-lg border border-accent px-3.5 py-2 text-[12.5px] font-semibold text-accent transition-transform hover:-translate-y-0.5 disabled:opacity-50 ${
               !accusing ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''
             }`}
             onClick={() => setAccusing((current) => !current)}
           >
-            {accusing ? 'Cancelar acusación' : 'Acusar una tarjeta'}
+            {accusing ? 'Cancelar acusación' : 'Acusar carta'}
           </button>
           {accusing && (
             <p className="mt-2 text-[12px] text-text animate-[fade-in-up_0.2s_ease-out]">

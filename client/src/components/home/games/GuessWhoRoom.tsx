@@ -170,6 +170,7 @@ function IndividualGuessWhoRoom({
     error,
     connecting,
     rematchRejectedMessage,
+    opponentLeftMessage,
     dealCountdownMs,
     lastFailedAccusation,
     clearLastFailedAccusation,
@@ -261,6 +262,12 @@ function IndividualGuessWhoRoom({
     return () => clearTimeout(timeout)
   }, [lastFailedAccusation, clearLastFailedAccusation])
 
+  useEffect(() => {
+    if (!rematchRejectedMessage && !opponentLeftMessage) return
+    const timeout = setTimeout(onExit, 2500)
+    return () => clearTimeout(timeout)
+  }, [rematchRejectedMessage, opponentLeftMessage, onExit])
+
   // Redacta el aviso según desde qué lado se mira: a quien acusó y falló se
   // le dice explícitamente de quién NO era la carta (lo que pidió el
   // reporte: "esa no es la [tarjeta] de fulano"); al otro jugador se le
@@ -273,7 +280,7 @@ function IndividualGuessWhoRoom({
 
   // El rival votó "no" a la revancha: el servidor ya cerró la sala, así que
   // solo queda avisar y devolver a la persona a la pantalla anterior.
-  if (rematchRejectedMessage) {
+  if (rematchRejectedMessage || opponentLeftMessage) {
     return (
       <Modal onClose={onExit} maxWidthClassName="max-w-[420px]">
         <div className="flex flex-col items-center gap-3 py-4 text-center animate-[fade-in-up_0.3s_ease-out]">
@@ -281,14 +288,14 @@ function IndividualGuessWhoRoom({
             <LogOut className="h-6 w-6" strokeWidth={2} />
           </span>
           <p className="text-[15px] font-semibold text-text-h">Saliste de la partida</p>
-          <p className="text-[13px] text-text">{rematchRejectedMessage}</p>
+          <p className="text-[13px] text-text">{rematchRejectedMessage ?? opponentLeftMessage}</p>
           <button
             type="button"
             className="mt-2 w-full rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             onClick={onExit}
           >
-            Entendido
+            Volver al inicio
           </button>
         </div>
       </Modal>
@@ -390,9 +397,8 @@ function IndividualGuessWhoRoom({
 
   const self = room.players.find((player) => player.isSelf)
   const opponent = room.players.find((player) => !player.isSelf)
-  const remainingForSelf = self ? room.cards.length - self.discardedCardIds.length : room.cards.length
   const isMyTurn = room.phase === 'PLAYING' && room.activePlayerUserId === self?.userId
-  const canAccuse = room.phase === 'PLAYING' && isMyTurn && remainingForSelf <= room.maxAccusationCount
+  const canAccuse = room.phase === 'PLAYING' && isMyTurn && self !== undefined && self.discardedCardIds.length >= 2
   const winnerIsSelf = room.winnerUserId === user?.id
   const dealing = dealDeadline !== null && dealRemainingMs > 0
 
@@ -556,7 +562,6 @@ function IndividualGuessWhoRoom({
           opponent={opponent}
           isMyTurn={isMyTurn}
           canAccuse={canAccuse}
-          maxAccusationCount={room.maxAccusationCount}
           turnDeadline={room.turnDeadline}
           turnDurationSeconds={room.turnDurationSeconds}
           onDiscard={discardCard}

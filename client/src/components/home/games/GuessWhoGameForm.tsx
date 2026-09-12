@@ -20,7 +20,7 @@ type CardDraft = {
 
 const EMPTY_CARD: CardDraft = { imageUrl: null, label: '', audioUrl: null }
 const MIN_CARDS = 12
-const DEFAULT_MAX_ACCUSATION_COUNT = 6
+const DEFAULT_MAX_ACCUSATION_COUNT = 2
 
 type GuessWhoGameFormProps = {
   onClose: () => void
