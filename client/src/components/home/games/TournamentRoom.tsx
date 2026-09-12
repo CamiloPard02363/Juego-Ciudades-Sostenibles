@@ -266,7 +266,7 @@ export function TournamentRoom({
   const tournamentWinnerName = tournament.participants.find((p) => p.userId === tournament.winnerUserId)?.displayName
 
   return (
-    <Modal onClose={handleExit} maxWidthClassName="max-w-[760px]">
+    <Modal onClose={handleExit} maxWidthClassName="max-w-[840px]">
       {showPairingOverlay && pairingAnnouncement && (
         <PairingAnnouncementOverlay announcement={pairingAnnouncement} selfUserId={user?.id ?? null} />
       )}
