@@ -1,7 +1,12 @@
-import { IsIn, IsString } from 'class-validator';
+import { IsEmail, IsIn } from 'class-validator';
 
 export class AddOrganizationMemberDto {
-  @IsString()
+  /**
+   * `Email.create()` en el dominio hace la validación real, pero `@IsEmail`
+   * evita un 500 innecesario si llega basura y da un 400 más claro (mismo
+   * razonamiento que `@IsIn` en `orgRole`).
+   */
+  @IsEmail()
   email!: string;
 
   /**
