@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BookOpen, ChevronLeft, Gamepad2, Lock, Palette, Users, Users2, Zap } from 'lucide-react'
+import { BookOpen, Building2, ChevronLeft, Gamepad2, Lock, Palette, Users, Users2, Zap } from 'lucide-react'
 import { ThemeToggle } from '../ThemeToggle'
 
 type SidebarProps = {
   canManageUsers: boolean
+  /** ADMIN de al menos una organización, o ADMIN global (ver HomeLayout). */
+  canAccessOrganization: boolean
 }
 
 const BASE_ITEM_CLASS =
@@ -21,7 +23,7 @@ function readStoredCollapsed(): boolean {
   }
 }
 
-export function Sidebar({ canManageUsers }: SidebarProps) {
+export function Sidebar({ canManageUsers, canAccessOrganization }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(readStoredCollapsed)
   const navigate = useNavigate()
   const location = useLocation()
@@ -107,20 +109,31 @@ export function Sidebar({ canManageUsers }: SidebarProps) {
           onClick={() => navigate('/temas')}
           icon={<Palette className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
-        {canManageUsers && (
+        {(canManageUsers || canAccessOrganization) && (
           <>
             {!collapsed && (
               <p className="mt-4 mb-1 px-3.5 text-[11px] font-semibold tracking-wide text-text/60 uppercase">
                 Administración
               </p>
             )}
-            <SidebarItem
-              label="Usuarios"
-              collapsed={collapsed}
-              active={location.pathname === '/usuarios'}
-              onClick={() => navigate('/usuarios')}
-              icon={<Users className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
-            />
+            {canManageUsers && (
+              <SidebarItem
+                label="Usuarios"
+                collapsed={collapsed}
+                active={location.pathname === '/usuarios'}
+                onClick={() => navigate('/usuarios')}
+                icon={<Users className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+              />
+            )}
+            {canAccessOrganization && (
+              <SidebarItem
+                label="Organización"
+                collapsed={collapsed}
+                active={location.pathname === '/organizacion'}
+                onClick={() => navigate('/organizacion')}
+                icon={<Building2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+              />
+            )}
           </>
         )}
       </nav>

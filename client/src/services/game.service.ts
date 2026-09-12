@@ -15,6 +15,8 @@ export type GameSummary = {
   categoryId: string
   status: 'DRAFT' | 'PUBLISHED' | 'FLAGGED' | 'REMOVED'
   creatorUserId: string
+  /** `null` = juego personal; con valor = institucional de esa organización. */
+  organizationId: string | null
   /** Solo viene en el listado de "Comunidad". */
   creatorDisplayName?: string
   createdAt: string
@@ -98,6 +100,8 @@ export type CreateGameInput =
       description: string
       gameType: 'MEMORY_MATCH'
       categoryId: string
+      /** Si viene, el juego nace institucional de esa organización. */
+      organizationId?: string | null
       theme?: { primaryColor?: string; coverImageUrl?: string | null }
       config?: { mode: 'OPPOSITES' } & Record<string, unknown>
       content: OppositesPairInput[]
@@ -107,6 +111,7 @@ export type CreateGameInput =
       description: string
       gameType: 'MEMORY_MATCH'
       categoryId: string
+      organizationId?: string | null
       theme?: { primaryColor?: string; coverImageUrl?: string | null }
       config: { mode: 'PAIRS' } & Record<string, unknown>
       content: SimplePairInput[]
@@ -116,6 +121,7 @@ export type CreateGameInput =
       description: string
       gameType: 'GUESS_WHO'
       categoryId: string
+      organizationId?: string | null
       theme?: { primaryColor?: string; coverImageUrl?: string | null }
       config?: Record<string, unknown>
       content: GuessWhoCardInput[]
@@ -125,6 +131,7 @@ export type CreateGameInput =
       description: string
       gameType: 'DOMINO'
       categoryId: string
+      organizationId?: string | null
       theme?: { primaryColor?: string; coverImageUrl?: string | null }
       config?: { handSize?: number } & Record<string, unknown>
       content: DominoConceptInput[]
@@ -160,4 +167,22 @@ export function publishGame(token: string, gameId: string): Promise<GameDetail> 
 /** DELETE /games/:id — borrado lógico; solo el creador o un admin. */
 export function deleteGame(token: string, gameId: string): Promise<void> {
   return request<void>(`/games/${gameId}`, { method: 'DELETE', token })
+}
+
+/**
+ * PATCH /games/:id/donate — dona un juego personal a una organización.
+ * Puede donar: el creador (si es miembro de la organización destino), un
+ * ADMIN de esa organización (aunque el juego sea de otro usuario), o el
+ * ADMIN global. `creatorUserId` no cambia tras la donación.
+ */
+export function donateGame(
+  token: string,
+  gameId: string,
+  organizationId: string,
+): Promise<GameDetail> {
+  return request<GameDetail>(`/games/${gameId}/donate`, {
+    method: 'PATCH',
+    token,
+    body: { organizationId },
+  })
 }

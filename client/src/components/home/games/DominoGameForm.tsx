@@ -4,10 +4,12 @@ import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { IconPickerField } from './IconPickerField'
+import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { createGame, publishGame } from '../../../services/game.service'
 import { createCategory, listCategories, type CategoryWithGameCount } from '../../../services/category.service'
+import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { ApiError } from '../../../utils/http'
 import {
   DEFAULT_DOMINO_CONFIG,
@@ -78,6 +80,8 @@ export function DominoGameForm({
   const [categoryId, setCategoryId] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
   const [creatingCategory, setCreatingCategory] = useState(false)
+  const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
+  const [organizationId, setOrganizationId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [createdGameId, setCreatedGameId] = useState<string | null>(null)
@@ -87,6 +91,15 @@ export function DominoGameForm({
     listCategories(token)
       .then((items) => setCategories(items))
       .catch(() => {})
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    listMyOrganizations(token)
+      .then((items) => setOrganizations(items))
+      .catch((err: unknown) => {
+        console.error('No se pudieron cargar las organizaciones del usuario:', err)
+      })
   }, [token])
 
   async function handleCreateCategory() {
@@ -171,6 +184,7 @@ export function DominoGameForm({
         description: description.trim(),
         gameType: 'DOMINO',
         categoryId,
+        organizationId: organizationId || undefined,
         theme: coverImageUrl ? { coverImageUrl } : undefined,
         content: concepts.map((concept) => ({
           label: concept.label.trim(),
@@ -299,6 +313,13 @@ export function DominoGameForm({
             </button>
           </div>
         </div>
+
+        <OrganizationSelectField
+          organizations={organizations}
+          value={organizationId}
+          disabled={submitting}
+          onChange={setOrganizationId}
+        />
 
         <div className="flex flex-col gap-3">
           {concepts.map((concept, index) => {

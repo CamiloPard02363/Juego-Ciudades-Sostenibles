@@ -3,10 +3,12 @@ import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
+import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { createGame, publishGame } from '../../../services/game.service'
 import { createCategory, listCategories, type CategoryWithGameCount } from '../../../services/category.service'
+import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { ApiError } from '../../../utils/http'
 
 type PairDraft = {
@@ -50,6 +52,8 @@ export function OppositesGameForm({
   const [categoryId, setCategoryId] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
   const [creatingCategory, setCreatingCategory] = useState(false)
+  const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
+  const [organizationId, setOrganizationId] = useState('')
   const [createdGameId, setCreatedGameId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -59,6 +63,15 @@ export function OppositesGameForm({
     listCategories(token)
       .then((items) => setCategories(items))
       .catch(() => {})
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    listMyOrganizations(token)
+      .then((items) => setOrganizations(items))
+      .catch((err: unknown) => {
+        console.error('No se pudieron cargar las organizaciones del usuario:', err)
+      })
   }, [token])
 
   async function handleCreateCategory() {
@@ -132,6 +145,7 @@ export function OppositesGameForm({
         description: description.trim(),
         gameType: 'MEMORY_MATCH',
         categoryId,
+        organizationId: organizationId || undefined,
         theme: coverImageUrl ? { coverImageUrl } : undefined,
         config: { mode: 'OPPOSITES' },
         content: pairs.map((pair) => ({
@@ -244,6 +258,13 @@ export function OppositesGameForm({
             </button>
           </div>
         </div>
+
+        <OrganizationSelectField
+          organizations={organizations}
+          value={organizationId}
+          disabled={submitting}
+          onChange={setOrganizationId}
+        />
 
         <div className="flex flex-col gap-3">
           {pairs.map((pair, index) => (

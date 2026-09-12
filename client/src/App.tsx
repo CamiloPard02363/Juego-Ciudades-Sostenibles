@@ -8,6 +8,7 @@ import { CommunityPage } from './components/home/sections/CommunityPage'
 import { MyGamesPage } from './components/home/sections/MyGamesPage'
 import { ThemesPage } from './components/home/sections/ThemesPage'
 import { AdminUsersPage } from './components/home/sections/AdminUsersPage'
+import { OrganizationDashboardPage } from './components/home/sections/OrganizationDashboardPage'
 import { CreateGameLayout } from './components/home/games/create/CreateGameLayout'
 import { GameTypePickerPage } from './components/home/games/create/GameTypePickerPage'
 import { GameModePickerPage } from './components/home/games/create/GameModePickerPage'
@@ -71,6 +72,7 @@ function App() {
         <Route path="mis-juegos/:slug" element={<MyGamesPage />} />
         <Route path="temas" element={<ThemesPage />} />
         <Route path="usuarios" element={<AdminUsersPage />} />
+        <Route path="organizacion" element={<OrganizationDashboardPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
