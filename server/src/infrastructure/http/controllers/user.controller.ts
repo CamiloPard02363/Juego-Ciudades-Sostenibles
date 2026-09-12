@@ -19,6 +19,8 @@ import { ReactivateUserUseCase } from '../../../application/use-cases/reactivate
 import { VerifyUserEmailUseCase } from '../../../application/use-cases/verify-user-email.use-case.js';
 import { ListUsersUseCase } from '../../../application/use-cases/list-users.use-case.js';
 import { ChangeUserRoleUseCase } from '../../../application/use-cases/change-user-role.use-case.js';
+import { ResetUserPasswordUseCase } from '../../../application/use-cases/reset-user-password.use-case.js';
+import { UpdateUserProfileByAdminUseCase } from '../../../application/use-cases/update-user-profile-by-admin.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { UpdateUserProfileDto } from '../dtos/update-user-profile.dto.js';
@@ -40,6 +42,8 @@ export class UserController {
     private readonly verifyUserEmailUseCase: VerifyUserEmailUseCase,
     private readonly listUsersUseCase: ListUsersUseCase,
     private readonly changeUserRoleUseCase: ChangeUserRoleUseCase,
+    private readonly resetUserPasswordUseCase: ResetUserPasswordUseCase,
+    private readonly updateUserProfileByAdminUseCase: UpdateUserProfileByAdminUseCase,
   ) {}
 
   @Get('me')
@@ -108,6 +112,24 @@ export class UserController {
       requestingUserId,
       targetUserId,
       newRole: dto.newRole,
+    });
+  }
+
+  @Patch(':id/password/reset')
+  resetPassword(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
+    return this.resetUserPasswordUseCase.execute({ requestingUserId, userId });
+  }
+
+  @Patch(':id/profile')
+  updateProfileByAdmin(
+    @CurrentUserId() requestingUserId: string,
+    @Param('id') targetUserId: string,
+    @Body() dto: UpdateUserProfileDto,
+  ) {
+    return this.updateUserProfileByAdminUseCase.execute({
+      requestingUserId,
+      targetUserId,
+      ...dto,
     });
   }
 }
