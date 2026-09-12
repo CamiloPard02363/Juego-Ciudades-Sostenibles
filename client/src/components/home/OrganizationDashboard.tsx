@@ -9,15 +9,17 @@ import {
   listAllOrganizations,
   listMyOrganizations,
   listOrganizationMembers,
+  ORGANIZATION_ROLES,
   type Organization,
   type OrganizationMember,
+  type OrganizationRoleValue,
   type OrganizationWithMyRole,
 } from '../../services/organization.service'
 import { donateGame, listGames, type GameSummary } from '../../services/game.service'
 import { ApiError } from '../../utils/http'
 import { Modal } from './games/Modal'
 
-const ORG_ROLE_OPTIONS = ['STUDENT', 'TEACHER', 'ADMIN'] as const
+const ORG_ROLE_OPTIONS = ORGANIZATION_ROLES
 
 const MEMBER_ROLE_STYLES: Record<string, string> = {
   ADMIN: 'bg-accent/10 text-accent',
@@ -73,7 +75,7 @@ export function OrganizationDashboard() {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false)
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [newMemberRole, setNewMemberRole] =
-    useState<(typeof ORG_ROLE_OPTIONS)[number]>('STUDENT')
+    useState<OrganizationRoleValue>('STUDENT')
   const [addingMember, setAddingMember] = useState(false)
   const [addMemberError, setAddMemberError] = useState<string | null>(null)
   const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null)
@@ -123,6 +125,12 @@ export function OrganizationDashboard() {
     if (!token || !activeOrgId) return
     setLoadingMembers(true)
     setMembersError(null)
+    // El mensaje de éxito de "miembro agregado" es específico de la
+    // organización donde se agregó; si el ADMIN cambia de organización activa
+    // (ej. con el modal abierto), no debe seguir visible refiriéndose a la
+    // anterior.
+    setAddMemberSuccess(null)
+    setAddMemberError(null)
     listOrganizationMembers(token, activeOrgId)
       .then((items) => setMembers(items))
       .catch((err: unknown) => {
@@ -218,7 +226,14 @@ export function OrganizationDashboard() {
         email: newMemberEmail.trim(),
         orgRole: newMemberRole,
       })
-      setMembers((current) => [...current, member])
+      // Re-fetch desde el servidor (igual que `handleCreateOrganization`) en
+      // vez de anexar el objeto devuelto por el POST: mantiene el listado
+      // consistente con el estado real si hubo cambios concurrentes.
+      listOrganizationMembers(token, activeOrgId)
+        .then((items) => setMembers(items))
+        .catch((err: unknown) => {
+          console.error('No se pudo recargar el listado de miembros:', err)
+        })
       setAddMemberSuccess(`${member.displayName ?? member.email ?? 'Usuario'} agregado como ${member.orgRole}.`)
       setNewMemberEmail('')
       setNewMemberRole('STUDENT')
@@ -314,14 +329,24 @@ export function OrganizationDashboard() {
               ))}
             </select>
           )}
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2.5 text-[13.5px] font-medium text-text-h hover:border-accent"
-            onClick={() => setShowCreateOrgModal(true)}
-          >
-            <PlusCircle className="h-4 w-4" strokeWidth={2} />
-            Nueva organización
-          </button>
+          {/*
+            Gateado igual que el botón del estado vacío: un ADMIN de
+            organización no funda instituciones desde este dashboard (lo hace
+            desde su perfil), solo el ADMIN global administra la plataforma
+            desde aquí. El backend permite crear organización a cualquier
+            autenticado, así que esto es coherencia de UX/flujo, no un
+            control de seguridad.
+          */}
+          {isGlobalAdmin && (
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2.5 text-[13.5px] font-medium text-text-h hover:border-accent"
+              onClick={() => setShowCreateOrgModal(true)}
+            >
+              <PlusCircle className="h-4 w-4" strokeWidth={2} />
+              Nueva organización
+            </button>
+          )}
         </div>
       </div>
 
@@ -566,13 +591,13 @@ function CreateOrganizationModal({
 
 type AddMemberModalProps = {
   email: string
-  orgRole: (typeof ORG_ROLE_OPTIONS)[number]
+  orgRole: OrganizationRoleValue
   saving: boolean
   error: string | null
   success: string | null
   organizationName: string
   onEmailChange: (value: string) => void
-  onRoleChange: (value: (typeof ORG_ROLE_OPTIONS)[number]) => void
+  onRoleChange: (value: OrganizationRoleValue) => void
   onSubmit: (event: FormEvent) => void
   onClose: () => void
 }
@@ -614,7 +639,7 @@ function AddMemberModal({
           <select
             className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[14px] text-text-h outline-none focus:border-accent"
             value={orgRole}
-            onChange={(event) => onRoleChange(event.target.value as (typeof ORG_ROLE_OPTIONS)[number])}
+            onChange={(event) => onRoleChange(event.target.value as OrganizationRoleValue)}
             disabled={saving}
           >
             {ORG_ROLE_OPTIONS.map((role) => (

@@ -61,9 +61,19 @@ export function listOrganizationMembers(
   )
 }
 
+/**
+ * Única fuente de verdad de los roles de organización en el cliente. El
+ * servidor tiene su propia copia (DTO `@IsIn` + enum de Prisma) — cruzar el
+ * límite cliente/servidor es tolerable, pero dentro del cliente todo lo que
+ * necesite este literal debería derivarlo de aquí.
+ */
+export const ORGANIZATION_ROLES = ['ADMIN', 'TEACHER', 'STUDENT'] as const
+
+export type OrganizationRoleValue = (typeof ORGANIZATION_ROLES)[number]
+
 export type AddOrganizationMemberInput = {
   email: string
-  orgRole: 'ADMIN' | 'TEACHER' | 'STUDENT'
+  orgRole: OrganizationRoleValue
 }
 
 /**
