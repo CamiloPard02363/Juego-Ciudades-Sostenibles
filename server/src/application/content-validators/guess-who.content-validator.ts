@@ -17,7 +17,7 @@ export interface GuessWhoConfig {
 }
 
 const DEFAULT_CONFIG: GuessWhoConfig = {
-  maxAccusationCount: 2,
+  maxAccusationCount: 6,
   turnDurationSeconds: 15,
 };
 

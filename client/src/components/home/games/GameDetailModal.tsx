@@ -39,7 +39,7 @@ export function GameDetailModal({
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
   const config = game.config as { maxAccusationCount?: number; turnDurationSeconds?: number }
-  const [maxAccusationCount, setMaxAccusationCount] = useState(config.maxAccusationCount ?? 2)
+  const [maxAccusationCount, setMaxAccusationCount] = useState(config.maxAccusationCount ?? 6)
   const [savingConfig, setSavingConfig] = useState(false)
   const [configError, setConfigError] = useState<string | null>(null)
   const [joinCode, setJoinCode] = useState('')
@@ -229,7 +229,7 @@ export function GameDetailModal({
               onClick={() => {
                 setEditingConfig(false)
                 setConfigError(null)
-                setMaxAccusationCount(config.maxAccusationCount ?? 2)
+                setMaxAccusationCount(config.maxAccusationCount ?? 6)
               }}
               disabled={savingConfig}
             >

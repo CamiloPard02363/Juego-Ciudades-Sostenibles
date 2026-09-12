@@ -4,7 +4,8 @@ import type { GuessWhoCard, RoomPlayerView } from './guessWhoTypes'
 
 /**
  * Cuenta el tiempo restante hasta `deadline` (epoch ms) y se refresca cada
- * 200ms. Compartido entre la sala 1v1 y los matches de torneo.
+ * 200ms. Compartido entre la sala 1v1 y los matches de torneo — ambos
+ * dibujan la misma barra de progreso de turno.
  */
 export function useCountdown(deadline: number | null): number {
   const [remainingMs, setRemainingMs] = useState(0)
@@ -219,6 +220,7 @@ type MatchBoardProps = {
   opponent: RoomPlayerView
   isMyTurn: boolean
   canAccuse: boolean
+  maxAccusationCount: number
   turnDeadline: number | null
   turnDurationSeconds: number
   onDiscard: (cardId: string) => void
@@ -239,6 +241,7 @@ export function MatchBoard({
   opponent,
   isMyTurn,
   canAccuse,
+  maxAccusationCount,
   turnDeadline,
   turnDurationSeconds,
   onDiscard,
@@ -248,7 +251,6 @@ export function MatchBoard({
   const [accusing, setAccusing] = useState(false)
   const turnRemainingMs = useCountdown(turnDeadline)
   const remainingForSelf = cards.length - self.discardedCardIds.length
-  const minimumDiscardsReached = self.discardedCardIds.length >= 2
   const secretCard = cards.find((card) => card.cardId === self.secretCardId)
 
   return (
@@ -292,26 +294,20 @@ export function MatchBoard({
             </button>
           )}
 
-          {isMyTurn && (
+          {canAccuse && (
             <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5 animate-[fade-in-up_0.35s_ease-out]">
               <p className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-text-h">
                 <Swords className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={2} />
-                ¿Cuál crees que es la tarjeta de {opponent.displayName}?
+                Quedan {maxAccusationCount} o menos
               </p>
-              {!minimumDiscardsReached && (
-                <p className="mb-2.5 rounded-lg border border-border bg-surface px-3 py-2 text-[11.5px] text-text" role="status">
-                  Puedes acusar a tu rival después de descartar mínimo dos cartas.
-                </p>
-              )}
               <button
                 type="button"
-                disabled={!canAccuse}
                 className={`w-full rounded-lg border border-accent px-3 py-2 text-[12px] font-semibold text-accent transition-transform hover:-translate-y-0.5 disabled:opacity-50 ${
                   !accusing ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''
                 }`}
                 onClick={() => setAccusing((current) => !current)}
               >
-                {accusing ? 'Cancelar acusación' : 'Acusar carta'}
+                {accusing ? 'Cancelar acusación' : 'Acusar una tarjeta'}
               </button>
               {accusing && (
                 <p className="mt-2 text-[11px] text-text animate-[fade-in-up_0.2s_ease-out]">
