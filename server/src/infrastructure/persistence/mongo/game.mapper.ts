@@ -12,6 +12,8 @@ export interface GameDocument {
   theme: GameTheme;
   categoryId: string;
   creatorUserId: string;
+  /** Ausente o `null` en documentos previos a organizaciones = juego personal. */
+  organizationId?: string | null;
   status: string;
   config: Record<string, unknown>;
   content: unknown[];
@@ -30,6 +32,7 @@ export class GameMapper {
       theme: doc.theme,
       categoryId: doc.categoryId,
       creatorUserId: doc.creatorUserId,
+      organizationId: doc.organizationId ?? null,
       status: GameStatus.create(doc.status),
       config: doc.config,
       content: doc.content,
@@ -50,6 +53,7 @@ export class GameMapper {
       theme: props.theme,
       categoryId: props.categoryId,
       creatorUserId: props.creatorUserId,
+      organizationId: props.organizationId,
       status: props.status.getName(),
       config: props.config,
       content: props.content,

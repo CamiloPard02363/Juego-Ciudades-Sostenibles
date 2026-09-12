@@ -6,7 +6,7 @@ import {
 import { GameNotFoundError } from '../errors/application.errors.js';
 import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
 import type { UseCase } from '../ports/use-case.port.js';
-import { RequesterAdminResolver } from '../services/requester-admin-resolver.service.js';
+import { GameAuthorizationService } from '../services/game-authorization.service.js';
 
 export interface DeleteGameInput {
   gameId: string;
@@ -22,7 +22,7 @@ export interface DeleteGameInput {
 export class DeleteGameUseCase implements UseCase<DeleteGameInput, void> {
   constructor(
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
-    private readonly requesterAdminResolver: RequesterAdminResolver,
+    private readonly gameAuthorization: GameAuthorizationService,
   ) {}
 
   async execute(input: DeleteGameInput): Promise<void> {
@@ -32,8 +32,8 @@ export class DeleteGameUseCase implements UseCase<DeleteGameInput, void> {
       throw new GameNotFoundError(input.gameId);
     }
 
-    const isAdmin = await this.requesterAdminResolver.resolve(input.requestingUserId);
-    if (!game.canBeManagedBy(input.requestingUserId, isAdmin)) {
+    const canManage = await this.gameAuthorization.canManage(game, input.requestingUserId);
+    if (!canManage) {
       throw new ForbiddenActionError('eliminar este juego');
     }
 

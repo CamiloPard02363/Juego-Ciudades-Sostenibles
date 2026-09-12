@@ -25,6 +25,14 @@ export class CreateGameDto {
   @IsString()
   categoryId!: string;
 
+  /**
+   * Si viene, el juego nace institucional de esa organización. Cualquier
+   * miembro puede usarlo, incluido un STUDENT de la organización.
+   */
+  @IsOptional()
+  @IsString()
+  organizationId?: string | null;
+
   @IsOptional()
   @IsString()
   slug?: string;

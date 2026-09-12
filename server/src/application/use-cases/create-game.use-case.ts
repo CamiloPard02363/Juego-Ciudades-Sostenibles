@@ -7,7 +7,15 @@ import {
   type GameRepository,
 } from '../../domain/ports/game.repository.port.js';
 import { ID_GENERATOR, type IdGenerator } from '../../domain/ports/id-generator.port.js';
-import { GameSlugAlreadyTakenError } from '../errors/application.errors.js';
+import {
+  ORGANIZATION_REPOSITORY,
+  type OrganizationRepository,
+} from '../../domain/ports/organization.repository.port.js';
+import {
+  GameSlugAlreadyTakenError,
+  NotAnOrganizationMemberError,
+  OrganizationNotFoundError,
+} from '../errors/application.errors.js';
 import { toGameDetailDto, type GameDetailDto } from '../dtos/game-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
 import { ContentValidatorRegistry } from '../content-validators/content-validator.registry.js';
@@ -18,6 +26,11 @@ export interface CreateGameInput {
   description: string;
   gameType: string;
   categoryId: string;
+  /**
+   * Si viene, el juego nace institucional de esa organización. Cualquier
+   * miembro puede hacerlo, incluido un STUDENT de la organización.
+   */
+  organizationId?: string | null;
   slug?: string;
   theme?: { primaryColor?: string; coverImageUrl?: string | null };
   config?: unknown;
@@ -30,16 +43,26 @@ export interface CreateGameInput {
  * CreateUserUseCase. La moderación de contenido queda para el futuro
  * clasificador de ML mencionado por el usuario — mientras tanto los juegos
  * nacen en DRAFT y el creador decide cuándo publicarlos.
+ *
+ * Si se pasa `organizationId`, el juego nace institucional. El único requisito
+ * es pertenecer a esa organización: no se exige orgRole ADMIN ni TEACHER, un
+ * STUDENT del colegio también puede aportar material institucional.
  */
 @Injectable()
 export class CreateGameUseCase implements UseCase<CreateGameInput, GameDetailDto> {
   constructor(
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
     @Inject(ID_GENERATOR) private readonly idGenerator: IdGenerator,
+    @Inject(ORGANIZATION_REPOSITORY)
+    private readonly organizationRepository: OrganizationRepository,
     private readonly contentValidators: ContentValidatorRegistry,
   ) {}
 
   async execute(input: CreateGameInput): Promise<GameDetailDto> {
+    if (input.organizationId) {
+      await this.assertIsMemberOf(input.organizationId, input.creatorUserId);
+    }
+
     const gameType = GameType.create(input.gameType);
     const validator = this.contentValidators.resolve(gameType.getName());
 
@@ -70,6 +93,7 @@ export class CreateGameUseCase implements UseCase<CreateGameInput, GameDetailDto
       },
       categoryId: input.categoryId,
       creatorUserId: input.creatorUserId,
+      organizationId: input.organizationId ?? null,
       config,
       content,
     });
@@ -77,5 +101,22 @@ export class CreateGameUseCase implements UseCase<CreateGameInput, GameDetailDto
     await this.gameRepository.save(game);
 
     return toGameDetailDto(game);
+  }
+
+  private async assertIsMemberOf(organizationId: string, userId: string): Promise<void> {
+    const organization = await this.organizationRepository.findById(organizationId);
+
+    if (!organization) {
+      throw new OrganizationNotFoundError(organizationId);
+    }
+
+    const membership = await this.organizationRepository.findMembership(
+      organizationId,
+      userId,
+    );
+
+    if (!membership) {
+      throw new NotAnOrganizationMemberError(organizationId);
+    }
   }
 }

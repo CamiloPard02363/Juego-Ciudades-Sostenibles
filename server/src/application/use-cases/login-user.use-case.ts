@@ -15,6 +15,7 @@ import {
 import { toUserResponseDto, type UserResponseDto } from '../dtos/user-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
 import { TokenPairIssuer } from '../services/token-pair-issuer.service.js';
+import { OrganizationAutoJoinService } from '../services/organization-auto-join.service.js';
 
 export interface LoginUserInput {
   email: string;
@@ -33,6 +34,7 @@ export class LoginUserUseCase implements UseCase<LoginUserInput, LoginUserOutput
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     @Inject(PASSWORD_HASHER) private readonly passwordHasher: PasswordHasher,
     private readonly tokenPairIssuer: TokenPairIssuer,
+    private readonly organizationAutoJoin: OrganizationAutoJoinService,
   ) {}
 
   async execute(input: LoginUserInput): Promise<LoginUserOutput> {
@@ -58,6 +60,10 @@ export class LoginUserUseCase implements UseCase<LoginUserInput, LoginUserOutput
 
     user.registerLogin();
     await this.userRepository.save(user);
+
+    // También en login, no solo en signup: cubre a los usuarios que ya existían
+    // cuando alguien reclamó su dominio después de su registro.
+    await this.organizationAutoJoin.joinByEmailDomain(user.id, user.email);
 
     const { accessToken, refreshToken } = await this.tokenPairIssuer.issueFor(user);
 

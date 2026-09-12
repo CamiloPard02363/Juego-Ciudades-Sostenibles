@@ -7,7 +7,7 @@ import { GameNotFoundError } from '../errors/application.errors.js';
 import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
 import { toGameDetailDto, type GameDetailDto } from '../dtos/game-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
-import { RequesterAdminResolver } from '../services/requester-admin-resolver.service.js';
+import { GameAuthorizationService } from '../services/game-authorization.service.js';
 
 export interface UnpublishGameInput {
   gameId: string;
@@ -18,7 +18,7 @@ export interface UnpublishGameInput {
 export class UnpublishGameUseCase implements UseCase<UnpublishGameInput, GameDetailDto> {
   constructor(
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
-    private readonly requesterAdminResolver: RequesterAdminResolver,
+    private readonly gameAuthorization: GameAuthorizationService,
   ) {}
 
   async execute(input: UnpublishGameInput): Promise<GameDetailDto> {
@@ -28,8 +28,8 @@ export class UnpublishGameUseCase implements UseCase<UnpublishGameInput, GameDet
       throw new GameNotFoundError(input.gameId);
     }
 
-    const isAdmin = await this.requesterAdminResolver.resolve(input.requestingUserId);
-    if (!game.canBeManagedBy(input.requestingUserId, isAdmin)) {
+    const canManage = await this.gameAuthorization.canManage(game, input.requestingUserId);
+    if (!canManage) {
       throw new ForbiddenActionError('despublicar este juego');
     }
 

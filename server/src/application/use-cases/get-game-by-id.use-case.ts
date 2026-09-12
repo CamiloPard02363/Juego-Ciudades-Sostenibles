@@ -7,7 +7,7 @@ import { GameNotFoundError } from '../errors/application.errors.js';
 import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
 import { toGameDetailDto, type GameDetailDto } from '../dtos/game-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
-import { RequesterAdminResolver } from '../services/requester-admin-resolver.service.js';
+import { GameAuthorizationService } from '../services/game-authorization.service.js';
 
 export interface GetGameByIdInput {
   gameId: string;
@@ -18,7 +18,7 @@ export interface GetGameByIdInput {
 export class GetGameByIdUseCase implements UseCase<GetGameByIdInput, GameDetailDto> {
   constructor(
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
-    private readonly requesterAdminResolver: RequesterAdminResolver,
+    private readonly gameAuthorization: GameAuthorizationService,
   ) {}
 
   async execute(input: GetGameByIdInput): Promise<GameDetailDto> {
@@ -31,9 +31,9 @@ export class GetGameByIdUseCase implements UseCase<GetGameByIdInput, GameDetailD
     // Un DRAFT solo lo ve su creador o un admin; PUBLISHED lo ve cualquiera.
     // FLAGGED/REMOVED tampoco son públicos, mismo criterio que DRAFT.
     if (!game.status.isPublished()) {
-      const isAdmin = await this.requesterAdminResolver.resolve(input.requestingUserId);
+      const canManage = await this.gameAuthorization.canManage(game, input.requestingUserId);
 
-      if (!game.canBeManagedBy(input.requestingUserId, isAdmin)) {
+      if (!canManage) {
         throw new ForbiddenActionError('ver este juego');
       }
     }

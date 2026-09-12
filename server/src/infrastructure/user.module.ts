@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { OrganizationCoreModule } from './organization.module.js';
 import { USER_REPOSITORY } from '../domain/ports/user.repository.port.js';
 import { PASSWORD_HASHER } from '../domain/ports/password-hasher.port.js';
 import { ID_GENERATOR } from '../domain/ports/id-generator.port.js';
@@ -32,6 +33,9 @@ import { AuthController } from './http/controllers/auth.controller.js';
 
 @Module({
   imports: [
+    // Auto-join por dominio en signup/login. Se usa el módulo "core" (sin
+    // controladores ni UserModule) para no crear un ciclo entre módulos.
+    OrganizationCoreModule,
     JwtModule.register({
       global: false,
       secret: process.env.JWT_SECRET,
