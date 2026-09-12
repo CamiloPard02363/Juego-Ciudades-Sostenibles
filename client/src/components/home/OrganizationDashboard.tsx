@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PlusCircle, Users2 } from 'lucide-react'
+import { Globe2, PlusCircle, Users2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
+  listAllOrganizations,
   listMyOrganizations,
   listOrganizationMembers,
+  type Organization,
   type OrganizationMember,
   type OrganizationWithMyRole,
 } from '../../services/organization.service'
@@ -19,13 +21,15 @@ const MEMBER_ROLE_STYLES: Record<string, string> = {
 
 /**
  * Dashboard de organización: lista de miembros, donación de un juego propio,
- * y atajo para crear un juego institucional. Si el usuario administra 2+
- * organizaciones, un selector simple cambia el contexto (ver `activeOrgId`).
+ * y atajo para crear un juego institucional. El universo de organizaciones
+ * seleccionables depende del rol de quien mira: un ADMIN global ve TODAS las
+ * organizaciones de la plataforma (dueño de la app, `GET /organizations/all`);
+ * un ADMIN de organización ve solo aquellas donde tiene `orgRole = ADMIN`
+ * (dueño de su institución). Los dos ejes nunca se mezclan en el mismo
+ * selector — ver `selectableOrganizations`.
  *
- * El acceso ya se filtra en `OrganizationDashboardPage` (solo ADMIN de
- * alguna organización o ADMIN global); acá se asume que quien llega tiene
- * al menos una organización administrable, salvo el caso ADMIN global sin
- * membresías propias, cubierto por el estado vacío de abajo.
+ * El acceso a esta página ya se filtra en `OrganizationDashboardPage` (solo
+ * ADMIN de alguna organización o ADMIN global).
  */
 export function OrganizationDashboard() {
   const { token, user } = useAuth()
@@ -150,43 +154,61 @@ export function OrganizationDashboard() {
     }
   }
 
-  if (loadingOrganizations) {
+  if (loadingOrganizations || (isGlobalAdmin && loadingAllOrganizations)) {
     return <p className="text-[14px] text-text">Cargando organización…</p>
   }
 
-  if (adminOrganizations.length === 0) {
-    // Caso ADMIN global sin membresía propia: puede ver la sección, pero no
-    // administra ninguna organización desde acá (fuera de alcance del issue
-    // #34 la gestión global de organizaciones ajenas desde este dashboard).
+  if (selectableOrganizations.length === 0) {
+    // Caso ADMIN global sin ninguna organización aún creada en la plataforma
+    // (no solo sin membresía propia): ahí sí no hay nada que listar.
+    // Caso ADMIN de organización sin membresía ADMIN en ninguna: no
+    // administra nada, se le sugiere fundar la suya.
     return (
       <div className="rounded-2xl border border-dashed border-border py-16 text-center">
-        <p className="text-[15px] font-medium text-text-h">No administras ninguna organización.</p>
-        <p className="mt-1 text-[13px] text-text">
-          Funda una desde tu perfil si tu institución todavía no está registrada.
+        <p className="text-[15px] font-medium text-text-h">
+          {isGlobalAdmin
+            ? 'Todavía no hay organizaciones registradas en la plataforma.'
+            : 'No administras ninguna organización.'}
         </p>
+        {!isGlobalAdmin && (
+          <p className="mt-1 text-[13px] text-text">
+            Funda una desde tu perfil si tu institución todavía no está registrada.
+          </p>
+        )}
       </div>
     )
   }
 
-  const activeOrg = adminOrganizations.find((org) => org.id === activeOrgId) ?? adminOrganizations[0]
+  const activeOrg =
+    selectableOrganizations.find((org) => org.id === activeOrgId) ?? selectableOrganizations[0]
 
   return (
     <section className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Organización</h2>
+          <div className="mb-1 flex items-center gap-2">
+            <h2 className="text-[22px] tracking-tight text-text-h">Organización</h2>
+            {isGlobalAdmin && (
+              <span className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-[11.5px] font-semibold text-accent">
+                <Globe2 className="h-3 w-3" strokeWidth={2.5} />
+                Todas las organizaciones
+              </span>
+            )}
+          </div>
           <p className="text-[14px] text-text">
-            Administra los miembros y los juegos institucionales de {activeOrg.name}.
+            {isGlobalAdmin
+              ? `Viendo "${activeOrg.name}" como ADMIN global de la plataforma.`
+              : `Administra los miembros y los juegos institucionales de ${activeOrg.name}.`}
           </p>
         </div>
 
-        {adminOrganizations.length > 1 && (
+        {selectableOrganizations.length > 1 && (
           <select
             className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[13.5px] text-text-h outline-none focus:border-accent"
             value={activeOrg.id}
             onChange={(event) => setActiveOrgId(event.target.value)}
           >
-            {adminOrganizations.map((org) => (
+            {selectableOrganizations.map((org) => (
               <option key={org.id} value={org.id}>
                 {org.name}
               </option>
@@ -308,12 +330,6 @@ export function OrganizationDashboard() {
         </div>
       </div>
 
-      {user?.role === 'ADMIN' && (
-        <p className="text-[12px] text-text/70">
-          Eres ADMIN global de la plataforma; este panel solo muestra las organizaciones donde
-          tienes membresía como ADMIN.
-        </p>
-      )}
     </section>
   )
 }
