@@ -28,6 +28,8 @@ import { ReactivateUserUseCase } from '../application/use-cases/reactivate-user.
 import { VerifyUserEmailUseCase } from '../application/use-cases/verify-user-email.use-case.js';
 import { ListUsersUseCase } from '../application/use-cases/list-users.use-case.js';
 import { ChangeUserRoleUseCase } from '../application/use-cases/change-user-role.use-case.js';
+import { ResetUserPasswordUseCase } from '../application/use-cases/reset-user-password.use-case.js';
+import { UpdateUserProfileByAdminUseCase } from '../application/use-cases/update-user-profile-by-admin.use-case.js';
 import { UserController } from './http/controllers/user.controller.js';
 import { AuthController } from './http/controllers/auth.controller.js';
 
@@ -67,6 +69,8 @@ import { AuthController } from './http/controllers/auth.controller.js';
     VerifyUserEmailUseCase,
     ListUsersUseCase,
     ChangeUserRoleUseCase,
+    ResetUserPasswordUseCase,
+    UpdateUserProfileByAdminUseCase,
   ],
   exports: [JwtModule, USER_REPOSITORY, ID_GENERATOR],
 })
