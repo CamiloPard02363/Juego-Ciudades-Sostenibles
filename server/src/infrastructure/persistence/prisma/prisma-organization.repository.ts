@@ -3,7 +3,10 @@ import type { OrganizationRepository } from '../../../domain/ports/organization.
 import type { Organization } from '../../../domain/entities/organization.entity.js';
 import type { OrganizationMembership } from '../../../domain/entities/organization-membership.entity.js';
 import type { EmailDomain } from '../../../domain/value-objects/email-domain.vo.js';
-import { OrganizationDomainAlreadyClaimedError } from '../../../application/errors/application.errors.js';
+import {
+  OrganizationDomainAlreadyClaimedError,
+  UserAlreadyMemberOfOrganizationError,
+} from '../../../application/errors/application.errors.js';
 import { PrismaService } from './prisma.service.js';
 import {
   OrganizationMapper,
@@ -118,6 +121,24 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
       create: data,
       update: { orgRole: data.orgRole },
     });
+  }
+
+  /**
+   * A diferencia de `saveMembership` (upsert idempotente del auto-join), aquí
+   * un choque contra el índice único `(organizationId, userId)` es un error
+   * de negocio real: alguien intentó agregar dos veces al mismo usuario.
+   */
+  async createMembership(membership: OrganizationMembership): Promise<void> {
+    const data = OrganizationMembershipMapper.toPersistence(membership);
+
+    try {
+      await this.prisma.organizationMembershipModel.create({ data });
+    } catch (error) {
+      if (isUniqueConstraintViolation(error, 'organizationId_userId')) {
+        throw new UserAlreadyMemberOfOrganizationError(data.organizationId);
+      }
+      throw error;
+    }
   }
 
   async findMembership(

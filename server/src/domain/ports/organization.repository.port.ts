@@ -24,6 +24,13 @@ export interface OrganizationRepository {
   findAllByUserId(userId: string): Promise<Organization[]>;
 
   saveMembership(membership: OrganizationMembership): Promise<void>;
+  /**
+   * A diferencia de `saveMembership` (upsert idempotente usado por el
+   * auto-join), esta operación falla si ya existe la membresía — la
+   * violación del índice único `(organizationId, userId)` debe traducirse a
+   * `UserAlreadyMemberOfOrganizationError` en la capa de infraestructura.
+   */
+  createMembership(membership: OrganizationMembership): Promise<void>;
   findMembership(
     organizationId: string,
     userId: string,
