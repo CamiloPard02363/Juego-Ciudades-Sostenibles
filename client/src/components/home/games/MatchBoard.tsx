@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { SkipForward, Swords, Volume2 } from 'lucide-react'
+import { Clock3, SkipForward, Swords, Volume2 } from 'lucide-react'
 import type { GuessWhoCard, RoomPlayerView } from './guessWhoTypes'
 
 /**
@@ -25,10 +25,13 @@ export function useCountdown(deadline: number | null): number {
 }
 
 /**
- * Barra compacta de tiempo restante del turno (sin el texto "Es tu turno" —
- * ese aviso ahora es el pop centrado de abajo, `TurnPopBanner`). Se conserva
- * como barra de progreso + segundos para que durante todo el turno se pueda
- * seguir viendo cuánto tiempo queda, algo que un pop transitorio no cubre.
+ * Reloj de tiempo restante del turno, fijo al lado derecho durante toda la
+ * partida (pedido explícito: nada de barra de progreso lineal ni de que se
+ * pierda entre el resto del contenido al scrollear) — `sticky` dentro del
+ * panel del modal, alineado a la derecha vía `self-end` en el contenedor
+ * flex-col padre, así que se mantiene visible en su esquina sin salirse de
+ * los límites del panel. El deadline sigue viniendo del servidor; esto solo
+ * cambia la representación visual de la cuenta regresiva.
  */
 export function TurnBanner({
   isMyTurn,
@@ -40,26 +43,38 @@ export function TurnBanner({
   turnDurationSeconds: number
 }) {
   const secondsLeft = Math.ceil(remainingMs / 1000)
-  const progress = Math.max(0, Math.min(1, remainingMs / (turnDurationSeconds * 1000)))
   const urgent = secondsLeft <= 5
+  const clockProgress = Math.max(0, Math.min(1, remainingMs / (turnDurationSeconds * 1000)))
+  const circumference = 2 * Math.PI * 22
 
   return (
     <div
-      className={`flex items-center justify-end gap-2 rounded-xl border p-3 transition-colors ${
-        isMyTurn ? 'border-accent/50 bg-accent/10' : 'border-border bg-code-bg'
+      className={`sticky top-2 z-[56] flex w-fit flex-col items-center gap-1.5 self-end rounded-2xl border p-3 shadow-[var(--shadow)] backdrop-blur-sm transition-colors ${
+        isMyTurn ? 'border-accent/50 bg-accent/10' : 'border-border bg-surface/95'
       }`}
     >
-      <span className="sr-only">{isMyTurn ? 'Es tu turno' : 'Turno del rival'}</span>
-      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border">
-        <div
-          className={`h-full rounded-full transition-[width] duration-200 ease-linear ${
-            urgent ? 'bg-danger' : 'bg-accent'
-          }`}
-          style={{ width: `${progress * 100}%` }}
-        />
+      <div className="relative flex h-14 w-14 items-center justify-center">
+        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 52 52" aria-hidden="true">
+          <circle cx="26" cy="26" r="22" fill="none" className="stroke-border" strokeWidth="4" />
+          <circle
+            cx="26"
+            cy="26"
+            r="22"
+            fill="none"
+            className={urgent ? 'stroke-danger' : 'stroke-accent'}
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - clockProgress)}
+          />
+        </svg>
+        <Clock3 className={`h-4 w-4 ${urgent ? 'text-danger' : 'text-accent'}`} strokeWidth={2} />
+        <span className={`absolute text-[11px] font-bold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
+          {secondsLeft}
+        </span>
       </div>
-      <span className={`w-5 text-right text-[13px] font-semibold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
-        {secondsLeft}
+      <span className="text-[11px] font-medium whitespace-nowrap text-text">
+        {isMyTurn ? 'Tu turno' : 'Turno del rival'}
       </span>
     </div>
   )
@@ -86,7 +101,13 @@ export function TurnPopBanner({ isMyTurn, opponentName }: { isMyTurn: boolean; o
   if (!visible) return null
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[55] flex items-center justify-center p-5">
+    // z-[75]: por encima de DealCountdownOverlay (z-[70]). Si quedaba por
+    // debajo, cuando el reparto tardaba un pelín más en un cliente que en el
+    // otro (latencia de red distinta para cada jugador), el overlay opaco de
+    // "Barajando cartas…" tapaba este aviso durante toda su ventana de 1.7s
+    // — el jugador que NO empezaba el turno podía terminar sin ver nunca
+    // "Turno de X", aunque el aviso sí se hubiera disparado.
+    <div className="pointer-events-none fixed inset-0 z-[75] flex items-center justify-center p-5">
       <div
         className={`rounded-2xl border px-8 py-5 text-center shadow-[var(--shadow)] backdrop-blur-sm animate-[turn-pop-in_0.35s_cubic-bezier(0.16,1,0.3,1),turn-pop-out_0.3s_ease-in_1.35s_forwards] ${
           isMyTurn ? 'border-accent/50 bg-accent/15' : 'border-border bg-surface/95'
@@ -230,6 +251,7 @@ export function MatchBoard({
   const [accusing, setAccusing] = useState(false)
   const turnRemainingMs = useCountdown(turnDeadline)
   const remainingForSelf = cards.length - self.discardedCardIds.length
+  const secretCard = cards.find((card) => card.cardId === self.secretCardId)
 
   return (
     <div className="flex flex-col gap-5">
@@ -245,9 +267,17 @@ export function MatchBoard({
         <div className="flex shrink-0 flex-col gap-3 sm:w-[190px]">
           <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
             <p className="text-[10.5px] font-semibold tracking-wide text-accent uppercase">Tu tarjeta secreta</p>
-            <p className="mt-0.5 text-[14px] font-semibold text-text-h">
-              {cards.find((card) => card.cardId === self.secretCardId)?.label ?? '—'}
-            </p>
+            {/* Se muestra la imagen real (no solo el nombre) para que sea
+                más intuitivo y pedagógico: quien juega ve la bandera/tarjeta
+                que su rival debe adivinar, no solo su etiqueta de texto. */}
+            {secretCard?.imageUrl && (
+              <img
+                src={secretCard.imageUrl}
+                alt=""
+                className="mt-2 h-20 w-full rounded-lg border border-border object-cover"
+              />
+            )}
+            <p className="mt-2 text-[14px] font-semibold text-text-h">{secretCard?.label ?? '—'}</p>
             <p className="mt-1.5 text-[11.5px] text-text">
               Quedan {remainingForSelf} de {cards.length}
             </p>
