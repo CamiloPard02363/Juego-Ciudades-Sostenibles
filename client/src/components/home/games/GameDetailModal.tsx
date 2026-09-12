@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Settings, Trash2 } from 'lucide-react'
-import { updateGame, type GameDetail } from '../../../services/game.service'
+import { donateGame, updateGame, type GameDetail } from '../../../services/game.service'
+import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { useAuth } from '../../../hooks/useAuth'
 import { ApiError } from '../../../utils/http'
 import { Modal } from './Modal'
@@ -31,7 +32,7 @@ export function GameDetailModal({
   onUpdated,
   color,
 }: GameDetailModalProps) {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const accentColor = color ?? game.theme.primaryColor
   const isGuessWho = game.gameType === 'GUESS_WHO'
   const opensLiveRoom = isGuessWho || game.gameType === 'DOMINO'
@@ -44,6 +45,39 @@ export function GameDetailModal({
   const [joinCode, setJoinCode] = useState('')
   const [joinResolving, setJoinResolving] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
+
+  // Donación: solo tiene sentido ofrecerla al creador de un juego personal
+  // (organizationId null) que sea miembro de alguna organización (ver
+  // DonateGameToOrganizationUseCase — el ADMIN de organización dona desde el
+  // dashboard, no desde acá).
+  const isCreator = Boolean(user && game.creatorUserId === user.id)
+  const canDonate = isCreator && !game.organizationId
+  const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
+  const [donateOrgId, setDonateOrgId] = useState('')
+  const [donating, setDonating] = useState(false)
+  const [donateError, setDonateError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!token || !canDonate) return
+    listMyOrganizations(token)
+      .then((items) => setOrganizations(items))
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, canDonate])
+
+  async function handleDonate() {
+    if (!token || !donateOrgId) return
+    setDonating(true)
+    setDonateError(null)
+    try {
+      const updated = await donateGame(token, game.id, donateOrgId)
+      onUpdated(updated)
+    } catch (err) {
+      setDonateError(err instanceof ApiError ? err.message : 'No se pudo donar el juego.')
+    } finally {
+      setDonating(false)
+    }
+  }
 
   /**
    * Campo de código propio de ESTE juego: a diferencia del botón agnóstico
@@ -276,6 +310,42 @@ export function GameDetailModal({
               {joinError && (
                 <p className="mt-2 text-[12.5px] text-danger" role="alert">
                   {joinError}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Donar a una organización: solo el creador de un juego personal
+              que sea miembro de alguna organización (ver canDonate arriba). */}
+          {canDonate && organizations.length > 0 && (
+            <div className="rounded-lg border border-border p-3">
+              <p className="mb-2 text-[12px] font-medium text-text-h">Donar este juego a una organización</p>
+              <div className="flex gap-2">
+                <select
+                  className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-[13px] text-text-h outline-none focus:border-accent"
+                  value={donateOrgId}
+                  disabled={donating}
+                  onChange={(event) => setDonateOrgId(event.target.value)}
+                >
+                  <option value="">Elige una organización…</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg border border-border px-3.5 py-2 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={donating || !donateOrgId}
+                  onClick={handleDonate}
+                >
+                  {donating ? 'Donando…' : 'Donar'}
+                </button>
+              </div>
+              {donateError && (
+                <p className="mt-2 text-[12.5px] text-danger" role="alert">
+                  {donateError}
                 </p>
               )}
             </div>
