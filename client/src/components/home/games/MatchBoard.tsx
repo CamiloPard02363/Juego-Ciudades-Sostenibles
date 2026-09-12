@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Clock3, SkipForward, Swords, Volume2 } from 'lucide-react'
-import type { GuessWhoCard, RoomPlayerView } from './guessWhoTypes'
+import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoCard, type RoomPlayerView } from './guessWhoTypes'
 
 /**
  * Cuenta el tiempo restante hasta `deadline` (epoch ms) y se refresca cada
@@ -25,55 +25,82 @@ export function useCountdown(deadline: number | null): number {
 }
 
 /**
- * Reloj de tiempo restante del turno, fijo al lado derecho durante toda la
- * partida (pedido explícito: nada de barra de progreso lineal ni de que se
- * pierda entre el resto del contenido al scrollear) — `sticky` dentro del
- * panel del modal, alineado a la derecha vía `self-end` en el contenedor
- * flex-col padre, así que se mantiene visible en su esquina sin salirse de
- * los límites del panel. El deadline sigue viniendo del servidor; esto solo
- * cambia la representación visual de la cuenta regresiva.
+ * Reloj de tiempo restante del turno. Dos variantes de presentación sobre la
+ * misma mecánica (el deadline sigue viniendo del servidor):
+ * - `floating` (default): flotante y fijo al lado derecho durante toda la
+ *   partida, para juegos como Dominó donde vive suelto arriba del tablero.
+ * - `inline`: más grande y vistoso, pensado para vivir DENTRO de una columna
+ *   de acciones (ver el panel izquierdo de MatchBoard) en vez de flotar por
+ *   su cuenta — mismo reloj, sin `sticky`/`self-end`, con un halo/pulso más
+ *   marcado para que no se sienta un elemento menor al lado de la bandera y
+ *   los botones de acción.
  */
 export function TurnBanner({
   isMyTurn,
   remainingMs,
   turnDurationSeconds,
+  variant = 'floating',
 }: {
   isMyTurn: boolean
   remainingMs: number
   turnDurationSeconds: number
+  variant?: 'floating' | 'inline'
 }) {
   const secondsLeft = Math.ceil(remainingMs / 1000)
   const urgent = secondsLeft <= 5
   const clockProgress = Math.max(0, Math.min(1, remainingMs / (turnDurationSeconds * 1000)))
-  const circumference = 2 * Math.PI * 22
+  const isInline = variant === 'inline'
+  const radius = isInline ? 34 : 22
+  const circumference = 2 * Math.PI * radius
+  const boxSize = isInline ? 'h-24 w-24' : 'h-14 w-14'
+  const viewBox = isInline ? '0 0 80 80' : '0 0 52 52'
+  const center = isInline ? 40 : 26
+  const strokeWidth = isInline ? 6 : 4
 
   return (
     <div
-      className={`sticky top-2 z-[56] flex w-fit flex-col items-center gap-1.5 self-end rounded-2xl border p-3 shadow-[var(--shadow)] backdrop-blur-sm transition-colors ${
-        isMyTurn ? 'border-accent/50 bg-accent/10' : 'border-border bg-surface/95'
+      className={`flex flex-col items-center gap-2 rounded-2xl border p-4 shadow-[var(--shadow)] backdrop-blur-sm transition-colors ${
+        isInline ? 'w-full' : 'sticky top-2 z-[56] w-fit self-end p-3'
+      } ${
+        isMyTurn
+          ? `border-accent/50 bg-accent/10 ${isInline ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''}`
+          : 'border-border bg-surface/95'
       }`}
     >
-      <div className="relative flex h-14 w-14 items-center justify-center">
-        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 52 52" aria-hidden="true">
-          <circle cx="26" cy="26" r="22" fill="none" className="stroke-border" strokeWidth="4" />
+      <div className={`relative flex items-center justify-center ${boxSize}`}>
+        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox={viewBox} aria-hidden="true">
+          <circle cx={center} cy={center} r={radius} fill="none" className="stroke-border" strokeWidth={strokeWidth} />
           <circle
-            cx="26"
-            cy="26"
-            r="22"
+            cx={center}
+            cy={center}
+            r={radius}
             fill="none"
-            className={urgent ? 'stroke-danger' : 'stroke-accent'}
-            strokeWidth="4"
+            className={`transition-[stroke-dashoffset] duration-200 ease-linear ${urgent ? 'stroke-danger' : 'stroke-accent'}`}
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={circumference * (1 - clockProgress)}
           />
         </svg>
-        <Clock3 className={`h-4 w-4 ${urgent ? 'text-danger' : 'text-accent'}`} strokeWidth={2} />
-        <span className={`absolute text-[11px] font-bold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
-          {secondsLeft}
-        </span>
+        {isInline ? (
+          <span className={`text-[26px] font-bold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
+            {secondsLeft}
+          </span>
+        ) : (
+          <>
+            <Clock3 className={`h-4 w-4 ${urgent ? 'text-danger' : 'text-accent'}`} strokeWidth={2} />
+            <span
+              className={`absolute text-[11px] font-bold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}
+            >
+              {secondsLeft}
+            </span>
+          </>
+        )}
       </div>
-      <span className="text-[11px] font-medium whitespace-nowrap text-text">
+      <span
+        className={`flex items-center gap-1.5 font-medium whitespace-nowrap text-text ${isInline ? 'text-[13px]' : 'text-[11px]'}`}
+      >
+        {isInline && <Clock3 className={`h-3.5 w-3.5 ${urgent ? 'text-danger' : 'text-accent'}`} strokeWidth={2} />}
         {isMyTurn ? 'Tu turno' : 'Turno del rival'}
       </span>
     </div>
@@ -220,7 +247,6 @@ type MatchBoardProps = {
   opponent: RoomPlayerView
   isMyTurn: boolean
   canAccuse: boolean
-  maxAccusationCount: number
   turnDeadline: number | null
   turnDurationSeconds: number
   onDiscard: (cardId: string) => void
@@ -241,7 +267,6 @@ export function MatchBoard({
   opponent,
   isMyTurn,
   canAccuse,
-  maxAccusationCount,
   turnDeadline,
   turnDurationSeconds,
   onDiscard,
@@ -252,19 +277,20 @@ export function MatchBoard({
   const turnRemainingMs = useCountdown(turnDeadline)
   const remainingForSelf = cards.length - self.discardedCardIds.length
   const secretCard = cards.find((card) => card.cardId === self.secretCardId)
+  const discardsMissing = Math.max(0, MIN_DISCARDS_TO_ACCUSE - self.discardedCardIds.length)
 
   return (
     <div className="flex flex-col gap-5">
       <TurnPopBanner isMyTurn={isMyTurn} opponentName={opponent.displayName} />
-      <TurnBanner isMyTurn={isMyTurn} remainingMs={turnRemainingMs} turnDurationSeconds={turnDurationSeconds} />
 
       {/* Acciones a la izquierda, tablero de cartas a la derecha: agrupa lo
-          que se puede HACER en un solo lugar fijo (acusar, pasar turno) en
-          vez de mezclarlo entre las cartas y el pie de página — pedido
-          explícito para que el juego se sienta más intuitivo. En pantallas
-          angostas se apila arriba de las cartas en vez de al lado. */}
+          que se puede HACER en un solo lugar fijo (bandera, acusar, reloj,
+          pasar turno) en vez de mezclarlo entre las cartas y el pie de
+          página — pedido explícito para que el juego se sienta más
+          intuitivo. En pantallas angostas se apila arriba de las cartas en
+          vez de al lado. */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="flex shrink-0 flex-col gap-3 sm:w-[190px]">
+        <div className="flex shrink-0 flex-col gap-3 sm:w-[210px]">
           <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
             <p className="text-[10.5px] font-semibold tracking-wide text-accent uppercase">Tu tarjeta secreta</p>
             {/* Se muestra la imagen real (no solo el nombre) para que sea
@@ -283,6 +309,49 @@ export function MatchBoard({
             </p>
           </div>
 
+          {/* El botón de acusar vive fijo justo debajo de la bandera, SIEMPRE
+              visible (no solo cuando ya se puede usar) — pedido explícito
+              para que se sepa desde el principio dónde va a aparecer esa
+              acción, en vez de que aparezca/desaparezca de golpe a mitad de
+              partida. Deshabilitado con una explicación clara de qué falta. */}
+          <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
+            <p className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-text-h">
+              <Swords className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={2} />
+              Acusar al rival
+            </p>
+            <button
+              type="button"
+              disabled={!canAccuse}
+              className={`w-full rounded-lg border border-accent px-3 py-2 text-[12px] font-semibold text-accent transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
+                canAccuse && !accusing ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''
+              }`}
+              onClick={() => setAccusing((current) => !current)}
+            >
+              {accusing ? 'Cancelar acusación' : 'Acusar una tarjeta'}
+            </button>
+            {!canAccuse && (
+              <p className="mt-2 text-[11px] text-text" role="status">
+                {!isMyTurn
+                  ? 'Solo puedes acusar en tu turno.'
+                  : discardsMissing > 0
+                    ? `Descarta ${discardsMissing} tarjeta${discardsMissing === 1 ? '' : 's'} más para poder acusar.`
+                    : 'Ya puedes acusar.'}
+              </p>
+            )}
+            {accusing && (
+              <p className="mt-2 text-[11px] text-text animate-[fade-in-up_0.2s_ease-out]">
+                Toca la tarjeta correspondiente para confirmar.
+              </p>
+            )}
+          </div>
+
+          <TurnBanner
+            variant="inline"
+            isMyTurn={isMyTurn}
+            remainingMs={turnRemainingMs}
+            turnDurationSeconds={turnDurationSeconds}
+          />
+
           {isMyTurn && (
             <button
               type="button"
@@ -292,29 +361,6 @@ export function MatchBoard({
               <SkipForward className="h-3.5 w-3.5" strokeWidth={2} />
               Pasar turno
             </button>
-          )}
-
-          {canAccuse && (
-            <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5 animate-[fade-in-up_0.35s_ease-out]">
-              <p className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-text-h">
-                <Swords className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={2} />
-                Quedan {maxAccusationCount} o menos
-              </p>
-              <button
-                type="button"
-                className={`w-full rounded-lg border border-accent px-3 py-2 text-[12px] font-semibold text-accent transition-transform hover:-translate-y-0.5 disabled:opacity-50 ${
-                  !accusing ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''
-                }`}
-                onClick={() => setAccusing((current) => !current)}
-              >
-                {accusing ? 'Cancelar acusación' : 'Acusar una tarjeta'}
-              </button>
-              {accusing && (
-                <p className="mt-2 text-[11px] text-text animate-[fade-in-up_0.2s_ease-out]">
-                  Toca la tarjeta correspondiente para confirmar.
-                </p>
-              )}
-            </div>
           )}
         </div>
 

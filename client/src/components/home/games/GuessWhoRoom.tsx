@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Copy, LogOut, MessageCircle, Send, Trophy, Users, X } from 'lucide-react'
+import { Copy, LogOut, MessageCircle, Send, Swords, Trophy, Users, X, XCircle } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
-import type { GuessWhoChatMessage } from './guessWhoTypes'
+import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoChatMessage } from './guessWhoTypes'
 import { Modal } from './Modal'
 import { DealCountdownOverlay, MatchBoard, useCountdown } from './MatchBoard'
 import { TournamentRoom } from './TournamentRoom'
@@ -390,9 +390,9 @@ function IndividualGuessWhoRoom({
 
   const self = room.players.find((player) => player.isSelf)
   const opponent = room.players.find((player) => !player.isSelf)
-  const remainingForSelf = self ? room.cards.length - self.discardedCardIds.length : room.cards.length
   const isMyTurn = room.phase === 'PLAYING' && room.activePlayerUserId === self?.userId
-  const canAccuse = room.phase === 'PLAYING' && isMyTurn && remainingForSelf <= room.maxAccusationCount
+  const canAccuse =
+    room.phase === 'PLAYING' && isMyTurn && (self?.discardedCardIds.length ?? 0) >= MIN_DISCARDS_TO_ACCUSE
   const winnerIsSelf = room.winnerUserId === user?.id
   const dealing = dealDeadline !== null && dealRemainingMs > 0
 
@@ -455,12 +455,16 @@ function IndividualGuessWhoRoom({
       )}
 
       {accusationFailedMessage && (
-        <p
-          className="mb-4 rounded-lg border border-border bg-code-bg px-[13px] py-[11px] text-sm leading-snug text-text-h animate-[fade-in-up_0.2s_ease-out]"
+        // Más visible que un simple texto: ícono + color de error, para que
+        // quede claro que esto es feedback de "fallaste" y no se confunda
+        // con el aviso de cambio de turno que aparece al mismo tiempo.
+        <div
+          className="mb-4 flex items-center gap-2.5 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug font-medium text-danger animate-[fade-in-up_0.2s_ease-out]"
           role="status"
         >
+          <XCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
           {accusationFailedMessage}
-        </p>
+        </div>
       )}
 
       {room.phase === 'WAITING' && (
@@ -491,6 +495,17 @@ function IndividualGuessWhoRoom({
               </p>
             </div>
           )}
+
+          {/* Regla fija de la partida, visible desde el lobby (no solo una
+              vez ya jugando) para que nadie se sorprenda a mitad de partida
+              con un botón de acusar deshabilitado sin saber por qué. */}
+          <div className="flex items-center gap-2.5 rounded-xl border border-accent/30 bg-accent/5 p-3.5">
+            <Swords className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
+            <p className="text-[12.5px] text-text-h">
+              Podrán acusar a su rival después de descartar al menos{' '}
+              <strong className="text-accent">{MIN_DISCARDS_TO_ACCUSE} tarjetas</strong>.
+            </p>
+          </div>
 
           {self?.isHost ? (
             <div>
@@ -556,7 +571,6 @@ function IndividualGuessWhoRoom({
           opponent={opponent}
           isMyTurn={isMyTurn}
           canAccuse={canAccuse}
-          maxAccusationCount={room.maxAccusationCount}
           turnDeadline={room.turnDeadline}
           turnDurationSeconds={room.turnDurationSeconds}
           onDiscard={discardCard}
