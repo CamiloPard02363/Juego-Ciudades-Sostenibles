@@ -327,6 +327,7 @@ export function TournamentRoom({
       {tournament.phase === 'RUNNING' && !iAmEliminated && tournament.myMatch && self && (
         <RunningMatch
           match={tournament.myMatch}
+          maxAccusationCount={tournament.myMatch.maxAccusationCount}
           discardMatchCard={discardMatchCard}
           accuseMatchCard={accuseMatchCard}
           passMatchTurn={passMatchTurn}
@@ -484,12 +485,14 @@ function WaitingLobby({
 
 function RunningMatch({
   match,
+  maxAccusationCount,
   discardMatchCard,
   accuseMatchCard,
   passMatchTurn,
   selfUserId,
 }: {
   match: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>['myMatch']
+  maxAccusationCount: number
   discardMatchCard: (cardId: string) => void
   accuseMatchCard: (cardId: string) => void
   passMatchTurn: () => void
@@ -500,8 +503,9 @@ function RunningMatch({
   const opponent = match.players.find((p) => p.userId !== selfUserId)
   if (!self || !opponent) return null
 
+  const remainingForSelf = match.cards.length - self.discardedCardIds.length
   const isMyTurn = match.phase === 'PLAYING' && match.activePlayerUserId === selfUserId
-  const canAccuse = match.phase === 'PLAYING' && isMyTurn && self.discardedCardIds.length >= 2
+  const canAccuse = match.phase === 'PLAYING' && isMyTurn && remainingForSelf <= maxAccusationCount
 
   if (match.phase === 'PLAYING') {
     return (
@@ -511,6 +515,7 @@ function RunningMatch({
         opponent={opponent}
         isMyTurn={isMyTurn}
         canAccuse={canAccuse}
+        maxAccusationCount={maxAccusationCount}
         turnDeadline={match.turnDeadline}
         turnDurationSeconds={match.turnDurationSeconds}
         onDiscard={discardMatchCard}
