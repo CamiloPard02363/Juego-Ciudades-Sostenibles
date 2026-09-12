@@ -60,3 +60,24 @@ export function listOrganizationMembers(
     { token },
   )
 }
+
+export type AddOrganizationMemberInput = {
+  email: string
+  orgRole: 'ADMIN' | 'TEACHER' | 'STUDENT'
+}
+
+/**
+ * POST /organizations/:id/members — agrega un usuario ya registrado (con
+ * cualquier dominio de correo) como miembro de la organización. Solo ADMIN de
+ * esa org o ADMIN global.
+ */
+export function addOrganizationMember(
+  token: string,
+  organizationId: string,
+  input: AddOrganizationMemberInput,
+): Promise<OrganizationMember> {
+  return request<OrganizationMember>(
+    `/organizations/${organizationId}/members`,
+    { method: 'POST', token, body: input },
+  )
+}
