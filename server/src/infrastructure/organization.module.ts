@@ -6,6 +6,7 @@ import { CreateOrganizationUseCase } from '../application/use-cases/create-organ
 import { ListMyOrganizationsUseCase } from '../application/use-cases/list-my-organizations.use-case.js';
 import { ListAllOrganizationsUseCase } from '../application/use-cases/list-all-organizations.use-case.js';
 import { ListOrganizationMembersUseCase } from '../application/use-cases/list-organization-members.use-case.js';
+import { AddOrganizationMemberUseCase } from '../application/use-cases/add-organization-member.use-case.js';
 import { OrganizationController } from './http/controllers/organization.controller.js';
 
 /** Módulo público de organizaciones: casos de uso + endpoints HTTP. */
@@ -18,6 +19,7 @@ import { OrganizationController } from './http/controllers/organization.controll
     ListMyOrganizationsUseCase,
     ListAllOrganizationsUseCase,
     ListOrganizationMembersUseCase,
+    AddOrganizationMemberUseCase,
   ],
 })
 export class OrganizationModule {}

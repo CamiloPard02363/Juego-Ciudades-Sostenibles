@@ -15,6 +15,7 @@ import {
   NotAnOrganizationMemberError,
   OrganizationDomainAlreadyClaimedError,
   OrganizationNotFoundError,
+  UserAlreadyMemberOfOrganizationError,
   UserInactiveError,
   UserNotFoundError,
 } from '../../../application/errors/application.errors.js';
@@ -34,6 +35,7 @@ const STATUS_BY_ERROR = new Map<Function, HttpStatus>([
   [OrganizationDomainAlreadyClaimedError, HttpStatus.CONFLICT],
   [NotAnOrganizationMemberError, HttpStatus.FORBIDDEN],
   [PublicEmailProviderDomainError, HttpStatus.BAD_REQUEST],
+  [UserAlreadyMemberOfOrganizationError, HttpStatus.CONFLICT],
 ]);
 
 @Catch(DomainError, ApplicationError)

@@ -76,6 +76,18 @@ export class NotAnOrganizationMemberError extends ApplicationError {
   }
 }
 
+/**
+ * Error de negocio explícito tanto para el chequeo previo (findMembership)
+ * como para la traducción de la violación del índice único compuesto
+ * `(organizationId, userId)` — ver el catch de P2002 en
+ * PrismaOrganizationRepository.createMembership().
+ */
+export class UserAlreadyMemberOfOrganizationError extends ApplicationError {
+  constructor(organizationId: string) {
+    super(`El usuario ya es miembro de la organización "${organizationId}".`);
+  }
+}
+
 export class InvalidImageError extends ApplicationError {
   constructor(reason: string) {
     super(reason);
