@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { OrganizationCoreModule } from './organization.module.js';
+import { OrganizationCoreModule } from './organization-core.module.js';
 import { USER_REPOSITORY } from '../domain/ports/user.repository.port.js';
 import { PASSWORD_HASHER } from '../domain/ports/password-hasher.port.js';
 import { ID_GENERATOR } from '../domain/ports/id-generator.port.js';
