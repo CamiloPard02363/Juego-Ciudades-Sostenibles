@@ -1,7 +1,37 @@
-import { InvalidOrganizationDomainError } from '../errors/organization.errors.js';
+import {
+  InvalidOrganizationDomainError,
+  PublicEmailProviderDomainError,
+} from '../errors/organization.errors.js';
 import type { Email } from './email.vo.js';
 
 const DOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+
+/**
+ * Proveedores de correo personal/público: nadie puede reclamarlos como
+ * dominio de una organización, o cualquier usuario de Gmail/Outlook/etc.
+ * quedaría auto-unido a una "institución" que en realidad es un proveedor
+ * de correo masivo.
+ */
+const PUBLIC_EMAIL_PROVIDER_DOMAINS = new Set([
+  'gmail.com',
+  'googlemail.com',
+  'outlook.com',
+  'outlook.es',
+  'hotmail.com',
+  'hotmail.es',
+  'live.com',
+  'msn.com',
+  'yahoo.com',
+  'yahoo.es',
+  'icloud.com',
+  'me.com',
+  'aol.com',
+  'protonmail.com',
+  'proton.me',
+  'zoho.com',
+  'gmx.com',
+  'yandex.com',
+]);
 
 /**
  * Dominio de correo reclamado por una organización (ej. `colegio.edu.co`).
@@ -38,6 +68,17 @@ export class EmailDomain {
 
   getValue(): string {
     return this.value;
+  }
+
+  isPublicEmailProvider(): boolean {
+    return PUBLIC_EMAIL_PROVIDER_DOMAINS.has(this.value);
+  }
+
+  /** Lanza si el dominio pertenece a un proveedor de correo público (ver arriba). */
+  assertNotPublicProvider(): void {
+    if (this.isPublicEmailProvider()) {
+      throw new PublicEmailProviderDomainError(this.value);
+    }
   }
 
   equals(other: EmailDomain): boolean {

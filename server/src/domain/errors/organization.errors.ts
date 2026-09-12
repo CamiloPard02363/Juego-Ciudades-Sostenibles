@@ -17,3 +17,9 @@ export class InvalidOrganizationDomainError extends DomainError {
     super(`El dominio "${value}" no tiene un formato válido.`);
   }
 }
+
+export class PublicEmailProviderDomainError extends DomainError {
+  constructor(value: string) {
+    super(`El dominio "${value}" pertenece a un proveedor de correo público y no puede reclamarse como organización.`);
+  }
+}

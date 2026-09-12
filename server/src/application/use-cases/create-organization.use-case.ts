@@ -43,6 +43,7 @@ export class CreateOrganizationUseCase
     // PrismaOrganizationRepository.createWithOwner().
     if (input.domain) {
       const domain = EmailDomain.create(input.domain);
+      domain.assertNotPublicProvider();
       const claimed = await this.organizationRepository.findByDomain(domain);
 
       if (claimed) {

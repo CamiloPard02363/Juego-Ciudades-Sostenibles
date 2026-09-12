@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus } from '@nestjs/commo
 import type { Response } from 'express';
 import { DomainError } from '../../../domain/errors/user.errors.js';
 import { ForbiddenActionError } from '../../../domain/errors/authorization.errors.js';
+import { PublicEmailProviderDomainError } from '../../../domain/errors/organization.errors.js';
 import {
   ApplicationError,
   CategoryNotFoundError,
@@ -32,6 +33,7 @@ const STATUS_BY_ERROR = new Map<Function, HttpStatus>([
   [OrganizationNotFoundError, HttpStatus.NOT_FOUND],
   [OrganizationDomainAlreadyClaimedError, HttpStatus.CONFLICT],
   [NotAnOrganizationMemberError, HttpStatus.FORBIDDEN],
+  [PublicEmailProviderDomainError, HttpStatus.BAD_REQUEST],
 ]);
 
 @Catch(DomainError, ApplicationError)

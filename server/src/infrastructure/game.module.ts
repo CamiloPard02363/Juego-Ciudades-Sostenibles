@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UserModule } from './user.module.js';
-import { OrganizationCoreModule } from './organization.module.js';
+import { OrganizationCoreModule } from './organization-core.module.js';
 import { GAME_REPOSITORY } from '../domain/ports/game.repository.port.js';
 import { MongoService } from './persistence/mongo/mongo.service.js';
 import { MongoGameRepository } from './persistence/mongo/mongo-game.repository.js';
