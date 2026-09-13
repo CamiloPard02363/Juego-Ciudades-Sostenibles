@@ -29,4 +29,9 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
   getDb(): Db {
     return this.client.db();
   }
+
+  /** Para abrir sesiones de Mongo (transacciones multi-documento) — ver `MongoSessionFactory`. */
+  getClient(): MongoClient {
+    return this.client;
+  }
 }

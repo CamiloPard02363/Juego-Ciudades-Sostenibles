@@ -16,9 +16,32 @@ services:
       timeout: 5s
       retries: 5
 
+  # Mongo exige `--keyFile` para auth interna del cluster en cuanto se
+  # combinan autenticación + replica set (incluso de un solo nodo). Un
+  # bind-mount normal desde Windows no respeta los permisos restrictivos que
+  # exige (falla con "permissions on keyfile are too open"), así que se
+  # genera una sola vez dentro de un volumen con dueño/permisos correctos.
+  mongo-keyfile-init:
+    image: mongo:8
+    restart: 'no'
+    volumes:
+      - mongo_keyfile:/keyfile
+    entrypoint: >
+      bash -c "if [ ! -f /keyfile/mongo-keyfile ]; then openssl rand -base64 756 > /keyfile/mongo-keyfile; fi;
+      chmod 400 /keyfile/mongo-keyfile; chown 999:999 /keyfile/mongo-keyfile"
+
+  # --replSet: habilita transacciones multi-documento (ver
+  # ImportGamesBatchUseCase, la única operación que las necesita). Un
+  # replica set de un solo nodo es API-compatible con Mongo standalone para
+  # todo lo que ya existía antes de esto — no cambia ningún flujo normal de
+  # crear/editar/publicar un juego.
   mongo:
     image: mongo:8
     restart: unless-stopped
+    command: ['--replSet', 'rs0', '--bind_ip_all', '--keyFile', '/keyfile/mongo-keyfile']
+    depends_on:
+      mongo-keyfile-init:
+        condition: service_completed_successfully
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-admin}
@@ -27,12 +50,35 @@ services:
       - '${MONGO_PORT:-27017}:27017'
     volumes:
       - mongo_data:/data/db
+      - mongo_keyfile:/keyfile:ro
     healthcheck:
       test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # Contenedor de un solo uso: inicializa el replica set la primera vez que
+  # se levanta el stack. El try/catch alrededor de rs.status() lo hace
+  # idempotente — en arranques siguientes, rs.status() ya no lanza, así que
+  # no reintenta initiate() sobre un replica set que ya existe.
+  #
+  # El miembro se registra como `localhost:${MONGO_PORT}` (no `mongo:27017`,
+  # el nombre interno de la red de Docker) porque el server de NestJS corre
+  # en el host, no dentro de Docker — el driver de Mongo, una vez descubre
+  # la topología del replica set, reconecta usando exactamente el host que
+  # el replica set anunció, y `mongo` no resuelve fuera de la red de Docker.
+  mongo-init-replset:
+    image: mongo:8
+    restart: 'no'
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint: >
+      mongosh --host mongo:27017 -u ${MONGO_USER:-admin} -p ${MONGO_PASSWORD:-admin}
+      --authenticationDatabase admin
+      --eval "try { rs.status() } catch (e) { rs.initiate({_id:'rs0', members:[{_id:0, host:'localhost:${MONGO_PORT:-27017}'}]}) }"
+
 volumes:
   postgres_data:
   mongo_data:
+  mongo_keyfile:

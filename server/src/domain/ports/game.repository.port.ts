@@ -32,6 +32,16 @@ export interface GameRepository {
    * nuevo, donde no hay una versión previa contra la cual competir.
    */
   save(game: Game, expectedVersion?: number): Promise<void>;
+  /**
+   * Inserta varios juegos NUEVOS de una sola vez (uso exclusivo del pipeline
+   * de importación masiva — ver `ImportGamesBatchUseCase`). `session` es un
+   * handle opaco de transacción: este puerto no conoce ni depende de Mongo,
+   * así que no tipa `ClientSession` acá — el adaptador concreto es quien
+   * sabe qué hacer con él. Si se omite, cada inserción no está protegida
+   * por ninguna transacción (solo aceptable para tests/uso puntual, nunca
+   * para el flujo real del ETL).
+   */
+  bulkInsert(games: Game[], session?: unknown): Promise<void>;
   findById(id: string): Promise<Game | null>;
   findBySlug(slug: string): Promise<Game | null>;
   existsBySlug(slug: string): Promise<boolean>;

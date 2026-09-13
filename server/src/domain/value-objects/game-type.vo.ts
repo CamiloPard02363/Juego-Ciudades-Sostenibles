@@ -9,7 +9,15 @@ import { InvalidGameTypeError } from '../errors/game.errors.js';
  */
 export type GameTypeName = 'MEMORY_MATCH' | 'GUESS_WHO' | 'DOMINO';
 
-const VALID_GAME_TYPES: readonly GameTypeName[] = ['MEMORY_MATCH', 'GUESS_WHO', 'DOMINO'];
+/**
+ * Exportado (no solo interno de este archivo) para que los DTOs HTTP que
+ * validan `gameType` con `@IsIn(...)` (ver `create-game.dto.ts`,
+ * `import-games-batch.dto.ts`) lo reutilicen en vez de repetir la lista a
+ * mano — antes de esto, agregar un tipo de juego nuevo significaba
+ * actualizar el catálogo en dos o más archivos sin ninguna garantía de que
+ * quedaran sincronizados.
+ */
+export const VALID_GAME_TYPES: readonly GameTypeName[] = ['MEMORY_MATCH', 'GUESS_WHO', 'DOMINO'];
 
 export class GameType {
   private static readonly instances = new Map<GameTypeName, GameType>();

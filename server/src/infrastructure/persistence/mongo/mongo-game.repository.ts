@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
-import { MongoServerError } from 'mongodb';
+import { MongoServerError, type ClientSession } from 'mongodb';
 import type {
   FindAllGamesFilter,
   GameRepository,
@@ -92,6 +92,27 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
     } catch (error) {
       if (error instanceof MongoServerError && error.code === DUPLICATE_KEY_ERROR_CODE) {
         throw new GameSlugAlreadyTakenError(doc.slug);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * `session` (si viene) es el `ClientSession` que abrió `MongoSessionFactory`
+   * dentro de `session.withTransaction(...)` — todas las inserciones de un
+   * mismo lote comparten esa sesión, así que confirman o revierten juntas.
+   * El cast es el único punto del código que sabe que el "handle opaco" del
+   * puerto es en realidad un `ClientSession` de Mongo.
+   */
+  async bulkInsert(games: Game[], session?: unknown): Promise<void> {
+    if (games.length === 0) return;
+    const docs = games.map(GameMapper.toPersistence);
+
+    try {
+      await this.collection.insertMany(docs, { session: session as ClientSession | undefined });
+    } catch (error) {
+      if (error instanceof MongoServerError && error.code === DUPLICATE_KEY_ERROR_CODE) {
+        throw new GameSlugAlreadyTakenError('uno o más juegos del lote');
       }
       throw error;
     }
