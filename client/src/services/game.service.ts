@@ -94,6 +94,14 @@ export type GuessWhoCardInput = {
   audioUrl: string | null
 }
 
+export type MazeCollectorItemInput = {
+  label: string
+  /** Clave del catálogo DOMINO_ICONS del cliente (reutilizado, ver mazeCollectorTypes.ts). */
+  icon: string
+  color: string
+  fact?: string
+}
+
 export type CreateGameInput =
   | {
       title: string
@@ -135,6 +143,16 @@ export type CreateGameInput =
       theme?: { primaryColor?: string; coverImageUrl?: string | null }
       config?: { handSize?: number } & Record<string, unknown>
       content: DominoConceptInput[]
+    }
+  | {
+      title: string
+      description: string
+      gameType: 'MAZE_COLLECTOR'
+      categoryId: string
+      organizationId?: string | null
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config?: Record<string, unknown>
+      content: MazeCollectorItemInput[]
     }
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */

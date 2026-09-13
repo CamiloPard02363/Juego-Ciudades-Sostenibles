@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Crown, LogOut, Skull, Swords, Trophy, Users } from 'lucide-react'
+import { Copy, Crown, Link, LogOut, Skull, Swords, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoTournament } from './useGuessWhoTournament'
 import { Modal } from './Modal'
@@ -72,6 +72,7 @@ export function TournamentRoom({
   const [maxParticipantsText, setMaxParticipantsText] = useState('4')
   const [maxParticipantsWarning, setMaxParticipantsWarning] = useState<string | null>(null)
   const [showPairingOverlay, setShowPairingOverlay] = useState(false)
+  const [copyFeedback, setCopyFeedback] = useState(false)
   const joinedWithInitialCode = useRef(false)
   useEffect(() => {
     if (!initialJoinCode || joinedWithInitialCode.current) return
@@ -107,6 +108,24 @@ export function TournamentRoom({
   function handleExit() {
     leaveTournament()
     onExit()
+  }
+
+  function copyTournamentLink() {
+    if (!tournament) return
+    const url = new URL(window.location.href)
+    url.searchParams.set('sala', tournament.code)
+    void navigator.clipboard.writeText(url.toString()).then(() => {
+      setCopyFeedback(true)
+      setTimeout(() => setCopyFeedback(false), 1800)
+    })
+  }
+
+  function copyTournamentCode() {
+    if (!tournament) return
+    void navigator.clipboard.writeText(tournament.code).then(() => {
+      setCopyFeedback(true)
+      setTimeout(() => setCopyFeedback(false), 1800)
+    })
   }
 
   if (entryChoice === 'undecided' || entryChoice === 'choosing-create') {
@@ -278,6 +297,23 @@ export function TournamentRoom({
           {tournament.phase === 'WAITING' && (
             <p className="flex items-center gap-1.5 text-[12.5px] text-text">
               Código de sala: <code className="text-[13px] font-semibold text-accent">{tournament.code}</code>
+              <button
+                type="button"
+                className="ml-1 inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
+                onClick={copyTournamentCode}
+              >
+                <Copy className="h-3 w-3" strokeWidth={2} />
+                Copiar código
+              </button>
+              <button
+                type="button"
+                className="ml-1 inline-flex items-center gap-1 rounded-md border border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
+                onClick={copyTournamentLink}
+              >
+                <Link className="h-3 w-3" strokeWidth={2} />
+                Copiar enlace
+              </button>
+              {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">Enlace copiado</span>}
             </p>
           )}
           {tournament.phase === 'RUNNING' && (
@@ -308,7 +344,10 @@ export function TournamentRoom({
           className="mb-4 rounded-lg border border-border bg-code-bg px-[13px] py-[11px] text-sm leading-snug text-text-h animate-[fade-in-up_0.2s_ease-out]"
           role="status"
         >
-          {matchAccusationFailedMessage}
+          {matchAccusationFailedMessage}{' '}
+          {tournament.myMatch?.players.find((player) => player.userId === tournament.myMatch?.activePlayerUserId)?.displayName
+            ? `Turno de ${tournament.myMatch.players.find((player) => player.userId === tournament.myMatch?.activePlayerUserId)?.displayName}.`
+            : ''}
         </p>
       )}
 
@@ -328,6 +367,7 @@ export function TournamentRoom({
       {tournament.phase === 'RUNNING' && !iAmEliminated && tournament.myMatch && self && (
         <RunningMatch
           match={tournament.myMatch}
+          accusationMessage={matchAccusationFailedMessage ? 'Bandera equivocada' : null}
           discardMatchCard={discardMatchCard}
           accuseMatchCard={accuseMatchCard}
           passMatchTurn={passMatchTurn}
@@ -493,12 +533,14 @@ function WaitingLobby({
 
 function RunningMatch({
   match,
+  accusationMessage,
   discardMatchCard,
   accuseMatchCard,
   passMatchTurn,
   selfUserId,
 }: {
   match: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>['myMatch']
+  accusationMessage?: string | null
   discardMatchCard: (cardId: string) => void
   accuseMatchCard: (cardId: string) => void
   passMatchTurn: () => void
@@ -520,6 +562,7 @@ function RunningMatch({
         opponent={opponent}
         isMyTurn={isMyTurn}
         canAccuse={canAccuse}
+        accusationMessage={accusationMessage}
         turnDeadline={match.turnDeadline}
         turnDurationSeconds={match.turnDurationSeconds}
         onDiscard={discardMatchCard}

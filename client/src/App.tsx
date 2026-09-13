@@ -16,6 +16,7 @@ import { SimplePairsGameFormPage } from './components/home/games/create/SimplePa
 import { OppositesGameFormPage } from './components/home/games/create/OppositesGameFormPage'
 import { GuessWhoGameFormPage } from './components/home/games/create/GuessWhoGameFormPage'
 import { DominoGameFormPage } from './components/home/games/create/DominoGameFormPage'
+import { MazeCollectorGameFormPage } from './components/home/games/create/MazeCollectorGameFormPage'
 import { DominoRoomPage } from './components/home/games/DominoRoomPage'
 import { useAuth } from './hooks/useAuth'
 
@@ -59,6 +60,7 @@ function App() {
         <Route path="cartas/opuestos" element={<OppositesGameFormPage />} />
         <Route path="quien-es" element={<GuessWhoGameFormPage />} />
         <Route path="domino" element={<DominoGameFormPage />} />
+        <Route path="laberinto" element={<MazeCollectorGameFormPage />} />
       </Route>
       <Route path="/domino/sala/:code?" element={<DominoRoomPage />} />
       <Route path="/" element={<HomeLayout />}>

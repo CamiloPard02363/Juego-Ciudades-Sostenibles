@@ -6,6 +6,7 @@ const ROUTE_BY_CHOICE: Record<GameTypeChoice, string> = {
   CARDS: '/juegos/crear/cartas',
   GUESS_WHO: '/juegos/crear/quien-es',
   DOMINO: '/juegos/crear/domino',
+  MAZE_COLLECTOR: '/juegos/crear/laberinto',
 }
 
 export function GameTypePickerPage() {

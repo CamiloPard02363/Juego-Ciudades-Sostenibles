@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Copy, LogOut, MessageCircle, Send, Swords, Trophy, Users, X, XCircle } from 'lucide-react'
+import { Copy, Link, LogOut, MessageCircle, Send, Swords, Trophy, Users, X, XCircle } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
 import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoChatMessage } from './guessWhoTypes'
@@ -211,6 +211,7 @@ function IndividualGuessWhoRoom({
   }, [room?.code])
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
   useEffect(() => {
     if (messages.length === 0) return
     if (!chatOpen) setUnreadCount((current) => current + 1)
@@ -265,11 +266,20 @@ function IndividualGuessWhoRoom({
   // le dice explícitamente de quién NO era la carta (lo que pidió el
   // reporte: "esa no es la [tarjeta] de fulano"); al otro jugador se le
   // avisa que intentaron adivinar la suya y no lo lograron.
+  const nextTurnPlayer = room?.players.find((player) => player.userId === room.activePlayerUserId)
   const accusationFailedMessage =
     lastFailedAccusation &&
-    (lastFailedAccusation.accuserUserId === user?.id
-      ? `Esa no es la tarjeta de ${lastFailedAccusation.targetName}. Sigue intentando.`
-      : `${lastFailedAccusation.accuserName} intentó adivinar tu tarjeta y falló.`)
+    `Bandera equivocada. Turno de ${nextTurnPlayer?.displayName ?? 'tu rival'}.`
+
+  function copyRoomLink() {
+    if (!room) return
+    const url = new URL(window.location.href)
+    url.searchParams.set('sala', room.code)
+    void navigator.clipboard.writeText(url.toString()).then(() => {
+      setCopyFeedback('Enlace copiado')
+      setTimeout(() => setCopyFeedback(null), 1800)
+    })
+  }
 
   // El rival votó "no" a la revancha: el servidor ya cerró la sala, así que
   // solo queda avisar y devolver a la persona a la pantalla anterior.
@@ -407,14 +417,30 @@ function IndividualGuessWhoRoom({
           <p className="flex items-center gap-1.5 text-[12.5px] text-text">
             Código de sala:
             <code className="text-[13px] font-semibold text-accent">{room.code}</code>
-            <button
-              type="button"
-              className="text-text hover:text-accent"
-              onClick={() => navigator.clipboard.writeText(room.code)}
-              aria-label="Copiar código"
-            >
-              <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
+            <div className="ml-1 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
+                onClick={() => {
+                  void navigator.clipboard.writeText(room.code).then(() => {
+                    setCopyFeedback('Código copiado')
+                    setTimeout(() => setCopyFeedback(null), 1800)
+                  })
+                }}
+              >
+                <Copy className="h-3 w-3" strokeWidth={2} />
+                Copiar código
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-md border border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
+                onClick={copyRoomLink}
+              >
+                <Link className="h-3 w-3" strokeWidth={2} />
+                Copiar enlace
+              </button>
+            </div>
+            {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">{copyFeedback}</span>}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -571,6 +597,7 @@ function IndividualGuessWhoRoom({
           opponent={opponent}
           isMyTurn={isMyTurn}
           canAccuse={canAccuse}
+          accusationMessage={lastFailedAccusation ? 'Bandera equivocada' : null}
           turnDeadline={room.turnDeadline}
           turnDurationSeconds={room.turnDurationSeconds}
           onDiscard={discardCard}
