@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Crown, Link, LogOut, Skull, Swords, Trophy, Users } from 'lucide-react'
+import { Copy, Crown, Link, LogOut, Skull, Swords, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoTournament } from './useGuessWhoTournament'
 import { Modal } from './Modal'
@@ -115,6 +115,14 @@ export function TournamentRoom({
     const url = new URL(window.location.href)
     url.searchParams.set('sala', tournament.code)
     void navigator.clipboard.writeText(url.toString()).then(() => {
+      setCopyFeedback(true)
+      setTimeout(() => setCopyFeedback(false), 1800)
+    })
+  }
+
+  function copyTournamentCode() {
+    if (!tournament) return
+    void navigator.clipboard.writeText(tournament.code).then(() => {
       setCopyFeedback(true)
       setTimeout(() => setCopyFeedback(false), 1800)
     })
@@ -289,10 +297,23 @@ export function TournamentRoom({
           {tournament.phase === 'WAITING' && (
             <p className="flex items-center gap-1.5 text-[12.5px] text-text">
               Código de sala: <code className="text-[13px] font-semibold text-accent">{tournament.code}</code>
-              <button type="button" className="text-text hover:text-accent" onClick={copyTournamentLink} aria-label="Copiar enlace de la sala">
-                <Link className="h-3.5 w-3.5" strokeWidth={2} />
+              <button
+                type="button"
+                className="ml-1 inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
+                onClick={copyTournamentCode}
+              >
+                <Copy className="h-3 w-3" strokeWidth={2} />
+                Copiar código
               </button>
-              {copyFeedback && <span className="text-[11px] text-accent" role="status">Enlace copiado</span>}
+              <button
+                type="button"
+                className="ml-1 inline-flex items-center gap-1 rounded-md border border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
+                onClick={copyTournamentLink}
+              >
+                <Link className="h-3 w-3" strokeWidth={2} />
+                Copiar enlace
+              </button>
+              {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">Enlace copiado</span>}
             </p>
           )}
           {tournament.phase === 'RUNNING' && (
@@ -346,6 +367,7 @@ export function TournamentRoom({
       {tournament.phase === 'RUNNING' && !iAmEliminated && tournament.myMatch && self && (
         <RunningMatch
           match={tournament.myMatch}
+          accusationMessage={matchAccusationFailedMessage ? 'Bandera equivocada' : null}
           discardMatchCard={discardMatchCard}
           accuseMatchCard={accuseMatchCard}
           passMatchTurn={passMatchTurn}
@@ -511,12 +533,14 @@ function WaitingLobby({
 
 function RunningMatch({
   match,
+  accusationMessage,
   discardMatchCard,
   accuseMatchCard,
   passMatchTurn,
   selfUserId,
 }: {
   match: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>['myMatch']
+  accusationMessage?: string | null
   discardMatchCard: (cardId: string) => void
   accuseMatchCard: (cardId: string) => void
   passMatchTurn: () => void
@@ -538,6 +562,7 @@ function RunningMatch({
         opponent={opponent}
         isMyTurn={isMyTurn}
         canAccuse={canAccuse}
+        accusationMessage={accusationMessage}
         turnDeadline={match.turnDeadline}
         turnDurationSeconds={match.turnDurationSeconds}
         onDiscard={discardMatchCard}
