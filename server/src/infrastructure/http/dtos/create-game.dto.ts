@@ -1,4 +1,5 @@
 import { IsDefined, IsIn, IsObject, IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
+import { VALID_GAME_TYPES } from '../../../domain/value-objects/game-type.vo.js';
 
 class GameThemeDto {
   @IsOptional()
@@ -19,7 +20,7 @@ export class CreateGameDto {
   @MinLength(10)
   description!: string;
 
-  @IsIn(['MEMORY_MATCH', 'GUESS_WHO', 'DOMINO'])
+  @IsIn(VALID_GAME_TYPES)
   gameType!: string;
 
   @IsString()

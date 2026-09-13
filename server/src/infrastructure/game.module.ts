@@ -7,6 +7,7 @@ import { MongoGameRepository } from './persistence/mongo/mongo-game.repository.j
 import { MemoryMatchContentValidator } from '../application/content-validators/memory-match.content-validator.js';
 import { GuessWhoContentValidator } from '../application/content-validators/guess-who.content-validator.js';
 import { DominoContentValidator } from '../application/content-validators/domino.content-validator.js';
+import { MazeCollectorContentValidator } from '../application/content-validators/maze-collector.content-validator.js';
 import { ContentValidatorRegistry } from '../application/content-validators/content-validator.registry.js';
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
 import { GameAuthorizationService } from '../application/services/game-authorization.service.js';
@@ -30,6 +31,7 @@ import { GameController } from './http/controllers/game.controller.js';
     MemoryMatchContentValidator,
     GuessWhoContentValidator,
     DominoContentValidator,
+    MazeCollectorContentValidator,
     ContentValidatorRegistry,
     RequesterAdminResolver,
     GameAuthorizationService,
