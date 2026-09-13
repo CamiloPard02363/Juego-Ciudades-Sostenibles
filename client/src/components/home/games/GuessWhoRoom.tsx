@@ -417,23 +417,30 @@ function IndividualGuessWhoRoom({
           <p className="flex items-center gap-1.5 text-[12.5px] text-text">
             Código de sala:
             <code className="text-[13px] font-semibold text-accent">{room.code}</code>
-            <button
-              type="button"
-              className="text-text hover:text-accent"
-              onClick={() => navigator.clipboard.writeText(room.code)}
-              aria-label="Copiar código"
-            >
-              <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
-            <button
-              type="button"
-              className="text-text hover:text-accent"
-              onClick={copyRoomLink}
-              aria-label="Copiar enlace de la sala"
-            >
-              <Link className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
-            {copyFeedback && <span className="text-[11px] text-accent" role="status">{copyFeedback}</span>}
+            <div className="ml-1 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
+                onClick={() => {
+                  void navigator.clipboard.writeText(room.code).then(() => {
+                    setCopyFeedback('Código copiado')
+                    setTimeout(() => setCopyFeedback(null), 1800)
+                  })
+                }}
+              >
+                <Copy className="h-3 w-3" strokeWidth={2} />
+                Copiar código
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-md border border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
+                onClick={copyRoomLink}
+              >
+                <Link className="h-3 w-3" strokeWidth={2} />
+                Copiar enlace
+              </button>
+            </div>
+            {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">{copyFeedback}</span>}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -590,6 +597,7 @@ function IndividualGuessWhoRoom({
           opponent={opponent}
           isMyTurn={isMyTurn}
           canAccuse={canAccuse}
+          accusationMessage={lastFailedAccusation ? 'Bandera equivocada' : null}
           turnDeadline={room.turnDeadline}
           turnDurationSeconds={room.turnDurationSeconds}
           onDiscard={discardCard}

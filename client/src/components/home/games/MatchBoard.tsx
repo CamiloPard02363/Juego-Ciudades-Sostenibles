@@ -116,14 +116,22 @@ export function TurnBanner({
  * autooculta solo; `pointer-events-none` para no bloquear ningún clic
  * mientras está en pantalla.
  */
-export function TurnPopBanner({ isMyTurn, opponentName }: { isMyTurn: boolean; opponentName: string }) {
+export function TurnPopBanner({
+  isMyTurn,
+  opponentName,
+  accusationMessage,
+}: {
+  isMyTurn: boolean
+  opponentName: string
+  accusationMessage?: string | null
+}) {
   const [visible, setVisible] = useState(true)
 
   useEffect(() => {
     setVisible(true)
     const timeout = setTimeout(() => setVisible(false), 1700)
     return () => clearTimeout(timeout)
-  }, [isMyTurn])
+  }, [isMyTurn, accusationMessage])
 
   if (!visible) return null
 
@@ -143,6 +151,7 @@ export function TurnPopBanner({ isMyTurn, opponentName }: { isMyTurn: boolean; o
         <p className={`text-[22px] font-bold tracking-tight ${isMyTurn ? 'text-accent' : 'text-text-h'}`}>
           {isMyTurn ? '¡Es tu turno!' : `Turno de ${opponentName}`}
         </p>
+        {accusationMessage && <p className="mt-1 text-[14px] font-semibold text-danger">{accusationMessage}</p>}
       </div>
     </div>
   )
@@ -246,6 +255,7 @@ type MatchBoardProps = {
   self: RoomPlayerView
   opponent: RoomPlayerView
   isMyTurn: boolean
+  accusationMessage?: string | null
   canAccuse: boolean
   turnDeadline: number | null
   turnDurationSeconds: number
@@ -266,6 +276,7 @@ export function MatchBoard({
   self,
   opponent,
   isMyTurn,
+  accusationMessage,
   canAccuse,
   turnDeadline,
   turnDurationSeconds,
@@ -281,7 +292,11 @@ export function MatchBoard({
 
   return (
     <div className="flex flex-col gap-5">
-      <TurnPopBanner isMyTurn={isMyTurn} opponentName={opponent.displayName} />
+      <TurnPopBanner
+        isMyTurn={isMyTurn}
+        opponentName={opponent.displayName}
+        accusationMessage={accusationMessage}
+      />
 
       {/* Acciones a la izquierda, tablero de cartas a la derecha: agrupa lo
           que se puede HACER en un solo lugar fijo (bandera, acusar, reloj,
