@@ -66,6 +66,11 @@ describe('MazeCollectorContentValidator', () => {
       expect(() => validator.validateConfig(validConfig({ layout: 'HEXAGON' }))).toThrow(InvalidGameContentError);
     });
 
+    it('acepta el layout CITY', () => {
+      const config = validator.validateConfig(validConfig({ layout: 'CITY' }));
+      expect(config).toMatchObject({ layout: 'CITY' });
+    });
+
     it('rechaza lives fuera de rango', () => {
       expect(() => validator.validateConfig(validConfig({ lives: 0 }))).toThrow(InvalidGameContentError);
       expect(() => validator.validateConfig(validConfig({ lives: 6 }))).toThrow(InvalidGameContentError);

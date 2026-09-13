@@ -31,7 +31,7 @@ type SeedGame = {
   categorySlug: string;
   theme: { primaryColor: string; coverImageUrl: null };
   config: {
-    layout: 'CLASSIC' | 'CROSS' | 'SPIRAL';
+    layout: 'CLASSIC' | 'CROSS' | 'SPIRAL' | 'CITY';
     lives: number;
     enemySpeed: number;
     collectorLabel: string;
@@ -53,7 +53,7 @@ const GAMES: SeedGame[] = [
     categorySlug: 'medio-ambiente',
     theme: { primaryColor: '#22c55e', coverImageUrl: null },
     config: {
-      layout: 'CLASSIC',
+      layout: 'CITY',
       lives: 3,
       enemySpeed: 2,
       collectorLabel: 'Camión de Reciclaje',
@@ -103,6 +103,20 @@ const GAMES: SeedGame[] = [
         icon: 'cpu',
         color: '#a855f7',
         fact: 'Los aparatos electrónicos contienen materiales valiosos que se pueden recuperar.',
+      },
+      {
+        itemId: 'baterias',
+        label: 'Baterías',
+        icon: 'batteryCharging',
+        color: '#f97316',
+        fact: 'Las baterías usadas deben desecharse aparte: contienen metales pesados contaminantes.',
+      },
+      {
+        itemId: 'aceite',
+        label: 'Aceite Usado',
+        icon: 'fuel',
+        color: '#0891b2',
+        fact: 'Un litro de aceite usado puede contaminar hasta mil litros de agua si se vierte mal.',
       },
     ],
   },
