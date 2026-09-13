@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Copy, LogOut, MessageCircle, Send, Swords, Trophy, Users, X, XCircle } from 'lucide-react'
+import { Copy, Link, LogOut, MessageCircle, Send, Swords, Trophy, Users, X, XCircle } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
 import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoChatMessage } from './guessWhoTypes'
@@ -211,6 +211,7 @@ function IndividualGuessWhoRoom({
   }, [room?.code])
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
   useEffect(() => {
     if (messages.length === 0) return
     if (!chatOpen) setUnreadCount((current) => current + 1)
@@ -265,11 +266,20 @@ function IndividualGuessWhoRoom({
   // le dice explícitamente de quién NO era la carta (lo que pidió el
   // reporte: "esa no es la [tarjeta] de fulano"); al otro jugador se le
   // avisa que intentaron adivinar la suya y no lo lograron.
+  const nextTurnPlayer = room?.players.find((player) => player.userId === room.activePlayerUserId)
   const accusationFailedMessage =
     lastFailedAccusation &&
-    (lastFailedAccusation.accuserUserId === user?.id
-      ? `Esa no es la tarjeta de ${lastFailedAccusation.targetName}. Sigue intentando.`
-      : `${lastFailedAccusation.accuserName} intentó adivinar tu tarjeta y falló.`)
+    `Bandera equivocada. Turno de ${nextTurnPlayer?.displayName ?? 'tu rival'}.`
+
+  function copyRoomLink() {
+    if (!room) return
+    const url = new URL(window.location.href)
+    url.searchParams.set('sala', room.code)
+    void navigator.clipboard.writeText(url.toString()).then(() => {
+      setCopyFeedback('Enlace copiado')
+      setTimeout(() => setCopyFeedback(null), 1800)
+    })
+  }
 
   // El rival votó "no" a la revancha: el servidor ya cerró la sala, así que
   // solo queda avisar y devolver a la persona a la pantalla anterior.
@@ -415,6 +425,15 @@ function IndividualGuessWhoRoom({
             >
               <Copy className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
+            <button
+              type="button"
+              className="text-text hover:text-accent"
+              onClick={copyRoomLink}
+              aria-label="Copiar enlace de la sala"
+            >
+              <Link className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            {copyFeedback && <span className="text-[11px] text-accent" role="status">{copyFeedback}</span>}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">

@@ -39,7 +39,7 @@ import { GameCard } from './games/GameCard'
 import { GameDetailModal } from './games/GameDetailModal'
 import { Modal } from './games/Modal'
 import { JoinByCodeModal } from './games/JoinByCodeModal'
-import type { ResolvedRoom } from './games/resolveRoomCode'
+import { resolveRoomCode, type ResolvedRoom } from './games/resolveRoomCode'
 import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
@@ -194,6 +194,18 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     setJoinCodeContext({ code, initialMode: resolved.kind === 'tournament' ? 'group' : 'individual' })
     setGuessWhoRoomGameId(resolved.gameId)
   }
+
+  useEffect(() => {
+    if (!token) return
+    const sharedCode = new URLSearchParams(window.location.search).get('sala')?.trim().toUpperCase()
+    if (!sharedCode || guessWhoRoomGameId) return
+
+    resolveRoomCode(token, sharedCode)
+      .then((resolved) => handleCodeResolved(resolved, sharedCode))
+      .catch(() => {})
+    // El enlace se resuelve una sola vez al montar la sección.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
   const [joinByCodeOpen, setJoinByCodeOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deletingCategory, setDeletingCategory] = useState(false)
