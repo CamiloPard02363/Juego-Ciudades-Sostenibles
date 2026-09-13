@@ -43,8 +43,11 @@ import { resolveRoomCode, type ResolvedRoom } from './games/resolveRoomCode'
 import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
+import { MazeCollectorGame } from './games/MazeCollectorGame'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
 import type { MemoryMatchPair, MemoryMatchConfig } from './games/memoryMatchTypes'
+import { MAZE_LAYOUTS, DEFAULT_MAZE_CONFIG } from './games/mazeCollectorTypes'
+import type { MazeCollectorConfig, MazeCollectorItem } from './games/mazeCollectorTypes'
 
 export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
 
@@ -155,6 +158,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
   const [detailError, setDetailError] = useState<string | null>(null)
   const [showPlayOptions, setShowPlayOptions] = useState(false)
   const [playSession, setPlaySession] = useState<PlaySession | null>(null)
+  const [mazeSession, setMazeSession] = useState<GameDetail | null>(null)
   const [guessWhoRoomGameId, setGuessWhoRoomGameId] = useState<string | null>(null)
   const [joinCodeContext, setJoinCodeContext] = useState<{
     code: string
@@ -377,6 +381,14 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       navigate(`/domino/sala?gameId=${selectedGame.id}`)
       return
     }
+    // El recolector es un solo jugador contra la IA, sin sala en vivo — la
+    // configuración (vidas, velocidad, laberinto) ya quedó fija al crear el
+    // juego, así que no hace falta el popup de opciones de Memory Match.
+    if (selectedGame.gameType === 'MAZE_COLLECTOR') {
+      setMazeSession(selectedGame)
+      closeGame()
+      return
+    }
     setShowPlayOptions(true)
   }
 
@@ -452,6 +464,17 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
               DEFAULT_MEMORY_CONFIG.previewSeconds
             }
             onExit={() => setPlaySession(null)}
+          />
+        )}
+
+        {mazeSession && (
+          <MazeCollectorGame
+            title={mazeSession.title}
+            primaryColor={colorForGame(mazeSession)}
+            layout={MAZE_LAYOUTS[(mazeSession.config as Partial<MazeCollectorConfig>).layout ?? DEFAULT_MAZE_CONFIG.layout]}
+            items={mazeSession.content as MazeCollectorItem[]}
+            config={{ ...DEFAULT_MAZE_CONFIG, ...(mazeSession.config as Partial<MazeCollectorConfig>) }}
+            onExit={() => setMazeSession(null)}
           />
         )}
       </>

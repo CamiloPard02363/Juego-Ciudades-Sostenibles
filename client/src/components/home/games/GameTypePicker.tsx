@@ -1,6 +1,6 @@
-import { Layers, Puzzle, UserRoundSearch } from 'lucide-react'
+import { Ghost, Layers, Puzzle, UserRoundSearch } from 'lucide-react'
 
-export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO'
+export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR'
 
 type GameTypePickerProps = {
   onClose: () => void
@@ -31,6 +31,13 @@ const TYPE_OPTIONS: Array<{
     description:
       'Dominó temático: cada mitad de ficha es un concepto tuyo en vez de un número. Un jugador contra el tablero.',
     icon: Puzzle,
+  },
+  {
+    choice: 'MAZE_COLLECTOR',
+    title: 'Recolector de laberinto',
+    description:
+      'Un jugador recorre un laberinto recolectando objetos temáticos mientras esquiva enemigos. Cambia la narrativa a tu materia.',
+    icon: Ghost,
   },
 ]
 
