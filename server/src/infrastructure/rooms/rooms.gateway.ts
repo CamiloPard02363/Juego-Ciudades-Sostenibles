@@ -67,6 +67,14 @@ const MAX_CHAT_MESSAGE_LENGTH = 500;
 /** Cupo máximo absoluto de una sala de torneo (modo grupo de "¿Quién Es?"). */
 const TOURNAMENT_MAX_PARTICIPANTS = 10;
 
+/**
+ * Tarjetas mínimas que hay que descartar antes de poder acusar al rival —
+ * reemplaza al viejo umbral basado en "cuántas quedan en el tablero"
+ * (maxAccusationCount) por uno fijo y fácil de comunicar en el lobby: no
+ * importa cuántas tarjetas tenga el juego, siempre son 3 descartes.
+ */
+const MIN_DISCARDS_BEFORE_ACCUSATION = 3;
+
 /** Vista pública del torneo que se envía a un participante dado. */
 function toTournamentClientView(tournament: TournamentState, forUserId: string) {
   return {
@@ -678,10 +686,8 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const opponent = room.players.find((p) => p.socketId !== socket.id);
     if (!accuser || !opponent) throw new Error('Falta el rival para acusar.');
     if (accuser.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
-
-    const remaining = room.cards.length - accuser.discardedCardIds.length;
-    if (remaining > room.maxAccusationCount) {
-      throw new Error(`Solo puedes acusar con ${room.maxAccusationCount} cartas o menos en el tablero.`);
+    if (accuser.discardedCardIds.length < MIN_DISCARDS_BEFORE_ACCUSATION) {
+      throw new Error(`Debes descartar al menos ${MIN_DISCARDS_BEFORE_ACCUSATION} tarjetas antes de acusar.`);
     }
 
     const correct = body.cardId === opponent.secretCardId;
@@ -1100,10 +1106,8 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const opponent = match.players.find((p) => p.userId !== socket.data.userId);
     if (!accuser || !opponent) throw new Error('Falta el rival para acusar.');
     if (accuser.userId !== match.activePlayerUserId) throw new Error('No es tu turno.');
-
-    const remaining = match.cards.length - accuser.discardedCardIds.length;
-    if (remaining > tournament.maxAccusationCount) {
-      throw new Error(`Solo puedes acusar con ${tournament.maxAccusationCount} cartas o menos en el tablero.`);
+    if (accuser.discardedCardIds.length < MIN_DISCARDS_BEFORE_ACCUSATION) {
+      throw new Error(`Debes descartar al menos ${MIN_DISCARDS_BEFORE_ACCUSATION} tarjetas antes de acusar.`);
     }
 
     const correct = body.cardId === opponent.secretCardId;

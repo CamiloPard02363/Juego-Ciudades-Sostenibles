@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Crown, Link, LogOut, Skull, Trophy, Users } from 'lucide-react'
+import { Crown, Link, LogOut, Skull, Swords, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoTournament } from './useGuessWhoTournament'
 import { Modal } from './Modal'
 import { MatchBoard } from './MatchBoard'
+import { MIN_DISCARDS_TO_ACCUSE } from './guessWhoTypes'
 
 type TournamentRoomProps = {
   gameId: string
@@ -345,7 +346,6 @@ export function TournamentRoom({
       {tournament.phase === 'RUNNING' && !iAmEliminated && tournament.myMatch && self && (
         <RunningMatch
           match={tournament.myMatch}
-          maxAccusationCount={tournament.myMatch.maxAccusationCount}
           discardMatchCard={discardMatchCard}
           accuseMatchCard={accuseMatchCard}
           passMatchTurn={passMatchTurn}
@@ -443,6 +443,14 @@ function WaitingLobby({
         </p>
       </div>
 
+      <div className="flex items-center gap-2.5 rounded-xl border border-accent/30 bg-accent/5 p-3.5">
+        <Swords className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
+        <p className="text-[12.5px] text-text-h">
+          Podrán acusar a su rival después de descartar al menos{' '}
+          <strong className="text-accent">{MIN_DISCARDS_TO_ACCUSE} tarjetas</strong>.
+        </p>
+      </div>
+
       {!isCreator && (
         <p className="text-[12.5px] text-text">
           Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define quien
@@ -503,14 +511,12 @@ function WaitingLobby({
 
 function RunningMatch({
   match,
-  maxAccusationCount,
   discardMatchCard,
   accuseMatchCard,
   passMatchTurn,
   selfUserId,
 }: {
   match: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>['myMatch']
-  maxAccusationCount: number
   discardMatchCard: (cardId: string) => void
   accuseMatchCard: (cardId: string) => void
   passMatchTurn: () => void
@@ -521,9 +527,8 @@ function RunningMatch({
   const opponent = match.players.find((p) => p.userId !== selfUserId)
   if (!self || !opponent) return null
 
-  const remainingForSelf = match.cards.length - self.discardedCardIds.length
   const isMyTurn = match.phase === 'PLAYING' && match.activePlayerUserId === selfUserId
-  const canAccuse = match.phase === 'PLAYING' && isMyTurn && remainingForSelf <= maxAccusationCount
+  const canAccuse = match.phase === 'PLAYING' && isMyTurn && self.discardedCardIds.length >= MIN_DISCARDS_TO_ACCUSE
 
   if (match.phase === 'PLAYING') {
     return (
@@ -533,7 +538,6 @@ function RunningMatch({
         opponent={opponent}
         isMyTurn={isMyTurn}
         canAccuse={canAccuse}
-        maxAccusationCount={maxAccusationCount}
         turnDeadline={match.turnDeadline}
         turnDurationSeconds={match.turnDurationSeconds}
         onDiscard={discardMatchCard}

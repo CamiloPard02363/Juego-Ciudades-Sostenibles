@@ -5,6 +5,14 @@ export type GuessWhoCard = {
   audioUrl: string | null
 }
 
+/**
+ * Tarjetas mínimas que hay que descartar antes de poder acusar al rival —
+ * debe coincidir con MIN_DISCARDS_BEFORE_ACCUSATION del gateway. Compartida
+ * entre el lobby (mensaje fijo), MatchBoard (habilitar el botón) y el
+ * torneo, para no repetir el número en cuatro lugares distintos.
+ */
+export const MIN_DISCARDS_TO_ACCUSE = 3
+
 export type RoomPhase = 'WAITING' | 'PLAYING' | 'FINISHED'
 
 export type RoomPlayerView = {
