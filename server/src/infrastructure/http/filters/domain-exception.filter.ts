@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import { DomainError } from '../../../domain/errors/user.errors.js';
+import { GameVersionConflictError } from '../../../domain/errors/game.errors.js';
 import { ForbiddenActionError } from '../../../domain/errors/authorization.errors.js';
 import { PublicEmailProviderDomainError } from '../../../domain/errors/organization.errors.js';
 import {
@@ -8,6 +9,7 @@ import {
   CategoryNotFoundError,
   CategorySlugAlreadyTakenError,
   EmailAlreadyRegisteredError,
+  GameImportJobNotFoundError,
   GameNotFoundError,
   GameSlugAlreadyTakenError,
   InvalidCredentialsError,
@@ -27,7 +29,9 @@ const STATUS_BY_ERROR = new Map<Function, HttpStatus>([
   [UserNotFoundError, HttpStatus.NOT_FOUND],
   [ForbiddenActionError, HttpStatus.FORBIDDEN],
   [GameNotFoundError, HttpStatus.NOT_FOUND],
+  [GameImportJobNotFoundError, HttpStatus.NOT_FOUND],
   [GameSlugAlreadyTakenError, HttpStatus.CONFLICT],
+  [GameVersionConflictError, HttpStatus.CONFLICT],
   [CategoryNotFoundError, HttpStatus.NOT_FOUND],
   [CategorySlugAlreadyTakenError, HttpStatus.CONFLICT],
   [InvalidImageError, HttpStatus.BAD_REQUEST],

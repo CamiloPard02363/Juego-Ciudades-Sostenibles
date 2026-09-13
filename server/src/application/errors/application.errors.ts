@@ -35,6 +35,12 @@ export class GameNotFoundError extends ApplicationError {
   }
 }
 
+export class GameImportJobNotFoundError extends ApplicationError {
+  constructor(jobId: string) {
+    super(`No se encontró un trabajo de importación con id "${jobId}".`);
+  }
+}
+
 export class GameSlugAlreadyTakenError extends ApplicationError {
   constructor(slug: string) {
     super(`Ya existe un juego con el identificador "${slug}".`);

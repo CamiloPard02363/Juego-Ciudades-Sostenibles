@@ -19,6 +19,8 @@ export interface GameDocument {
   content: unknown[];
   createdAt: Date;
   updatedAt: Date;
+  /** Ausente en documentos previos al control de concurrencia optimista = versión 0. */
+  version?: number;
 }
 
 export class GameMapper {
@@ -38,6 +40,7 @@ export class GameMapper {
       content: doc.content,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
+      version: doc.version ?? 0,
     });
   }
 
@@ -59,6 +62,7 @@ export class GameMapper {
       content: props.content,
       createdAt: props.createdAt,
       updatedAt: props.updatedAt,
+      version: props.version,
     };
   }
 }

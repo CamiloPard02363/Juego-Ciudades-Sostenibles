@@ -35,6 +35,13 @@ export interface GameProps {
   content: unknown[];
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * Control de concurrencia optimista: se incrementa en cada `touch()` (todo
+   * mutador pasa por ahí). El repositorio condiciona el `save()` de una
+   * edición a que la versión en base de datos siga siendo esta — si no,
+   * significa que alguien más ya guardó un cambio más nuevo mientras tanto.
+   */
+  version: number;
 }
 
 /**
@@ -89,6 +96,7 @@ export class Game {
       content: props.content,
       createdAt: now,
       updatedAt: now,
+      version: 0,
     });
   }
 
@@ -155,6 +163,10 @@ export class Game {
 
   get updatedAt(): Date {
     return this.props.updatedAt;
+  }
+
+  get version(): number {
+    return this.props.version;
   }
 
   /**
@@ -251,6 +263,7 @@ export class Game {
 
   private touch(): void {
     this.props.updatedAt = new Date();
+    this.props.version += 1;
   }
 
   toPersistence(): GameProps {

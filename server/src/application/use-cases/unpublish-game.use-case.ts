@@ -33,8 +33,9 @@ export class UnpublishGameUseCase implements UseCase<UnpublishGameInput, GameDet
       throw new ForbiddenActionError('despublicar este juego');
     }
 
+    const expectedVersion = game.version;
     game.unpublish();
-    await this.gameRepository.save(game);
+    await this.gameRepository.save(game, expectedVersion);
 
     return toGameDetailDto(game);
   }

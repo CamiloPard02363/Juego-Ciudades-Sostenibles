@@ -23,3 +23,14 @@ export class InvalidGameSlugError extends DomainError {
     super(`El identificador "${value}" no es válido: usa minúsculas, números y guiones.`);
   }
 }
+
+/**
+ * Alguien más guardó una versión más nueva del juego entre que este cliente
+ * lo leyó y lo volvió a guardar (edición concurrente). Se lanza en vez de
+ * dejar que la escritura más reciente pise en silencio a la más vieja.
+ */
+export class GameVersionConflictError extends DomainError {
+  constructor(gameId: string) {
+    super(`El juego "${gameId}" fue modificado por otra operación; recarga e intenta de nuevo.`);
+  }
+}

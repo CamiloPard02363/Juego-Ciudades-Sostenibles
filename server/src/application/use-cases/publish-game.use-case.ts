@@ -33,8 +33,9 @@ export class PublishGameUseCase implements UseCase<PublishGameInput, GameDetailD
       throw new ForbiddenActionError('publicar este juego');
     }
 
+    const expectedVersion = game.version;
     game.publish();
-    await this.gameRepository.save(game);
+    await this.gameRepository.save(game, expectedVersion);
 
     return toGameDetailDto(game);
   }
