@@ -51,7 +51,7 @@ export function useGuessWhoTournament(token: string | null) {
       'tournament:match-accusation-result',
       (payload: { matchCode: string; accuserUserId: string; correct: boolean }) => {
         if (payload.correct) return
-        setMatchAccusationFailedMessage('Acusación fallida. El match continúa.')
+        setMatchAccusationFailedMessage('Bandera equivocada.')
       },
     )
 

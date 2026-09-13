@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Crown, LogOut, Skull, Trophy, Users } from 'lucide-react'
+import { Crown, Link, LogOut, Skull, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoTournament } from './useGuessWhoTournament'
 import { Modal } from './Modal'
@@ -71,6 +71,7 @@ export function TournamentRoom({
   const [maxParticipantsText, setMaxParticipantsText] = useState('4')
   const [maxParticipantsWarning, setMaxParticipantsWarning] = useState<string | null>(null)
   const [showPairingOverlay, setShowPairingOverlay] = useState(false)
+  const [copyFeedback, setCopyFeedback] = useState(false)
   const joinedWithInitialCode = useRef(false)
   useEffect(() => {
     if (!initialJoinCode || joinedWithInitialCode.current) return
@@ -106,6 +107,16 @@ export function TournamentRoom({
   function handleExit() {
     leaveTournament()
     onExit()
+  }
+
+  function copyTournamentLink() {
+    if (!tournament) return
+    const url = new URL(window.location.href)
+    url.searchParams.set('sala', tournament.code)
+    void navigator.clipboard.writeText(url.toString()).then(() => {
+      setCopyFeedback(true)
+      setTimeout(() => setCopyFeedback(false), 1800)
+    })
   }
 
   if (entryChoice === 'undecided' || entryChoice === 'choosing-create') {
@@ -277,6 +288,10 @@ export function TournamentRoom({
           {tournament.phase === 'WAITING' && (
             <p className="flex items-center gap-1.5 text-[12.5px] text-text">
               Código de sala: <code className="text-[13px] font-semibold text-accent">{tournament.code}</code>
+              <button type="button" className="text-text hover:text-accent" onClick={copyTournamentLink} aria-label="Copiar enlace de la sala">
+                <Link className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+              {copyFeedback && <span className="text-[11px] text-accent" role="status">Enlace copiado</span>}
             </p>
           )}
           {tournament.phase === 'RUNNING' && (
@@ -307,7 +322,10 @@ export function TournamentRoom({
           className="mb-4 rounded-lg border border-border bg-code-bg px-[13px] py-[11px] text-sm leading-snug text-text-h animate-[fade-in-up_0.2s_ease-out]"
           role="status"
         >
-          {matchAccusationFailedMessage}
+          {matchAccusationFailedMessage}{' '}
+          {tournament.myMatch?.players.find((player) => player.userId === tournament.myMatch?.activePlayerUserId)?.displayName
+            ? `Turno de ${tournament.myMatch.players.find((player) => player.userId === tournament.myMatch?.activePlayerUserId)?.displayName}.`
+            : ''}
         </p>
       )}
 
