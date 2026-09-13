@@ -12,7 +12,7 @@ export type MazeCollectorItem = {
   fact?: string
 }
 
-export type MazeLayout = 'CLASSIC' | 'CROSS' | 'SPIRAL'
+export type MazeLayout = 'CLASSIC' | 'CROSS' | 'SPIRAL' | 'CITY'
 
 export type MazeCollectorConfig = {
   layout: MazeLayout
@@ -48,6 +48,8 @@ export type MazeLayoutDef = {
   enemySpawns: CellPosition[]
   /** Celdas candidatas para colocar objetos coleccionables, en orden fijo. */
   itemSlots: CellPosition[]
+  /** Celdas puramente decorativas (árboles/parques) — no afectan colisión ni movimiento. */
+  decorations: CellPosition[]
 }
 
 const COLS = 15
@@ -111,6 +113,28 @@ function buildCombMaze(cols: number, rows: number, orientation: 'vertical' | 'ho
   return grid
 }
 
+/**
+ * Cuadrícula de calles tipo ciudad: una calle cada `STREET_SPACING` filas y
+ * columnas, dejando manzanas sólidas (edificios) entre ellas. Al ser una
+ * rejilla completa, cualquier calle conecta con cualquier otra por al menos
+ * dos rutas distintas — el "múltiples caminos" que no dan los peines ni la
+ * cruz. Grid grande a propósito: es la ambientación de una ciudad, no un
+ * laberinto abstracto.
+ */
+function buildCityMaze(cols: number, rows: number): number[][] {
+  const STREET_SPACING = 4
+  const grid = Array.from({ length: rows }, () => Array(cols).fill(1))
+
+  for (let r = 1; r < rows - 1; r++) {
+    for (let c = 1; c < cols - 1; c++) {
+      if (r % STREET_SPACING === 0 || c % STREET_SPACING === 0) grid[r][c] = 0
+    }
+  }
+
+  addBorder(grid)
+  return grid
+}
+
 /** Una franja horizontal y una vertical, cruzadas por el centro; el resto son paredes sólidas. */
 function buildCrossMaze(cols: number, rows: number): number[][] {
   const grid = Array.from({ length: rows }, () => Array(cols).fill(1))
@@ -158,7 +182,7 @@ function closestOpenCell(grid: number[][], targetRow: number, targetCol: number,
 }
 
 /** Reparte, de forma fija y determinista, dónde nace el jugador, dónde nacen los enemigos y qué celdas pueden llevar un objeto. */
-function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: number) {
+function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: number, includeDecorations: boolean) {
   const used: CellPosition[] = []
 
   const playerStart = closestOpenCell(grid, Math.floor(rows / 2), Math.floor(cols / 2), used)
@@ -181,24 +205,50 @@ function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: num
   const itemSlots: CellPosition[] = []
   for (let i = 0; i < remaining.length && itemSlots.length < maxItems; i += stride) {
     itemSlots.push(remaining[i])
+    used.push(remaining[i])
   }
 
-  return { playerStart, enemySpawns, itemSlots }
+  // El resto de celdas libres son candidatas a decoración (árboles/parques):
+  // solo tiene sentido en el layout CITY — en los demás (Cruz, Espiral,
+  // Clásico) no hay ambientación de ciudad, así que no se les fuerza césped.
+  const decorations: CellPosition[] = []
+  if (includeDecorations) {
+    const decorationCandidates = openCells(grid).filter(
+      (cell) => !used.some((u) => u.row === cell.row && u.col === cell.col),
+    )
+    const decorationStride = Math.max(1, Math.floor(decorationCandidates.length / 24))
+    for (let i = 0; i < decorationCandidates.length; i += decorationStride) {
+      decorations.push(decorationCandidates[i])
+    }
+  }
+
+  return { playerStart, enemySpawns, itemSlots, decorations }
 }
 
-function buildLayout(grid: number[][]): MazeLayoutDef {
-  const { playerStart, enemySpawns, itemSlots } = deriveSlots(grid, COLS, ROWS, MAX_MAZE_ITEMS)
-  return { cols: COLS, rows: ROWS, grid, playerStart, enemySpawns, itemSlots }
+function buildLayout(grid: number[][], cols: number, rows: number, includeDecorations = false): MazeLayoutDef {
+  const { playerStart, enemySpawns, itemSlots, decorations } = deriveSlots(
+    grid,
+    cols,
+    rows,
+    MAX_MAZE_ITEMS,
+    includeDecorations,
+  )
+  return { cols, rows, grid, playerStart, enemySpawns, itemSlots, decorations }
 }
+
+/** CITY es deliberadamente más grande — es una ciudad, no un laberinto de bolsillo. */
+const CITY_COLS = 25
+const CITY_ROWS = 17
 
 /**
- * Tres laberintos fijos (no editables por quien crea el juego — son datos
+ * Cuatro laberintos fijos (no editables por quien crea el juego — son datos
  * del motor, la temática la aportan los íconos/colores/nombres del contenido
  * y de `config`). Verificados por conectividad: cada celda libre es
  * alcanzable desde cualquier otra.
  */
 export const MAZE_LAYOUTS: Record<MazeLayout, MazeLayoutDef> = {
-  CLASSIC: buildLayout(buildCombMaze(COLS, ROWS, 'vertical')),
-  SPIRAL: buildLayout(buildCombMaze(COLS, ROWS, 'horizontal')),
-  CROSS: buildLayout(buildCrossMaze(COLS, ROWS)),
+  CLASSIC: buildLayout(buildCombMaze(COLS, ROWS, 'vertical'), COLS, ROWS),
+  SPIRAL: buildLayout(buildCombMaze(COLS, ROWS, 'horizontal'), COLS, ROWS),
+  CROSS: buildLayout(buildCrossMaze(COLS, ROWS), COLS, ROWS),
+  CITY: buildLayout(buildCityMaze(CITY_COLS, CITY_ROWS), CITY_COLS, CITY_ROWS, true),
 }

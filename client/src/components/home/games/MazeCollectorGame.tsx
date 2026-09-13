@@ -17,10 +17,119 @@ type MazeCollectorGameProps = {
 }
 
 const CELL_SIZE = 32
+/** Resolución del "sprite" lógico dentro de cada celda — entre más grande, más fino el pixel art (y más lento de dibujar). */
+const SPRITE_GRID = 8
+const PIXEL = CELL_SIZE / SPRITE_GRID
+
+type SpriteMatrix = number[][]
+type Palette = Record<number, string>
+
+/** Dibuja una matriz de "pixeles" (0 = transparente) escalada para llenar una celda — la técnica clásica de sprites 8x8. */
+function drawSprite(ctx: CanvasRenderingContext2D, matrix: SpriteMatrix, palette: Palette, originX: number, originY: number) {
+  for (let row = 0; row < matrix.length; row++) {
+    for (let col = 0; col < matrix[row].length; col++) {
+      const value = matrix[row][col]
+      if (value === 0) continue
+      ctx.fillStyle = palette[value] ?? '#000000'
+      ctx.fillRect(Math.round(originX + col * PIXEL), Math.round(originY + row * PIXEL), PIXEL + 1, PIXEL + 1)
+    }
+  }
+}
+
+/** Vehículo genérico visto desde arriba: sirve tanto para "camión de reciclaje" como para cualquier otro recolector re-skinable. */
+const COLLECTOR_SPRITE: SpriteMatrix = [
+  [0, 1, 1, 1, 1, 1, 1, 0],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 2, 2, 1, 1, 2, 2, 1],
+  [1, 2, 2, 1, 1, 2, 2, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [3, 1, 1, 1, 1, 1, 1, 3],
+  [0, 3, 0, 0, 0, 0, 3, 0],
+]
+
+/** Nube/amenaza con "ojos" — sirve para nube de contaminación o cualquier enemigo temático. */
+const ENEMY_SPRITE: SpriteMatrix = [
+  [0, 0, 1, 1, 1, 1, 0, 0],
+  [0, 1, 1, 1, 1, 1, 1, 0],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 2, 1, 1, 2, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 2, 2, 2, 2, 1, 1],
+  [0, 1, 1, 1, 1, 1, 1, 0],
+  [0, 0, 1, 0, 0, 1, 0, 0],
+]
+
+/** Caja/paquete coleccionable genérico — se colorea con item.color. */
+const ITEM_SPRITE: SpriteMatrix = [
+  [0, 2, 2, 2, 2, 2, 2, 0],
+  [2, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 3, 1, 1, 3, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 3, 1, 1, 3, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 2],
+  [0, 2, 2, 2, 2, 2, 2, 0],
+]
+
+/** Edificio: franja de techo + ventanas encendidas/apagadas alternadas. */
+const BUILDING_SPRITE: SpriteMatrix = [
+  [4, 4, 4, 4, 4, 4, 4, 4],
+  [1, 2, 1, 1, 2, 1, 1, 2],
+  [1, 2, 1, 1, 2, 1, 1, 2],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 3, 1, 1, 2, 1, 1, 3],
+  [1, 3, 1, 1, 2, 1, 1, 3],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+]
+
+/** Árbol sobre césped — decoración de las celdas de parque en el layout CITY. */
+const TREE_SPRITE: SpriteMatrix = [
+  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 0, 4, 4, 4, 4, 0, 1],
+  [1, 4, 4, 3, 3, 4, 4, 1],
+  [1, 4, 3, 3, 3, 3, 4, 1],
+  [1, 0, 4, 3, 3, 4, 0, 1],
+  [1, 1, 0, 2, 2, 0, 1, 1],
+  [1, 1, 0, 2, 2, 0, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1],
+]
+
+/** Paleta de edificios variada — "muy colorido" en vez de un gris uniforme. */
+const BUILDING_PALETTES: Palette[] = [
+  { 1: '#b45309', 2: '#fde68a', 3: '#78350f', 4: '#92400e' },
+  { 1: '#1d4ed8', 2: '#bfdbfe', 3: '#1e3a8a', 4: '#1e40af' },
+  { 1: '#059669', 2: '#a7f3d0', 3: '#064e3b', 4: '#047857' },
+  { 1: '#7c3aed', 2: '#ddd6fe', 3: '#4c1d95', 4: '#6d28d9' },
+  { 1: '#dc2626', 2: '#fecaca', 3: '#7f1d1d', 4: '#b91c1c' },
+  { 1: '#0891b2', 2: '#a5f3fc', 3: '#164e63', 4: '#0e7490' },
+]
+
+/** Hash determinista y estable (misma celda = mismo color siempre, sin parpadeo entre frames). */
+function hashCell(row: number, col: number): number {
+  return Math.abs(row * 31 + col * 17)
+}
+
+function buildingPalette(row: number, col: number): Palette {
+  return BUILDING_PALETTES[hashCell(row, col) % BUILDING_PALETTES.length]
+}
+
+const ROAD_PALETTE: Palette = { 1: '#374151' }
+const ROAD_MARKING_COLOR = '#facc15'
+const GRASS_BASE = '#166534'
+const COLLECTOR_PALETTE: Palette = { 1: '#facc15', 2: '#7dd3fc', 3: '#1f2937' }
+const ENEMY_PALETTE: Palette = { 1: '#7c3aed', 2: '#1e1b3a' }
+const TREE_PALETTE: Palette = { 1: GRASS_BASE, 2: '#78350f', 3: '#166534', 4: '#22c55e' }
+
+function itemPalette(color: string): Palette {
+  return { 1: color, 2: '#111827', 3: '#ffffff' }
+}
 
 export function MazeCollectorGame({ title, primaryColor, layout, items, config, onExit }: MazeCollectorGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const game = useMazeCollectorGame({ layout, items, config })
+  const isCity = config.layout === 'CITY'
 
   const width = layout.cols * CELL_SIZE
   const height = layout.rows * CELL_SIZE
@@ -31,55 +140,57 @@ export function MazeCollectorGame({ title, primaryColor, layout, items, config, 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    // Sin antialiasing: es lo que hace que los sprites se vean "de píxeles"
+    // en vez de vectores suavizados.
+    ctx.imageSmoothingEnabled = false
     ctx.clearRect(0, 0, width, height)
 
-    // Paredes
-    ctx.fillStyle = primaryColor
+    const decoratedCells = new Set(layout.decorations.map((d) => `${d.row}:${d.col}`))
+
     for (let row = 0; row < layout.rows; row++) {
       for (let col = 0; col < layout.cols; col++) {
+        const x = col * CELL_SIZE
+        const y = row * CELL_SIZE
+
         if (layout.grid[row][col] === 1) {
-          ctx.fillRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+          drawSprite(ctx, BUILDING_SPRITE, isCity ? buildingPalette(row, col) : { ...ROAD_PALETTE, 2: primaryColor, 3: primaryColor, 4: '#1f2937' }, x, y)
+          continue
+        }
+
+        if (isCity && decoratedCells.has(`${row}:${col}`)) {
+          drawSprite(ctx, TREE_SPRITE, TREE_PALETTE, x, y)
+          continue
+        }
+
+        // Calle/camino libre.
+        ctx.fillStyle = ROAD_PALETTE[1]
+        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+        if (isCity && (row % 4 === 0 || col % 4 === 0)) {
+          ctx.fillStyle = ROAD_MARKING_COLOR
+          ctx.fillRect(x + CELL_SIZE / 2 - PIXEL / 2, y + CELL_SIZE / 2 - PIXEL / 2, PIXEL, PIXEL)
         }
       }
     }
 
-    // Objetos restantes
     for (const entry of game.remainingItemPositions) {
       const item = items.find((i) => i.itemId === entry.itemId)
       if (!item) continue
-      const cx = entry.position.col * CELL_SIZE + CELL_SIZE / 2
-      const cy = entry.position.row * CELL_SIZE + CELL_SIZE / 2
-      ctx.fillStyle = item.color
-      ctx.beginPath()
-      ctx.arc(cx, cy, CELL_SIZE * 0.22, 0, Math.PI * 2)
-      ctx.fill()
+      drawSprite(ctx, ITEM_SPRITE, itemPalette(item.color), entry.position.col * CELL_SIZE, entry.position.row * CELL_SIZE)
     }
 
-    // Enemigos
-    ctx.fillStyle = '#ef4444'
     for (const enemyPos of game.enemyPositions) {
-      const cx = enemyPos.col * CELL_SIZE + CELL_SIZE / 2
-      const cy = enemyPos.row * CELL_SIZE + CELL_SIZE / 2
-      ctx.beginPath()
-      ctx.arc(cx, cy, CELL_SIZE * 0.35, 0, Math.PI * 2)
-      ctx.fill()
+      drawSprite(ctx, ENEMY_SPRITE, ENEMY_PALETTE, enemyPos.col * CELL_SIZE, enemyPos.row * CELL_SIZE)
     }
 
-    // Jugador
-    const px = game.playerPos.col * CELL_SIZE + CELL_SIZE / 2
-    const py = game.playerPos.row * CELL_SIZE + CELL_SIZE / 2
-    ctx.fillStyle = '#facc15'
-    ctx.beginPath()
-    ctx.arc(px, py, CELL_SIZE * 0.4, 0, Math.PI * 2)
-    ctx.fill()
-  }, [game.playerPos, game.enemyPositions, game.remainingItemPositions, layout, items, primaryColor, width, height])
+    drawSprite(ctx, COLLECTOR_SPRITE, COLLECTOR_PALETTE, game.playerPos.col * CELL_SIZE, game.playerPos.row * CELL_SIZE)
+  }, [game.playerPos, game.enemyPositions, game.remainingItemPositions, layout, items, primaryColor, width, height, isCity])
 
   const CollectorIcon = iconForConcept(config.collectorIcon)
   const EnemyIcon = iconForConcept(config.enemyIcon)
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
-      <div className="mx-auto flex min-h-full max-w-[720px] flex-col items-center p-5 sm:p-8">
+      <div className="mx-auto flex min-h-full max-w-[900px] flex-col items-center p-5 sm:p-8">
         <header className="relative mb-4 w-full text-center">
           <button
             type="button"
@@ -104,14 +215,14 @@ export function MazeCollectorGame({ title, primaryColor, layout, items, config, 
           <Stat label="Puntos" value={String(game.score)} />
         </div>
 
-        <div className="relative">
+        <div className="relative w-full overflow-x-auto">
           {game.collectedCount > 0 && <ConfettiBurst trigger={game.collectedCount} />}
           <canvas
             ref={canvasRef}
             width={width}
             height={height}
-            className="rounded-xl border-2"
-            style={{ borderColor: primaryColor, maxWidth: '100%', height: 'auto' }}
+            className="mx-auto block rounded-xl border-2"
+            style={{ borderColor: primaryColor, imageRendering: 'pixelated', maxWidth: '100%', height: 'auto' }}
           />
 
           {game.phase === 'ready' && (

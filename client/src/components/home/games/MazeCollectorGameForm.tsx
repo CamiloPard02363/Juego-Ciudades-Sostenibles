@@ -45,6 +45,7 @@ const LAYOUT_OPTIONS: Array<{ value: MazeLayout; label: string }> = [
   { value: 'CLASSIC', label: 'Clásico' },
   { value: 'CROSS', label: 'Cruz' },
   { value: 'SPIRAL', label: 'Espiral' },
+  { value: 'CITY', label: 'Ciudad (grande, con calles y edificios)' },
 ]
 
 function emptyItem(index: number): ItemDraft {

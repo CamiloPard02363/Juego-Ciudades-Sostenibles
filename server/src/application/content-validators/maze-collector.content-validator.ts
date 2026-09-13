@@ -18,8 +18,8 @@ export interface MazeCollectorItem {
   fact?: string;
 }
 
-export type MazeLayout = 'CLASSIC' | 'CROSS' | 'SPIRAL';
-const VALID_LAYOUTS: readonly MazeLayout[] = ['CLASSIC', 'CROSS', 'SPIRAL'];
+export type MazeLayout = 'CLASSIC' | 'CROSS' | 'SPIRAL' | 'CITY';
+const VALID_LAYOUTS: readonly MazeLayout[] = ['CLASSIC', 'CROSS', 'SPIRAL', 'CITY'];
 
 export interface MazeCollectorConfig {
   layout: MazeLayout;
