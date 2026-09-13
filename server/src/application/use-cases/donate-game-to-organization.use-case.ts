@@ -80,8 +80,9 @@ export class DonateGameToOrganizationUseCase
     }
 
     // `donateTo` valida el estado del juego (no eliminado, no ya institucional).
+    const expectedVersion = game.version;
     game.donateTo(organization.id);
-    await this.gameRepository.save(game);
+    await this.gameRepository.save(game, expectedVersion);
 
     return toGameDetailDto(game);
   }

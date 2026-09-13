@@ -24,7 +24,14 @@ export interface PaginatedGames {
 }
 
 export interface GameRepository {
-  save(game: Game): Promise<void>;
+  /**
+   * `expectedVersion` habilita concurrencia optimista: si se pasa, el guardado
+   * solo aplica si la versión almacenada del documento sigue siendo esa —
+   * si no, lanza `GameVersionConflictError` (alguien más ya guardó un cambio
+   * más nuevo). Se omite únicamente en la primera inserción de un juego
+   * nuevo, donde no hay una versión previa contra la cual competir.
+   */
+  save(game: Game, expectedVersion?: number): Promise<void>;
   findById(id: string): Promise<Game | null>;
   findBySlug(slug: string): Promise<Game | null>;
   existsBySlug(slug: string): Promise<boolean>;

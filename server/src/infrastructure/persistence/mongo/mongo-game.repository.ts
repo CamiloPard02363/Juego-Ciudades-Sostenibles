@@ -6,9 +6,11 @@ import type {
   PaginatedGames,
 } from '../../../domain/ports/game.repository.port.js';
 import type { Game } from '../../../domain/entities/game.entity.js';
-import { GameSlugAlreadyTakenError } from '../../../application/errors/application.errors.js';
+import { GameNotFoundError, GameSlugAlreadyTakenError } from '../../../application/errors/application.errors.js';
+import { GameVersionConflictError } from '../../../domain/errors/game.errors.js';
 import { MongoService } from './mongo.service.js';
 import { GameMapper, type GameDocument } from './game.mapper.js';
+import { GAMES_COLLECTION_JSON_SCHEMA } from './games.collection-schema.js';
 
 const DUPLICATE_KEY_ERROR_CODE = 11000;
 
@@ -37,20 +39,56 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
    * verificación. Este índice es la garantía real de unicidad; el `save()`
    * de abajo traduce el error de duplicado que produce a un error de
    * aplicación legible en vez de dejarlo escapar como un 500 genérico.
+   *
+   * Los otros tres índices cubren, cada uno, un filtro real y ya existente
+   * de `findAll` (ver más abajo) — sin ellos, cada listado del catálogo, de
+   * "mis juegos" o de una organización es un escaneo completo de la
+   * colección. No se agregan índices para filtros que no se usan hoy.
    */
   async onModuleInit(): Promise<void> {
     await this.collection.createIndex({ slug: 1 }, { unique: true });
+    await this.collection.createIndex({ status: 1, categoryId: 1, createdAt: -1 });
+    await this.collection.createIndex({ creatorUserId: 1, status: 1 });
+    await this.collection.createIndex({ organizationId: 1, status: 1 });
+
+    // Defensa adicional bajo los content-validators de la app, no un
+    // sustituto: `warn` (no `error`) para que un desajuste de esquema no
+    // pueda tumbar escrituras en producción antes de verificarse contra
+    // datos reales. `collMod` porque la colección ya existe.
+    await this.mongo.getDb().command({
+      collMod: COLLECTION,
+      validator: GAMES_COLLECTION_JSON_SCHEMA,
+      validationLevel: 'moderate',
+      validationAction: 'warn',
+    });
   }
 
-  async save(game: Game): Promise<void> {
+  /**
+   * `expectedVersion` presente = edición de un juego existente: el filtro
+   * exige que la versión en base de datos siga siendo esa (upsert
+   * deshabilitado, ya debe existir). Si no matchea ningún documento, se
+   * distingue entre "ya no existe" y "alguien más lo modificó primero" con
+   * una lectura extra — un único `updateOne` sigue siendo suficiente para la
+   * atomicidad real; no hace falta ninguna transacción para guardar UN
+   * documento.
+   */
+  async save(game: Game, expectedVersion?: number): Promise<void> {
     const doc = GameMapper.toPersistence(game);
+    const filter: Record<string, unknown> = { _id: doc._id };
+    if (expectedVersion !== undefined) filter.version = expectedVersion;
 
     try {
-      await this.collection.updateOne(
-        { _id: doc._id },
+      const result = await this.collection.updateOne(
+        filter,
         { $set: doc },
-        { upsert: true },
+        { upsert: expectedVersion === undefined },
       );
+
+      if (expectedVersion !== undefined && result.matchedCount === 0) {
+        const stillExists = await this.collection.countDocuments({ _id: doc._id }, { limit: 1 });
+        if (stillExists) throw new GameVersionConflictError(doc._id);
+        throw new GameNotFoundError(doc._id);
+      }
     } catch (error) {
       if (error instanceof MongoServerError && error.code === DUPLICATE_KEY_ERROR_CODE) {
         throw new GameSlugAlreadyTakenError(doc.slug);

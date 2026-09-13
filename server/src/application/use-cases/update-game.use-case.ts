@@ -49,6 +49,7 @@ export class UpdateGameUseCase implements UseCase<UpdateGameInput, GameDetailDto
         ? validator.validateContent(input.content, config ?? game.config)
         : undefined;
 
+    const expectedVersion = game.version;
     game.updateDetails({
       title: input.title?.trim(),
       description: input.description?.trim(),
@@ -67,7 +68,7 @@ export class UpdateGameUseCase implements UseCase<UpdateGameInput, GameDetailDto
       content,
     });
 
-    await this.gameRepository.save(game);
+    await this.gameRepository.save(game, expectedVersion);
 
     return toGameDetailDto(game);
   }

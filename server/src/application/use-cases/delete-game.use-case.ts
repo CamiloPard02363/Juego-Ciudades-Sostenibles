@@ -37,7 +37,8 @@ export class DeleteGameUseCase implements UseCase<DeleteGameInput, void> {
       throw new ForbiddenActionError('eliminar este juego');
     }
 
+    const expectedVersion = game.version;
     game.remove();
-    await this.gameRepository.save(game);
+    await this.gameRepository.save(game, expectedVersion);
   }
 }
