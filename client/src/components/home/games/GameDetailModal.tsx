@@ -35,7 +35,8 @@ export function GameDetailModal({
   const { token, user } = useAuth()
   const accentColor = color ?? game.theme.primaryColor
   const isGuessWho = game.gameType === 'GUESS_WHO'
-  const opensLiveRoom = isGuessWho || game.gameType === 'DOMINO' || game.gameType === 'SNAKES_LADDERS'
+  const opensLiveRoom =
+    isGuessWho || game.gameType === 'DOMINO' || game.gameType === 'SNAKES_LADDERS' || game.gameType === 'DUAL_QUEST'
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
   const config = game.config as { maxAccusationCount?: number; turnDurationSeconds?: number }

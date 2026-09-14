@@ -308,11 +308,22 @@ function toDualQuestClientView(room: DualQuestRoomState, forSocketId: string) {
   return {
     code: room.code,
     gameTitle: room.gameTitle,
+    coreQuestion: room.coreQuestion,
     gridCols: room.gridCols,
     gridRows: room.gridRows,
     grid: room.grid,
     corePosition: room.corePosition,
     gates: room.gates,
+    // Metadata segura de cada interruptor: dónde está y quién lo activa —
+    // nunca `prompt`/`options`/`correctOptionIndex` (eso solo se revela vía
+    // `pendingQuestion`, una vez que alguien lo activa de verdad).
+    triggers: room.triggers.map((trigger) => ({
+      triggerId: trigger.triggerId,
+      kind: trigger.kind,
+      activatedByRole: trigger.activatedByRole,
+      switchPosition: trigger.switchPosition,
+      gateId: trigger.gateId,
+    })),
     phase: room.phase,
     bothAtCore: room.bothAtCore,
     collectedGemIds: room.collectedGemIds,
@@ -642,6 +653,11 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         gameId: snakesLaddersRoom.gameId,
         gameTitle: snakesLaddersRoom.gameTitle,
       };
+    }
+
+    const dualQuestRoom = this.dualQuestRoomStore.get(code);
+    if (dualQuestRoom) {
+      return { kind: 'dual-quest' as const, gameId: dualQuestRoom.gameId, gameTitle: dualQuestRoom.gameTitle };
     }
 
     throw new Error('No existe ninguna sala con ese código.');
@@ -2163,6 +2179,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       code,
       gameId: game.id,
       gameTitle: game.title,
+      coreQuestion: game.config.coreQuestion as string,
       gridCols: game.config.gridCols as number,
       gridRows: game.config.gridRows as number,
       grid: game.config.grid as number[][],
