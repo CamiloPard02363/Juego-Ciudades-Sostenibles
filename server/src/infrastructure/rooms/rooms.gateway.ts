@@ -30,6 +30,17 @@ import {
   type DominoTile,
   type DominoPlacedTile,
 } from '../../domain/ports/domino-room-store.port.js';
+import {
+  SNAKES_LADDERS_ROOM_STORE,
+  type SnakesLaddersRoomStore,
+  type SnakesLaddersRoomState,
+  type SnakesLaddersPendingChallenge,
+} from '../../domain/ports/snakes-ladders-room-store.port.js';
+import type {
+  SnakesLaddersLink,
+  SnakesLaddersQuestion,
+  SnakesLaddersTriggerType,
+} from '../../application/content-validators/snakes-ladders.content-validator.js';
 import { AnalyticsTrackerService } from '../../application/services/analytics-tracker.service.js';
 import { WsExceptionFilter } from './ws-exception.filter.js';
 
@@ -216,6 +227,53 @@ function toDominoClientView(room: DominoRoomState, forSocketId: string) {
   };
 }
 
+/**
+ * Vista pública de una sala de Escaleras y Serpientes: nunca incluye
+ * `correctOptionIndex` (eso solo vive en `room.questions`, del lado del
+ * servidor) — si hay un reto pendiente, se manda su pregunta/opciones pero
+ * jamás la respuesta correcta.
+ */
+function toSnakesLaddersClientView(room: SnakesLaddersRoomState, forSocketId: string) {
+  const pendingQuestion = room.pendingChallenge
+    ? room.questions.find(
+        (q) => q.cellNumber === room.pendingChallenge!.cellNumber && q.triggerType === room.pendingChallenge!.triggerType,
+      )
+    : undefined;
+
+  return {
+    code: room.code,
+    gameTitle: room.gameTitle,
+    boardSize: room.boardSize,
+    ladders: room.ladders,
+    snakes: room.snakes,
+    turnDurationSeconds: room.turnDurationSeconds,
+    phase: room.phase,
+    winnerUserId: room.winnerUserId,
+    activePlayerUserId: room.activePlayerUserId,
+    turnDeadline: room.turnDeadline,
+    lastRoll: room.lastRoll,
+    pendingChallenge:
+      room.pendingChallenge && pendingQuestion
+        ? {
+            cellNumber: room.pendingChallenge.cellNumber,
+            triggerType: room.pendingChallenge.triggerType,
+            forUserId: room.pendingChallenge.forUserId,
+            prompt: pendingQuestion.prompt,
+            options: pendingQuestion.options,
+            deadlineTs: room.pendingChallenge.deadlineTs,
+          }
+        : null,
+    players: room.players.map((player) => ({
+      userId: player.userId,
+      displayName: player.displayName,
+      position: player.position,
+      isSelf: player.socketId === forSocketId,
+      isHost: player.userId === room.hostUserId,
+      hasVotedRematch: room.rematchVotes[player.userId] !== undefined,
+    })),
+  };
+}
+
 /** Vista pública de la sala que se envía a un jugador dado: oculta la carta secreta ajena. */
 function toClientView(room: RoomState, forSocketId: string) {
   return {
@@ -285,6 +343,15 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   /** Timers de turno de salas de dominó, mismo criterio que `turnTimers` para "¿Quién Es?". */
   private readonly dominoTurnTimers = new Map<string, NodeJS.Timeout>();
 
+  /**
+   * Timers de Escaleras y Serpientes — un solo timer por sala que cubre TANTO
+   * "el jugador activo no tiró el dado a tiempo" COMO "no respondió el reto
+   * pendiente a tiempo" (se distingue en el callback por si `pendingChallenge`
+   * existe). No hace falta un segundo mapa: en un momento dado una sala solo
+   * puede estar esperando una tirada o una respuesta, nunca ambas.
+   */
+  private readonly snakesLaddersTurnTimers = new Map<string, NodeJS.Timeout>();
+
   constructor(
     private readonly jwtService: JwtService,
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
@@ -292,6 +359,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     @Inject(ROOM_STORE) private readonly roomStore: RoomStore,
     @Inject(TOURNAMENT_STORE) private readonly tournamentStore: TournamentStore,
     @Inject(DOMINO_ROOM_STORE) private readonly dominoRoomStore: DominoRoomStore,
+    @Inject(SNAKES_LADDERS_ROOM_STORE) private readonly snakesLaddersRoomStore: SnakesLaddersRoomStore,
     private readonly analyticsTracker: AnalyticsTrackerService,
   ) {}
 
@@ -375,6 +443,23 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         dominoRoom.turnDeadline = null;
         this.dominoRoomStore.set(dominoRoom);
         this.broadcastDominoState(dominoRoom);
+      }
+    }
+
+    const snakesLaddersRoom = this.snakesLaddersRoomStore.findBySocketId(socket.id);
+    if (snakesLaddersRoom) {
+      this.clearSnakesLaddersTurnTimer(snakesLaddersRoom.code);
+      snakesLaddersRoom.players = snakesLaddersRoom.players.filter((player) => player.socketId !== socket.id);
+
+      if (snakesLaddersRoom.players.length === 0) {
+        this.snakesLaddersRoomStore.delete(snakesLaddersRoom.code);
+      } else {
+        snakesLaddersRoom.phase = snakesLaddersRoom.phase === 'FINISHED' ? snakesLaddersRoom.phase : 'WAITING';
+        snakesLaddersRoom.activePlayerUserId = null;
+        snakesLaddersRoom.turnDeadline = null;
+        snakesLaddersRoom.pendingChallenge = null;
+        this.snakesLaddersRoomStore.set(snakesLaddersRoom);
+        this.broadcastSnakesLaddersState(snakesLaddersRoom);
       }
     }
   }
@@ -1563,6 +1648,371 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   private broadcastDominoState(room: DominoRoomState) {
     for (const player of room.players) {
       this.server.to(player.socketId).emit('domino:state', toDominoClientView(room, player.socketId));
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Escaleras y Serpientes: sala en tiempo real de 2 a 4 jugadores. Mismo
+  // patrón de sala/turnos/timers que Dominó, generalizado a N jugadores
+  // (rotación circular sobre `room.players` en vez de "el otro"). El dado y
+  // la corrección de las respuestas SIEMPRE corren en el servidor — nunca se
+  // confía en el cliente para ninguno de los dos, así se evita hacer trampa.
+  // ---------------------------------------------------------------------
+
+  private static readonly SNAKES_LADDERS_MIN_PLAYERS = 2;
+  private static readonly SNAKES_LADDERS_MAX_PLAYERS = 4;
+
+  @SubscribeMessage('snakes-ladders:create')
+  async handleSnakesLaddersCreate(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { gameId: string },
+  ) {
+    const game = await this.gameRepository.findById(body.gameId);
+    if (!game || game.gameType.getName() !== 'SNAKES_LADDERS') {
+      throw new Error('Juego no encontrado o no es de tipo Escaleras y Serpientes.');
+    }
+
+    let code = generateRoomCode();
+    while (this.snakesLaddersRoomStore.get(code)) {
+      code = generateRoomCode();
+    }
+
+    const room: SnakesLaddersRoomState = {
+      code,
+      gameId: game.id,
+      gameTitle: game.title,
+      boardSize: game.config.boardSize as number,
+      ladders: game.config.ladders as SnakesLaddersLink[],
+      snakes: game.config.snakes as SnakesLaddersLink[],
+      questions: game.content as SnakesLaddersQuestion[],
+      hostUserId: socket.data.userId,
+      turnDurationSeconds: (game.config.turnDurationSeconds as number | undefined) ?? 45,
+      phase: 'WAITING',
+      players: [
+        {
+          socketId: socket.id,
+          userId: socket.data.userId,
+          displayName: socket.data.displayName,
+          position: 1,
+        },
+      ],
+      activePlayerUserId: null,
+      turnDeadline: null,
+      winnerUserId: null,
+      pendingChallenge: null,
+      lastRoll: null,
+      createdAt: Date.now(),
+      rematchVotes: {},
+    };
+
+    this.snakesLaddersRoomStore.create(room);
+    socket.join(`snakes-ladders:${code}`);
+    socket.emit('snakes-ladders:state', toSnakesLaddersClientView(room, socket.id));
+
+    void this.analyticsTracker.track({
+      type: 'room_created',
+      userId: socket.data.userId,
+      gameId: game.id,
+      metadata: { mode: 'snakes-ladders', turnDurationSeconds: room.turnDurationSeconds },
+    });
+  }
+
+  @SubscribeMessage('snakes-ladders:join')
+  handleSnakesLaddersJoin(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { code: string }) {
+    const code = body.code?.trim().toUpperCase();
+    const room = this.snakesLaddersRoomStore.get(code);
+
+    if (!room) throw new Error('No existe una sala de Escaleras y Serpientes con ese código.');
+
+    const existing = room.players.find((player) => player.userId === socket.data.userId);
+    if (!existing && room.players.length >= RoomsGateway.SNAKES_LADDERS_MAX_PLAYERS) {
+      throw new Error('La sala ya está llena.');
+    }
+
+    if (existing) {
+      existing.socketId = socket.id;
+    } else {
+      room.players.push({
+        socketId: socket.id,
+        userId: socket.data.userId,
+        displayName: socket.data.displayName,
+        position: 1,
+      });
+    }
+
+    this.snakesLaddersRoomStore.set(room);
+    socket.join(`snakes-ladders:${code}`);
+    this.broadcastSnakesLaddersState(room);
+  }
+
+  @SubscribeMessage('snakes-ladders:start')
+  handleSnakesLaddersStart(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { turnDurationSeconds?: number },
+  ) {
+    const room = this.snakesLaddersRoomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
+    if (
+      room.players.length < RoomsGateway.SNAKES_LADDERS_MIN_PLAYERS ||
+      room.players.length > RoomsGateway.SNAKES_LADDERS_MAX_PLAYERS
+    ) {
+      throw new Error('Se necesitan entre 2 y 4 jugadores para iniciar.');
+    }
+
+    if (body?.turnDurationSeconds !== undefined && socket.data.userId === room.hostUserId) {
+      const { turnDurationSeconds } = body;
+      if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 15 || turnDurationSeconds > 180) {
+        throw new Error('Los segundos por turno deben ser un entero entre 15 y 180.');
+      }
+      room.turnDurationSeconds = turnDurationSeconds;
+    }
+
+    for (const player of room.players) player.position = 1;
+    room.phase = 'PLAYING';
+    room.winnerUserId = null;
+    room.pendingChallenge = null;
+    room.lastRoll = null;
+    room.rematchVotes = {};
+
+    const firstPlayer = room.players[Math.floor(Math.random() * room.players.length)];
+    this.setActiveSnakesLaddersTurn(room, firstPlayer.userId);
+  }
+
+  /** El servidor tira el dado — nunca el cliente, así nadie puede manipular el resultado. */
+  @SubscribeMessage('snakes-ladders:roll-dice')
+  handleSnakesLaddersRoll(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const room = this.snakesLaddersRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') throw new Error('La partida no está en curso.');
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (!player) throw new Error('No estás en esta sala.');
+    if (player.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
+    if (room.pendingChallenge) throw new Error('Primero hay que resolver el reto pendiente.');
+
+    const roll = 1 + Math.floor(Math.random() * 6);
+    room.lastRoll = roll;
+    const previousPosition = player.position;
+    const rolledTo = player.position + roll;
+
+    if (rolledTo >= room.boardSize) {
+      player.position = room.boardSize;
+      this.finishSnakesLaddersGame(room, player.userId);
+      return;
+    }
+
+    player.position = rolledTo;
+
+    const ladder = room.ladders.find((l) => l.from === rolledTo);
+    const snake = room.snakes.find((s) => s.from === rolledTo);
+    const triggerType: SnakesLaddersTriggerType | null = ladder ? 'LADDER' : snake ? 'SNAKE' : 'CELL';
+    const question = room.questions.find((q) => q.cellNumber === rolledTo && q.triggerType === triggerType);
+
+    if (!question) {
+      // Casilla libre: nada que responder, el turno avanza directo.
+      this.clearSnakesLaddersTurnTimer(room.code);
+      this.snakesLaddersRoomStore.set(room);
+      this.broadcastSnakesLaddersState(room);
+      this.advanceSnakesLaddersTurn(room);
+      return;
+    }
+
+    room.pendingChallenge = {
+      cellNumber: rolledTo,
+      triggerType: triggerType!,
+      forUserId: player.userId,
+      previousPosition,
+      deadlineTs: Date.now() + room.turnDurationSeconds * 1000,
+    };
+
+    this.snakesLaddersRoomStore.set(room);
+    this.broadcastSnakesLaddersState(room);
+    this.armSnakesLaddersChallengeTimer(room);
+  }
+
+  @SubscribeMessage('snakes-ladders:answer-challenge')
+  handleSnakesLaddersAnswer(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { optionIndex: number },
+  ) {
+    const room = this.snakesLaddersRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING' || !room.pendingChallenge) {
+      throw new Error('No hay ningún reto pendiente.');
+    }
+    if (room.pendingChallenge.forUserId !== socket.data.userId) {
+      throw new Error('Este reto no es tuyo.');
+    }
+
+    this.resolveSnakesLaddersChallenge(room, body.optionIndex);
+  }
+
+  /**
+   * Corrige la respuesta contra `room.questions` (nunca contra algo que
+   * mande el cliente) y aplica la regla de negocio exacta según el tipo de
+   * casilla: normal (falla → vuelve a `previousPosition`), escalera (acierta
+   * → sube; falla → se queda en la base) y serpiente (acierta → se queda;
+   * falla → baja). `optionIndex` en `null` (usado por el timeout) siempre
+   * cuenta como fallo, sin lanzar por índice inválido.
+   */
+  private resolveSnakesLaddersChallenge(room: SnakesLaddersRoomState, optionIndex: number | null) {
+    const pending = room.pendingChallenge as SnakesLaddersPendingChallenge;
+    const player = room.players.find((p) => p.userId === pending.forUserId);
+    if (!player) return;
+
+    const question = room.questions.find(
+      (q) => q.cellNumber === pending.cellNumber && q.triggerType === pending.triggerType,
+    );
+    const correct = question !== undefined && optionIndex === question.correctOptionIndex;
+
+    if (pending.triggerType === 'CELL') {
+      if (!correct) player.position = pending.previousPosition;
+    } else if (pending.triggerType === 'LADDER') {
+      const ladder = room.ladders.find((l) => l.from === pending.cellNumber);
+      if (correct && ladder) player.position = ladder.to;
+      // Falla: se queda en la base (pending.cellNumber), ya es su posición actual.
+    } else {
+      const snake = room.snakes.find((s) => s.from === pending.cellNumber);
+      if (!correct && snake) player.position = snake.to;
+      // Acierta: evita la caída, se queda en pending.cellNumber.
+    }
+
+    this.clearSnakesLaddersTurnTimer(room.code);
+    room.pendingChallenge = null;
+
+    this.server.to(`snakes-ladders:${room.code}`).emit('snakes-ladders:challenge-result', {
+      userId: player.userId,
+      correct,
+      correctOptionIndex: question?.correctOptionIndex ?? null,
+      position: player.position,
+    });
+
+    if (player.position >= room.boardSize) {
+      this.finishSnakesLaddersGame(room, player.userId);
+      return;
+    }
+
+    this.snakesLaddersRoomStore.set(room);
+    this.broadcastSnakesLaddersState(room);
+    this.advanceSnakesLaddersTurn(room);
+  }
+
+  @SubscribeMessage('snakes-ladders:rematch-vote')
+  handleSnakesLaddersRematchVote(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { accept: boolean },
+  ) {
+    const room = this.snakesLaddersRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'FINISHED') throw new Error('No hay una partida terminada para votar revancha.');
+
+    const voter = room.players.find((p) => p.socketId === socket.id);
+    if (!voter) throw new Error('No estás en esta sala.');
+
+    room.rematchVotes[voter.userId] = body.accept;
+
+    if (body.accept === false) {
+      for (const other of room.players) {
+        if (other.userId === voter.userId) continue;
+        this.server.to(other.socketId).emit('snakes-ladders:rematch-rejected', {
+          message: `${voter.displayName} no quiso seguir jugando.`,
+        });
+      }
+      this.snakesLaddersRoomStore.delete(room.code);
+      return;
+    }
+
+    const allAccepted =
+      room.players.length >= RoomsGateway.SNAKES_LADDERS_MIN_PLAYERS &&
+      room.players.every((p) => room.rematchVotes[p.userId] === true);
+
+    if (allAccepted) {
+      for (const player of room.players) player.position = 1;
+      room.phase = 'PLAYING';
+      room.winnerUserId = null;
+      room.pendingChallenge = null;
+      room.lastRoll = null;
+      room.rematchVotes = {};
+      const firstPlayer = room.players[Math.floor(Math.random() * room.players.length)];
+      this.setActiveSnakesLaddersTurn(room, firstPlayer.userId);
+      return;
+    }
+
+    this.snakesLaddersRoomStore.set(room);
+    this.broadcastSnakesLaddersState(room);
+  }
+
+  @SubscribeMessage('snakes-ladders:leave')
+  handleSnakesLaddersLeave(@ConnectedSocket() socket: AuthenticatedSocket) {
+    this.handleDisconnect(socket);
+    socket.disconnect();
+  }
+
+  private finishSnakesLaddersGame(room: SnakesLaddersRoomState, winnerUserId: string) {
+    this.clearSnakesLaddersTurnTimer(room.code);
+    room.phase = 'FINISHED';
+    room.winnerUserId = winnerUserId;
+    room.pendingChallenge = null;
+    room.activePlayerUserId = null;
+    room.turnDeadline = null;
+    room.rematchVotes = {};
+
+    this.snakesLaddersRoomStore.set(room);
+    this.broadcastSnakesLaddersState(room);
+  }
+
+  /** Pone a `userId` a esperar su tirada de dado y arma el timer de "no tiró a tiempo" — `armSnakesLaddersChallengeTimer` arma el otro timer, el de "no respondió a tiempo". */
+  private setActiveSnakesLaddersTurn(room: SnakesLaddersRoomState, userId: string) {
+    room.activePlayerUserId = userId;
+    room.pendingChallenge = null;
+    room.turnDeadline = Date.now() + room.turnDurationSeconds * 1000;
+
+    this.snakesLaddersRoomStore.set(room);
+    this.broadcastSnakesLaddersState(room);
+
+    this.clearSnakesLaddersTurnTimer(room.code);
+    const timer = setTimeout(() => {
+      const current = this.snakesLaddersRoomStore.get(room.code);
+      if (!current || current.phase !== 'PLAYING' || current.activePlayerUserId !== userId) return;
+      if (current.pendingChallenge) return; // ya tiró y está esperando respuesta — ver armSnakesLaddersChallengeTimer
+      // Nadie tiró a tiempo: el servidor pasa el turno sin mover a nadie,
+      // para que la partida nunca quede colgada.
+      this.advanceSnakesLaddersTurn(current);
+    }, room.turnDurationSeconds * 1000);
+    this.snakesLaddersTurnTimers.set(room.code, timer);
+  }
+
+  /** Arma el timer de "esperando respuesta al reto" — si vence, cuenta como fallo automático (mismo criterio que Dominó: el servidor nunca deja la partida colgada). */
+  private armSnakesLaddersChallengeTimer(room: SnakesLaddersRoomState) {
+    this.clearSnakesLaddersTurnTimer(room.code);
+    const timer = setTimeout(() => {
+      const current = this.snakesLaddersRoomStore.get(room.code);
+      if (!current || current.phase !== 'PLAYING' || !current.pendingChallenge) return;
+      this.resolveSnakesLaddersChallenge(current, null);
+    }, room.turnDurationSeconds * 1000);
+    this.snakesLaddersTurnTimers.set(room.code, timer);
+  }
+
+  /** Rotación circular sobre `room.players` — a diferencia de Dominó (siempre "el otro"), acá puede haber hasta 4. */
+  private advanceSnakesLaddersTurn(room: SnakesLaddersRoomState) {
+    const currentIndex = room.players.findIndex((p) => p.userId === room.activePlayerUserId);
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % room.players.length;
+    const next = room.players[nextIndex];
+    if (!next) return;
+    this.setActiveSnakesLaddersTurn(room, next.userId);
+  }
+
+  private clearSnakesLaddersTurnTimer(code: string) {
+    const timer = this.snakesLaddersTurnTimers.get(code);
+    if (timer) {
+      clearTimeout(timer);
+      this.snakesLaddersTurnTimers.delete(code);
+    }
+  }
+
+  private broadcastSnakesLaddersState(room: SnakesLaddersRoomState) {
+    for (const player of room.players) {
+      this.server
+        .to(player.socketId)
+        .emit('snakes-ladders:state', toSnakesLaddersClientView(room, player.socketId));
     }
   }
 }
