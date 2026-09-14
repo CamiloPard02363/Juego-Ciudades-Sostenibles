@@ -16,15 +16,15 @@ type MazeCollectorGameProps = {
   onExit: () => void
 }
 
-const CELL_SIZE = 32
+const CELL_SIZE = 36
 /** Resolución del "sprite" lógico dentro de cada celda — entre más grande, más fino el pixel art (y más lento de dibujar). */
-const SPRITE_GRID = 8
+const SPRITE_GRID = 12
 const PIXEL = CELL_SIZE / SPRITE_GRID
 
 type SpriteMatrix = number[][]
 type Palette = Record<number, string>
 
-/** Dibuja una matriz de "pixeles" (0 = transparente) escalada para llenar una celda — la técnica clásica de sprites 8x8. */
+/** Dibuja una matriz de "pixeles" (0 = transparente) escalada para llenar una celda — la técnica clásica de sprites. */
 function drawSprite(ctx: CanvasRenderingContext2D, matrix: SpriteMatrix, palette: Palette, originX: number, originY: number) {
   for (let row = 0; row < matrix.length; row++) {
     for (let col = 0; col < matrix[row].length; col++) {
@@ -36,64 +36,92 @@ function drawSprite(ctx: CanvasRenderingContext2D, matrix: SpriteMatrix, palette
   }
 }
 
-/** Vehículo genérico visto desde arriba: sirve tanto para "camión de reciclaje" como para cualquier otro recolector re-skinable. */
+/**
+ * Vehículo genérico visto desde arriba (parabrisas delante/detrás, cajón de
+ * carga al centro, ruedas en las esquinas) — sirve para "camión de
+ * reciclaje" y para cualquier otro recolector re-skinable.
+ */
 const COLLECTOR_SPRITE: SpriteMatrix = [
-  [0, 1, 1, 1, 1, 1, 1, 0],
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 2, 2, 1, 1, 2, 2, 1],
-  [1, 2, 2, 1, 1, 2, 2, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [3, 1, 1, 1, 1, 1, 1, 3],
-  [0, 3, 0, 0, 0, 0, 3, 0],
+  [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 2, 2, 1, 1, 4, 4, 1, 1, 2, 2, 1],
+  [1, 2, 2, 1, 1, 4, 4, 1, 1, 2, 2, 1],
+  [1, 1, 1, 1, 1, 4, 4, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 4, 4, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 4, 4, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 4, 4, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3],
+  [0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0],
 ]
 
-/** Nube/amenaza con "ojos" — sirve para nube de contaminación o cualquier enemigo temático. */
+/**
+ * Fantasma clásico estilo arcade: cúpula redondeada arriba, ojos con
+ * pupilas, y el borde inferior ondulado que lo distingue de una nube. El
+ * color de cada uno se elige por índice desde ENEMY_PALETTES.
+ */
 const ENEMY_SPRITE: SpriteMatrix = [
-  [0, 0, 1, 1, 1, 1, 0, 0],
-  [0, 1, 1, 1, 1, 1, 1, 0],
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 1, 2, 1, 1, 2, 1, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 1, 2, 2, 2, 2, 1, 1],
-  [0, 1, 1, 1, 1, 1, 1, 0],
-  [0, 0, 1, 0, 0, 1, 0, 0],
+  [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+  [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1],
+  [1, 2, 3, 2, 1, 1, 1, 2, 3, 2, 1, 1],
+  [1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
 ]
 
-/** Caja/paquete coleccionable genérico — se colorea con item.color. */
+/** Bolsa/paquete coleccionable con "nudo" arriba — se colorea con item.color. */
 const ITEM_SPRITE: SpriteMatrix = [
-  [0, 2, 2, 2, 2, 2, 2, 0],
-  [2, 1, 1, 1, 1, 1, 1, 2],
-  [2, 1, 3, 1, 1, 3, 1, 2],
-  [2, 1, 1, 1, 1, 1, 1, 2],
-  [2, 1, 1, 1, 1, 1, 1, 2],
-  [2, 1, 3, 1, 1, 3, 1, 2],
-  [2, 1, 1, 1, 1, 1, 1, 2],
-  [0, 2, 2, 2, 2, 2, 2, 0],
+  [0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0],
+  [0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0],
+  [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 1, 3, 1, 1, 1, 1, 3, 1, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 1, 3, 1, 1, 1, 1, 3, 1, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+  [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+  [0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0],
 ]
 
-/** Edificio: franja de techo + ventanas encendidas/apagadas alternadas. */
+/** Edificio de ladrillo: líneas de mortero escalonadas + dos filas de ventanas. */
 const BUILDING_SPRITE: SpriteMatrix = [
-  [4, 4, 4, 4, 4, 4, 4, 4],
-  [1, 2, 1, 1, 2, 1, 1, 2],
-  [1, 2, 1, 1, 2, 1, 1, 2],
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 3, 1, 1, 2, 1, 1, 3],
-  [1, 3, 1, 1, 2, 1, 1, 3],
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1],
+  [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+  [1, 1, 1, 4, 1, 1, 1, 4, 1, 1, 1, 4],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [4, 1, 1, 1, 4, 1, 1, 1, 4, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 4, 1, 1, 1, 4, 1, 1, 1, 4],
+  [2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2],
+  [2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [3, 3, 1, 1, 1, 3, 3, 1, 1, 1, 3, 3],
+  [3, 3, 1, 1, 1, 3, 3, 1, 1, 1, 3, 3],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ]
 
 /** Árbol sobre césped — decoración de las celdas de parque en el layout CITY. */
 const TREE_SPRITE: SpriteMatrix = [
-  [1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 4, 4, 4, 4, 0, 1],
-  [1, 4, 4, 3, 3, 4, 4, 1],
-  [1, 4, 3, 3, 3, 3, 4, 1],
-  [1, 0, 4, 3, 3, 4, 0, 1],
-  [1, 1, 0, 2, 2, 0, 1, 1],
-  [1, 1, 0, 2, 2, 0, 1, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 0, 4, 4, 4, 4, 4, 4, 0, 1, 1],
+  [1, 0, 4, 4, 3, 3, 3, 3, 4, 4, 0, 1],
+  [1, 4, 4, 3, 3, 3, 3, 3, 3, 4, 4, 1],
+  [1, 4, 3, 3, 3, 3, 3, 3, 3, 3, 4, 1],
+  [1, 0, 4, 3, 3, 3, 3, 3, 3, 4, 0, 1],
+  [1, 1, 0, 4, 4, 4, 4, 4, 4, 0, 1, 1],
+  [1, 1, 1, 0, 2, 2, 2, 2, 0, 1, 1, 1],
+  [1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1],
+  [1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ]
 
 /** Paleta de edificios variada — "muy colorido" en vez de un gris uniforme. */
@@ -106,6 +134,14 @@ const BUILDING_PALETTES: Palette[] = [
   { 1: '#0891b2', 2: '#a5f3fc', 3: '#164e63', 4: '#0e7490' },
 ]
 
+/** Cuatro fantasmas clásicos de arcade — uno por cada punto de aparición de enemigos. */
+const ENEMY_PALETTES: Palette[] = [
+  { 1: '#ef4444', 2: '#ffffff', 3: '#1e3a8a' },
+  { 1: '#f9a8d4', 2: '#ffffff', 3: '#1e3a8a' },
+  { 1: '#22d3ee', 2: '#ffffff', 3: '#1e3a8a' },
+  { 1: '#fb923c', 2: '#ffffff', 3: '#1e3a8a' },
+]
+
 /** Hash determinista y estable (misma celda = mismo color siempre, sin parpadeo entre frames). */
 function hashCell(row: number, col: number): number {
   return Math.abs(row * 31 + col * 17)
@@ -115,15 +151,22 @@ function buildingPalette(row: number, col: number): Palette {
   return BUILDING_PALETTES[hashCell(row, col) % BUILDING_PALETTES.length]
 }
 
-const ROAD_PALETTE: Palette = { 1: '#374151' }
-const ROAD_MARKING_COLOR = '#facc15'
+function enemyPalette(index: number): Palette {
+  return ENEMY_PALETTES[index % ENEMY_PALETTES.length]
+}
+
+const ROAD_PALETTE: Palette = { 1: '#1f2937' }
+const DOT_COLOR = '#facc15'
 const GRASS_BASE = '#166534'
-const COLLECTOR_PALETTE: Palette = { 1: '#facc15', 2: '#7dd3fc', 3: '#1f2937' }
-const ENEMY_PALETTE: Palette = { 1: '#7c3aed', 2: '#1e1b3a' }
 const TREE_PALETTE: Palette = { 1: GRASS_BASE, 2: '#78350f', 3: '#166534', 4: '#22c55e' }
 
 function itemPalette(color: string): Palette {
   return { 1: color, 2: '#111827', 3: '#ffffff' }
+}
+
+/** El cuerpo del vehículo usa el color temático del juego — así sigue siendo re-skinable, no un camión verde fijo. */
+function collectorPalette(primaryColor: string): Palette {
+  return { 1: primaryColor, 2: '#7dd3fc', 3: '#1f2937', 4: '#111827' }
 }
 
 export function MazeCollectorGame({ title, primaryColor, layout, items, config, onExit }: MazeCollectorGameProps) {
@@ -162,13 +205,11 @@ export function MazeCollectorGame({ title, primaryColor, layout, items, config, 
           continue
         }
 
-        // Calle/camino libre.
+        // Calle/camino libre + puntito estilo arcade (como el Pac-Man clásico).
         ctx.fillStyle = ROAD_PALETTE[1]
         ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
-        if (isCity && (row % 4 === 0 || col % 4 === 0)) {
-          ctx.fillStyle = ROAD_MARKING_COLOR
-          ctx.fillRect(x + CELL_SIZE / 2 - PIXEL / 2, y + CELL_SIZE / 2 - PIXEL / 2, PIXEL, PIXEL)
-        }
+        ctx.fillStyle = DOT_COLOR
+        ctx.fillRect(x + CELL_SIZE / 2 - PIXEL / 2, y + CELL_SIZE / 2 - PIXEL / 2, PIXEL, PIXEL)
       }
     }
 
@@ -178,11 +219,11 @@ export function MazeCollectorGame({ title, primaryColor, layout, items, config, 
       drawSprite(ctx, ITEM_SPRITE, itemPalette(item.color), entry.position.col * CELL_SIZE, entry.position.row * CELL_SIZE)
     }
 
-    for (const enemyPos of game.enemyPositions) {
-      drawSprite(ctx, ENEMY_SPRITE, ENEMY_PALETTE, enemyPos.col * CELL_SIZE, enemyPos.row * CELL_SIZE)
-    }
+    game.enemyPositions.forEach((enemyPos, index) => {
+      drawSprite(ctx, ENEMY_SPRITE, enemyPalette(index), enemyPos.col * CELL_SIZE, enemyPos.row * CELL_SIZE)
+    })
 
-    drawSprite(ctx, COLLECTOR_SPRITE, COLLECTOR_PALETTE, game.playerPos.col * CELL_SIZE, game.playerPos.row * CELL_SIZE)
+    drawSprite(ctx, COLLECTOR_SPRITE, collectorPalette(primaryColor), game.playerPos.col * CELL_SIZE, game.playerPos.row * CELL_SIZE)
   }, [game.playerPos, game.enemyPositions, game.remainingItemPositions, layout, items, primaryColor, width, height, isCity])
 
   const CollectorIcon = iconForConcept(config.collectorIcon)
@@ -209,8 +250,8 @@ export function MazeCollectorGame({ title, primaryColor, layout, items, config, 
           </h1>
         </header>
 
-        <div className="mx-auto mb-4 flex flex-wrap justify-center gap-4 rounded-2xl border border-border bg-code-bg px-6 py-3">
-          <Stat label="Vidas" value={'❤️'.repeat(Math.max(0, game.lives))} />
+        <div className="mx-auto mb-4 flex flex-wrap justify-center gap-4 rounded-2xl border border-border bg-code-bg px-6 py-3 font-mono">
+          <Stat label="Vidas" value={'👻'.repeat(Math.max(0, game.lives))} />
           <Stat label="Objetos" value={`${game.collectedCount} / ${game.totalItems}`} />
           <Stat label="Puntos" value={String(game.score)} />
         </div>
