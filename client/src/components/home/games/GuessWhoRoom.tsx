@@ -85,65 +85,75 @@ export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode, onR
 
   if (step === 'choosing-mode-to-create') {
     return (
-      <Modal onClose={onExit} maxWidthClassName="max-w-[420px]">
-        <h2 className="mb-1 text-[19px] tracking-tight text-text-h">¿Quién Es?</h2>
-        <p className="mb-6 text-[13px] text-text">¿Quieres jugar individual (1 contra 1) o en grupo?</p>
-        <div className="flex flex-col gap-3">
+      <Modal onClose={onExit} maxWidthClassName="max-w-[440px]">
+        <div className="space-y-5">
+          <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">¿Quién Es?</p>
+            <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Elige tu formato</h2>
+          </div>
+          <p className="text-[13px] text-text">¿Quieres jugar individual (1 contra 1) o en grupo?</p>
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              className="rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_28px_-14px_var(--accent)]"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              onClick={() => setMode('individual')}
+            >
+              1 contra 1
+            </button>
+            <button
+              type="button"
+              className="rounded-2xl border border-border bg-surface px-4 py-3 text-[14.5px] font-semibold text-text-h transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/5"
+              onClick={() => setMode('group')}
+            >
+              Grupo (torneo eliminatorio)
+            </button>
+          </div>
           <button
             type="button"
-            className="rounded-lg px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
-            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            onClick={() => setMode('individual')}
+            className="w-full rounded-xl border border-border px-4 py-2.5 text-[14px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
+            onClick={() => setStep('undecided')}
           >
-            1 contra 1
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-border px-4 py-3 text-[14.5px] font-semibold text-text-h transition-transform hover:-translate-y-0.5"
-            onClick={() => setMode('group')}
-          >
-            Grupo (torneo eliminatorio)
+            Atrás
           </button>
         </div>
-        <button
-          type="button"
-          className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
-          onClick={() => setStep('undecided')}
-        >
-          Atrás
-        </button>
       </Modal>
     )
   }
 
   return (
-    <Modal onClose={onExit} maxWidthClassName="max-w-[420px]">
-      <h2 className="mb-1 text-[19px] tracking-tight text-text-h">¿Quién Es?</h2>
-      <p className="mb-6 text-[13px] text-text">¿Vas a crear una sala nueva o a ingresar a una existente?</p>
-      <div className="grid grid-cols-2 gap-3">
+    <Modal onClose={onExit} maxWidthClassName="max-w-[440px]">
+      <div className="space-y-5">
+        <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">¿Quién Es?</p>
+          <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Tu sala</h2>
+        </div>
+        <p className="text-[13px] text-text">¿Vas a crear una sala nueva o a ingresar a una existente?</p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            className="rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_28px_-14px_var(--accent)]"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={() => setStep('choosing-mode-to-create')}
+          >
+            Crear sala nueva
+          </button>
+          <button
+            type="button"
+            className="rounded-2xl border border-border bg-surface px-4 py-3 text-[14.5px] font-semibold text-text-h transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/5"
+            onClick={() => setStep('joining-by-code')}
+          >
+            Ingresar a una sala
+          </button>
+        </div>
         <button
           type="button"
-          className="rounded-lg px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
-          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-          onClick={() => setStep('choosing-mode-to-create')}
+          className="w-full rounded-xl border border-border px-4 py-2.5 text-[14px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
+          onClick={onExit}
         >
-          Crear sala nueva
-        </button>
-        <button
-          type="button"
-          className="rounded-lg border border-border px-4 py-3 text-[14.5px] font-semibold text-text-h transition-transform hover:-translate-y-0.5"
-          onClick={() => setStep('joining-by-code')}
-        >
-          Ingresar a una sala
+          Cancelar
         </button>
       </div>
-      <button
-        type="button"
-        className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
-        onClick={onExit}
-      >
-        Cancelar
-      </button>
     </Modal>
   )
 }
@@ -348,37 +358,42 @@ function IndividualGuessWhoRoom({
   if (entryChoice === 'joining-input') {
     return (
       <Modal onClose={handleExit} maxWidthClassName="max-w-[420px]">
-        <h2 className="mb-1 text-[19px] tracking-tight text-text-h">Unirme a sala</h2>
-        <p className="mb-6 text-[13px] text-text">Ingresa el código de 6 caracteres que te compartieron.</p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            autoFocus
-            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2.5 text-[13px] tracking-widest uppercase text-text-h outline-none focus:border-accent"
-            placeholder="CÓDIGO DE SALA"
-            value={joinCode}
-            maxLength={6}
-            onChange={(event) => setJoinCode(event.target.value)}
-          />
+        <div className="space-y-5">
+          <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Unirte</p>
+            <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Sala privada</h2>
+          </div>
+          <p className="text-[13px] text-text">Ingresa el código de 6 caracteres que te compartieron.</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              autoFocus
+              className="flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-[13px] tracking-widest uppercase text-text-h outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/10"
+              placeholder="CÓDIGO DE SALA"
+              value={joinCode}
+              maxLength={6}
+              onChange={(event) => setJoinCode(event.target.value)}
+            />
+            <button
+              type="button"
+              className="shrink-0 rounded-xl border border-accent/50 bg-accent/10 px-3.5 py-2.5 text-[12.5px] font-semibold text-accent transition-colors hover:bg-accent hover:text-white disabled:cursor-not-allowed disabled:border-border disabled:bg-bg disabled:text-text disabled:opacity-50"
+              disabled={joinCode.trim().length !== 6}
+              onClick={() => {
+                setEntryChoice('joining')
+                joinRoom(joinCode.trim())
+              }}
+            >
+              Unirme
+            </button>
+          </div>
           <button
             type="button"
-            className="shrink-0 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={joinCode.trim().length !== 6}
-            onClick={() => {
-              setEntryChoice('joining')
-              joinRoom(joinCode.trim())
-            }}
+            className="w-full rounded-xl border border-border px-4 py-2.5 text-[14px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
+            onClick={() => setEntryChoice('undecided')}
           >
-            Unirme
+            Atrás
           </button>
         </div>
-        <button
-          type="button"
-          className="mt-6 w-full rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
-          onClick={() => setEntryChoice('undecided')}
-        >
-          Atrás
-        </button>
       </Modal>
     )
   }
@@ -411,63 +426,71 @@ function IndividualGuessWhoRoom({
       <Modal onClose={handleExit} maxWidthClassName="max-w-[840px]">
       {dealing && <DealCountdownOverlay remainingMs={dealRemainingMs} />}
 
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-[19px] tracking-tight text-text-h">{room.gameTitle}</h2>
-          <p className="flex items-center gap-1.5 text-[12.5px] text-text">
-            Código de sala:
-            <code className="text-[13px] font-semibold text-accent">{room.code}</code>
-            <div className="ml-1 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
-                onClick={() => {
-                  void navigator.clipboard.writeText(room.code).then(() => {
-                    setCopyFeedback('Código copiado')
-                    setTimeout(() => setCopyFeedback(null), 1800)
-                  })
-                }}
-              >
-                <Copy className="h-3 w-3" strokeWidth={2} />
-                Copiar código
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-md border border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
-                onClick={copyRoomLink}
-              >
-                <Link className="h-3 w-3" strokeWidth={2} />
-                Copiar enlace
-              </button>
-            </div>
-            {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">{copyFeedback}</span>}
-          </p>
+      <div className="mb-5 rounded-[24px] border border-border/80 bg-gradient-to-r from-accent/8 via-surface to-bg p-4 shadow-[var(--shadow)]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Sala activa</p>
+            <h2 className="mt-1 text-[22px] font-bold tracking-tight text-text-h">{room.gameTitle}</h2>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              className="relative flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
+              onClick={() => {
+                setChatOpen((current) => !current)
+                setUnreadCount(0)
+              }}
+            >
+              <MessageCircle className="h-4 w-4" strokeWidth={2} />
+              Chat
+              {!chatOpen && unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
+              onClick={handleExit}
+            >
+              <LogOut className="h-4 w-4" strokeWidth={2} />
+              Salir
+            </button>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            className="relative flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-text-h"
-            onClick={() => {
-              setChatOpen((current) => !current)
-              setUnreadCount(0)
-            }}
-          >
-            <MessageCircle className="h-4 w-4" strokeWidth={2} />
-            Chat
-            {!chatOpen && unreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-text-h"
-            onClick={handleExit}
-          >
-            <LogOut className="h-4 w-4" strokeWidth={2} />
-            Salir
-          </button>
+
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface/90 p-3">
+          <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-text">
+            <span className="font-medium text-text-h">Código de sala:</span>
+            <code className="rounded-lg border border-accent/30 bg-accent/5 px-2 py-1 text-[13px] font-semibold text-accent">
+              {room.code}
+            </code>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-xl border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
+              onClick={() => {
+                void navigator.clipboard.writeText(room.code).then(() => {
+                  setCopyFeedback('Código copiado')
+                  setTimeout(() => setCopyFeedback(null), 1800)
+                })
+              }}
+            >
+              <Copy className="h-3 w-3" strokeWidth={2} />
+              Copiar código
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-xl border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
+              onClick={copyRoomLink}
+            >
+              <Link className="h-3 w-3" strokeWidth={2} />
+              Copiar enlace
+            </button>
+            {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">{copyFeedback}</span>}
+          </div>
         </div>
       </div>
 
@@ -495,7 +518,7 @@ function IndividualGuessWhoRoom({
 
       {room.phase === 'WAITING' && (
         <div className="flex flex-col gap-5">
-          <div className="rounded-xl border border-border p-4">
+          <div className="rounded-[24px] border border-border bg-gradient-to-br from-bg to-surface p-4 shadow-[var(--shadow)]">
             <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-text-h">
               <Users className="h-4 w-4 text-accent" strokeWidth={2} />
               Jugadores en la sala ({room.players.length}/2)
@@ -504,7 +527,7 @@ function IndividualGuessWhoRoom({
               {room.players.map((player) => (
                 <span
                   key={player.userId}
-                  className="rounded-full border border-border bg-code-bg px-3 py-1.5 text-[12.5px] font-medium text-text-h"
+                  className="rounded-full border border-accent/20 bg-accent/5 px-3 py-1.5 text-[12.5px] font-medium text-text-h"
                 >
                   {player.displayName}
                   {player.isSelf ? ' (tú)' : ''}
@@ -514,7 +537,7 @@ function IndividualGuessWhoRoom({
           </div>
 
           {room.players.length < 2 && (
-            <div className="rounded-xl border border-dashed border-border p-4 text-center">
+            <div className="rounded-2xl border border-dashed border-accent/35 bg-accent/5 p-4 text-center">
               <p className="text-[13px] font-medium text-text-h">
                 Comparte el código <strong className="text-accent">{room.code}</strong> con la otra
                 persona para que se una.
@@ -522,10 +545,7 @@ function IndividualGuessWhoRoom({
             </div>
           )}
 
-          {/* Regla fija de la partida, visible desde el lobby (no solo una
-              vez ya jugando) para que nadie se sorprenda a mitad de partida
-              con un botón de acusar deshabilitado sin saber por qué. */}
-          <div className="flex items-center gap-2.5 rounded-xl border border-accent/30 bg-accent/5 p-3.5">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-accent/30 bg-accent/5 p-3.5">
             <Swords className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
             <p className="text-[12.5px] text-text-h">
               Podrán acusar a su rival después de descartar al menos{' '}
@@ -534,7 +554,7 @@ function IndividualGuessWhoRoom({
           </div>
 
           {self?.isHost ? (
-            <div>
+            <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
               <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="turn-duration-input">
                 Segundos por turno
               </label>
@@ -543,7 +563,7 @@ function IndividualGuessWhoRoom({
                 type="number"
                 min={5}
                 max={120}
-                className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
+                className="w-full rounded-xl border border-border bg-bg px-[13px] py-2.5 text-[14px] text-text-h outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/10"
                 value={turnDurationText}
                 onChange={(event) => {
                   const raw = event.target.value
@@ -559,16 +579,18 @@ function IndividualGuessWhoRoom({
               </p>
             </div>
           ) : (
-            <p className="text-[12.5px] text-text">
-              Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define
-              quien creó la sala).
-            </p>
+            <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
+              <p className="text-[12.5px] text-text">
+                Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define
+                quien creó la sala).
+              </p>
+            </div>
           )}
 
           {isHostSelf ? (
             <button
               type="button"
-              className="rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-all duration-200 hover:not-disabled:-translate-y-0.5 hover:shadow-[0_16px_28px_-14px_var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
               disabled={room.players.length !== 2}
               onClick={() => startGame(Number(turnDurationText) || undefined)}
@@ -576,12 +598,7 @@ function IndividualGuessWhoRoom({
               {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
             </button>
           ) : (
-            // Solo el anfitrión puede iniciar (mismo criterio que el modo
-            // torneo): si cualquiera pudiera arrancar, el rival podría
-            // presionar "empezar" antes de que el cambio de segundos por
-            // turno del anfitrión llegue al servidor, y la partida arrancaría
-            // con el valor por defecto en vez del que se acababa de fijar.
-            <p className="rounded-lg border border-dashed border-border px-4 py-3 text-center text-[13px] text-text">
+            <p className="rounded-2xl border border-dashed border-border bg-surface px-4 py-3 text-center text-[13px] text-text shadow-[var(--shadow)]">
               {room.players.length === 2
                 ? 'Esperando a que el anfitrión inicie la partida…'
                 : 'Esperando al segundo jugador…'}
