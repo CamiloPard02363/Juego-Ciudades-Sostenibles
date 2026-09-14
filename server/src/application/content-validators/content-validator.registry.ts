@@ -6,6 +6,7 @@ import { MemoryMatchContentValidator } from './memory-match.content-validator.js
 import { GuessWhoContentValidator } from './guess-who.content-validator.js';
 import { DominoContentValidator } from './domino.content-validator.js';
 import { MazeCollectorContentValidator } from './maze-collector.content-validator.js';
+import { SnakesLaddersContentValidator } from './snakes-ladders.content-validator.js';
 
 /**
  * Único punto de la aplicación que sabe qué validador corresponde a cada
@@ -22,12 +23,14 @@ export class ContentValidatorRegistry {
     private readonly guessWhoValidator: GuessWhoContentValidator,
     private readonly dominoValidator: DominoContentValidator,
     private readonly mazeCollectorValidator: MazeCollectorContentValidator,
+    private readonly snakesLaddersValidator: SnakesLaddersContentValidator,
   ) {
     this.validators = {
       MEMORY_MATCH: this.memoryMatchValidator,
       GUESS_WHO: this.guessWhoValidator,
       DOMINO: this.dominoValidator,
       MAZE_COLLECTOR: this.mazeCollectorValidator,
+      SNAKES_LADDERS: this.snakesLaddersValidator,
     };
   }
 
