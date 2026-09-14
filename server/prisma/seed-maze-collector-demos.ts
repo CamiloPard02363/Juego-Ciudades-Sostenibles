@@ -190,7 +190,11 @@ async function ensureCategory(
   name: string,
   slug: string,
 ): Promise<string> {
-  const existing = await categories.findOne({ name });
+  // Busca por nombre O por slug: si ya existe una categoría con este slug
+  // pero un `name` que no calza exacto, buscar solo por `name` no la
+  // encuentra y el insertOne de abajo revienta contra el índice único de
+  // slug en vez de reusarla.
+  const existing = await categories.findOne({ $or: [{ name }, { slug }] });
   if (existing) return String(existing._id);
 
   const categoryId = `seed-category-${slug}`;
