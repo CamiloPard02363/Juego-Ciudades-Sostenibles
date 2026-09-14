@@ -536,23 +536,6 @@ function IndividualGuessWhoRoom({
             </div>
           </div>
 
-          {room.players.length < 2 && (
-            <div className="rounded-2xl border border-dashed border-accent/35 bg-accent/5 p-4 text-center">
-              <p className="text-[13px] font-medium text-text-h">
-                Comparte el código <strong className="text-accent">{room.code}</strong> con la otra
-                persona para que se una.
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2.5 rounded-2xl border border-accent/30 bg-accent/5 p-3.5">
-            <Swords className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
-            <p className="text-[12.5px] text-text-h">
-              Podrán acusar a su rival después de descartar al menos{' '}
-              <strong className="text-accent">{MIN_DISCARDS_TO_ACCUSE} tarjetas</strong>.
-            </p>
-          </div>
-
           {self?.isHost ? (
             <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
               <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="turn-duration-input">
