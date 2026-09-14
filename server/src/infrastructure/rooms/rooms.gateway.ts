@@ -1595,6 +1595,16 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
   @SubscribeMessage('domino:leave')
   handleDominoLeave(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const room = this.dominoRoomStore.findBySocketId(socket.id);
+    if (room?.phase === 'FINISHED') {
+      const player = room.players.find((candidate) => candidate.socketId === socket.id);
+      const opponent = room.players.find((candidate) => candidate.socketId !== socket.id);
+      if (player && opponent) {
+        this.server.to(opponent.socketId).emit('domino:opponent-left', {
+          message: `${player.displayName} no quiso seguir jugando.`,
+        });
+      }
+    }
     this.handleDisconnect(socket);
     socket.disconnect();
   }

@@ -52,6 +52,10 @@ export function useDominoRoom(token: string | null) {
       setRematchRejectedMessage(payload.message)
       setRoom(null)
     })
+    socket.on('domino:opponent-left', (payload: { message: string }) => {
+      setRematchRejectedMessage(payload.message)
+      setRoom(null)
+    })
 
     return () => {
       socket.disconnect()

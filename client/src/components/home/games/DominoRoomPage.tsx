@@ -41,6 +41,7 @@ export function DominoRoomPage() {
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null)
   const [joinCodeInput, setJoinCodeInput] = useState('')
   const [copyFeedback, setCopyFeedback] = useState(false)
+  const [turnDurationText, setTurnDurationText] = useState('')
   const startedRef = useRef(false)
 
   const remainingMs = useCountdown(room?.turnDeadline ?? null)
@@ -112,6 +113,16 @@ export function DominoRoomPage() {
   const selectedTile = hand.find((t) => t.id === selectedTileId) ?? null
   const canPlaceLeft = selectedTile ? tileMatchesEnd(selectedTile, leftEnd) : false
   const canPlaceRight = selectedTile ? tileMatchesEnd(selectedTile, rightEnd) : false
+
+  useEffect(() => {
+    if (room?.turnDurationSeconds === undefined) return
+    setTurnDurationText(String(room.turnDurationSeconds))
+  }, [room?.code])
+
+  useEffect(() => {
+    if (isHostSelf || room?.turnDurationSeconds === undefined) return
+    setTurnDurationText(String(room.turnDurationSeconds))
+  }, [room?.turnDurationSeconds, isHostSelf])
 
   function handleHandTileClick(tile: DominoTileView) {
     if (!isMyTurn) return
@@ -273,11 +284,19 @@ export function DominoRoomPage() {
                 type="number"
                 min={5}
                 max={120}
-                value={room.turnDurationSeconds}
+                value={turnDurationText || String(room.turnDurationSeconds)}
                 disabled={!isHostSelf}
                 onChange={(event) => {
-                  const value = Number(event.target.value)
+                  const text = event.target.value
+                  setTurnDurationText(text)
+                  const value = Number(text)
                   if (Number.isInteger(value) && value >= 5 && value <= 120) updateTurnDuration(value)
+                }}
+                onBlur={() => {
+                  const value = Number(turnDurationText)
+                  if (!Number.isInteger(value) || value < 5 || value > 120) {
+                    setTurnDurationText(String(room.turnDurationSeconds))
+                  }
                 }}
                 className="w-full rounded-xl border border-border bg-bg px-[13px] py-2.5 text-[14px] text-text-h outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/10 disabled:opacity-60"
               />
