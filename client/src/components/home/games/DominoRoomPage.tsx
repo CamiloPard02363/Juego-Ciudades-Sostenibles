@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Copy, LogOut, RotateCcw, Trophy, Users } from 'lucide-react'
+import { Check, Copy, LogOut, RotateCcw, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
@@ -43,6 +43,9 @@ export function DominoRoomPage() {
   const [joinCodeInput, setJoinCodeInput] = useState('')
   const [copyFeedback, setCopyFeedback] = useState(false)
   const [turnDurationText, setTurnDurationText] = useState('')
+  const [instructionsAccepted, setInstructionsAccepted] = useState(false)
+  const [boardScale, setBoardScale] = useState(1)
+  const boardViewportRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
 
   const remainingMs = useCountdown(room?.turnDeadline ?? null)
@@ -51,7 +54,7 @@ export function DominoRoomPage() {
   // un código en el path, se une a esa sala. Se hace una sola vez (guard con
   // startedRef) para no reintentar en cada re-render del hook de socket.
   useEffect(() => {
-    if (connecting || startedRef.current) return
+    if (connecting || startedRef.current || !instructionsAccepted) return
     if (codeFromUrl) {
       startedRef.current = true
       joinRoom(codeFromUrl.toUpperCase())
@@ -60,7 +63,7 @@ export function DominoRoomPage() {
       createRoom(gameIdToCreate)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connecting, codeFromUrl, gameIdToCreate])
+  }, [connecting, codeFromUrl, gameIdToCreate, instructionsAccepted])
 
   // En cuanto el servidor confirma el código de una sala recién creada, se
   // refleja en la URL vía react-router (reemplazando, sin agregar historial)
@@ -116,6 +119,26 @@ export function DominoRoomPage() {
   const canPlaceRight = selectedTile ? tileMatchesEnd(selectedTile, rightEnd) : false
 
   useEffect(() => {
+    const viewport = boardViewportRef.current
+    if (!viewport) return
+
+    const updateScale = () => {
+      if (!board.length) {
+        setBoardScale(1)
+        return
+      }
+      const availableWidth = viewport.clientWidth - 24
+      const estimatedWidth = board.length * 136 + 80
+      setBoardScale(Math.min(1, Math.max(0.1, availableWidth / estimatedWidth)))
+    }
+
+    updateScale()
+    const observer = new ResizeObserver(updateScale)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [board.length])
+
+  useEffect(() => {
     if (room?.turnDurationSeconds === undefined) return
     setTurnDurationText(String(room.turnDurationSeconds))
   }, [room?.code])
@@ -148,6 +171,10 @@ export function DominoRoomPage() {
     if (!selectedTileId) return
     playTile(selectedTileId, side)
     setSelectedTileId(null)
+  }
+
+  if (!instructionsAccepted) {
+    return <DominoInstructionsModal onContinue={() => setInstructionsAccepted(true)} />
   }
 
   if (rematchRejectedMessage) {
@@ -373,29 +400,34 @@ export function DominoRoomPage() {
             </div>
 
             {/* Tablero */}
-            <div className="rounded-xl border border-border bg-code-bg p-4">
+            <div ref={boardViewportRef} className="overflow-hidden rounded-xl border border-border bg-code-bg p-3 sm:p-4">
               {board.length === 0 ? (
                 <p className="py-10 text-center text-[13px] text-text">
                   {isMyTurn ? 'Toca una ficha de tu mano para abrir la partida.' : 'Esperando la primera jugada…'}
                 </p>
               ) : (
-                <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                  <EndDropZone
-                    active={isMyTurn && Boolean(selectedTile) && canPlaceLeft}
-                    onClick={() => handleEndClick('left')}
-                  />
-                  {board.map((placed) => (
-                    <BoardTileView
-                      key={placed.id}
-                      placed={placed}
-                      conceptOf={conceptOf}
-                      justPlaced={placed.id === lastPlacedTileId}
+                <div className="flex min-h-[82px] items-center justify-center overflow-hidden">
+                  <div
+                    className="flex w-max items-center gap-2"
+                    style={{ transform: `scale(${boardScale})`, transformOrigin: 'center center' }}
+                  >
+                    <EndDropZone
+                      active={isMyTurn && Boolean(selectedTile) && canPlaceLeft}
+                      onClick={() => handleEndClick('left')}
                     />
-                  ))}
-                  <EndDropZone
-                    active={isMyTurn && Boolean(selectedTile) && canPlaceRight}
-                    onClick={() => handleEndClick('right')}
-                  />
+                    {board.map((placed) => (
+                      <BoardTileView
+                        key={placed.id}
+                        placed={placed}
+                        conceptOf={conceptOf}
+                        justPlaced={placed.id === lastPlacedTileId}
+                      />
+                    ))}
+                    <EndDropZone
+                      active={isMyTurn && Boolean(selectedTile) && canPlaceRight}
+                      onClick={() => handleEndClick('right')}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -428,13 +460,13 @@ export function DominoRoomPage() {
               </p>
               <div className="flex flex-wrap gap-3">
                 {hand.map((tile) => {
-                  const playable = isMyTurn && (board.length === 0 || tileMatchesEnd(tile, leftEnd) || tileMatchesEnd(tile, rightEnd))
+                  const playable = board.length === 0 || tileMatchesEnd(tile, leftEnd) || tileMatchesEnd(tile, rightEnd)
                   return (
                     <HandTileView
                       key={tile.id}
                       tile={tile}
                       selected={selectedTileId === tile.id}
-                      dimmed={!playable && isMyTurn}
+                      state={!isMyTurn ? 'waiting' : selectedTileId === tile.id ? 'selected' : playable ? 'playable' : 'unavailable'}
                       conceptOf={conceptOf}
                       onClick={() => handleHandTileClick(tile)}
                     />
@@ -575,29 +607,80 @@ function EndDropZone({ active, onClick }: { active: boolean; onClick: () => void
 function HandTileView({
   tile,
   selected,
-  dimmed,
+  state,
   conceptOf,
   onClick,
 }: {
   tile: DominoTileView
   selected: boolean
-  dimmed: boolean
+  state: 'waiting' | 'playable' | 'selected' | 'unavailable'
   conceptOf: (id: number) => DominoConcept
   onClick: () => void
 }) {
   const a = conceptOf(tile.a)
   const b = conceptOf(tile.b)
+  const stateStyles = {
+    waiting: 'border-border opacity-75',
+    playable: 'border-accent/60 shadow-[0_8px_24px_-14px_var(--accent)]',
+    selected: 'z-10 -translate-y-2 border-accent ring-2 ring-accent/35 shadow-[0_18px_30px_-12px_var(--accent)]',
+    unavailable: 'border-border opacity-35 grayscale-[0.35]',
+  }[state]
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-[104px] w-[196px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-surface shadow-[var(--shadow)] transition-transform hover:-translate-y-1.5 ${
-        selected ? 'border-accent' : 'border-border'
-      } ${dimmed ? 'opacity-40' : ''}`}
+      aria-pressed={selected}
+      className={`flex h-[104px] w-[196px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-surface shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1.5 ${stateStyles}`}
     >
       <ConceptHalf concept={a} size="lg" />
       <div className="h-full w-[3px]" style={{ background: `linear-gradient(${a.color}, ${b.color})` }} />
       <ConceptHalf concept={b} size="lg" />
     </button>
+  )
+}
+
+function DominoInstructionsModal({ onContinue }: { onContinue: () => void }) {
+  const solar = { conceptId: 'example-solar', label: 'Paneles solares', icon: 'sun', color: '#f59e0b' }
+  const green = { conceptId: 'example-green', label: 'Zonas verdes', icon: 'leaf', color: '#22c55e' }
+
+  return (
+    <Modal onClose={onContinue} maxWidthClassName="max-w-[520px]">
+      <div className="space-y-5">
+        <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Nexus Play</p>
+          <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Cómo jugar</h2>
+        </div>
+        <p className="text-[13.5px] leading-relaxed text-text">
+          Conecta una ficha con el mismo concepto en uno de los extremos. Si no puedes jugar, roba una ficha. Gana quien se quede sin fichas primero.
+        </p>
+        <div className="rounded-2xl border border-border bg-code-bg p-4">
+          <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-accent">Ejemplo de conexión</p>
+          <div className="flex items-center justify-center gap-2 overflow-hidden">
+            <div className="flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-accent bg-surface shadow-[var(--shadow)]">
+              <ConceptHalf concept={solar} size="md" />
+              <div className="h-full w-[3px] bg-border" />
+              <ConceptHalf concept={green} size="md" />
+            </div>
+            <span className="text-[18px] font-bold text-accent">+</span>
+            <div className="flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-accent bg-surface shadow-[var(--shadow)]">
+              <ConceptHalf concept={green} size="md" />
+              <div className="h-full w-[3px] bg-border" />
+              <ConceptHalf concept={solar} size="md" />
+            </div>
+          </div>
+          <p className="mt-3 text-center text-[12px] text-text">El concepto del extremo debe coincidir.</p>
+        </div>
+        <button
+          type="button"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all hover:-translate-y-0.5"
+          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+          onClick={onContinue}
+        >
+          <Check className="h-4 w-4" strokeWidth={2.25} />
+          Entendido, continuar
+        </button>
+      </div>
+    </Modal>
   )
 }
