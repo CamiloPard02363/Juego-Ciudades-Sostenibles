@@ -13,6 +13,7 @@ import { GuessWhoContentValidator } from '../application/content-validators/gues
 import { DominoContentValidator } from '../application/content-validators/domino.content-validator.js';
 import { MazeCollectorContentValidator } from '../application/content-validators/maze-collector.content-validator.js';
 import { SnakesLaddersContentValidator } from '../application/content-validators/snakes-ladders.content-validator.js';
+import { DualQuestContentValidator } from '../application/content-validators/dual-quest.content-validator.js';
 import { ContentValidatorRegistry } from '../application/content-validators/content-validator.registry.js';
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
 import { GameAuthorizationService } from '../application/services/game-authorization.service.js';
@@ -44,6 +45,7 @@ import { GameImportController } from './http/controllers/game-import.controller.
     DominoContentValidator,
     MazeCollectorContentValidator,
     SnakesLaddersContentValidator,
+    DualQuestContentValidator,
     ContentValidatorRegistry,
     RequesterAdminResolver,
     GameAuthorizationService,
