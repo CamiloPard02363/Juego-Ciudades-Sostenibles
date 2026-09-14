@@ -7,7 +7,13 @@ import { InvalidGameTypeError } from '../errors/game.errors.js';
  * que no tiene sentido que sea data en DB — es la mecánica del juego, no una
  * instancia de contenido.
  */
-export type GameTypeName = 'MEMORY_MATCH' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS';
+export type GameTypeName =
+  | 'MEMORY_MATCH'
+  | 'GUESS_WHO'
+  | 'DOMINO'
+  | 'MAZE_COLLECTOR'
+  | 'SNAKES_LADDERS'
+  | 'DUAL_QUEST';
 
 /**
  * Exportado (no solo interno de este archivo) para que los DTOs HTTP que
@@ -23,6 +29,7 @@ export const VALID_GAME_TYPES: readonly GameTypeName[] = [
   'DOMINO',
   'MAZE_COLLECTOR',
   'SNAKES_LADDERS',
+  'DUAL_QUEST',
 ];
 
 export class GameType {
@@ -69,6 +76,10 @@ export class GameType {
 
   static snakesLadders(): GameType {
     return GameType.create('SNAKES_LADDERS');
+  }
+
+  static dualQuest(): GameType {
+    return GameType.create('DUAL_QUEST');
   }
 
   getName(): GameTypeName {
