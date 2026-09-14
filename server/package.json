@@ -22,7 +22,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "db:seed": "node --experimental-strip-types prisma/seed.ts",
     "db:seed:nexus-play": "node --experimental-strip-types prisma/seed-nexus-play.ts",
-    "db:seed:maze-collector-demos": "node --experimental-strip-types prisma/seed-maze-collector-demos.ts"
+    "db:seed:maze-collector-demos": "node --experimental-strip-types prisma/seed-maze-collector-demos.ts",
+    "db:seed:snakes-ladders-demo": "node --experimental-strip-types prisma/seed-snakes-ladders-demo.ts"
   },
   "prisma": {
     "seed": "node --experimental-strip-types prisma/seed.ts"
