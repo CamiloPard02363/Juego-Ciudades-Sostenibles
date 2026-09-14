@@ -41,6 +41,17 @@ import type {
   SnakesLaddersQuestion,
   SnakesLaddersTriggerType,
 } from '../../application/content-validators/snakes-ladders.content-validator.js';
+import {
+  DUAL_QUEST_ROOM_STORE,
+  type DualQuestRoomStore,
+  type DualQuestRoomState,
+  type DualQuestDirection,
+} from '../../domain/ports/dual-quest-room-store.port.js';
+import type {
+  DualQuestCellPosition,
+  DualQuestRole,
+  DualQuestTrigger,
+} from '../../application/content-validators/dual-quest.content-validator.js';
 import { AnalyticsTrackerService } from '../../application/services/analytics-tracker.service.js';
 import { WsExceptionFilter } from './ws-exception.filter.js';
 
@@ -71,6 +82,14 @@ function shuffle<T>(items: T[]): T[] {
 
 /** Cuenta regresiva antes de repartir cartas (3-2-1), igual para el inicio y cada revancha. */
 const DEAL_COUNTDOWN_MS = 3_000;
+
+/** Deltas de movimiento para el tick de Dúo Lógico. */
+const DUAL_QUEST_DIRECTION_DELTAS: Record<DualQuestDirection, DualQuestCellPosition> = {
+  UP: { row: -1, col: 0 },
+  DOWN: { row: 1, col: 0 },
+  LEFT: { row: 0, col: -1 },
+  RIGHT: { row: 0, col: 1 },
+};
 
 /** Largo máximo de un mensaje de chat de sala; se recorta, no se rechaza. */
 const MAX_CHAT_MESSAGE_LENGTH = 500;
@@ -274,6 +293,47 @@ function toSnakesLaddersClientView(room: SnakesLaddersRoomState, forSocketId: st
   };
 }
 
+/**
+ * Vista pública de una sala de Dúo Lógico: nunca incluye
+ * `correctOptionIndex` de los triggers QUESTION (solo vive en
+ * `room.triggers`, del lado del servidor) — si hay una pregunta pendiente,
+ * se manda su prompt/opciones pero jamás la respuesta correcta.
+ */
+function toDualQuestClientView(room: DualQuestRoomState, forSocketId: string) {
+  const pendingTrigger = room.pendingQuestion
+    ? room.triggers.find((t) => t.triggerId === room.pendingQuestion!.triggerId)
+    : undefined;
+
+  return {
+    code: room.code,
+    gameTitle: room.gameTitle,
+    gridCols: room.gridCols,
+    gridRows: room.gridRows,
+    grid: room.grid,
+    corePosition: room.corePosition,
+    gates: room.gates,
+    phase: room.phase,
+    bothAtCore: room.bothAtCore,
+    pendingQuestion:
+      room.pendingQuestion && pendingTrigger
+        ? {
+            triggerId: room.pendingQuestion.triggerId,
+            forRole: room.pendingQuestion.forRole,
+            prompt: pendingTrigger.prompt,
+            options: pendingTrigger.options,
+          }
+        : null,
+    players: room.players.map((player) => ({
+      userId: player.userId,
+      displayName: player.displayName,
+      role: player.role,
+      position: player.position,
+      isSelf: player.socketId === forSocketId,
+      isHost: player.userId === room.hostUserId,
+    })),
+  };
+}
+
 /** Vista pública de la sala que se envía a un jugador dado: oculta la carta secreta ajena. */
 function toClientView(room: RoomState, forSocketId: string) {
   return {
@@ -352,6 +412,14 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
    */
   private readonly snakesLaddersTurnTimers = new Map<string, NodeJS.Timeout>();
 
+  /**
+   * Dúo Lógico no tiene turnos: los dos jugadores se mueven a la vez, en
+   * tiempo real. Este mapa guarda el `setInterval` de "tick de movimiento"
+   * de cada sala activa (uno cada ~150ms mientras `phase === 'PLAYING'`),
+   * no un timeout de espera como los demás juegos.
+   */
+  private readonly dualQuestMovementTicks = new Map<string, NodeJS.Timeout>();
+
   constructor(
     private readonly jwtService: JwtService,
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
@@ -360,6 +428,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     @Inject(TOURNAMENT_STORE) private readonly tournamentStore: TournamentStore,
     @Inject(DOMINO_ROOM_STORE) private readonly dominoRoomStore: DominoRoomStore,
     @Inject(SNAKES_LADDERS_ROOM_STORE) private readonly snakesLaddersRoomStore: SnakesLaddersRoomStore,
+    @Inject(DUAL_QUEST_ROOM_STORE) private readonly dualQuestRoomStore: DualQuestRoomStore,
     private readonly analyticsTracker: AnalyticsTrackerService,
   ) {}
 
@@ -460,6 +529,21 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         snakesLaddersRoom.pendingChallenge = null;
         this.snakesLaddersRoomStore.set(snakesLaddersRoom);
         this.broadcastSnakesLaddersState(snakesLaddersRoom);
+      }
+    }
+
+    const dualQuestRoom = this.dualQuestRoomStore.findBySocketId(socket.id);
+    if (dualQuestRoom) {
+      this.clearDualQuestMovementTick(dualQuestRoom.code);
+      dualQuestRoom.players = dualQuestRoom.players.filter((player) => player.socketId !== socket.id);
+
+      if (dualQuestRoom.players.length === 0) {
+        this.dualQuestRoomStore.delete(dualQuestRoom.code);
+      } else {
+        dualQuestRoom.phase = dualQuestRoom.phase === 'FINISHED' ? dualQuestRoom.phase : 'WAITING';
+        dualQuestRoom.pendingQuestion = null;
+        this.dualQuestRoomStore.set(dualQuestRoom);
+        this.broadcastDualQuestState(dualQuestRoom);
       }
     }
   }
@@ -2031,6 +2115,288 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       this.server
         .to(player.socketId)
         .emit('snakes-ladders:state', toSnakesLaddersClientView(room, player.socketId));
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Dúo Lógico: sala cooperativa de exactamente 2 jugadores (FIRE y WATER)
+  // moviéndose en tiempo real sobre una cuadrícula compartida — a
+  // diferencia de todos los juegos anteriores (por turnos), acá el
+  // servidor corre un tick continuo por sala que mueve a ambos jugadores
+  // a la vez. La Fase 3 agrega la recolección de gemas y el ensamblaje
+  // final sobre esta misma sala.
+  // ---------------------------------------------------------------------
+
+  private static readonly DUAL_QUEST_TICK_MS = 150;
+
+  @SubscribeMessage('dual-quest:create')
+  async handleDualQuestCreate(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { gameId: string; role?: DualQuestRole },
+  ) {
+    const game = await this.gameRepository.findById(body.gameId);
+    if (!game || game.gameType.getName() !== 'DUAL_QUEST') {
+      throw new Error('Juego no encontrado o no es de tipo Dúo Lógico.');
+    }
+
+    let code = generateRoomCode();
+    while (this.dualQuestRoomStore.get(code)) {
+      code = generateRoomCode();
+    }
+
+    const role: DualQuestRole = body.role === 'WATER' ? 'WATER' : 'FIRE';
+    const startPosition = role === 'FIRE' ? (game.config.fireStart as DualQuestCellPosition) : (game.config.waterStart as DualQuestCellPosition);
+
+    const room: DualQuestRoomState = {
+      code,
+      gameId: game.id,
+      gameTitle: game.title,
+      gridCols: game.config.gridCols as number,
+      gridRows: game.config.gridRows as number,
+      grid: game.config.grid as number[][],
+      fireStart: game.config.fireStart as DualQuestCellPosition,
+      waterStart: game.config.waterStart as DualQuestCellPosition,
+      corePosition: game.config.corePosition as DualQuestCellPosition,
+      gates: (game.config.gates as Array<{ gateId: string; position: DualQuestCellPosition }>).map((gate) => ({
+        ...gate,
+        open: false,
+      })),
+      triggers: game.config.triggers as DualQuestTrigger[],
+      hostUserId: socket.data.userId,
+      phase: 'WAITING',
+      players: [
+        {
+          socketId: socket.id,
+          userId: socket.data.userId,
+          displayName: socket.data.displayName,
+          role,
+          position: startPosition,
+          desiredDirection: null,
+        },
+      ],
+      pendingQuestion: null,
+      bothAtCore: false,
+      createdAt: Date.now(),
+    };
+
+    this.dualQuestRoomStore.create(room);
+    socket.join(`dual-quest:${code}`);
+    socket.emit('dual-quest:state', toDualQuestClientView(room, socket.id));
+
+    void this.analyticsTracker.track({
+      type: 'room_created',
+      userId: socket.data.userId,
+      gameId: game.id,
+      metadata: { mode: 'dual-quest', role },
+    });
+  }
+
+  @SubscribeMessage('dual-quest:join')
+  handleDualQuestJoin(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { code: string }) {
+    const code = body.code?.trim().toUpperCase();
+    const room = this.dualQuestRoomStore.get(code);
+
+    if (!room) throw new Error('No existe una sala de Dúo Lógico con ese código.');
+
+    const existing = room.players.find((player) => player.userId === socket.data.userId);
+    if (existing) {
+      existing.socketId = socket.id;
+    } else {
+      if (room.players.length >= 2) throw new Error('La sala ya está llena.');
+      // El segundo jugador siempre recibe el rol que falta — Dúo Lógico
+      // necesita exactamente un FIRE y un WATER, nunca dos del mismo.
+      const takenRole = room.players[0]?.role;
+      const role: DualQuestRole = takenRole === 'FIRE' ? 'WATER' : 'FIRE';
+      const startPosition = role === 'FIRE' ? room.fireStart : room.waterStart;
+      room.players.push({
+        socketId: socket.id,
+        userId: socket.data.userId,
+        displayName: socket.data.displayName,
+        role,
+        position: startPosition,
+        desiredDirection: null,
+      });
+    }
+
+    this.dualQuestRoomStore.set(room);
+    socket.join(`dual-quest:${code}`);
+    this.broadcastDualQuestState(room);
+  }
+
+  @SubscribeMessage('dual-quest:start')
+  handleDualQuestStart(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const room = this.dualQuestRoomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
+    if (room.players.length !== 2) throw new Error('Se necesitan 2 jugadores (Fuego y Agua) para iniciar.');
+
+    room.phase = 'PLAYING';
+    room.bothAtCore = false;
+    room.pendingQuestion = null;
+    this.dualQuestRoomStore.set(room);
+    this.broadcastDualQuestState(room);
+    this.startDualQuestMovementTick(room.code);
+  }
+
+  /** El jugador solo manda su dirección deseada — el tick del servidor decide si de verdad se mueve. */
+  @SubscribeMessage('dual-quest:move')
+  handleDualQuestMove(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { direction: DualQuestDirection | null },
+  ) {
+    const room = this.dualQuestRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') return;
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (!player) return;
+
+    player.desiredDirection = body.direction ?? null;
+    this.dualQuestRoomStore.set(room);
+  }
+
+  @SubscribeMessage('dual-quest:activate-trigger')
+  handleDualQuestActivateTrigger(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { triggerId: string },
+  ) {
+    const room = this.dualQuestRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') throw new Error('La partida no está en curso.');
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (!player) throw new Error('No estás en esta sala.');
+
+    const trigger = room.triggers.find((t) => t.triggerId === body.triggerId);
+    if (!trigger) throw new Error('Ese trigger no existe.');
+    if (trigger.activatedByRole !== player.role) {
+      throw new Error(`Ese trigger solo lo puede activar el rol ${trigger.activatedByRole}.`);
+    }
+    if (player.position.row !== trigger.switchPosition.row || player.position.col !== trigger.switchPosition.col) {
+      throw new Error('Tienes que estar parado sobre el interruptor para activarlo.');
+    }
+
+    if (trigger.kind === 'SWITCH') {
+      this.openDualQuestGate(room, trigger.gateId);
+      return;
+    }
+
+    // QUESTION: se guarda como pendiente y se emite sin la respuesta correcta.
+    room.pendingQuestion = { triggerId: trigger.triggerId, forRole: player.role };
+    this.dualQuestRoomStore.set(room);
+    this.broadcastDualQuestState(room);
+  }
+
+  @SubscribeMessage('dual-quest:answer-trigger')
+  handleDualQuestAnswerTrigger(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { triggerId: string; optionIndex: number },
+  ) {
+    const room = this.dualQuestRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING' || !room.pendingQuestion) {
+      throw new Error('No hay ninguna pregunta pendiente.');
+    }
+    if (room.pendingQuestion.triggerId !== body.triggerId) {
+      throw new Error('Esa pregunta ya no está activa.');
+    }
+
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (!player || player.role !== room.pendingQuestion.forRole) {
+      throw new Error('Esta pregunta no es tuya.');
+    }
+
+    const trigger = room.triggers.find((t) => t.triggerId === body.triggerId);
+    const correct = trigger !== undefined && body.optionIndex === trigger.correctOptionIndex;
+
+    room.pendingQuestion = null;
+
+    this.server.to(`dual-quest:${room.code}`).emit('dual-quest:trigger-result', {
+      triggerId: body.triggerId,
+      role: player.role,
+      correct,
+    });
+
+    if (correct && trigger) {
+      this.openDualQuestGate(room, trigger.gateId);
+      return;
+    }
+
+    // Incorrecto: no hay castigo duro, solo no se abre — el jugador puede
+    // volver a pararse en el interruptor e intentar de nuevo.
+    this.dualQuestRoomStore.set(room);
+    this.broadcastDualQuestState(room);
+  }
+
+  private openDualQuestGate(room: DualQuestRoomState, gateId: string) {
+    const gate = room.gates.find((g) => g.gateId === gateId);
+    if (gate) gate.open = true;
+    this.dualQuestRoomStore.set(room);
+    this.broadcastDualQuestState(room);
+  }
+
+  @SubscribeMessage('dual-quest:leave')
+  handleDualQuestLeave(@ConnectedSocket() socket: AuthenticatedSocket) {
+    this.handleDisconnect(socket);
+    socket.disconnect();
+  }
+
+  private startDualQuestMovementTick(code: string) {
+    this.clearDualQuestMovementTick(code);
+    const timer = setInterval(() => {
+      const room = this.dualQuestRoomStore.get(code);
+      if (!room || room.phase !== 'PLAYING') {
+        this.clearDualQuestMovementTick(code);
+        return;
+      }
+      this.tickDualQuestMovement(room);
+    }, RoomsGateway.DUAL_QUEST_TICK_MS);
+    this.dualQuestMovementTicks.set(code, timer);
+  }
+
+  private clearDualQuestMovementTick(code: string) {
+    const timer = this.dualQuestMovementTicks.get(code);
+    if (timer) {
+      clearInterval(timer);
+      this.dualQuestMovementTicks.delete(code);
+    }
+  }
+
+  private isDualQuestPassable(room: DualQuestRoomState, position: DualQuestCellPosition, role: DualQuestRole): boolean {
+    const cell = room.grid[position.row]?.[position.col];
+    if (cell === undefined) return false;
+    const gate = room.gates.find((g) => g.position.row === position.row && g.position.col === position.col);
+    if (gate && !gate.open) return false;
+    if (cell === 1) return false;
+    if (cell === 2) return role === 'FIRE';
+    if (cell === 3) return role === 'WATER';
+    return true;
+  }
+
+  private tickDualQuestMovement(room: DualQuestRoomState) {
+    let moved = false;
+
+    for (const player of room.players) {
+      if (!player.desiredDirection) continue;
+      const delta = DUAL_QUEST_DIRECTION_DELTAS[player.desiredDirection];
+      const next: DualQuestCellPosition = { row: player.position.row + delta.row, col: player.position.col + delta.col };
+      if (this.isDualQuestPassable(room, next, player.role)) {
+        player.position = next;
+        moved = true;
+      }
+    }
+
+    const wasBothAtCore = room.bothAtCore;
+    room.bothAtCore =
+      room.players.length === 2 &&
+      room.players.every((p) => p.position.row === room.corePosition.row && p.position.col === room.corePosition.col);
+
+    if (moved || room.bothAtCore !== wasBothAtCore) {
+      this.dualQuestRoomStore.set(room);
+      this.broadcastDualQuestState(room);
+    }
+  }
+
+  private broadcastDualQuestState(room: DualQuestRoomState) {
+    for (const player of room.players) {
+      this.server.to(player.socketId).emit('dual-quest:state', toDualQuestClientView(room, player.socketId));
     }
   }
 }
