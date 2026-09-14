@@ -1,5 +1,6 @@
 import type {
   DualQuestCellPosition,
+  DualQuestFragmentGem,
   DualQuestRole,
   DualQuestTrigger,
 } from '../../application/content-validators/dual-quest.content-validator.js';
@@ -43,12 +44,16 @@ export interface DualQuestRoomState {
   gates: DualQuestGateState[];
   /** Definiciones completas (incluye `correctOptionIndex` de los QUESTION) — nunca se serializan tal cual hacia el cliente. */
   triggers: DualQuestTrigger[];
+  /** Definiciones completas (incluye `order`, la secuencia correcta) — igual que `triggers`, nunca se serializan tal cual. */
+  fragmentGems: DualQuestFragmentGem[];
+  /** gemId de las ya recolectadas — compartido entre ambos jugadores. */
+  collectedGemIds: string[];
   hostUserId: string;
   phase: DualQuestRoomPhase;
   /** Exactamente 2: uno FIRE, uno WATER. */
   players: DualQuestRoomPlayer[];
   pendingQuestion: DualQuestPendingQuestion | null;
-  /** true en cuanto ambos jugadores coinciden en `corePosition` — la Fase 3 lo usa para abrir el ensamblaje. */
+  /** true en cuanto ambos jugadores coinciden en `corePosition`. */
   bothAtCore: boolean;
   createdAt: number;
 }
