@@ -49,6 +49,7 @@ import {
 } from '../../domain/ports/dual-quest-room-store.port.js';
 import type {
   DualQuestCellPosition,
+  DualQuestFragmentGem,
   DualQuestRole,
   DualQuestTrigger,
 } from '../../application/content-validators/dual-quest.content-validator.js';
@@ -314,6 +315,17 @@ function toDualQuestClientView(room: DualQuestRoomState, forSocketId: string) {
     gates: room.gates,
     phase: room.phase,
     bothAtCore: room.bothAtCore,
+    collectedGemIds: room.collectedGemIds,
+    // Nunca se manda `order` (la secuencia correcta) — solo lo necesario
+    // para que el cliente sepa qué buscar y qué ya se recolectó.
+    gems: room.fragmentGems.map((gem) => ({
+      gemId: gem.gemId,
+      role: gem.role,
+      label: gem.label,
+      position: gem.position,
+      collected: room.collectedGemIds.includes(gem.gemId),
+    })),
+    canAssemble: room.bothAtCore && room.collectedGemIds.length === room.fragmentGems.length,
     pendingQuestion:
       room.pendingQuestion && pendingTrigger
         ? {
@@ -2163,6 +2175,8 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         open: false,
       })),
       triggers: game.config.triggers as DualQuestTrigger[],
+      fragmentGems: game.content as DualQuestFragmentGem[],
+      collectedGemIds: [],
       hostUserId: socket.data.userId,
       phase: 'WAITING',
       players: [
@@ -2333,6 +2347,69 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     this.broadcastDualQuestState(room);
   }
 
+  /**
+   * Arma la Gema Núcleo: el cliente manda TODAS las gemas recolectadas en
+   * el orden que cree correcto. El servidor la corrige contra el `order`
+   * real de `room.fragmentGems` (nunca contra algo que mande el cliente) —
+   * coincide exacto y en secuencia, o no cuenta. Reintentos ilimitados: una
+   * respuesta incorrecta no penaliza, solo no termina la partida.
+   */
+  @SubscribeMessage('dual-quest:submit-assembly')
+  handleDualQuestSubmitAssembly(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { orderedGemIds: string[] },
+  ) {
+    const room = this.dualQuestRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'PLAYING') throw new Error('La partida no está en curso.');
+    if (!room.bothAtCore) throw new Error('Ambos jugadores deben estar en la Gema Núcleo para ensamblar.');
+    if (room.collectedGemIds.length !== room.fragmentGems.length) {
+      throw new Error('Todavía faltan gemas por recolectar.');
+    }
+
+    const submitted = Array.isArray(body.orderedGemIds) ? body.orderedGemIds : [];
+    const sameSet =
+      submitted.length === room.collectedGemIds.length &&
+      room.collectedGemIds.every((id) => submitted.includes(id));
+    if (!sameSet) {
+      throw new Error('El arreglo enviado no contiene exactamente las gemas recolectadas.');
+    }
+
+    const correctSequence = [...room.fragmentGems].sort((a, b) => a.order - b.order).map((g) => g.gemId);
+    const correct = submitted.every((gemId, index) => gemId === correctSequence[index]);
+
+    this.server.to(`dual-quest:${room.code}`).emit('dual-quest:assembly-result', { correct });
+
+    if (correct) {
+      this.clearDualQuestMovementTick(room.code);
+      room.phase = 'FINISHED';
+      this.dualQuestRoomStore.set(room);
+      this.broadcastDualQuestState(room);
+    }
+  }
+
+  /** Solo el anfitrión, y solo con la partida terminada — reinicia posiciones, compuertas y gemas para volver a jugar sin recrear la sala. */
+  @SubscribeMessage('dual-quest:restart')
+  handleDualQuestRestart(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const room = this.dualQuestRoomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    if (room.phase !== 'FINISHED') throw new Error('La partida no ha terminado.');
+    if (socket.data.userId !== room.hostUserId) throw new Error('Solo quien creó la sala puede reiniciar.');
+
+    for (const player of room.players) {
+      player.position = player.role === 'FIRE' ? room.fireStart : room.waterStart;
+      player.desiredDirection = null;
+    }
+    for (const gate of room.gates) gate.open = false;
+    room.collectedGemIds = [];
+    room.pendingQuestion = null;
+    room.bothAtCore = false;
+    room.phase = 'PLAYING';
+
+    this.dualQuestRoomStore.set(room);
+    this.broadcastDualQuestState(room);
+    this.startDualQuestMovementTick(room.code);
+  }
+
   @SubscribeMessage('dual-quest:leave')
   handleDualQuestLeave(@ConnectedSocket() socket: AuthenticatedSocket) {
     this.handleDisconnect(socket);
@@ -2373,6 +2450,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
   private tickDualQuestMovement(room: DualQuestRoomState) {
     let moved = false;
+    let collected = false;
 
     for (const player of room.players) {
       if (!player.desiredDirection) continue;
@@ -2384,12 +2462,30 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       }
     }
 
+    // Auto-recolección: cada jugador solo puede recoger gemas de SU rol,
+    // mismo criterio que Maze Collector (caer en la celda ya las agrega).
+    if (moved) {
+      for (const player of room.players) {
+        const gem = room.fragmentGems.find(
+          (g) =>
+            g.role === player.role &&
+            g.position.row === player.position.row &&
+            g.position.col === player.position.col &&
+            !room.collectedGemIds.includes(g.gemId),
+        );
+        if (gem) {
+          room.collectedGemIds = [...room.collectedGemIds, gem.gemId];
+          collected = true;
+        }
+      }
+    }
+
     const wasBothAtCore = room.bothAtCore;
     room.bothAtCore =
       room.players.length === 2 &&
       room.players.every((p) => p.position.row === room.corePosition.row && p.position.col === room.corePosition.col);
 
-    if (moved || room.bothAtCore !== wasBothAtCore) {
+    if (moved || collected || room.bothAtCore !== wasBothAtCore) {
       this.dualQuestRoomStore.set(room);
       this.broadcastDualQuestState(room);
     }
