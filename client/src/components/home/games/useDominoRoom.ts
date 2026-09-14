@@ -40,7 +40,11 @@ export function useDominoRoom(token: string | null) {
       setError(null)
       setDealCountdownMs(null)
     })
-    socket.on('domino:error', (payload: { message: string }) => setError(payload.message))
+    // El WsExceptionFilter del servidor siempre emite 'room:error' sin
+    // importar el prefijo de la sala — 'domino:error' nunca se dispara, así
+    // que ningún error de esta sala llegaba a mostrarse (ver
+    // ws-exception.filter.ts en el servidor).
+    socket.on('room:error', (payload: { message: string }) => setError(payload.message))
     socket.on('domino:dealing', (payload: { countdownMs: number }) => {
       setDealCountdownMs(payload.countdownMs)
     })
