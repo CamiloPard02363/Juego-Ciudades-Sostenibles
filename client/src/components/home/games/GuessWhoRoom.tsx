@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Copy, Link, LogOut, MessageCircle, Send, Swords, Trophy, Users, X, XCircle } from 'lucide-react'
+import { Copy, Link, LogOut, MessageCircle, Send, Trophy, Users, X, XCircle } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
 import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoChatMessage } from './guessWhoTypes'
