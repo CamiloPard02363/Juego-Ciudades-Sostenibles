@@ -1643,7 +1643,6 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         current.boneyard = rest;
         this.dominoRoomStore.set(current);
         this.broadcastDominoState(current);
-        return;
       }
       this.advanceDominoTurn(current);
     }, room.turnDurationSeconds * 1000);
