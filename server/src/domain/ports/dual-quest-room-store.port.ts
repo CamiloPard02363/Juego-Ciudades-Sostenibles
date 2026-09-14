@@ -35,6 +35,7 @@ export interface DualQuestRoomState {
   code: string;
   gameId: string;
   gameTitle: string;
+  coreQuestion: string;
   gridCols: number;
   gridRows: number;
   grid: number[][];

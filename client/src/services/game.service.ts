@@ -102,6 +102,27 @@ export type MazeCollectorItemInput = {
   fact?: string
 }
 
+export type DualQuestGateInput = { gateId: string; position: { row: number; col: number } }
+
+export type DualQuestTriggerInput = {
+  triggerId: string
+  kind: 'SWITCH' | 'QUESTION'
+  activatedByRole: 'FIRE' | 'WATER'
+  switchPosition: { row: number; col: number }
+  gateId: string
+  prompt?: string
+  options?: string[]
+  correctOptionIndex?: number
+}
+
+export type DualQuestGemInput = {
+  gemId: string
+  role: 'FIRE' | 'WATER'
+  position: { row: number; col: number }
+  label: string
+  order: number
+}
+
 export type SnakesLaddersQuestionInput = {
   cellNumber: number
   triggerType: 'CELL' | 'LADDER' | 'SNAKE'
@@ -177,6 +198,26 @@ export type CreateGameInput =
         snakes: Array<{ from: number; to: number }>
       }
       content: SnakesLaddersQuestionInput[]
+    }
+  | {
+      title: string
+      description: string
+      gameType: 'DUAL_QUEST'
+      categoryId: string
+      organizationId?: string | null
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config: {
+        coreQuestion: string
+        gridCols: number
+        gridRows: number
+        grid: number[][]
+        fireStart: { row: number; col: number }
+        waterStart: { row: number; col: number }
+        corePosition: { row: number; col: number }
+        gates: DualQuestGateInput[]
+        triggers: DualQuestTriggerInput[]
+      }
+      content: DualQuestGemInput[]
     }
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */

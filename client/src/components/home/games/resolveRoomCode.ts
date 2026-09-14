@@ -2,7 +2,7 @@ import { io } from 'socket.io-client'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000'
 
-export type ResolvedRoomKind = 'room' | 'tournament' | 'domino' | 'snakes-ladders'
+export type ResolvedRoomKind = 'room' | 'tournament' | 'domino' | 'snakes-ladders' | 'dual-quest'
 
 export type ResolvedRoom = {
   kind: ResolvedRoomKind

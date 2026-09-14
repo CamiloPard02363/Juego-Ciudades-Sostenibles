@@ -199,6 +199,10 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       navigate(`/escaleras-serpientes/sala/${code}`)
       return
     }
+    if (resolved.kind === 'dual-quest') {
+      navigate(`/dual-quest/sala/${code}`)
+      return
+    }
     setJoinCodeContext({ code, initialMode: resolved.kind === 'tournament' ? 'group' : 'individual' })
     setGuessWhoRoomGameId(resolved.gameId)
   }
@@ -398,6 +402,13 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     if (selectedGame.gameType === 'SNAKES_LADDERS') {
       closeGame()
       navigate(`/escaleras-serpientes/sala?gameId=${selectedGame.id}`)
+      return
+    }
+    // Igual que Escaleras y Serpientes: sala en tiempo real con página
+    // propia — acá siempre exactamente 2 jugadores (Fuego/Agua).
+    if (selectedGame.gameType === 'DUAL_QUEST') {
+      closeGame()
+      navigate(`/dual-quest/sala?gameId=${selectedGame.id}`)
       return
     }
     setShowPlayOptions(true)

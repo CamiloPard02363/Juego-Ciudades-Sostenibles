@@ -1,6 +1,6 @@
-import { Ghost, Layers, Puzzle, UserRoundSearch, Dices } from 'lucide-react'
+import { Ghost, Layers, Puzzle, UserRoundSearch, Dices, Flame } from 'lucide-react'
 
-export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS'
+export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS' | 'DUAL_QUEST'
 
 type GameTypePickerProps = {
   onClose: () => void
@@ -45,6 +45,13 @@ const TYPE_OPTIONS: Array<{
     description:
       'De 2 a 4 jugadores en tiempo real. El avance depende de responder retos: escaleras exigen preguntas de alta complejidad, serpientes dan una oportunidad de recuperación.',
     icon: Dices,
+  },
+  {
+    choice: 'DUAL_QUEST',
+    title: 'Dúo Lógico',
+    description:
+      'Cooperativo de 2 jugadores en tiempo real: Fuego y Agua recorren el mismo mapa, cada uno bloqueado por casillas del otro, y arman juntos un concepto al final.',
+    icon: Flame,
   },
 ]
 
