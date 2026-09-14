@@ -195,6 +195,10 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       navigate(`/domino/sala/${code}`)
       return
     }
+    if (resolved.kind === 'snakes-ladders') {
+      navigate(`/escaleras-serpientes/sala/${code}`)
+      return
+    }
     setJoinCodeContext({ code, initialMode: resolved.kind === 'tournament' ? 'group' : 'individual' })
     setGuessWhoRoomGameId(resolved.gameId)
   }
@@ -387,6 +391,13 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
     if (selectedGame.gameType === 'MAZE_COLLECTOR') {
       setMazeSession(selectedGame)
       closeGame()
+      return
+    }
+    // Mismo criterio que Dominó: sala en tiempo real con página propia, no
+    // un pop-up — acá de 2 a 4 jugadores en vez de 1v1.
+    if (selectedGame.gameType === 'SNAKES_LADDERS') {
+      closeGame()
+      navigate(`/escaleras-serpientes/sala?gameId=${selectedGame.id}`)
       return
     }
     setShowPlayOptions(true)

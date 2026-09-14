@@ -17,7 +17,9 @@ import { OppositesGameFormPage } from './components/home/games/create/OppositesG
 import { GuessWhoGameFormPage } from './components/home/games/create/GuessWhoGameFormPage'
 import { DominoGameFormPage } from './components/home/games/create/DominoGameFormPage'
 import { MazeCollectorGameFormPage } from './components/home/games/create/MazeCollectorGameFormPage'
+import { SnakesLaddersGameFormPage } from './components/home/games/create/SnakesLaddersGameFormPage'
 import { DominoRoomPage } from './components/home/games/DominoRoomPage'
+import { SnakesLaddersRoomPage } from './components/home/games/SnakesLaddersRoomPage'
 import { useAuth } from './hooks/useAuth'
 
 function App() {
@@ -61,8 +63,10 @@ function App() {
         <Route path="quien-es" element={<GuessWhoGameFormPage />} />
         <Route path="domino" element={<DominoGameFormPage />} />
         <Route path="laberinto" element={<MazeCollectorGameFormPage />} />
+        <Route path="escaleras-serpientes" element={<SnakesLaddersGameFormPage />} />
       </Route>
       <Route path="/domino/sala/:code?" element={<DominoRoomPage />} />
+      <Route path="/escaleras-serpientes/sala/:code?" element={<SnakesLaddersRoomPage />} />
       <Route path="/" element={<HomeLayout />}>
         <Route index element={<HomePage />} />
         <Route path=":slug" element={<HomePage />} />

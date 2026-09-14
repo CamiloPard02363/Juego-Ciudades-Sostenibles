@@ -539,6 +539,15 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       return { kind: 'domino' as const, gameId: dominoRoom.gameId, gameTitle: dominoRoom.gameTitle };
     }
 
+    const snakesLaddersRoom = this.snakesLaddersRoomStore.get(code);
+    if (snakesLaddersRoom) {
+      return {
+        kind: 'snakes-ladders' as const,
+        gameId: snakesLaddersRoom.gameId,
+        gameTitle: snakesLaddersRoom.gameTitle,
+      };
+    }
+
     throw new Error('No existe ninguna sala con ese código.');
   }
 
