@@ -275,45 +275,56 @@ export function DominoRoomPage() {
               </div>
             </div>
 
-            <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
-              <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="domino-turn-duration-input">
-                Segundos por turno
-              </label>
-              <input
-                id="domino-turn-duration-input"
-                type="number"
-                min={5}
-                max={120}
-                value={turnDurationText || String(room.turnDurationSeconds)}
-                disabled={!isHostSelf}
-                onChange={(event) => {
-                  const text = event.target.value
-                  setTurnDurationText(text)
-                  const value = Number(text)
-                  if (Number.isInteger(value) && value >= 5 && value <= 120) updateTurnDuration(value)
-                }}
-                onBlur={() => {
-                  const value = Number(turnDurationText)
-                  if (!Number.isInteger(value) || value < 5 || value > 120) {
-                    setTurnDurationText(String(room.turnDurationSeconds))
-                  }
-                }}
-                className="w-full rounded-xl border border-border bg-bg px-[13px] py-2.5 text-[14px] text-text-h outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/10 disabled:opacity-60"
-              />
-              <p className="mt-1 text-[11.5px] text-text">
-                Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
-              </p>
-            </div>
+            {isHostSelf ? (
+              <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
+                <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="domino-turn-duration-input">
+                  Segundos por turno
+                </label>
+                <input
+                  id="domino-turn-duration-input"
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={turnDurationText}
+                  onChange={(event) => {
+                    const raw = event.target.value
+                    setTurnDurationText(raw)
+                    const parsed = Number(raw)
+                    if (raw.trim() !== '' && Number.isInteger(parsed) && parsed >= 5 && parsed <= 120) {
+                      updateTurnDuration(parsed)
+                    }
+                  }}
+                  className="w-full rounded-xl border border-border bg-bg px-[13px] py-2.5 text-[14px] text-text-h outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/10"
+                />
+                <p className="mt-1 text-[11.5px] text-text">
+                  Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
+                <p className="text-[12.5px] text-text">
+                  Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define quien creó la sala).
+                </p>
+              </div>
+            )}
 
-            <button
-              type="button"
-              disabled={room.players.length !== 2}
-              className="rounded-2xl px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-all duration-200 hover:not-disabled:-translate-y-0.5 hover:shadow-[0_16px_28px_-14px_var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={() => startGame()}
-            >
-              {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
-            </button>
+            {isHostSelf ? (
+              <button
+                type="button"
+                className="rounded-2xl px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-all duration-200 hover:not-disabled:-translate-y-0.5 hover:shadow-[0_16px_28px_-14px_var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                disabled={room.players.length !== 2}
+                onClick={() => startGame(Number(turnDurationText) || undefined)}
+              >
+                {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
+              </button>
+            ) : (
+              <p className="rounded-2xl border border-dashed border-border bg-surface px-4 py-3 text-center text-[13px] text-text shadow-[var(--shadow)]">
+                {room.players.length === 2
+                  ? 'Esperando a que el anfitrión inicie la partida…'
+                  : 'Esperando al segundo jugador…'}
+              </p>
+            )}
           </div>
         )}
 
