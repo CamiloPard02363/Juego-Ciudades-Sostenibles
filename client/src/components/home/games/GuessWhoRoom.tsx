@@ -517,13 +517,13 @@ function IndividualGuessWhoRoom({
       )}
 
       {room.phase === 'WAITING' && (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           <div className="rounded-[24px] border border-border bg-gradient-to-br from-bg to-surface p-4 shadow-[var(--shadow)]">
-            <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-text-h">
+            <p className="flex items-center gap-2 text-[13px] font-semibold text-text-h">
               <Users className="h-4 w-4 text-accent" strokeWidth={2} />
               Jugadores en la sala ({room.players.length}/2)
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {room.players.map((player) => (
                 <span
                   key={player.userId}
