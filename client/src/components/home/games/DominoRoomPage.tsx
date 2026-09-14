@@ -6,6 +6,7 @@ import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
 import type { DominoPlacedTileView, DominoTileView } from './dominoRoomTypes'
 import { DealCountdownOverlay, TurnBanner, TurnPopBanner, useCountdown } from './MatchBoard'
+import { Modal } from './Modal'
 
 /**
  * Sala de Dominó 1v1 en tiempo real: página propia (ruta `/domino/sala/:code?`,
@@ -124,6 +125,12 @@ export function DominoRoomPage() {
     setTurnDurationText(String(room.turnDurationSeconds))
   }, [room?.turnDurationSeconds, isHostSelf])
 
+  useEffect(() => {
+    if (!rematchRejectedMessage) return
+    const timeout = setTimeout(() => navigate('/'), 2800)
+    return () => clearTimeout(timeout)
+  }, [rematchRejectedMessage, navigate])
+
   function handleHandTileClick(tile: DominoTileView) {
     if (!isMyTurn) return
     if (selectedTileId === tile.id) {
@@ -141,6 +148,28 @@ export function DominoRoomPage() {
     if (!selectedTileId) return
     playTile(selectedTileId, side)
     setSelectedTileId(null)
+  }
+
+  if (rematchRejectedMessage) {
+    return (
+      <Modal onClose={() => navigate('/')} maxWidthClassName="max-w-[420px]">
+        <div className="flex flex-col items-center gap-3 py-4 text-center animate-[fade-in-up_0.3s_ease-out]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-danger/15 text-danger">
+            <LogOut className="h-6 w-6" strokeWidth={2} />
+          </span>
+          <p className="text-[15px] font-semibold text-text-h">Saliste de la partida</p>
+          <p className="text-[13px] text-text">{rematchRejectedMessage}</p>
+          <button
+            type="button"
+            className="mt-2 w-full rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={() => navigate('/')}
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
+    )
   }
 
   return (
