@@ -191,39 +191,85 @@ export function DominoRoomPage() {
         )}
 
         {room && room.phase === 'WAITING' && (
-          <div className="mx-auto flex w-full max-w-[420px] flex-col gap-5 rounded-2xl border border-border bg-surface p-6 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
-                <Users className="h-6 w-6" strokeWidth={1.75} />
-              </span>
-              <p className="text-[15px] font-semibold text-text-h">Esperando al rival…</p>
-              <p className="text-[13px] text-text">Comparte este código para que se una:</p>
-              <button
-                type="button"
-                onClick={handleCopyCode}
-                className="flex items-center gap-2 rounded-lg border border-border bg-code-bg px-4 py-2 text-[18px] font-bold tracking-[0.3em] text-text-h"
-              >
-                {room.code}
-                <Copy className="h-4 w-4 shrink-0" strokeWidth={2} />
-              </button>
-              {copyFeedback && <p className="text-[12px] text-accent">¡Copiado!</p>}
+          <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4">
+            <div className="rounded-[24px] border border-border bg-gradient-to-r from-accent/8 via-surface to-bg p-4 shadow-[var(--shadow)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Sala activa</p>
+                  <h2 className="mt-1 text-[22px] font-bold tracking-tight text-text-h">{room.gameTitle}</h2>
+                </div>
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
+                  onClick={handleExit}
+                >
+                  <LogOut className="h-4 w-4" strokeWidth={2} />
+                  Salir
+                </button>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface/90 p-3">
+                <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-text">
+                  <span className="font-medium text-text-h">Código de sala:</span>
+                  <code className="rounded-lg border border-accent/30 bg-accent/5 px-2 py-1 text-[13px] font-semibold text-accent">
+                    {room.code}
+                  </code>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    className="inline-flex items-center gap-1 rounded-xl border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
+                  >
+                    <Copy className="h-3 w-3" strokeWidth={2} />
+                    Copiar código
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-xl border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
+                    onClick={() => {
+                      if (!room) return
+                      const url = new URL(window.location.href)
+                      url.searchParams.set('sala', room.code)
+                      void navigator.clipboard.writeText(url.toString()).then(() => {
+                        setCopyFeedback(true)
+                        setTimeout(() => setCopyFeedback(false), 1500)
+                      })
+                    }}
+                  >
+                    <Copy className="h-3 w-3" strokeWidth={2} />
+                    Copiar enlace
+                  </button>
+                  {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">¡Copiado!</span>}
+                </div>
+              </div>
             </div>
 
-            <ul className="flex flex-col gap-1.5 text-left text-[13px] text-text">
-              {room.players.map((player) => (
-                <li key={player.userId} className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                  {player.displayName}
-                  {player.isHost && <span className="text-[11px] text-text/60">(anfitrión)</span>}
-                </li>
-              ))}
-            </ul>
+            <div className="rounded-[24px] border border-border bg-gradient-to-br from-bg to-surface p-4 shadow-[var(--shadow)]">
+              <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-text-h">
+                <Users className="h-4 w-4 text-accent" strokeWidth={2} />
+                Jugadores en la sala ({room.players.length}/2)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {room.players.map((player) => (
+                  <span
+                    key={player.userId}
+                    className="rounded-full border border-accent/20 bg-accent/5 px-3 py-1.5 text-[12.5px] font-medium text-text-h"
+                  >
+                    {player.displayName}
+                    {player.isHost ? ' (anfitrión)' : ''}
+                    {player.userId === user?.id ? ' (tú)' : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
 
-            {/* Solo quien creó la sala puede fijar los segundos por turno —
-                el rival ve el valor pero no puede tocarlo. */}
-            <label className="flex flex-col gap-1.5 text-left text-[12.5px] text-text">
-              Segundos por turno
+            <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
+              <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="domino-turn-duration-input">
+                Segundos por turno
+              </label>
               <input
+                id="domino-turn-duration-input"
                 type="number"
                 min={5}
                 max={120}
@@ -233,18 +279,21 @@ export function DominoRoomPage() {
                   const value = Number(event.target.value)
                   if (Number.isInteger(value) && value >= 5 && value <= 120) updateTurnDuration(value)
                 }}
-                className="rounded-lg border border-border bg-bg px-3 py-2 text-[14px] text-text-h disabled:opacity-60"
+                className="w-full rounded-xl border border-border bg-bg px-[13px] py-2.5 text-[14px] text-text-h outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/10 disabled:opacity-60"
               />
-            </label>
+              <p className="mt-1 text-[11.5px] text-text">
+                Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
+              </p>
+            </div>
 
             <button
               type="button"
               disabled={room.players.length !== 2}
-              className="rounded-lg px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-2xl px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-all duration-200 hover:not-disabled:-translate-y-0.5 hover:shadow-[0_16px_28px_-14px_var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
               onClick={() => startGame()}
             >
-              {room.players.length === 2 ? 'Iniciar partida' : 'Esperando al segundo jugador…'}
+              {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
             </button>
           </div>
         )}
