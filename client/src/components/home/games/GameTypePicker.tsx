@@ -1,6 +1,6 @@
-import { Ghost, Layers, Puzzle, UserRoundSearch } from 'lucide-react'
+import { Ghost, Layers, Puzzle, UserRoundSearch, Dices } from 'lucide-react'
 
-export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR'
+export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS'
 
 type GameTypePickerProps = {
   onClose: () => void
@@ -38,6 +38,13 @@ const TYPE_OPTIONS: Array<{
     description:
       'Un jugador recorre un laberinto recolectando objetos temáticos mientras esquiva enemigos. Cambia la narrativa a tu materia.',
     icon: Ghost,
+  },
+  {
+    choice: 'SNAKES_LADDERS',
+    title: 'Escaleras y Serpientes',
+    description:
+      'De 2 a 4 jugadores en tiempo real. El avance depende de responder retos: escaleras exigen preguntas de alta complejidad, serpientes dan una oportunidad de recuperación.',
+    icon: Dices,
   },
 ]
 

@@ -102,6 +102,15 @@ export type MazeCollectorItemInput = {
   fact?: string
 }
 
+export type SnakesLaddersQuestionInput = {
+  cellNumber: number
+  triggerType: 'CELL' | 'LADDER' | 'SNAKE'
+  prompt: string
+  options: string[]
+  correctOptionIndex: number
+  difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
+}
+
 export type CreateGameInput =
   | {
       title: string
@@ -153,6 +162,21 @@ export type CreateGameInput =
       theme?: { primaryColor?: string; coverImageUrl?: string | null }
       config?: Record<string, unknown>
       content: MazeCollectorItemInput[]
+    }
+  | {
+      title: string
+      description: string
+      gameType: 'SNAKES_LADDERS'
+      categoryId: string
+      organizationId?: string | null
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config: {
+        boardSize: number
+        turnDurationSeconds?: number
+        ladders: Array<{ from: number; to: number }>
+        snakes: Array<{ from: number; to: number }>
+      }
+      content: SnakesLaddersQuestionInput[]
     }
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */
