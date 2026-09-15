@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { LoginPage } from './components/LoginPage'
 import { RegisterPage } from './components/RegisterPage'
@@ -23,6 +24,12 @@ import { DominoRoomPage } from './components/home/games/DominoRoomPage'
 import { SnakesLaddersRoomPage } from './components/home/games/SnakesLaddersRoomPage'
 import { DualQuestRoomPage } from './components/home/games/DualQuestRoomPage'
 import { useAuth } from './hooks/useAuth'
+
+// PixiJS + Matter.js solo se descargan si alguien entra a esta ruta —
+// van cargados de fábrica (~700 KB) y nadie más en el sitio los necesita.
+const DualQuestPixiDemoPage = lazy(() =>
+  import('./components/home/games/DualQuestPixiDemoPage').then((m) => ({ default: m.DualQuestPixiDemoPage })),
+)
 
 function App() {
   const { user, status } = useAuth()
@@ -71,6 +78,14 @@ function App() {
       <Route path="/domino/sala/:code?" element={<DominoRoomPage />} />
       <Route path="/escaleras-serpientes/sala/:code?" element={<SnakesLaddersRoomPage />} />
       <Route path="/dual-quest/sala/:code?" element={<DualQuestRoomPage />} />
+      <Route
+        path="/dual-quest/pixi-demo"
+        element={
+          <Suspense fallback={<main className="flex flex-1 items-center justify-center">Cargando motor del juego…</main>}>
+            <DualQuestPixiDemoPage />
+          </Suspense>
+        }
+      />
       <Route path="/" element={<HomeLayout />}>
         <Route index element={<HomePage />} />
         <Route path=":slug" element={<HomePage />} />
