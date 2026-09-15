@@ -81,6 +81,8 @@ export const level1EnergiaRenovable: LevelDef = {
       x: 150,
       y: 800,
       role: null,
+      color: '#FFD166',
+      glow: '#FACC15',
       concept: {
         title: 'Energía Compartida',
         body: 'Una ciudad sostenible reparte su energía entre todos sus barrios en vez de concentrarla en unos pocos — por eso aquí nadie cruza solo.',
@@ -91,6 +93,8 @@ export const level1EnergiaRenovable: LevelDef = {
       x: 770,
       y: 390,
       role: null,
+      color: '#38BDF8',
+      glow: '#38BDF8',
       concept: {
         title: 'Infraestructura Compartida',
         body: 'Mover un solo bloque pesado entre dos personas construye más rápido que hacerlo solos — así se construyen las ciudades reales.',
@@ -101,6 +105,8 @@ export const level1EnergiaRenovable: LevelDef = {
       x: 940,
       y: 620,
       role: 'FIRE',
+      color: '#FDBA74',
+      glow: '#F97316',
       concept: {
         title: 'Resiliencia Energética',
         body: 'Una fuente de energía renovable (como Lumen en la lava) sigue funcionando donde otras fuentes fallarían.',
@@ -111,6 +117,8 @@ export const level1EnergiaRenovable: LevelDef = {
       x: 885,
       y: 330,
       role: 'WATER',
+      color: '#7DD3FC',
+      glow: '#38BDF8',
       concept: {
         title: 'Gestión del Agua',
         body: 'Cuando una ruta está contaminada o es peligrosa, una ciudad sostenible siempre planea una alternativa segura — la ruta alta de Gota.',

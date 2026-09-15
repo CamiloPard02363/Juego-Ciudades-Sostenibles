@@ -1,13 +1,7 @@
 import Matter from 'matter-js';
-import { Container, Graphics } from 'pixi.js';
+import { Container, Sprite, type Texture } from 'pixi.js';
 import { Category } from '../engine/PhysicsWorld';
 import type { LiquidZoneDef } from '../dualQuestPixiTypes';
-
-const KIND_COLOR: Record<LiquidZoneDef['kind'], number> = {
-  WATER: 0x0284c7,
-  LAVA: 0xf97316,
-  WASTE: 0x65a30d,
-};
 
 /**
  * Un canal/pozo de líquido — SIEMPRE definido con un ancho y un alto
@@ -22,7 +16,7 @@ export class LiquidZoneEntity {
   readonly view: Container;
   readonly kind: LiquidZoneDef['kind'];
 
-  constructor(def: LiquidZoneDef) {
+  constructor(def: LiquidZoneDef, texture: Texture) {
     this.kind = def.kind;
     this.sensor = Matter.Bodies.rectangle(def.x + def.width / 2, def.y + def.height / 2, def.width, def.height, {
       label: `liquid:${def.kind}`,
@@ -31,10 +25,12 @@ export class LiquidZoneEntity {
       collisionFilter: { category: Category.LIQUID_SENSOR },
     });
 
-    const g = new Graphics();
-    g.rect(0, 0, def.width, def.height).fill({ color: KIND_COLOR[def.kind], alpha: 0.75 });
+    const sprite = new Sprite(texture);
+    sprite.width = def.width;
+    sprite.height = def.height;
+
     this.view = new Container();
-    this.view.addChild(g);
+    this.view.addChild(sprite);
     this.view.position.set(def.x, def.y);
   }
 }

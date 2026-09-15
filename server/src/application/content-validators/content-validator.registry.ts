@@ -8,6 +8,7 @@ import { DominoContentValidator } from './domino.content-validator.js';
 import { MazeCollectorContentValidator } from './maze-collector.content-validator.js';
 import { SnakesLaddersContentValidator } from './snakes-ladders.content-validator.js';
 import { DualQuestContentValidator } from './dual-quest.content-validator.js';
+import { DualQuestPixiContentValidator } from './dual-quest-pixi.content-validator.js';
 
 /**
  * Único punto de la aplicación que sabe qué validador corresponde a cada
@@ -26,6 +27,7 @@ export class ContentValidatorRegistry {
     private readonly mazeCollectorValidator: MazeCollectorContentValidator,
     private readonly snakesLaddersValidator: SnakesLaddersContentValidator,
     private readonly dualQuestValidator: DualQuestContentValidator,
+    private readonly dualQuestPixiValidator: DualQuestPixiContentValidator,
   ) {
     this.validators = {
       MEMORY_MATCH: this.memoryMatchValidator,
@@ -34,6 +36,7 @@ export class ContentValidatorRegistry {
       MAZE_COLLECTOR: this.mazeCollectorValidator,
       SNAKES_LADDERS: this.snakesLaddersValidator,
       DUAL_QUEST: this.dualQuestValidator,
+      DUAL_QUEST_PIXI: this.dualQuestPixiValidator,
     };
   }
 

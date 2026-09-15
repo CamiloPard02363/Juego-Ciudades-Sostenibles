@@ -61,6 +61,10 @@ export interface PuzzlePieceDef {
   y: number;
   /** Qué rol puede recogerla; null = cualquiera. */
   role: Role | null;
+  /** Color de la gema tallada (hex CSS) — cada ficha se ve distinta según
+   * el concepto que representa, igual que en el prototipo SVG/CSS. */
+  color: string;
+  glow: string;
   concept: {
     title: string;
     /** Texto corto mostrado en el popup pedagógico al recogerla. */

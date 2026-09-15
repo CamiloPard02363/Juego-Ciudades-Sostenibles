@@ -30,6 +30,9 @@ import { useAuth } from './hooks/useAuth'
 const DualQuestPixiDemoPage = lazy(() =>
   import('./components/home/games/DualQuestPixiDemoPage').then((m) => ({ default: m.DualQuestPixiDemoPage })),
 )
+const DualQuestPixiPlayPage = lazy(() =>
+  import('./components/home/games/DualQuestPixiPlayPage').then((m) => ({ default: m.DualQuestPixiPlayPage })),
+)
 
 function App() {
   const { user, status } = useAuth()
@@ -83,6 +86,14 @@ function App() {
         element={
           <Suspense fallback={<main className="flex flex-1 items-center justify-center">Cargando motor del juego…</main>}>
             <DualQuestPixiDemoPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/dual-quest-pixi/:slug"
+        element={
+          <Suspense fallback={<main className="flex flex-1 items-center justify-center">Cargando motor del juego…</main>}>
+            <DualQuestPixiPlayPage />
           </Suspense>
         }
       />

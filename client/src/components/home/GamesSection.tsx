@@ -1,25 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  Atom,
-  Brain,
-  Calculator,
-  Dna,
-  Globe2,
-  KeyRound,
-  Landmark,
-  Languages,
-  Leaf,
-  Music,
-  Palette,
-  PlusCircle,
-  Sparkles,
-  Stethoscope,
-  Trash2,
-  Trophy,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { KeyRound, PlusCircle, Sparkles, Trash2, Trophy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { DEFAULT_CATEGORY_COLOR, colorForCategory, iconForCategory } from './gamesCatalogVisuals'
 import {
   listGames,
   getGameBySlug,
@@ -62,6 +45,15 @@ type GamesSectionProps = {
   mode: GamesSectionMode
   searchQuery: string
   searchNonce: number
+  /**
+   * true cuando el Modo Kids ya está mostrando su propia navegación
+   * (mundos/juegos ilustrados, ver components/home/kids/) y esta sección
+   * solo debe quedar montada para que, si la URL trae un slug, se siga
+   * abriendo el mismo `GameDetailModal`/`handlePlayClick` de siempre — sin
+   * pintar el hero, la barra de categorías ni el grid de texto del Home de
+   * adulto por debajo.
+   */
+  browsingHidden?: boolean
 }
 
 type PlaySession = {
@@ -78,68 +70,11 @@ const DEFAULT_MEMORY_CONFIG: MemoryMatchConfig = {
   previewSeconds: 5,
 }
 
-/** Color de respaldo para una materia que no calza con ninguna regla: azul grisáceo neutro (profesional, no compite con ningún grupo). */
-const DEFAULT_CATEGORY_COLOR = '#64748b'
-
-/**
- * Palabras clave -> ícono y color representativos, elegidos por psicología
- * del color (no por índice/orden de creación): cada materia transmite algo
- * consistente sin importar cuántas materias existan o en qué orden se
- * crearon. Las categorías son texto libre creado por usuarios, así que esto
- * es una heurística por nombre, con Sparkles + DEFAULT_CATEGORY_COLOR de
- * respaldo cuando ninguna palabra clave calza.
- */
-const CATEGORY_RULES: Array<{ keywords: string[]; icon: LucideIcon; color: string }> = [
-  // Azul: lógica, confianza, orden — asociación clásica con lo racional/exacto.
-  { keywords: ['matematic', 'algebra', 'geometr', 'calculo', 'aritmetic'], icon: Calculator, color: '#3b82f6' },
-  // Verde: naturaleza, crecimiento, calma.
-  { keywords: ['biolog', 'natural', 'ecolog', 'ambiente', 'plantas', 'botanic'], icon: Leaf, color: '#22c55e' },
-  // Turquesa: exploración, apertura, horizontes amplios.
-  { keywords: ['geografia', 'geograf', 'mundo', 'pais', 'capital'], icon: Globe2, color: '#14b8a6' },
-  // Rojo coral: vitalidad, atención, cuidado — sin ser tan intenso como una alerta.
-  { keywords: ['medicin', 'salud', 'anatomi', 'clinic'], icon: Stethoscope, color: '#f43f5e' },
-  // Ámbar/dorado: tradición, solidez, herencia — tono "tierra".
-  { keywords: ['historia', 'civic', 'sociales'], icon: Landmark, color: '#b45309' },
-  // Índigo: profundidad, precisión, misterio de lo científico.
-  { keywords: ['fisica', 'quimic', 'ciencia'], icon: Atom, color: '#6366f1' },
-  // Violeta: descubrimiento, innovación.
-  { keywords: ['genetic', 'adn'], icon: Dna, color: '#8b5cf6' },
-  // Cian: comunicación, claridad.
-  { keywords: ['idioma', 'ingles', 'frances', 'lengua', 'lenguaje'], icon: Languages, color: '#06b6d4' },
-  // Naranja: creatividad, energía, expresión.
-  { keywords: ['arte', 'dibujo', 'pintura'], icon: Palette, color: '#f97316' },
-  // Rosa/magenta: pasión, emoción, expresión artística.
-  { keywords: ['musica', 'sonido'], icon: Music, color: '#ec4899' },
-  // Púrpura: introspección, sabiduría, lo abstracto de la mente.
-  { keywords: ['logica', 'psicolog', 'mente', 'razonamiento'], icon: Brain, color: '#7c3aed' },
-]
-
-function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-}
-
-function matchCategoryRule(name: string) {
-  const normalized = normalize(name)
-  return CATEGORY_RULES.find((rule) => rule.keywords.some((keyword) => normalized.includes(keyword)))
-}
-
-function iconForCategory(name: string): LucideIcon {
-  return matchCategoryRule(name)?.icon ?? Sparkles
-}
-
-/** Color por psicología del color según la materia (ver CATEGORY_RULES); mismo criterio para el badge de la materia y para cada tarjeta de juego que pertenece a ella. */
-function colorForCategory(name: string): string {
-  return matchCategoryRule(name)?.color ?? DEFAULT_CATEGORY_COLOR
-}
-
 function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameCount[] {
   return [...categories].sort((a, b) => b.gameCount - a.gameCount)
 }
 
-export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionProps) {
+export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = false }: GamesSectionProps) {
   const navigate = useNavigate()
   const { slug: slugFromUrl } = useParams<{ slug?: string }>()
   const basePath = BASE_PATH_BY_MODE[mode]
@@ -243,7 +178,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
   const shouldLoadGames = mode !== 'categories' || activeCategoryId !== null
 
   const reload = useCallback(() => {
-    if (!token || !shouldLoadGames) return
+    if (!token || !shouldLoadGames || browsingHidden) return
     setLoading(true)
     setError(null)
     listGames(token, {
@@ -260,7 +195,7 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       })
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, mode, searchQuery, activeCategoryId, searchNonce, shouldLoadGames])
+  }, [token, mode, searchQuery, activeCategoryId, searchNonce, shouldLoadGames, browsingHidden])
 
   useEffect(() => {
     reload()
@@ -411,6 +346,14 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
       navigate(`/dual-quest/sala?gameId=${selectedGame.id}`)
       return
     }
+    // Motor físico (PixiJS + Matter.js): un solo mundo compartido en el
+    // navegador de quien lo abre, sin sala en tiempo real — página propia
+    // que carga el nivel por slug (ver DualQuestPixiPlayPage.tsx).
+    if (selectedGame.gameType === 'DUAL_QUEST_PIXI') {
+      closeGame()
+      navigate(`/dual-quest-pixi/${selectedGame.slug}`)
+      return
+    }
     setShowPlayOptions(true)
   }
 
@@ -501,6 +444,14 @@ export function GamesSection({ mode, searchQuery, searchNonce }: GamesSectionPro
         )}
       </>
     )
+  }
+
+  // El Modo Kids ya pintó su propia navegación (ver KidsHomeShell) —
+  // acá solo hace falta que, si la URL trae un slug, el detalle/"Jugar" de
+  // siempre siga funcionando por debajo, sin el hero/categorías/grid del
+  // Home de adulto.
+  if (browsingHidden) {
+    return renderGameOverlays()
   }
 
   // La grilla de "Materias" es una pantalla propia: mientras no se elige una

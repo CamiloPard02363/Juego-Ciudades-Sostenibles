@@ -1,4 +1,5 @@
 import Matter from 'matter-js';
+import { Container, Sprite, type Texture } from 'pixi.js';
 import { createPixiApp, type PixiAppHandles } from './engine/PixiApp';
 import { createPhysicsWorld, type PhysicsWorldHandles } from './engine/PhysicsWorld';
 import { InputController } from './engine/InputController';
@@ -14,6 +15,7 @@ import { PortalEntity } from './entities/Portal';
 import { buildPlatform } from './level/buildPlatform';
 import { LinkSystem } from './systems/LinkSystem';
 import { GameStateManager } from './ui/GameStateManager';
+import { loadAssets, type Assets } from './render/AssetLibrary';
 import type { LevelDef } from './dualQuestPixiTypes';
 
 /**
@@ -43,6 +45,7 @@ export class DualQuestPixiGame {
 
   private tickerCallback = (): void => this.onTick();
   private readonly level: LevelDef;
+  private assets!: Assets;
 
   constructor(level: LevelDef) {
     this.level = level;
@@ -50,9 +53,17 @@ export class DualQuestPixiGame {
   }
 
   async mount(container: HTMLElement): Promise<void> {
+    // Las texturas se cargan antes que nada: construir el nivel las da
+    // por hechas (cada entidad recibe la suya ya lista, ninguna carga la
+    // propia por su cuenta).
+    this.assets = await loadAssets();
+    // Se precargan aparte (no dentro de buildLevel) para que ninguna
+    // ficha aparezca con un "pop-in" a medio segundo de haber arrancado
+    // el nivel — cuando el ticker empieza a correr, todo ya está listo.
+    const pieceTextures = await this.preloadPieceTextures();
     this.pixi = await createPixiApp(container);
     this.physics = createPhysicsWorld();
-    this.buildLevel();
+    this.buildLevel(pieceTextures);
     this.wireCollisions();
     this.state.on('piece-collected', ({ collected, total }) => {
       this.portal.setUnlocked(collected === total);
@@ -75,25 +86,37 @@ export class DualQuestPixiGame {
     this.dog?.commandMoveTo(target);
   }
 
-  private buildLevel(): void {
+  private async preloadPieceTextures(): Promise<Map<string, Texture>> {
+    const entries = await Promise.all(
+      this.level.puzzlePieces.map(async (p): Promise<[string, Texture]> => [p.id, await this.assets.gem(p.color, p.glow)]),
+    );
+    return new Map(entries);
+  }
+
+  private buildLevel(pieceTextures: Map<string, Texture>): void {
     const { world } = this.physics;
     const { world: worldContainer } = this.pixi;
+    const assets = this.assets;
+
+    this.buildBackground(worldContainer);
 
     for (const platformDef of this.level.platforms) {
-      const { body, view } = buildPlatform(platformDef);
+      const texture = platformDef.material === 'dirt' ? assets.dirt : assets.concrete; // 'metal' cae en concreto: mismo lenguaje visual industrial
+      const { body, view } = buildPlatform(platformDef, texture);
       Matter.World.add(world, body);
       worldContainer.addChild(view);
     }
 
     for (const liquidDef of this.level.liquids) {
-      const liquid = new LiquidZoneEntity(liquidDef);
+      const texture = liquidDef.kind === 'LAVA' ? assets.lavaPool : assets.waterPool;
+      const liquid = new LiquidZoneEntity(liquidDef, texture);
       Matter.World.add(world, liquid.sensor);
       worldContainer.addChild(liquid.view);
       this.liquids.push(liquid);
     }
 
     for (const crateDef of this.level.crates) {
-      const crate = new PushableCrate(crateDef, crateDef.size);
+      const crate = new PushableCrate(crateDef, crateDef.size, assets.crate);
       Matter.World.add(world, crate.body);
       worldContainer.addChild(crate.view);
       this.crates.push(crate);
@@ -119,7 +142,9 @@ export class DualQuestPixiGame {
     }
 
     for (const pieceDef of this.level.puzzlePieces) {
-      const piece = new PuzzlePieceEntity(pieceDef);
+      const texture = pieceTextures.get(pieceDef.id);
+      if (!texture) continue; // no debería pasar: se precargan todas antes de llegar aquí
+      const piece = new PuzzlePieceEntity(pieceDef, texture);
       Matter.World.add(world, piece.sensor);
       worldContainer.addChild(piece.view);
       this.pieces.push(piece);
@@ -130,6 +155,8 @@ export class DualQuestPixiGame {
       this.level.portal.y,
       this.level.portal.width,
       this.level.portal.height,
+      assets.doorLocked,
+      assets.doorUnlocked,
     );
     Matter.World.add(world, this.portal.sensor);
     worldContainer.addChild(this.portal.view);
@@ -140,10 +167,44 @@ export class DualQuestPixiGame {
       worldContainer.addChild(this.dog.view);
     }
 
-    this.fire = new Player({ role: 'FIRE', start: this.level.fireStart, input: new InputController('WASD') });
-    this.water = new Player({ role: 'WATER', start: this.level.waterStart, input: new InputController('ARROWS') });
+    this.fire = new Player({ role: 'FIRE', start: this.level.fireStart, input: new InputController('WASD'), assets });
+    this.water = new Player({ role: 'WATER', start: this.level.waterStart, input: new InputController('ARROWS'), assets });
     Matter.World.add(world, [this.fire.body, this.water.body]);
     worldContainer.addChild(this.fire.view, this.water.view);
+  }
+
+  /** Ciudad de fondo: solo decorativa (sin cuerpos físicos), una sola vez
+   * al construir el nivel. Se agrega antes que todo lo demás para que
+   * quede detrás de plataformas y personajes en el orden de pintado. */
+  private buildBackground(worldContainer: Container): void {
+    const assets = this.assets;
+    const bg = new Container();
+    bg.alpha = 0.5;
+
+    const buildings: Array<[number, typeof assets.buildingTall, number]> = [
+      [40, assets.buildingTall, 260],
+      [140, assets.buildingShort, 170],
+      [this.level.widthPx - 220, assets.buildingShort, 170],
+      [this.level.widthPx - 120, assets.buildingTall, 260],
+    ];
+    for (const [x, texture, height] of buildings) {
+      const sprite = new Sprite(texture);
+      sprite.width = 70;
+      sprite.height = height;
+      sprite.position.set(x, this.level.heightPx - height - 10);
+      bg.addChild(sprite);
+    }
+
+    const treeXs = [10, 320, 620, 1000, 1300, this.level.widthPx - 60];
+    for (const x of treeXs) {
+      const sprite = new Sprite(assets.tree);
+      sprite.width = 70;
+      sprite.height = 82;
+      sprite.position.set(x, this.level.heightPx - 92);
+      bg.addChild(sprite);
+    }
+
+    worldContainer.addChild(bg);
   }
 
   /** Un único listener de colisión que reparte por prefijo de `label` —
@@ -242,8 +303,8 @@ export class DualQuestPixiGame {
     const ticker = this.pixi.app.ticker;
 
     if (!this.state.isPaused()) {
-      this.fire.update();
-      this.water.update();
+      this.fire.update(ticker.deltaMS);
+      this.water.update(ticker.deltaMS);
       this.dog?.update();
       this.physics.step(ticker.deltaMS);
     }

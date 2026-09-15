@@ -13,7 +13,8 @@ export type GameTypeName =
   | 'DOMINO'
   | 'MAZE_COLLECTOR'
   | 'SNAKES_LADDERS'
-  | 'DUAL_QUEST';
+  | 'DUAL_QUEST'
+  | 'DUAL_QUEST_PIXI';
 
 /**
  * Exportado (no solo interno de este archivo) para que los DTOs HTTP que
@@ -30,6 +31,7 @@ export const VALID_GAME_TYPES: readonly GameTypeName[] = [
   'MAZE_COLLECTOR',
   'SNAKES_LADDERS',
   'DUAL_QUEST',
+  'DUAL_QUEST_PIXI',
 ];
 
 export class GameType {
@@ -80,6 +82,10 @@ export class GameType {
 
   static dualQuest(): GameType {
     return GameType.create('DUAL_QUEST');
+  }
+
+  static dualQuestPixi(): GameType {
+    return GameType.create('DUAL_QUEST_PIXI');
   }
 
   getName(): GameTypeName {

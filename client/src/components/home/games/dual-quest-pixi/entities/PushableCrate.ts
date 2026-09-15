@@ -1,5 +1,5 @@
 import Matter from 'matter-js';
-import { Container, Graphics } from 'pixi.js';
+import { Container, Sprite, type Texture } from 'pixi.js';
 import { Category, Mask } from '../engine/PhysicsWorld';
 import type { Vec2 } from '../dualQuestPixiTypes';
 
@@ -13,7 +13,7 @@ export class PushableCrate {
   readonly body: Matter.Body;
   readonly view: Container;
 
-  constructor(at: Vec2, size: number) {
+  constructor(at: Vec2, size: number, texture: Texture) {
     this.body = Matter.Bodies.rectangle(at.x, at.y, size, size, {
       label: 'crate',
       friction: 0.9,
@@ -22,14 +22,13 @@ export class PushableCrate {
       collisionFilter: { category: Category.CRATE, mask: Mask.CRATE },
     });
 
-    const g = new Graphics();
-    g.roundRect(-size / 2, -size / 2, size, size, 4).fill(0xb45309).stroke({ width: 3, color: 0x78350f });
-    g.moveTo(-size / 2, -size / 2).lineTo(size / 2, size / 2);
-    g.moveTo(size / 2, -size / 2).lineTo(-size / 2, size / 2);
-    g.stroke({ width: 2, color: 0x78350f, alpha: 0.6 });
+    const sprite = new Sprite(texture);
+    sprite.anchor.set(0.5, 0.5);
+    sprite.width = size;
+    sprite.height = size;
 
     this.view = new Container();
-    this.view.addChild(g);
+    this.view.addChild(sprite);
   }
 
   syncView(): void {
