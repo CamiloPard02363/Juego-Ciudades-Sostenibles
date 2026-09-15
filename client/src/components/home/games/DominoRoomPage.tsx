@@ -45,6 +45,7 @@ export function DominoRoomPage() {
   const [turnDurationText, setTurnDurationText] = useState('')
   const [instructionsAccepted, setInstructionsAccepted] = useState(false)
   const [boardScale, setBoardScale] = useState(1)
+  const [draggedTileId, setDraggedTileId] = useState<string | null>(null)
   const boardViewportRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
 
@@ -168,9 +169,16 @@ export function DominoRoomPage() {
   }
 
   function handleEndClick(side: 'left' | 'right') {
-    if (!selectedTileId) return
-    playTile(selectedTileId, side)
+    const tileId = selectedTileId ?? draggedTileId
+    if (!tileId) return
+    playTile(tileId, side)
     setSelectedTileId(null)
+    setDraggedTileId(null)
+  }
+
+  function handleRematchDecline() {
+    voteRematch(false)
+    navigate('/')
   }
 
   if (!instructionsAccepted) {
@@ -414,6 +422,7 @@ export function DominoRoomPage() {
                     <EndDropZone
                       active={isMyTurn && Boolean(selectedTile) && canPlaceLeft}
                       onClick={() => handleEndClick('left')}
+                      onDrop={() => handleEndClick('left')}
                     />
                     {board.map((placed) => (
                       <BoardTileView
@@ -426,6 +435,7 @@ export function DominoRoomPage() {
                     <EndDropZone
                       active={isMyTurn && Boolean(selectedTile) && canPlaceRight}
                       onClick={() => handleEndClick('right')}
+                      onDrop={() => handleEndClick('right')}
                     />
                   </div>
                 </div>
@@ -469,6 +479,10 @@ export function DominoRoomPage() {
                       state={!isMyTurn ? 'waiting' : selectedTileId === tile.id ? 'selected' : playable ? 'playable' : 'unavailable'}
                       conceptOf={conceptOf}
                       onClick={() => handleHandTileClick(tile)}
+                      onDragStart={() => {
+                        setDraggedTileId(tile.id)
+                        setSelectedTileId(tile.id)
+                      }}
                     />
                   )
                 })}
@@ -518,7 +532,7 @@ export function DominoRoomPage() {
                   <button
                     type="button"
                     className="rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
-                    onClick={() => voteRematch(false)}
+                    onClick={handleRematchDecline}
                   >
                     No, gracias
                   </button>
@@ -583,16 +597,22 @@ function BoardTileView({
   )
 }
 
-function EndDropZone({ active, onClick }: { active: boolean; onClick: () => void }) {
+function EndDropZone({ active, onClick, onDrop }: { active: boolean; onClick: () => void; onDrop: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={!active}
+      onDragOver={(event) => {
+        if (active) event.preventDefault()
+      }}
+      onDrop={(event) => {
+        event.preventDefault()
+        if (active) onDrop()
+      }}
       aria-label="Colocar ficha en este extremo"
-      className={`flex h-[68px] w-10 shrink-0 items-center justify-center rounded-lg border-2 border-dashed text-[13px] font-semibold transition-colors ${
+      className={`flex h-[68px] w-10 shrink-0 items-center justify-center rounded-lg border-2 border-dashed text-[13px] font-semibold transition-all ${
         active
-          ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite] border-accent bg-accent/10 text-accent'
+          ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite] border-accent bg-accent/10 text-accent hover:scale-105'
           : 'border-transparent text-transparent'
       }`}
     >
@@ -610,12 +630,14 @@ function HandTileView({
   state,
   conceptOf,
   onClick,
+  onDragStart,
 }: {
   tile: DominoTileView
   selected: boolean
   state: 'waiting' | 'playable' | 'selected' | 'unavailable'
   conceptOf: (id: number) => DominoConcept
   onClick: () => void
+  onDragStart: () => void
 }) {
   const a = conceptOf(tile.a)
   const b = conceptOf(tile.b)
@@ -630,6 +652,15 @@ function HandTileView({
     <button
       type="button"
       onClick={onClick}
+      draggable={state !== 'waiting' && state !== 'unavailable'}
+      onDragStart={(event) => {
+        onDragStart()
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/plain', tile.id)
+      }}
+      onDragEnd={() => {
+        // The board keeps the click selection when a drag is cancelled.
+      }}
       aria-pressed={selected}
       className={`flex h-[104px] w-[196px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-surface shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1.5 ${stateStyles}`}
     >
