@@ -113,7 +113,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           icon={<Users2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         <SidebarItem
-          label="Mis juegos privados"
+          label={userRole.toUpperCase() === 'TEACHER' ? 'Mis actividades' : 'Mis juegos privados'}
           collapsed={collapsed}
           active={location.pathname === '/mis-juegos'}
           onClick={() => navigate('/mis-juegos')}
