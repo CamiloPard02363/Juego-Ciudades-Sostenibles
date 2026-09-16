@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FLY_IN_MS, KidsGuideEntrance } from '../../kids/KidsGuideEntrance'
 import { Modal } from '../games/Modal'
 
@@ -10,18 +10,28 @@ type KidsWelcomeGuideProps = {
 /**
  * Ventana de bienvenida que recibe a un STUDENT en el Modo Kids: el modal
  * aparece de inmediato con su "pop" y desenfoque de fondo de siempre (ver
- * Modal.tsx). Bubu (KidsGuideEntrance) y el cartel de bienvenida entran a
- * la vez, con la misma duración/curva (`FLY_IN_MS`, ver kids-intro-card-in
- * en index.css), para que se sientan como una sola animación en vez de una
- * detrás de la otra; el botón sí espera a que Bubu aterrice y salude
- * (`onLanded`) antes de habilitarse. Aparece una vez por sesión (se
- * monta/desmonta desde `KidsHomeShell`, sin persistirse en localStorage a
- * propósito — así vuelve a saludar en cada inicio de sesión, que es cuando
- * más ayuda a un niño pequeño a "no perderse").
+ * Modal.tsx). Bubu (KidsGuideEntrance), el cartel de bienvenida y el botón
+ * aparecen los tres al mismo tiempo (al montarse el modal) para que se
+ * sientan como una sola entrada — cada uno con su propia animación (Bubu
+ * y el cartel con `kids-intro-*-in`, el botón con un fade/translate propio
+ * vía `visible`). El botón igual queda deshabilitado hasta que Bubu
+ * termina de saludar (`onLanded` → `bubuLanded`); solo su aparición visual
+ * está sincronizada con las demás, no su habilitación. Aparece una vez por
+ * sesión (se monta/desmonta desde `KidsHomeShell`, sin persistirse en
+ * localStorage a propósito — así vuelve a saludar en cada inicio de
+ * sesión, que es cuando más ayuda a un niño pequeño a "no perderse").
  */
 export function KidsWelcomeGuide({ displayName, onClose }: KidsWelcomeGuideProps) {
   const firstName = displayName.split(' ')[0]
   const [bubuLanded, setBubuLanded] = useState(false)
+  // Aparece a la vez que Bubu y el cartel (mismo instante de montaje), pero
+  // en un tick aparte para que la transición CSS del botón sí se dispare.
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
   return (
     <Modal onClose={onClose} maxWidthClassName="max-w-[420px]">
@@ -51,8 +61,8 @@ export function KidsWelcomeGuide({ displayName, onClose }: KidsWelcomeGuideProps
           }`}
           style={{
             background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-            opacity: bubuLanded ? 1 : 0,
-            transform: bubuLanded ? 'translateY(0)' : 'translateY(8px)',
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0)' : 'translateY(8px)',
           }}
           disabled={!bubuLanded}
         >
