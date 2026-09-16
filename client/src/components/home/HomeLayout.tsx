@@ -54,6 +54,7 @@ export function HomeLayout() {
   return (
     <div className="fixed inset-0 flex text-left">
       <Sidebar
+        userRole={user.role}
         canManageUsers={canManageUsers}
         canAccessOrganization={canAccessOrganization || canManageUsers}
       />

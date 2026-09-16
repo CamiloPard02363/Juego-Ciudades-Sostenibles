@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BookOpen, Building2, ChevronLeft, Gamepad2, Lock, Palette, Users, Users2, Zap } from 'lucide-react'
+import { BookOpen, Building2, ChevronLeft, Gamepad2, Lock, Palette, Plus, Users, Users2, Zap } from 'lucide-react'
 import { ThemeToggle } from '../ThemeToggle'
 
 type SidebarProps = {
+  userRole: string
   canManageUsers: boolean
   /** ADMIN de al menos una organización, o ADMIN global (ver HomeLayout). */
   canAccessOrganization: boolean
@@ -23,7 +24,7 @@ function readStoredCollapsed(): boolean {
   }
 }
 
-export function Sidebar({ canManageUsers, canAccessOrganization }: SidebarProps) {
+export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(readStoredCollapsed)
   const navigate = useNavigate()
   const location = useLocation()
@@ -72,6 +73,22 @@ export function Sidebar({ canManageUsers, canAccessOrganization }: SidebarProps)
           </span>
         )}
       </div>
+
+      {userRole.toUpperCase() === 'TEACHER' && (
+        <button
+          type="button"
+          title={collapsed ? 'Crear actividad' : undefined}
+          aria-label="Crear actividad"
+          className={`mb-3 flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-10px_var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg active:translate-y-0 ${
+            collapsed ? 'justify-center px-0' : ''
+          }`}
+          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+          onClick={() => navigate('/juegos/crear')}
+        >
+          <Plus className="h-[18px] w-[18px] shrink-0" strokeWidth={2.5} />
+          {!collapsed && <span className="truncate">Crear actividad</span>}
+        </button>
+      )}
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navegación principal">
         <SidebarItem
