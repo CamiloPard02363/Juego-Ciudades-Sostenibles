@@ -675,6 +675,70 @@ code {
   }
 }
 
+/* Saludo enérgico del brazo derecho (KidsGuideCharacter, rightArmWave=true):
+ * usado solo en el saludo de entrada (KidsGuideEntrance), más rápido y con
+ * más recorrido que el vaivén sutil del brazo izquierdo. */
+@keyframes kids-guide-wave-strong {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-32deg);
+  }
+}
+
+/* Entrada de Bubu al iniciar el Modo Kids (KidsGuideEntrance.tsx): llega
+ * flotando desde arriba, hace un pequeño rebote elástico al "aterrizar" en
+ * el centro de la pantalla y se queda ahí para el saludo. */
+@keyframes kids-intro-fly-in {
+  0% {
+    transform: translate(-50%, -50%) translateY(-70vh) scale(0.55) rotate(-10deg);
+    opacity: 0;
+  }
+  55% {
+    transform: translate(-50%, -50%) translateY(0) scale(1.05) rotate(3deg);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(-50%, -50%) translateY(-14px) scale(0.97) rotate(-2deg);
+  }
+  86% {
+    transform: translate(-50%, -50%) translateY(4px) scale(1.02) rotate(1deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Salida de Bubu una vez terminado el saludo: se encoge y se desvanece para
+ * dejar paso al modal de bienvenida. */
+@keyframes kids-intro-fade-out {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* Partículas amarillas que suelta Bubu mientras vuela hacia el centro
+ * (KidsGuideEntrance.tsx): caen, se alejan y se desvanecen. Cada partícula
+ * fija su propia dirección con --particle-x. */
+@keyframes kids-intro-particle {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(var(--particle-x, 0), 90px) scale(0.3);
+    opacity: 0;
+  }
+}
+
 /*
  * Modo niños: los botones "cobran vida" — un pequeño wiggle constante para
  * invitar al toque, un salto exagerado al presionar y un destello al soltar.

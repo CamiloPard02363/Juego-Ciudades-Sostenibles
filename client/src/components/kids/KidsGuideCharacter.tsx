@@ -1,6 +1,13 @@
 type KidsGuideCharacterProps = {
   size?: number
   className?: string
+  /**
+   * Cuando es true, el brazo derecho (el que sostiene la estrella) hace un
+   * saludo enérgico en vez de quedarse quieto — usado por `KidsGuideEntrance`
+   * para el saludo de bienvenida al aterrizar. El brazo izquierdo sigue con
+   * su vaivén sutil de siempre en ambos casos.
+   */
+  rightArmWave?: boolean
 }
 
 /**
@@ -11,7 +18,7 @@ type KidsGuideCharacterProps = {
  * pero es un componente aparte por si más adelante aparece en otras
  * pantallas del Modo Kids.
  */
-export function KidsGuideCharacter({ size = 200, className }: KidsGuideCharacterProps) {
+export function KidsGuideCharacter({ size = 200, className, rightArmWave = false }: KidsGuideCharacterProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -62,30 +69,39 @@ export function KidsGuideCharacter({ size = 200, className }: KidsGuideCharacter
           <circle cx="127" cy="155" r="11" fill="#ffd5ba" />
         </g>
 
-        {/* Brazo derecho sosteniendo la estrella */}
-        <path
-          d="M 240 220 C 270 230, 280 260, 265 285"
-          fill="none"
-          stroke="#00b4d8"
-          strokeWidth="22"
-          strokeLinecap="round"
-        />
-        <circle cx="262" cy="288" r="11" fill="#ffd5ba" />
+        {/* Brazo derecho sosteniendo la estrella — gira en saludo enérgico
+            cuando `rightArmWave` está activo (ver KidsGuideEntrance) */}
+        <g
+          style={
+            rightArmWave
+              ? { transformOrigin: '240px 220px', animation: 'kids-guide-wave-strong 0.9s ease-in-out infinite' }
+              : undefined
+          }
+        >
+          <path
+            d="M 240 220 C 270 230, 280 260, 265 285"
+            fill="none"
+            stroke="#00b4d8"
+            strokeWidth="22"
+            strokeLinecap="round"
+          />
+          <circle cx="262" cy="288" r="11" fill="#ffd5ba" />
 
-        {/* Estrella: late y gira suavemente para sentirse un premio/logro */}
-        <g style={{ transformOrigin: '262px 275px', animation: 'kids-guide-star-pulse 1.8s ease-in-out infinite' }}>
-          <g transform="translate(262, 275) scale(0.6)">
-            <polygon
-              points="0,-25 8,-8 26,-5 13,8 16,26 0,17 -16,26 -13,8 -26,-5 -8,-8"
-              fill="#FFD700"
-              stroke="#DAA520"
-              strokeWidth="2"
-            />
-            <polygon
-              points="0,-25 8,-8 26,-5 13,8 16,26 0,17 -16,26 -13,8 -26,-5 -8,-8"
-              fill="#ffee66"
-              transform="scale(0.7)"
-            />
+          {/* Estrella: late y gira suavemente para sentirse un premio/logro */}
+          <g style={{ transformOrigin: '262px 275px', animation: 'kids-guide-star-pulse 1.8s ease-in-out infinite' }}>
+            <g transform="translate(262, 275) scale(0.6)">
+              <polygon
+                points="0,-25 8,-8 26,-5 13,8 16,26 0,17 -16,26 -13,8 -26,-5 -8,-8"
+                fill="#FFD700"
+                stroke="#DAA520"
+                strokeWidth="2"
+              />
+              <polygon
+                points="0,-25 8,-8 26,-5 13,8 16,26 0,17 -16,26 -13,8 -26,-5 -8,-8"
+                fill="#ffee66"
+                transform="scale(0.7)"
+              />
+            </g>
           </g>
         </g>
 
