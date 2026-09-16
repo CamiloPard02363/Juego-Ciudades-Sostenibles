@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
+import { Building2 } from 'lucide-react'
 import type { AuthUser } from '../../../services/auth.service'
 import { useAuth } from '../../../hooks/useAuth'
 import { listCategories, type CategoryWithGameCount } from '../../../services/category.service'
+import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import type { GameSummary } from '../../../services/game.service'
 import { HomeSearchContext } from '../homeSearchContext'
 import { ProfileMenu } from '../ProfileMenu'
@@ -10,6 +12,7 @@ import { ProfileSettings } from '../ProfileSettings'
 import { KidsMascot } from '../../kids/KidsMascot'
 import { KidsWorldGrid } from './KidsWorldGrid'
 import { KidsGameGrid } from './KidsGameGrid'
+import { KidsWelcomeGuide } from './KidsWelcomeGuide'
 
 type KidsHomeShellProps = {
   user: AuthUser
@@ -34,14 +37,27 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
   const { token } = useAuth()
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(true)
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [selectedCategory, setSelectedCategory] = useState<CategoryWithGameCount | null>(null)
+  const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
 
   useEffect(() => {
     if (!token) return
     listCategories(token)
       .then(setCategories)
       .catch(() => setCategories([]))
+  }, [token])
+
+  useEffect(() => {
+    // Un estudiante puede pertenecer a lo sumo a la organización de su
+    // colegio: alcanza con mostrar la primera (si tiene una cuenta personal
+    // sin organización, esta lista simplemente viene vacía y no se muestra
+    // nada — no es un error).
+    if (!token) return
+    listMyOrganizations(token)
+      .then(setOrganizations)
+      .catch(() => setOrganizations([]))
   }, [token])
 
   function handlePlay(game: GameSummary) {
@@ -51,9 +67,20 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
   return (
     <div className="fixed inset-0 flex flex-col overflow-y-auto" style={{ background: 'var(--bg)' }}>
       <header className="flex shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <p className="text-[20px] font-extrabold text-text-h sm:text-[24px]">
-          ¡Hola, {user.displayName.split(' ')[0]}! 👋
-        </p>
+        <div>
+          <p className="text-[20px] font-extrabold text-text-h sm:text-[24px]">
+            ¡Hola, {user.displayName.split(' ')[0]}! 👋
+          </p>
+          {organizations[0] && (
+            <span
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1 text-[12.5px] font-bold text-text-h"
+              style={{ borderColor: 'var(--accent-2)', background: 'var(--surface)' }}
+            >
+              <Building2 className="h-3.5 w-3.5" strokeWidth={2.5} style={{ color: 'var(--accent-2)' }} />
+              {organizations[0].name}
+            </span>
+          )}
+        </div>
         <ProfileMenu user={user} onOpenSettings={() => setSettingsOpen(true)} onSignOut={onSignOut} />
       </header>
 
@@ -82,6 +109,7 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
       </main>
 
       {settingsOpen && <ProfileSettings onClose={() => setSettingsOpen(false)} />}
+      {showWelcome && <KidsWelcomeGuide displayName={user.displayName} onClose={() => setShowWelcome(false)} />}
       <KidsMascot />
     </div>
   )
