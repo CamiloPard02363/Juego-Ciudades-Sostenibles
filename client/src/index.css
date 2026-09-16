@@ -688,40 +688,28 @@ code {
   }
 }
 
-/* Entrada de Bubu al iniciar el Modo Kids (KidsGuideEntrance.tsx): llega
- * flotando desde arriba, hace un pequeño rebote elástico al "aterrizar" en
- * el centro de la pantalla y se queda ahí para el saludo. */
-@keyframes kids-intro-fly-in {
+/* Entrada de Bubu dentro del recuadro del modal de bienvenida
+ * (KidsGuideEntrance.tsx): cae desde arriba del propio modal y rebota al
+ * posarse, sin salir del recuadro — el modal ya abre con su propio "pop"
+ * y desenfoque de fondo (ver Modal.tsx). */
+@keyframes kids-intro-fly-in-modal {
   0% {
-    transform: translate(-50%, -50%) translateY(-70vh) scale(0.55) rotate(-10deg);
+    transform: translateY(-130px) scale(0.6) rotate(-8deg);
     opacity: 0;
   }
   55% {
-    transform: translate(-50%, -50%) translateY(0) scale(1.05) rotate(3deg);
+    transform: translateY(0) scale(1.05) rotate(3deg);
     opacity: 1;
   }
   72% {
-    transform: translate(-50%, -50%) translateY(-14px) scale(0.97) rotate(-2deg);
+    transform: translateY(-10px) scale(0.97) rotate(-2deg);
   }
   86% {
-    transform: translate(-50%, -50%) translateY(4px) scale(1.02) rotate(1deg);
+    transform: translateY(3px) scale(1.02) rotate(1deg);
   }
   100% {
-    transform: translate(-50%, -50%) translateY(0) scale(1) rotate(0deg);
+    transform: translateY(0) scale(1) rotate(0deg);
     opacity: 1;
-  }
-}
-
-/* Salida de Bubu una vez terminado el saludo: se encoge y se desvanece para
- * dejar paso al modal de bienvenida. */
-@keyframes kids-intro-fade-out {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(0.6);
-    opacity: 0;
   }
 }
 

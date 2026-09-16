@@ -2,61 +2,63 @@ import { useEffect, useState } from 'react'
 import { KidsGuideCharacter } from './KidsGuideCharacter'
 
 type KidsGuideEntranceProps = {
-  onDone: () => void
+  size?: number
+  /** Se llama una sola vez, cuando Bubu termina de aterrizar (antes del saludo). */
+  onLanded?: () => void
 }
 
-type Phase = 'flying' | 'greeting' | 'leaving'
+type Phase = 'flying' | 'greeting' | 'idle'
 
-const FLY_IN_MS = 1400
-const GREETING_MS = 1800
-const LEAVE_MS = 450
+const FLY_IN_MS = 900
+const GREETING_MS = 1600
 
-const PARTICLES = [...Array(10)].map((_, i) => ({
+const PARTICLES = [...Array(8)].map((_, i) => ({
   id: i,
-  left: 38 + Math.sin(i * 2.4) * 42,
-  top: 55 + (i % 4) * 8,
-  driftX: `${Math.round(Math.sin(i * 1.7) * 60)}px`,
-  delay: `${(i * FLY_IN_MS) / 22}ms`,
-  size: 6 + (i % 3) * 3,
+  left: 30 + Math.sin(i * 2.4) * 34,
+  top: 40 + (i % 4) * 10,
+  driftX: `${Math.round(Math.sin(i * 1.7) * 40)}px`,
+  delay: `${(i * FLY_IN_MS) / 18}ms`,
+  size: 5 + (i % 3) * 2,
 }))
 
 /**
- * Aterrizaje de Bubu al abrir el Home del Modo Kids: entra flotando desde
- * arriba soltando un rastro de partículas amarillas, se posa en el centro
- * de la pantalla y saluda agitando el brazo derecho con fuerza antes de
- * desaparecer — inmediatamente después, `KidsHomeShell` abre el modal de
- * bienvenida de siempre (`KidsWelcomeGuide`). Puramente decorativo
- * (pointer-events-none, aria-hidden): no bloquea ninguna interacción.
+ * Bubu dentro del modal de bienvenida (`KidsWelcomeGuide`): llega flotando
+ * desde arriba soltando un rastro de partículas amarillas, se posa y saluda
+ * agitando el brazo derecho con fuerza — después queda con su vaivén de
+ * siempre. Vive dentro del recuadro del modal (no en pantalla completa): el
+ * "pop" y el desenfoque de fondo ya los da `Modal.tsx` al abrirse.
  */
-export function KidsGuideEntrance({ onDone }: KidsGuideEntranceProps) {
+export function KidsGuideEntrance({ size = 180, onLanded }: KidsGuideEntranceProps) {
   const [phase, setPhase] = useState<Phase>('flying')
 
   useEffect(() => {
-    const toGreeting = setTimeout(() => setPhase('greeting'), FLY_IN_MS)
-    const toLeaving = setTimeout(() => setPhase('leaving'), FLY_IN_MS + GREETING_MS)
-    const finish = setTimeout(onDone, FLY_IN_MS + GREETING_MS + LEAVE_MS)
-    return () => {
-      clearTimeout(toGreeting)
-      clearTimeout(toLeaving)
-      clearTimeout(finish)
-    }
-  }, [onDone])
+    const toGreeting = setTimeout(() => {
+      setPhase('greeting')
+      onLanded?.()
+    }, FLY_IN_MS)
+    return () => clearTimeout(toGreeting)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (phase !== 'greeting') return
+    const toIdle = setTimeout(() => setPhase('idle'), GREETING_MS)
+    return () => clearTimeout(toIdle)
+  }, [phase])
 
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
+    <div className="relative" style={{ width: size, height: size }}>
       <div
-        className="absolute top-1/2 left-1/2"
+        className="absolute inset-0"
         style={{
-          animation:
-            phase === 'leaving'
-              ? `kids-intro-fade-out ${LEAVE_MS}ms ease-in forwards`
-              : `kids-intro-fly-in ${FLY_IN_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+          animation: `kids-intro-fly-in-modal ${FLY_IN_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
         }}
       >
         {phase === 'flying' &&
           PARTICLES.map((particle) => (
             <span
               key={particle.id}
+              aria-hidden="true"
               className="absolute rounded-full"
               style={{
                 left: `${particle.left}%`,
@@ -66,12 +68,12 @@ export function KidsGuideEntrance({ onDone }: KidsGuideEntranceProps) {
                 background: '#ffd23f',
                 boxShadow: '0 0 6px 1px rgba(255, 210, 63, 0.7)',
                 ['--particle-x' as string]: particle.driftX,
-                animation: `kids-intro-particle 900ms ease-out ${particle.delay} infinite`,
+                animation: `kids-intro-particle 800ms ease-out ${particle.delay} infinite`,
               }}
             />
           ))}
 
-        <KidsGuideCharacter size={190} rightArmWave={phase === 'greeting'} />
+        <KidsGuideCharacter size={size} rightArmWave={phase === 'greeting'} />
       </div>
     </div>
   )

@@ -11,7 +11,6 @@ import { HomeSearchContext } from '../homeSearchContext'
 import { ProfileMenu } from '../ProfileMenu'
 import { ProfileSettings } from '../ProfileSettings'
 import { KidsMascot } from '../../kids/KidsMascot'
-import { KidsGuideEntrance } from '../../kids/KidsGuideEntrance'
 import { KidsWorldGrid } from './KidsWorldGrid'
 import { KidsGameGrid } from './KidsGameGrid'
 import { KidsWelcomeGuide } from './KidsWelcomeGuide'
@@ -39,7 +38,6 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
   const { token } = useAuth()
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [introDone, setIntroDone] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [selectedCategory, setSelectedCategory] = useState<CategoryWithGameCount | null>(null)
@@ -117,10 +115,7 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
       </main>
 
       {settingsOpen && <ProfileSettings onClose={() => setSettingsOpen(false)} />}
-      {!introDone && <KidsGuideEntrance onDone={() => setIntroDone(true)} />}
-      {introDone && showWelcome && (
-        <KidsWelcomeGuide displayName={user.displayName} onClose={() => setShowWelcome(false)} />
-      )}
+      {showWelcome && <KidsWelcomeGuide displayName={user.displayName} onClose={() => setShowWelcome(false)} />}
       <KidsMascot />
     </div>
   )
