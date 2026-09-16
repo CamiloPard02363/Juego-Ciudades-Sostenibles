@@ -713,6 +713,25 @@ code {
   }
 }
 
+/* Cartel de bienvenida debajo de Bubu (KidsWelcomeGuide.tsx): usa la misma
+ * curva y duración que `kids-intro-fly-in-modal` y arranca al mismo tiempo
+ * (al montarse el modal), para que ambos se sientan como una sola entrada
+ * en vez de dos animaciones desfasadas. */
+@keyframes kids-intro-card-in {
+  0% {
+    transform: translateY(16px) scale(0.94);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 /* Partículas amarillas que suelta Bubu mientras vuela hacia el centro
  * (KidsGuideEntrance.tsx): caen, se alejan y se desvanecen. Cada partícula
  * fija su propia dirección con --particle-x. */
