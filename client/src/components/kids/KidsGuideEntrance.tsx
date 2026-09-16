@@ -9,7 +9,7 @@ type KidsGuideEntranceProps = {
 
 type Phase = 'flying' | 'greeting' | 'idle'
 
-export const FLY_IN_MS = 1200
+export const FLY_IN_MS = 2200
 const GREETING_MS = 1600
 
 const PARTICLES = [...Array(8)].map((_, i) => ({
@@ -51,7 +51,7 @@ export function KidsGuideEntrance({ size = 180, onLanded }: KidsGuideEntrancePro
       <div
         className="absolute inset-0"
         style={{
-          animation: `kids-intro-fly-in-modal ${FLY_IN_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+          animation: `kids-intro-fly-in-modal ${FLY_IN_MS}ms cubic-bezier(0.22, 0.9, 0.32, 1) forwards`,
         }}
       >
         {phase === 'flying' &&

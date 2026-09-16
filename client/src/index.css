@@ -694,18 +694,15 @@ code {
  * y desenfoque de fondo (ver Modal.tsx). */
 @keyframes kids-intro-fly-in-modal {
   0% {
-    transform: translateY(-130px) scale(0.6) rotate(-8deg);
+    transform: translateY(-110px) scale(0.75) rotate(-4deg);
     opacity: 0;
   }
-  55% {
-    transform: translateY(0) scale(1.05) rotate(3deg);
+  60% {
+    transform: translateY(0) scale(1.02) rotate(1deg);
     opacity: 1;
   }
-  72% {
-    transform: translateY(-10px) scale(0.97) rotate(-2deg);
-  }
-  86% {
-    transform: translateY(3px) scale(1.02) rotate(1deg);
+  80% {
+    transform: translateY(-4px) scale(0.99) rotate(-0.5deg);
   }
   100% {
     transform: translateY(0) scale(1) rotate(0deg);
@@ -719,11 +716,11 @@ code {
  * en vez de dos animaciones desfasadas. */
 @keyframes kids-intro-card-in {
   0% {
-    transform: translateY(16px) scale(0.94);
+    transform: translateY(14px) scale(0.97);
     opacity: 0;
   }
-  55% {
-    transform: translateY(0) scale(1.02);
+  60% {
+    transform: translateY(0) scale(1.005);
     opacity: 1;
   }
   100% {

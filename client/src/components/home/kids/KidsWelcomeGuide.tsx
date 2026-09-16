@@ -33,7 +33,7 @@ export function KidsWelcomeGuide({ displayName, onClose }: KidsWelcomeGuideProps
           style={{
             borderColor: 'var(--accent)',
             background: 'var(--surface)',
-            animation: `kids-intro-card-in ${FLY_IN_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+            animation: `kids-intro-card-in ${FLY_IN_MS}ms cubic-bezier(0.22, 0.9, 0.32, 1) forwards`,
           }}
         >
           <p className="text-[19px] leading-snug font-extrabold text-text-h">¡Hola, {firstName}! 👋 Soy Bubu</p>
