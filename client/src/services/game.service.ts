@@ -94,12 +94,25 @@ export type GuessWhoCardInput = {
   audioUrl: string | null
 }
 
+export type MazeCollectorQuestionInput = {
+  prompt: string
+  options: string[]
+  correctOptionIndex: number
+  difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
+}
+
 export type MazeCollectorItemInput = {
   label: string
   /** Clave del catálogo DOMINO_ICONS del cliente (reutilizado, ver mazeCollectorTypes.ts). */
   icon: string
   color: string
   fact?: string
+  /** Pregunta opcional de sostenibilidad mostrada al recolectar el ítem. */
+  question?: MazeCollectorQuestionInput
+  /** Cambia el puntaje del ítem según WASTE_POINTS; sin esto, vale el puntaje por defecto. */
+  wasteType?: 'PLASTIC' | 'PAPER' | 'GLASS'
+  /** Marca este ítem como el PowerUpRecycling: al recogerlo activa "Super-Recogida". */
+  isPowerUp?: boolean
 }
 
 export type DualQuestGateInput = { gateId: string; position: { row: number; col: number } }

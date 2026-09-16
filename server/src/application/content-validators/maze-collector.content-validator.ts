@@ -2,6 +2,26 @@ import { Injectable } from '@nestjs/common';
 import { InvalidGameContentError } from '../../domain/errors/game.errors.js';
 import type { ContentValidator } from './content-validator.port.js';
 
+export type MazeCollectorDifficulty = 'LOW' | 'MEDIUM' | 'HIGH';
+const VALID_DIFFICULTIES: readonly MazeCollectorDifficulty[] = ['LOW', 'MEDIUM', 'HIGH'];
+
+/**
+ * Pregunta de opción múltiple asociada a un ítem: al recolectarlo, el juego
+ * se pausa y la muestra antes de sumar el punto. A diferencia de Snakes &
+ * Ladders (multiplayer), acá el cliente sí recibe `correctOptionIndex` desde
+ * el inicio — MAZE_COLLECTOR es de un solo jugador, sin competencia ni
+ * apuesta, así que ocultar la respuesta en el servidor sería sobre-ingeniería.
+ */
+export interface MazeCollectorQuestion {
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+  difficulty?: MazeCollectorDifficulty;
+}
+
+export type MazeCollectorWasteType = 'PLASTIC' | 'PAPER' | 'GLASS';
+const VALID_WASTE_TYPES: readonly MazeCollectorWasteType[] = ['PLASTIC', 'PAPER', 'GLASS'];
+
 /**
  * Un objeto coleccionable del laberinto: reemplaza la "pastilla" genérica
  * por un concepto temático, ej. un envase de vidrio en un juego de
@@ -16,6 +36,12 @@ export interface MazeCollectorItem {
   color: string;
   /** Dato educativo breve mostrado al recolectar el ítem, si lo tiene. */
   fact?: string;
+  /** Pregunta opcional de sostenibilidad mostrada al recolectar el ítem. */
+  question?: MazeCollectorQuestion;
+  /** Cambia el puntaje del ítem (ver WASTE_POINTS en el cliente); sin esto, vale el puntaje por defecto. */
+  wasteType?: MazeCollectorWasteType;
+  /** Marca este ítem como el PowerUpRecycling: al recogerlo activa "Super-Recogida". */
+  isPowerUp?: boolean;
 }
 
 export type MazeLayout = 'CLASSIC' | 'CROSS' | 'SPIRAL' | 'CITY';
@@ -33,6 +59,10 @@ export interface MazeCollectorConfig {
   /** Nombre temático de los enemigos, ej. "Nube de contaminación". */
   enemyLabel: string;
   enemyIcon: string;
+  /** Solo aplica con layout CITY: pregunta disparada al entrar a la zona 'school'. */
+  schoolQuestion?: MazeCollectorQuestion;
+  /** Solo aplica con layout CITY: pregunta disparada al entrar a la zona 'recycling_center'. */
+  recyclingQuestion?: MazeCollectorQuestion;
 }
 
 const DEFAULT_CONFIG: Omit<MazeCollectorConfig, 'collectorLabel' | 'collectorIcon' | 'enemyLabel' | 'enemyIcon'> = {
@@ -44,6 +74,10 @@ const DEFAULT_CONFIG: Omit<MazeCollectorConfig, 'collectorLabel' | 'collectorIco
 const MAX_LABEL_LENGTH = 60;
 const MAX_ICON_LENGTH = 60;
 const MAX_FACT_LENGTH = 200;
+const MAX_PROMPT_LENGTH = 300;
+const MAX_OPTION_LENGTH = 120;
+const MIN_OPTIONS = 2;
+const MAX_OPTIONS = 6;
 /** Menos de 4 objetos deja el laberinto sin objetivo real de recorrido. */
 const MIN_ITEMS = 4;
 /** Más de 16 no entra de forma legible en ninguno de los 3 layouts fijos. */
@@ -94,6 +128,13 @@ export class MazeCollectorContentValidator implements ContentValidator {
       throw new InvalidGameContentError('enemyIcon es obligatorio.');
     }
 
+    const schoolQuestion =
+      raw.schoolQuestion !== undefined ? this.validateQuestion(raw.schoolQuestion, 'la zona Escuela') : undefined;
+    const recyclingQuestion =
+      raw.recyclingQuestion !== undefined
+        ? this.validateQuestion(raw.recyclingQuestion, 'la zona Centro de Reciclaje')
+        : undefined;
+
     return {
       layout,
       lives,
@@ -102,6 +143,8 @@ export class MazeCollectorContentValidator implements ContentValidator {
       collectorIcon: raw.collectorIcon!.trim(),
       enemyLabel: raw.enemyLabel!.trim(),
       enemyIcon: raw.enemyIcon!.trim(),
+      ...(schoolQuestion ? { schoolQuestion } : {}),
+      ...(recyclingQuestion ? { recyclingQuestion } : {}),
     };
   }
 
@@ -152,12 +195,72 @@ export class MazeCollectorContentValidator implements ContentValidator {
       );
     }
 
+    const question =
+      raw.question !== undefined ? this.validateQuestion(raw.question, `el objeto en la posición ${index}`) : undefined;
+
+    if (raw.wasteType !== undefined && !VALID_WASTE_TYPES.includes(raw.wasteType as MazeCollectorWasteType)) {
+      throw new InvalidGameContentError(
+        `el objeto en la posición ${index} tiene un wasteType inválido (usa: ${VALID_WASTE_TYPES.join(', ')}).`,
+      );
+    }
+
     return {
       itemId: isNonEmptyString(raw.itemId, 60) ? raw.itemId : `item-${index}`,
       label: raw.label.trim(),
       icon: raw.icon.trim(),
       color: raw.color.trim(),
       ...(raw.fact !== undefined ? { fact: (raw.fact as string).trim() } : {}),
+      ...(question ? { question } : {}),
+      ...(raw.wasteType !== undefined ? { wasteType: raw.wasteType as MazeCollectorWasteType } : {}),
+      ...(raw.isPowerUp === true ? { isPowerUp: true } : {}),
+    };
+  }
+
+  /** Reusado tanto para la pregunta de un ítem como para las preguntas de zona (Escuela/Centro de Reciclaje) de config. */
+  private validateQuestion(value: unknown, context: string): MazeCollectorQuestion {
+    if (typeof value !== 'object' || value === null) {
+      throw new InvalidGameContentError(`la pregunta de ${context} no es un objeto válido.`);
+    }
+    const raw = value as Record<string, unknown>;
+
+    if (!isNonEmptyString(raw.prompt, MAX_PROMPT_LENGTH)) {
+      throw new InvalidGameContentError(`la pregunta de ${context} necesita un prompt (máximo ${MAX_PROMPT_LENGTH} caracteres).`);
+    }
+    if (!Array.isArray(raw.options) || raw.options.length < MIN_OPTIONS || raw.options.length > MAX_OPTIONS) {
+      throw new InvalidGameContentError(
+        `la pregunta de ${context} necesita entre ${MIN_OPTIONS} y ${MAX_OPTIONS} opciones.`,
+      );
+    }
+    const options = raw.options.map((option, optionIndex) => {
+      if (!isNonEmptyString(option, MAX_OPTION_LENGTH)) {
+        throw new InvalidGameContentError(
+          `la opción ${optionIndex} de la pregunta de ${context} es inválida (máximo ${MAX_OPTION_LENGTH} caracteres).`,
+        );
+      }
+      return option.trim();
+    });
+
+    if (
+      !Number.isInteger(raw.correctOptionIndex) ||
+      (raw.correctOptionIndex as number) < 0 ||
+      (raw.correctOptionIndex as number) >= options.length
+    ) {
+      throw new InvalidGameContentError(
+        `la pregunta de ${context} necesita correctOptionIndex dentro del rango de sus opciones.`,
+      );
+    }
+
+    if (raw.difficulty !== undefined && !VALID_DIFFICULTIES.includes(raw.difficulty as MazeCollectorDifficulty)) {
+      throw new InvalidGameContentError(
+        `la pregunta de ${context} tiene un difficulty inválido (usa: ${VALID_DIFFICULTIES.join(', ')}).`,
+      );
+    }
+
+    return {
+      prompt: (raw.prompt as string).trim(),
+      options,
+      correctOptionIndex: raw.correctOptionIndex as number,
+      ...(raw.difficulty !== undefined ? { difficulty: raw.difficulty as MazeCollectorDifficulty } : {}),
     };
   }
 }

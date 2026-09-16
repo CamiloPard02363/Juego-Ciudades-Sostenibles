@@ -2,6 +2,22 @@ import { DOMINO_ICON_LABELS, iconForConcept } from './dominoTypes'
 
 export { DOMINO_ICON_LABELS as MAZE_ICON_LABELS, iconForConcept }
 
+export type MazeCollectorDifficulty = 'LOW' | 'MEDIUM' | 'HIGH'
+
+/** Tipos de residuo con puntaje propio — ver WASTE_POINTS en mazeCollectorEngine.ts. */
+export type WasteType = 'PLASTIC' | 'PAPER' | 'GLASS'
+
+/** Zonas temáticas del layout CITY. School y RecyclingCenter son celdas-trigger de preguntas de zona. */
+export type ZoneType = 'residential' | 'commercial' | 'park' | 'school' | 'recycling_center'
+
+/** Pregunta de opción múltiple mostrada al recolectar el ítem, antes de sumar el punto. */
+export type MazeCollectorQuestion = {
+  prompt: string
+  options: string[]
+  correctOptionIndex: number
+  difficulty?: MazeCollectorDifficulty
+}
+
 /** Un objeto coleccionable del laberinto: reemplaza la "pastilla" genérica por un concepto temático. */
 export type MazeCollectorItem = {
   itemId: string
@@ -10,6 +26,12 @@ export type MazeCollectorItem = {
   icon: string
   color: string
   fact?: string
+  /** Opcional: si viene, recolectar el ítem pausa el juego con esta pregunta antes de sumar el punto. */
+  question?: MazeCollectorQuestion
+  /** Opcional: cambia el puntaje del ítem según WASTE_POINTS. Sin esto, vale POINTS_PER_ITEM (retrocompatible). */
+  wasteType?: WasteType
+  /** Marca este ítem como el PowerUpRecycling: al recogerlo activa "Super-Recogida" (las nubes huyen). */
+  isPowerUp?: boolean
 }
 
 export type MazeLayout = 'CLASSIC' | 'CROSS' | 'SPIRAL' | 'CITY'
@@ -22,6 +44,10 @@ export type MazeCollectorConfig = {
   collectorIcon: string
   enemyLabel: string
   enemyIcon: string
+  /** Solo aplica con layout CITY: pregunta disparada al entrar a la zona 'school'. */
+  schoolQuestion?: MazeCollectorQuestion
+  /** Solo aplica con layout CITY: pregunta disparada al entrar a la zona 'recycling_center'. */
+  recyclingQuestion?: MazeCollectorQuestion
 }
 
 export const DEFAULT_MAZE_CONFIG: MazeCollectorConfig = {
@@ -50,6 +76,8 @@ export type MazeLayoutDef = {
   itemSlots: CellPosition[]
   /** Celdas puramente decorativas (árboles/parques) — no afectan colisión ni movimiento. */
   decorations: CellPosition[]
+  /** Solo en CITY: zona temática de cada celda, misma indexación que `grid`. Ausente en layouts abstractos. */
+  zones?: (ZoneType | null)[][]
 }
 
 const COLS = 15
@@ -114,25 +142,83 @@ function buildCombMaze(cols: number, rows: number, orientation: 'vertical' | 'ho
 }
 
 /**
- * Cuadrícula de calles tipo ciudad: una calle cada `STREET_SPACING` filas y
- * columnas, dejando manzanas sólidas (edificios) entre ellas. Al ser una
- * rejilla completa, cualquier calle conecta con cualquier otra por al menos
- * dos rutas distintas — el "múltiples caminos" que no dan los peines ni la
- * cruz. Grid grande a propósito: es la ambientación de una ciudad, no un
- * laberinto abstracto.
+ * Rejilla de calles cada `spacing` filas/columnas dentro de un cuadrante
+ * rectangular — el mismo patrón que antes usaba buildCityMaze para todo el
+ * mapa, ahora aplicado por zona con distinta densidad de calles según el
+ * carácter del barrio (comercial más denso, residencial más espaciado).
  */
-function buildCityMaze(cols: number, rows: number): number[][] {
-  const STREET_SPACING = 4
-  const grid = Array.from({ length: rows }, () => Array(cols).fill(1))
-
-  for (let r = 1; r < rows - 1; r++) {
-    for (let c = 1; c < cols - 1; c++) {
-      if (r % STREET_SPACING === 0 || c % STREET_SPACING === 0) grid[r][c] = 0
+function carveStreetGrid(
+  grid: number[][],
+  zones: (ZoneType | null)[][],
+  zone: ZoneType,
+  rowStart: number,
+  rowEnd: number,
+  colStart: number,
+  colEnd: number,
+  spacing: number,
+): void {
+  for (let r = rowStart; r <= rowEnd; r++) {
+    for (let c = colStart; c <= colEnd; c++) {
+      zones[r][c] = zone
+      const isStreet = (r - rowStart) % spacing === 0 || (c - colStart) % spacing === 0
+      if (isStreet) grid[r][c] = 0
     }
+  }
+}
+
+/**
+ * Mapa CITY diseñado a mano por cuadrantes temáticos (no procedural): imita
+ * la composición del boceto de referencia — parque con centro de reciclaje
+ * arriba-izquierda, distrito comercial arriba-derecha, residencial
+ * abajo-izquierda, escuela+residencial abajo-derecha — cruzados por una
+ * avenida principal horizontal y vertical que garantiza conectividad entre
+ * las cuatro zonas sin depender de un solver.
+ */
+function buildCityMaze(cols: number, rows: number): { grid: number[][]; zones: (ZoneType | null)[][] } {
+  const grid = Array.from({ length: rows }, () => Array(cols).fill(1))
+  const zones: (ZoneType | null)[][] = Array.from({ length: rows }, () => Array(cols).fill(null))
+
+  const midRow = Math.floor(rows / 2)
+  const midCol = Math.floor(cols / 2)
+  // Avenida principal: una sola fila/columna, horizontal y vertical, cruzadas
+  // en el centro — mismo principio de "spine siempre abierta" que
+  // buildCombMaze/buildCrossMaze usan para garantizar conectividad total, sin
+  // restarle protagonismo de área a las zonas temáticas (una avenida ancha
+  // diluía el cupo de ítems por zona).
+  const avenueRowStart = midRow
+  const avenueRowEnd = midRow
+  const avenueColStart = midCol
+  const avenueColEnd = midCol
+
+  // Cuadrante arriba-izquierda: parque con centro de reciclaje en la esquina
+  // más cercana a la avenida (fácil de alcanzar desde cualquier otra zona).
+  carveStreetGrid(grid, zones, 'park', 1, avenueRowStart - 1, 1, avenueColStart - 1, 3)
+  const recyclingRowStart = Math.max(1, avenueRowStart - 4)
+  const recyclingColStart = Math.max(1, avenueColStart - 4)
+  carveStreetGrid(grid, zones, 'recycling_center', recyclingRowStart, avenueRowStart - 1, recyclingColStart, avenueColStart - 1, 2)
+
+  // Arriba-derecha: distrito comercial, calles más densas (spacing menor).
+  carveStreetGrid(grid, zones, 'commercial', 1, avenueRowStart - 1, avenueColEnd + 1, cols - 2, 3)
+
+  // Abajo-izquierda: residencial, rejilla clásica más espaciada.
+  carveStreetGrid(grid, zones, 'residential', avenueRowEnd + 1, rows - 2, 1, avenueColStart - 1, 4)
+
+  // Abajo-derecha: escuela en el bloque más cercano a la avenida, resto residencial.
+  carveStreetGrid(grid, zones, 'residential', avenueRowEnd + 1, rows - 2, avenueColEnd + 1, cols - 2, 4)
+  const schoolRowEnd = Math.min(rows - 2, avenueRowEnd + 4)
+  const schoolColEnd = Math.min(cols - 2, avenueColEnd + 4)
+  carveStreetGrid(grid, zones, 'school', avenueRowEnd + 1, schoolRowEnd, avenueColEnd + 1, schoolColEnd, 2)
+
+  // Avenida principal: siempre calle, sin zona asociada (es vía de paso, no manzana).
+  for (let r = avenueRowStart; r <= avenueRowEnd; r++) {
+    for (let c = 1; c < cols - 1; c++) grid[r][c] = 0
+  }
+  for (let c = avenueColStart; c <= avenueColEnd; c++) {
+    for (let r = 1; r < rows - 1; r++) grid[r][c] = 0
   }
 
   addBorder(grid)
-  return grid
+  return { grid, zones }
 }
 
 /** Una franja horizontal y una vertical, cruzadas por el centro; el resto son paredes sólidas. */
@@ -181,32 +267,112 @@ function closestOpenCell(grid: number[][], targetRow: number, targetCol: number,
   return best
 }
 
+const ZONES_WITH_ENEMY: readonly ZoneType[] = ['park', 'commercial', 'residential', 'school']
+
+/**
+ * Reparte los itemSlots proporcionalmente entre zonas (en vez de un stride
+ * global que podía concentrar todos los ítems en una sola zona por el orden
+ * de recorrido del grid) — cada zona contribuye una porción de `maxItems`
+ * acorde a su tamaño relativo.
+ */
+function deriveZonedItemSlots(
+  candidates: CellPosition[],
+  zones: (ZoneType | null)[][],
+  maxItems: number,
+): CellPosition[] {
+  // Las celdas sin zona (avenida principal, mera vía de paso) no reciben
+  // ítems — repartir entre ellas diluiría el cupo de las zonas temáticas
+  // reales, que es lo que hace que el mapa se sienta compuesto por barrios.
+  const byZone = new Map<ZoneType, CellPosition[]>()
+  for (const cell of candidates) {
+    const zone = zones[cell.row][cell.col]
+    if (!zone) continue
+    const bucket = byZone.get(zone) ?? []
+    bucket.push(cell)
+    byZone.set(zone, bucket)
+  }
+
+  // Cupo por zona calculado de antemano (mínimo 1 por zona con celdas
+  // disponibles) para que ninguna zona se quede sin ítems por agotarse el
+  // total antes de llegar a ella — el orden de iteración del Map ya no importa.
+  const zoneEntries = [...byZone.entries()]
+  const totalZoned = zoneEntries.reduce((sum, [, bucket]) => sum + bucket.length, 0)
+  const quotas = zoneEntries.map(([, bucket]) =>
+    bucket.length === 0 ? 0 : Math.max(1, Math.round((bucket.length / totalZoned) * maxItems)),
+  )
+  // Si la suma de mínimos-por-zona excede maxItems, recorta proporcionalmente
+  // empezando por la zona con mayor cupo (nunca deja una zona en 0 salvo que ya lo fuera).
+  while (quotas.reduce((sum, q) => sum + q, 0) > maxItems) {
+    const maxIndex = quotas.indexOf(Math.max(...quotas))
+    quotas[maxIndex] -= 1
+  }
+
+  const slots: CellPosition[] = []
+  zoneEntries.forEach(([, bucket], index) => {
+    const quota = quotas[index]
+    if (quota <= 0) return
+    const stride = Math.max(1, Math.floor(bucket.length / quota))
+    let takenFromZone = 0
+    for (let i = 0; i < bucket.length && takenFromZone < quota && slots.length < maxItems; i += stride) {
+      slots.push(bucket[i])
+      takenFromZone++
+    }
+  })
+  return slots.slice(0, maxItems)
+}
+
 /** Reparte, de forma fija y determinista, dónde nace el jugador, dónde nacen los enemigos y qué celdas pueden llevar un objeto. */
-function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: number, includeDecorations: boolean) {
+function deriveSlots(
+  grid: number[][],
+  cols: number,
+  rows: number,
+  maxItems: number,
+  includeDecorations: boolean,
+  zones?: (ZoneType | null)[][],
+) {
   const used: CellPosition[] = []
 
   const playerStart = closestOpenCell(grid, Math.floor(rows / 2), Math.floor(cols / 2), used)
   used.push(playerStart)
 
-  const corners: Array<[number, number]> = [
-    [1, 1],
-    [1, cols - 2],
-    [rows - 2, 1],
-    [rows - 2, cols - 2],
-  ]
-  const enemySpawns = corners.map(([r, c]) => {
-    const spawn = closestOpenCell(grid, r, c, used)
-    used.push(spawn)
-    return spawn
-  })
+  let enemySpawns: CellPosition[]
+  if (zones) {
+    // Un enemigo patrullando cada zona temática, en vez de las 4 esquinas
+    // geométricas — más coherente con el mapa por zonas que con un grid abstracto.
+    enemySpawns = ZONES_WITH_ENEMY.map((zone) => {
+      const zoneCells = openCells(grid).filter((cell) => zones[cell.row][cell.col] === zone)
+      const centerRow = zoneCells.reduce((sum, c) => sum + c.row, 0) / Math.max(1, zoneCells.length)
+      const centerCol = zoneCells.reduce((sum, c) => sum + c.col, 0) / Math.max(1, zoneCells.length)
+      const spawn = closestOpenCell(grid, Math.round(centerRow), Math.round(centerCol), used)
+      used.push(spawn)
+      return spawn
+    })
+  } else {
+    const corners: Array<[number, number]> = [
+      [1, 1],
+      [1, cols - 2],
+      [rows - 2, 1],
+      [rows - 2, cols - 2],
+    ]
+    enemySpawns = corners.map(([r, c]) => {
+      const spawn = closestOpenCell(grid, r, c, used)
+      used.push(spawn)
+      return spawn
+    })
+  }
 
   const remaining = openCells(grid).filter((cell) => !used.some((u) => u.row === cell.row && u.col === cell.col))
-  const stride = Math.max(1, Math.floor(remaining.length / maxItems))
-  const itemSlots: CellPosition[] = []
-  for (let i = 0; i < remaining.length && itemSlots.length < maxItems; i += stride) {
-    itemSlots.push(remaining[i])
-    used.push(remaining[i])
-  }
+  const itemSlots = zones
+    ? deriveZonedItemSlots(remaining, zones, maxItems)
+    : (() => {
+        const stride = Math.max(1, Math.floor(remaining.length / maxItems))
+        const slots: CellPosition[] = []
+        for (let i = 0; i < remaining.length && slots.length < maxItems; i += stride) {
+          slots.push(remaining[i])
+        }
+        return slots
+      })()
+  for (const slot of itemSlots) used.push(slot)
 
   // El resto de celdas libres son candidatas a decoración (árboles/parques):
   // solo tiene sentido en el layout CITY — en los demás (Cruz, Espiral,
@@ -225,15 +391,22 @@ function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: num
   return { playerStart, enemySpawns, itemSlots, decorations }
 }
 
-function buildLayout(grid: number[][], cols: number, rows: number, includeDecorations = false): MazeLayoutDef {
+function buildLayout(
+  grid: number[][],
+  cols: number,
+  rows: number,
+  includeDecorations = false,
+  zones?: (ZoneType | null)[][],
+): MazeLayoutDef {
   const { playerStart, enemySpawns, itemSlots, decorations } = deriveSlots(
     grid,
     cols,
     rows,
     MAX_MAZE_ITEMS,
     includeDecorations,
+    zones,
   )
-  return { cols, rows, grid, playerStart, enemySpawns, itemSlots, decorations }
+  return { cols, rows, grid, playerStart, enemySpawns, itemSlots, decorations, ...(zones ? { zones } : {}) }
 }
 
 /** CITY es deliberadamente más grande — es una ciudad, no un laberinto de bolsillo. */
@@ -246,9 +419,11 @@ const CITY_ROWS = 17
  * y de `config`). Verificados por conectividad: cada celda libre es
  * alcanzable desde cualquier otra.
  */
+const city = buildCityMaze(CITY_COLS, CITY_ROWS)
+
 export const MAZE_LAYOUTS: Record<MazeLayout, MazeLayoutDef> = {
   CLASSIC: buildLayout(buildCombMaze(COLS, ROWS, 'vertical'), COLS, ROWS),
   SPIRAL: buildLayout(buildCombMaze(COLS, ROWS, 'horizontal'), COLS, ROWS),
   CROSS: buildLayout(buildCrossMaze(COLS, ROWS), COLS, ROWS),
-  CITY: buildLayout(buildCityMaze(CITY_COLS, CITY_ROWS), CITY_COLS, CITY_ROWS, true),
+  CITY: buildLayout(city.grid, CITY_COLS, CITY_ROWS, true, city.zones),
 }

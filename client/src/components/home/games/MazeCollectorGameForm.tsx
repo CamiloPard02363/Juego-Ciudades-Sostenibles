@@ -20,13 +20,25 @@ import {
   type MazeLayout,
 } from './mazeCollectorTypes'
 import { DOMINO_ICON_KEYS } from './dominoTypes'
+import { QuestionEditor, emptyQuestionDraft, type QuestionDraft } from './QuestionEditor'
+
+type WasteTypeOption = 'PLASTIC' | 'PAPER' | 'GLASS'
 
 type ItemDraft = {
   label: string
   icon: string
   color: string
   fact: string
+  question: QuestionDraft | null
+  wasteType: WasteTypeOption | ''
+  isPowerUp: boolean
 }
+
+const WASTE_TYPE_OPTIONS: Array<{ value: WasteTypeOption; label: string }> = [
+  { value: 'PLASTIC', label: 'Plástico' },
+  { value: 'PAPER', label: 'Papel' },
+  { value: 'GLASS', label: 'Vidrio' },
+]
 
 const SUGGESTED_COLORS = [
   '#f59e0b',
@@ -54,6 +66,9 @@ function emptyItem(index: number): ItemDraft {
     icon: DOMINO_ICON_KEYS[index % DOMINO_ICON_KEYS.length],
     color: SUGGESTED_COLORS[index % SUGGESTED_COLORS.length],
     fact: '',
+    question: null,
+    wasteType: '',
+    isPowerUp: false,
   }
 }
 
@@ -86,6 +101,8 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
   const [items, setItems] = useState<ItemDraft[]>(
     Array.from({ length: MIN_MAZE_ITEMS }, (_, index) => emptyItem(index)),
   )
+  const [schoolQuestion, setSchoolQuestion] = useState<QuestionDraft | null>(null)
+  const [recyclingQuestion, setRecyclingQuestion] = useState<QuestionDraft | null>(null)
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [categoryId, setCategoryId] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -134,6 +151,10 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
     setItems((current) => current.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
   }
 
+  function toggleQuestion(index: number, enabled: boolean) {
+    updateItem(index, 'question', enabled ? emptyQuestionDraft() : null)
+  }
+
   function addItem() {
     setItems((current) => (current.length < MAX_MAZE_ITEMS ? [...current, emptyItem(current.length)] : current))
   }
@@ -174,6 +195,31 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
       setError('Cada objeto necesita un nombre antes de crear el juego.')
       return
     }
+    for (const item of items) {
+      if (!item.question) continue
+      if (!item.question.prompt.trim()) {
+        setError(`La pregunta de "${item.label}" necesita un enunciado.`)
+        return
+      }
+      if (item.question.options.some((option) => !option.trim())) {
+        setError(`Todas las opciones de la pregunta de "${item.label}" deben tener texto.`)
+        return
+      }
+    }
+    for (const [label, question] of [
+      ['Escuela', schoolQuestion],
+      ['Centro de Reciclaje', recyclingQuestion],
+    ] as const) {
+      if (!question) continue
+      if (!question.prompt.trim()) {
+        setError(`La pregunta de la zona "${label}" necesita un enunciado.`)
+        return
+      }
+      if (question.options.some((option) => !option.trim())) {
+        setError(`Todas las opciones de la pregunta de "${label}" deben tener texto.`)
+        return
+      }
+    }
 
     setSubmitting(true)
     setError(null)
@@ -190,6 +236,17 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
           icon: item.icon,
           color: item.color,
           ...(item.fact.trim() ? { fact: item.fact.trim() } : {}),
+          ...(item.wasteType ? { wasteType: item.wasteType } : {}),
+          ...(item.isPowerUp ? { isPowerUp: true } : {}),
+          ...(item.question
+            ? {
+                question: {
+                  prompt: item.question.prompt.trim(),
+                  options: item.question.options.map((option) => option.trim()),
+                  correctOptionIndex: item.question.correctOptionIndex,
+                },
+              }
+            : {}),
         })),
         config: {
           layout,
@@ -199,6 +256,24 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
           collectorIcon,
           enemyLabel: enemyLabel.trim(),
           enemyIcon,
+          ...(layout === 'CITY' && schoolQuestion
+            ? {
+                schoolQuestion: {
+                  prompt: schoolQuestion.prompt.trim(),
+                  options: schoolQuestion.options.map((option) => option.trim()),
+                  correctOptionIndex: schoolQuestion.correctOptionIndex,
+                },
+              }
+            : {}),
+          ...(layout === 'CITY' && recyclingQuestion
+            ? {
+                recyclingQuestion: {
+                  prompt: recyclingQuestion.prompt.trim(),
+                  options: recyclingQuestion.options.map((option) => option.trim()),
+                  correctOptionIndex: recyclingQuestion.correctOptionIndex,
+                },
+              }
+            : {}),
         },
       })
       setCreatedGameId(game.id)
@@ -397,6 +472,56 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
 
         <OrganizationSelectField organizations={organizations} value={organizationId} disabled={submitting} onChange={setOrganizationId} />
 
+        {layout === 'CITY' && (
+          <div className="rounded-xl border border-border p-4">
+            <p className="mb-1 text-[13px] font-semibold text-text-h">Preguntas de zona (solo Ciudad)</p>
+            <p className="mb-3 text-[12px] text-text">
+              Al entrar a la Escuela o al Centro de Reciclaje del mapa, el juego pausa y muestra esta pregunta como
+              bono de energía (opcional).
+            </p>
+
+            <div className="mb-3">
+              <label className="mb-2 flex items-center gap-2 text-[13px] font-medium text-text-h">
+                <input
+                  type="checkbox"
+                  checked={schoolQuestion !== null}
+                  disabled={submitting}
+                  onChange={(event) => setSchoolQuestion(event.target.checked ? emptyQuestionDraft() : null)}
+                />
+                ¿Agregar pregunta en la Escuela?
+              </label>
+              {schoolQuestion && (
+                <QuestionEditor
+                  question={schoolQuestion}
+                  disabled={submitting}
+                  fieldPrefix="maze-zone-school"
+                  onChange={setSchoolQuestion}
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="mb-2 flex items-center gap-2 text-[13px] font-medium text-text-h">
+                <input
+                  type="checkbox"
+                  checked={recyclingQuestion !== null}
+                  disabled={submitting}
+                  onChange={(event) => setRecyclingQuestion(event.target.checked ? emptyQuestionDraft() : null)}
+                />
+                ¿Agregar pregunta en el Centro de Reciclaje?
+              </label>
+              {recyclingQuestion && (
+                <QuestionEditor
+                  question={recyclingQuestion}
+                  disabled={submitting}
+                  fieldPrefix="maze-zone-recycling"
+                  onChange={setRecyclingQuestion}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3">
           {items.map((item, index) => {
             const Icon = iconForConcept(item.icon)
@@ -453,7 +578,7 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
                     />
                   </div>
                 </div>
-                <div className="mt-3">
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <TextField
                     label="Dato educativo (opcional)"
                     type="text"
@@ -462,6 +587,58 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
                     onChange={(value) => updateItem(index, 'fact', value)}
                     onBlur={() => {}}
                   />
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor={`item-waste-${index}`}>
+                      Tipo de residuo (opcional)
+                    </label>
+                    <select
+                      id={`item-waste-${index}`}
+                      className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
+                      value={item.wasteType}
+                      disabled={submitting}
+                      onChange={(event) => updateItem(index, 'wasteType', event.target.value as WasteTypeOption | '')}
+                    >
+                      <option value="">Sin especificar</option>
+                      {WASTE_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-3 border-t border-border pt-3">
+                  <label className="mb-2 flex items-center gap-2 text-[13px] font-medium text-text-h">
+                    <input
+                      type="checkbox"
+                      checked={item.isPowerUp}
+                      disabled={submitting}
+                      onChange={(event) => updateItem(index, 'isPowerUp', event.target.checked)}
+                    />
+                    ¿Este objeto es el Potenciador de Reciclaje (Super-Recogida)?
+                  </label>
+
+                  <label className="flex items-center gap-2 text-[13px] font-medium text-text-h">
+                    <input
+                      type="checkbox"
+                      checked={item.question !== null}
+                      disabled={submitting}
+                      onChange={(event) => toggleQuestion(index, event.target.checked)}
+                    />
+                    ¿Agregar pregunta de sostenibilidad a este objeto?
+                  </label>
+
+                  {item.question && (
+                    <div className="mt-2.5">
+                      <QuestionEditor
+                        question={item.question}
+                        disabled={submitting}
+                        fieldPrefix={`maze-item-${index}`}
+                        onChange={(next) => updateItem(index, 'question', next)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )

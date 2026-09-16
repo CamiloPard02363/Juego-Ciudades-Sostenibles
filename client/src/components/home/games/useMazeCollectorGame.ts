@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CellPosition, MazeCollectorConfig, MazeCollectorItem, MazeLayoutDef } from './mazeCollectorTypes'
+import type { CellPosition, MazeCollectorConfig, MazeCollectorItem, MazeLayoutDef, ZoneType } from './mazeCollectorTypes'
 import { celebrateMatch, primeGameFeedback, signalMismatch } from '../../../utils/gameFeedback'
+import {
+  chooseEnemyMove,
+  createEnemyRuntimeState,
+  ENERGY_MAX,
+  ENERGY_DECAY_PER_TICK,
+  ZONE_QUESTION_ENERGY_BONUS,
+  SUPER_COLLECT_TICKS,
+  DEFAULT_ITEM_POINTS,
+  isTriggerZone,
+  pointsForItem,
+  samePos,
+} from './mazeCollectorEngine'
+import type { EnemyRuntimeState, TriggerZoneType } from './mazeCollectorEngine'
 
 export type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
 export type MazePhase = 'ready' | 'playing' | 'won' | 'lost'
@@ -23,10 +36,14 @@ const KEY_TO_DIRECTION: Record<string, Direction> = {
   d: 'RIGHT',
 }
 
-/** Puntos por objeto recolectado. Fijo — no hay combo/tiempo en este juego, a diferencia de Memory Match. */
-const POINTS_PER_ITEM = 100
-/** Duración de cada "paso" del jugador: entre más chico, más ágil se siente el control. */
-const TICK_MS = 180
+/** Duración de cada "paso" del jugador. 260ms (antes 180) le da tiempo de pensar en vez de sentirse arcade frenético. */
+const TICK_MS = 260
+
+/** Una pregunta de zona pendiente, junto a la etiqueta de la zona que la disparó (para el modal). */
+export type PendingZoneQuestion = {
+  zone: TriggerZoneType
+  item: MazeCollectorItem
+}
 
 type MazeGameState = {
   playerPos: CellPosition
@@ -39,41 +56,20 @@ type MazeGameState = {
   score: number
   phase: MazePhase
   lastCollected: MazeCollectorItem | null
+  /** Ítem recién recolectado con pregunta pendiente por responder — mientras exista, el tick del juego está pausado. */
+  pendingQuestion: MazeCollectorItem | null
+  /** Pregunta de zona pendiente (Escuela/Centro de Reciclaje) — mismo efecto de pausa que pendingQuestion. */
+  pendingZoneQuestion: PendingZoneQuestion | null
+  /** Energía del camión (0-100). Al llegar a 0 resta una vida y recarga, igual que chocar con un enemigo. */
+  energy: number
+  /** Última zona de trigger visitada — evita reactivar la misma pregunta si el jugador se queda parado. */
+  lastZoneId: ZoneType | null
+  /** Ticks restantes de "Super-Recogida": mientras > 0, todos los enemigos huyen. */
+  superCollectTicksLeft: number
 }
 
 function isOpen(grid: number[][], row: number, col: number): boolean {
   return row >= 0 && row < grid.length && col >= 0 && col < grid[0].length && grid[row][col] === 0
-}
-
-function samePos(a: CellPosition, b: CellPosition): boolean {
-  return a.row === b.row && a.col === b.col
-}
-
-function openNeighbors(grid: number[][], pos: CellPosition): CellPosition[] {
-  return (Object.values(DIRECTION_DELTAS) as CellPosition[])
-    .map((delta) => ({ row: pos.row + delta.row, col: pos.col + delta.col }))
-    .filter((next) => isOpen(grid, next.row, next.col))
-}
-
-/** 70% se mueve hacia el jugador (distancia Manhattan), 30% al azar entre direcciones abiertas — nada de pathfinding. */
-function chooseEnemyMove(grid: number[][], enemyPos: CellPosition, playerPos: CellPosition): CellPosition {
-  const neighbors = openNeighbors(grid, enemyPos)
-  if (neighbors.length === 0) return enemyPos
-
-  if (Math.random() < 0.3) {
-    return neighbors[Math.floor(Math.random() * neighbors.length)]
-  }
-
-  let best = neighbors[0]
-  let bestDistance = Infinity
-  for (const candidate of neighbors) {
-    const distance = Math.abs(candidate.row - playerPos.row) + Math.abs(candidate.col - playerPos.col)
-    if (distance < bestDistance) {
-      bestDistance = distance
-      best = candidate
-    }
-  }
-  return best
 }
 
 function buildInitialState(layout: MazeLayoutDef, items: MazeCollectorItem[], lives: number): MazeGameState {
@@ -89,6 +85,11 @@ function buildInitialState(layout: MazeLayoutDef, items: MazeCollectorItem[], li
     score: 0,
     phase: 'ready',
     lastCollected: null,
+    pendingQuestion: null,
+    pendingZoneQuestion: null,
+    energy: ENERGY_MAX,
+    lastZoneId: null,
+    superCollectTicksLeft: 0,
   }
 }
 
@@ -103,6 +104,11 @@ export function useMazeCollectorGame({ layout, items, config }: UseMazeCollector
 
   const [state, setState] = useState<MazeGameState>(() => buildInitialState(layout, items, config.lives))
   const tickCountRef = useRef(0)
+  const enemiesRuntimeRef = useRef<EnemyRuntimeState[]>(layout.enemySpawns.map((spawn) => createEnemyRuntimeState({ ...spawn })))
+
+  useEffect(() => {
+    enemiesRuntimeRef.current = layout.enemySpawns.map((spawn) => createEnemyRuntimeState({ ...spawn }))
+  }, [layout])
 
   const setDirection = useCallback((direction: Direction) => {
     primeGameFeedback()
@@ -131,7 +137,7 @@ export function useMazeCollectorGame({ layout, items, config }: UseMazeCollector
 
     const interval = setInterval(() => {
       setState((current) => {
-        if (current.phase !== 'playing') return current
+        if (current.phase !== 'playing' || current.pendingQuestion || current.pendingZoneQuestion) return current
 
         let { playerPos, facing } = current
         const tryMove = (direction: Direction | null): CellPosition | null => {
@@ -148,40 +154,129 @@ export function useMazeCollectorGame({ layout, items, config }: UseMazeCollector
           facing = movedViaDesired ? (current.desiredDirection as Direction) : facing
         }
 
+        // Energía decae mientras se juega; al agotarse, misma penalización que chocar con un enemigo.
+        const energy = Math.max(0, current.energy - ENERGY_DECAY_PER_TICK)
+
+        // Trigger de zona: entrar a una celda de Escuela/Centro de Reciclaje dispara su pregunta,
+        // solo si es una zona distinta a la última visitada (evita reactivar en bucle si se queda parado).
+        const zoneAtPlayer = layout.zones?.[playerPos.row]?.[playerPos.col] ?? null
+        if (isTriggerZone(zoneAtPlayer) && zoneAtPlayer !== current.lastZoneId) {
+          const question = zoneAtPlayer === 'school' ? config.schoolQuestion : config.recyclingQuestion
+          if (question) {
+            return {
+              ...current,
+              playerPos,
+              facing,
+              energy,
+              lastZoneId: zoneAtPlayer,
+              pendingZoneQuestion: {
+                zone: zoneAtPlayer,
+                item: {
+                  itemId: `zone-${zoneAtPlayer}`,
+                  label: zoneAtPlayer === 'school' ? 'Escuela' : 'Centro de Reciclaje',
+                  icon: zoneAtPlayer === 'school' ? 'building' : 'recycle',
+                  color: '#22c55e',
+                  question,
+                },
+              },
+            }
+          }
+        }
+        // Fuera de una zona trigger, limpia lastZoneId para permitir que la
+        // misma pregunta se dispare de nuevo si el jugador vuelve a entrar.
+        const lastZoneId = zoneAtPlayer
+
         let { remainingItemPositions, collectedItemIds, score, lastCollected } = current
+        let superCollectTicksLeft = Math.max(0, current.superCollectTicksLeft - 1)
         const collectedHere = remainingItemPositions.find((entry) => samePos(entry.position, playerPos))
         if (collectedHere) {
           remainingItemPositions = remainingItemPositions.filter((entry) => entry.itemId !== collectedHere.itemId)
           collectedItemIds = [...collectedItemIds, collectedHere.itemId]
-          score += POINTS_PER_ITEM
           lastCollected = itemsById.get(collectedHere.itemId) ?? null
+
+          // Si trae pregunta, se pausa el juego para responderla antes de sumar el
+          // punto — el enemigo no avanza en este mismo tick para no golpear al
+          // jugador justo cuando se abre el modal.
+          if (lastCollected?.question) {
+            return {
+              ...current,
+              playerPos,
+              facing,
+              energy,
+              lastZoneId,
+              remainingItemPositions,
+              collectedItemIds,
+              lastCollected,
+              pendingQuestion: lastCollected,
+              superCollectTicksLeft,
+            }
+          }
+
+          if (lastCollected?.isPowerUp) {
+            superCollectTicksLeft = SUPER_COLLECT_TICKS
+          } else {
+            score += pointsForItem(lastCollected?.wasteType)
+          }
           celebrateMatch()
         }
 
+        const fleeing = superCollectTicksLeft > 0
         let enemyPositions = current.enemyPositions
         tickCountRef.current += 1
         if (tickCountRef.current % enemyTickInterval === 0) {
-          enemyPositions = enemyPositions.map((enemyPos) => chooseEnemyMove(layout.grid, enemyPos, playerPos))
+          enemyPositions = enemiesRuntimeRef.current.map((enemyRuntime) => {
+            const next = chooseEnemyMove(layout.grid, enemyRuntime, playerPos, fleeing)
+            enemyRuntime.pos = next
+            return next
+          })
         }
 
-        const hitByEnemy = enemyPositions.some((enemyPos) => samePos(enemyPos, playerPos))
-        if (hitByEnemy) {
+        // Durante el modo huida, chocar con una nube la "atrapa" (vuelve a su
+        // spawn) en vez de restarle vida al jugador — refuerza la lectura de
+        // "ahora soy yo quien da miedo" del power-up.
+        const hitIndex = enemyPositions.findIndex((enemyPos) => samePos(enemyPos, playerPos))
+        if (hitIndex !== -1 && fleeing) {
+          const spawn = layout.enemySpawns[hitIndex]
+          enemyPositions = enemyPositions.map((pos, index) => (index === hitIndex ? { ...spawn } : pos))
+          enemiesRuntimeRef.current[hitIndex] = createEnemyRuntimeState({ ...spawn })
+          celebrateMatch()
+          return {
+            ...current,
+            playerPos,
+            facing,
+            energy,
+            lastZoneId,
+            enemyPositions,
+            remainingItemPositions,
+            collectedItemIds,
+            score: score + DEFAULT_ITEM_POINTS,
+            lastCollected,
+            superCollectTicksLeft,
+          }
+        }
+
+        const outOfEnergy = energy <= 0
+        if ((hitIndex !== -1 && !fleeing) || outOfEnergy) {
           signalMismatch()
           const lives = current.lives - 1
           if (lives <= 0) {
-            return { ...current, playerPos, facing, enemyPositions, lives: 0, phase: 'lost' }
+            return { ...current, playerPos, facing, energy: 0, enemyPositions, lives: 0, phase: 'lost' }
           }
+          enemiesRuntimeRef.current = layout.enemySpawns.map((spawn) => createEnemyRuntimeState({ ...spawn }))
           return {
             ...current,
             playerPos: layout.playerStart,
             facing: 'RIGHT',
             desiredDirection: null,
+            energy: ENERGY_MAX,
+            lastZoneId: null,
             enemyPositions: layout.enemySpawns.map((spawn) => ({ ...spawn })),
             lives,
             remainingItemPositions,
             collectedItemIds,
             score,
             lastCollected,
+            superCollectTicksLeft: 0,
           }
         }
 
@@ -190,11 +285,14 @@ export function useMazeCollectorGame({ layout, items, config }: UseMazeCollector
           ...current,
           playerPos,
           facing,
+          energy,
+          lastZoneId,
           enemyPositions,
           remainingItemPositions,
           collectedItemIds,
           score,
           lastCollected,
+          superCollectTicksLeft,
           phase: won ? 'won' : current.phase,
         }
       })
@@ -202,7 +300,57 @@ export function useMazeCollectorGame({ layout, items, config }: UseMazeCollector
 
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.phase, layout, enemyTickInterval, itemsById])
+  }, [state.phase, layout, enemyTickInterval, itemsById, config.schoolQuestion, config.recyclingQuestion])
+
+  /** Responde la pregunta pendiente de un ítem: acierto suma el punto, fallo solo da feedback — en ambos casos reanuda el juego. */
+  const answerQuestion = useCallback((selectedIndex: number) => {
+    setState((current) => {
+      const collected = current.pendingQuestion
+      const question = collected?.question
+      if (!question) return current
+
+      const correct = selectedIndex === question.correctOptionIndex
+      if (correct) {
+        celebrateMatch()
+      } else {
+        signalMismatch()
+      }
+
+      const won = current.remainingItemPositions.length === 0
+      return {
+        ...current,
+        score: correct ? current.score + pointsForItem(collected.wasteType) : current.score,
+        pendingQuestion: null,
+        phase: won ? 'won' : current.phase,
+      }
+    })
+  }, [])
+
+  /** Responde la pregunta pendiente de zona: acierto da bono de energía (+toneladas si es reciclaje), fallo solo da feedback. */
+  const answerZoneQuestion = useCallback((selectedIndex: number) => {
+    setState((current) => {
+      const pending = current.pendingZoneQuestion
+      const question = pending?.item.question
+      if (!pending || !question) return current
+
+      const correct = selectedIndex === question.correctOptionIndex
+      if (correct) {
+        celebrateMatch()
+      } else {
+        signalMismatch()
+      }
+
+      const energyBonus = correct ? ZONE_QUESTION_ENERGY_BONUS : 0
+      const scoreBonus = correct && pending.zone === 'recycling_center' ? DEFAULT_ITEM_POINTS : 0
+
+      return {
+        ...current,
+        energy: Math.min(ENERGY_MAX, current.energy + energyBonus),
+        score: current.score + scoreBonus,
+        pendingZoneQuestion: null,
+      }
+    })
+  }, [])
 
   const totalItems = items.length
   const collectedCount = state.collectedItemIds.length
@@ -212,5 +360,7 @@ export function useMazeCollectorGame({ layout, items, config }: UseMazeCollector
     totalItems,
     collectedCount,
     setDirection,
+    answerQuestion,
+    answerZoneQuestion,
   }
 }
