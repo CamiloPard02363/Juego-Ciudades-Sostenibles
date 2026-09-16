@@ -44,25 +44,25 @@ export function KidsGuideCharacter({ size = 200, className, rightArmWave = false
 
       <g filter="url(#kg-shadow)" style={{ animation: 'kids-guide-bob 2.8s ease-in-out infinite', transformOrigin: '200px 250px' }}>
         {/* Piernas */}
-        <rect x="175" y="270" width="16" height="45" rx="8" fill="#00b4d8" />
-        <rect x="209" y="270" width="16" height="45" rx="8" fill="#00b4d8" />
+        <rect x="175" y="270" width="16" height="45" rx="8" fill="#0093e6" />
+        <rect x="209" y="270" width="16" height="45" rx="8" fill="#0093e6" />
 
         {/* Zapatos */}
-        <ellipse cx="183" cy="320" rx="22" ry="14" fill="#0077b6" />
-        <ellipse cx="217" cy="320" rx="22" ry="14" fill="#0077b6" />
+        <ellipse cx="183" cy="320" rx="22" ry="14" fill="#005bb0" />
+        <ellipse cx="217" cy="320" rx="22" ry="14" fill="#005bb0" />
         <ellipse cx="178" cy="314" rx="8" ry="4" fill="#ffffff" opacity="0.3" />
         <ellipse cx="212" cy="314" rx="8" ry="4" fill="#ffffff" opacity="0.3" />
 
         {/* Cuerpo */}
-        <path d="M 155 220 Q 200 190, 245 220 L 235 290 Q 200 300, 165 290 Z" fill="#00b4d8" />
-        <path d="M 200 210 L 200 295" stroke="#0096c7" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M 155 220 Q 200 190, 245 220 L 235 290 Q 200 300, 165 290 Z" fill="#0093e6" />
+        <path d="M 200 210 L 200 295" stroke="#0074cf" strokeWidth="2.5" strokeLinecap="round" />
 
         {/* Brazo izquierdo saludando — gira solo, con eje en el hombro */}
         <g style={{ transformOrigin: '160px 220px', animation: 'kids-guide-wave 3.6s ease-in-out infinite' }}>
           <path
             d="M 160 220 C 120 220, 110 180, 125 160"
             fill="none"
-            stroke="#00b4d8"
+            stroke="#0093e6"
             strokeWidth="22"
             strokeLinecap="round"
           />
@@ -81,7 +81,7 @@ export function KidsGuideCharacter({ size = 200, className, rightArmWave = false
           <path
             d="M 240 220 C 270 230, 280 260, 265 285"
             fill="none"
-            stroke="#00b4d8"
+            stroke="#0093e6"
             strokeWidth="22"
             strokeLinecap="round"
           />
@@ -109,10 +109,10 @@ export function KidsGuideCharacter({ size = 200, className, rightArmWave = false
         <circle cx="200" cy="155" r="68" fill="#ffd5ba" />
 
         {/* Gorro */}
-        <path d="M 132 150 C 132 70, 268 70, 268 150 Z" fill="#00b4d8" />
-        <path d="M 160 110 Q 200 90, 240 110 Q 200 135, 160 110 Z" fill="#0096c7" />
-        <path d="M 132 140 C 115 190, 145 210, 150 165 Z" fill="#00b4d8" />
-        <path d="M 268 140 C 285 190, 255 210, 250 165 Z" fill="#00b4d8" />
+        <path d="M 132 150 C 132 70, 268 70, 268 150 Z" fill="#0093e6" />
+        <path d="M 160 110 Q 200 90, 240 110 Q 200 135, 160 110 Z" fill="#0074cf" />
+        <path d="M 132 140 C 115 190, 145 210, 150 165 Z" fill="#0093e6" />
+        <path d="M 268 140 C 285 190, 255 210, 250 165 Z" fill="#0093e6" />
 
         {/* Ojos: parpadean juntos cada tanto */}
         <g style={{ transformOrigin: '178px 160px', animation: 'kids-guide-blink 4.2s ease-in-out infinite' }}>
