@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { LoginPage } from './components/LoginPage'
 import { RegisterPage } from './components/RegisterPage'
@@ -9,6 +10,7 @@ import { MyGamesPage } from './components/home/sections/MyGamesPage'
 import { ThemesPage } from './components/home/sections/ThemesPage'
 import { AdminUsersPage } from './components/home/sections/AdminUsersPage'
 import { OrganizationDashboardPage } from './components/home/sections/OrganizationDashboardPage'
+import { MyClassesPage } from './components/home/sections/MyClassesPage'
 import { CreateGameLayout } from './components/home/games/create/CreateGameLayout'
 import { GameTypePickerPage } from './components/home/games/create/GameTypePickerPage'
 import { GameModePickerPage } from './components/home/games/create/GameModePickerPage'
@@ -23,6 +25,15 @@ import { DominoRoomPage } from './components/home/games/DominoRoomPage'
 import { SnakesLaddersRoomPage } from './components/home/games/SnakesLaddersRoomPage'
 import { DualQuestRoomPage } from './components/home/games/DualQuestRoomPage'
 import { useAuth } from './hooks/useAuth'
+
+// PixiJS + Matter.js solo se descargan si alguien entra a esta ruta —
+// van cargados de fábrica (~700 KB) y nadie más en el sitio los necesita.
+const DualQuestPixiDemoPage = lazy(() =>
+  import('./components/home/games/DualQuestPixiDemoPage').then((m) => ({ default: m.DualQuestPixiDemoPage })),
+)
+const DualQuestPixiPlayPage = lazy(() =>
+  import('./components/home/games/DualQuestPixiPlayPage').then((m) => ({ default: m.DualQuestPixiPlayPage })),
+)
 
 function App() {
   const { user, status } = useAuth()
@@ -71,11 +82,28 @@ function App() {
       <Route path="/domino/sala/:code?" element={<DominoRoomPage />} />
       <Route path="/escaleras-serpientes/sala/:code?" element={<SnakesLaddersRoomPage />} />
       <Route path="/dual-quest/sala/:code?" element={<DualQuestRoomPage />} />
+      <Route
+        path="/dual-quest/pixi-demo"
+        element={
+          <Suspense fallback={<main className="flex flex-1 items-center justify-center">Cargando motor del juego…</main>}>
+            <DualQuestPixiDemoPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/dual-quest-pixi/:slug"
+        element={
+          <Suspense fallback={<main className="flex flex-1 items-center justify-center">Cargando motor del juego…</main>}>
+            <DualQuestPixiPlayPage />
+          </Suspense>
+        }
+      />
       <Route path="/" element={<HomeLayout />}>
         <Route index element={<HomePage />} />
         <Route path=":slug" element={<HomePage />} />
         <Route path="materias" element={<CategoriesPage />} />
         <Route path="materias/:slug" element={<CategoriesPage />} />
+        <Route path="mis-clases" element={<MyClassesPage />} />
         <Route path="comunidad" element={<CommunityPage />} />
         <Route path="comunidad/:slug" element={<CommunityPage />} />
         <Route path="mis-juegos" element={<MyGamesPage />} />

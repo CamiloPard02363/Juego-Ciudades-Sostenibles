@@ -1,4 +1,4 @@
-import { Check, Moon, PartyPopper, Sun } from 'lucide-react'
+import { Check, Moon, Sun } from 'lucide-react'
 import { useTheme } from '../../hooks/useTheme'
 import type { Theme } from '../../hooks/useTheme'
 
@@ -26,14 +26,8 @@ const THEME_OPTIONS: ThemeOption[] = [
     icon: Moon,
     preview: { bg: '#0b0b12', surface: '#16161f', accent: '#a685f5', accent2: '#ff6ba3', text: '#f1f0f8' },
   },
-  {
-    value: 'kids',
-    label: 'Modo niños',
-    description:
-      'Colores vivos, tipografía redondeada y un fondo juguetón — pensado para lectores primerizos: acentos energéticos sobre un fondo cálido y suave, sin sobrecargar la vista.',
-    icon: PartyPopper,
-    preview: { bg: '#fff8e7', surface: '#ffffff', accent: '#ff7a1a', accent2: '#06b6d4', text: '#3a2a6d' },
-  },
+  // El Modo niños ya no se elige acá: se activa solo, por rol (ver
+  // useTheme.ts) — un estudiante lo ve siempre y nadie más lo necesita.
 ]
 
 /**

@@ -612,6 +612,69 @@ code {
   }
 }
 
+/* Guía animado del Modo Kids (KidsGuideCharacter.tsx): se muestra grande en
+ * la ventana de bienvenida, así que su "vida" tiene que notarse más que la
+ * mascota flotante de fondo — respira con un vaivén suave, saluda con el
+ * brazo, parpadea de vez en cuando y la estrella late — todo en bucle para
+ * sentirse cercano sin depender de texto. */
+@keyframes kids-guide-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-1.5deg);
+  }
+}
+
+@keyframes kids-guide-wave {
+  0%,
+  16%,
+  100% {
+    transform: rotate(0deg);
+  }
+  4%,
+  12% {
+    transform: rotate(22deg);
+  }
+  8% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes kids-guide-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes kids-guide-star-pulse {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.18) rotate(14deg);
+  }
+}
+
+@keyframes kids-guide-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
 /*
  * Modo niños: los botones "cobran vida" — un pequeño wiggle constante para
  * invitar al toque, un salto exagerado al presionar y un destello al soltar.
