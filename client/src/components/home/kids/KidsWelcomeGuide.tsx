@@ -46,7 +46,9 @@ export function KidsWelcomeGuide({ displayName, onClose }: KidsWelcomeGuideProps
         <button
           type="button"
           onClick={onClose}
-          className="mt-1 w-full rounded-2xl px-6 py-3.5 text-[17px] font-extrabold text-white shadow-[0_10px_0_-2px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out"
+          className={`mt-1 w-full rounded-2xl px-6 py-3.5 text-[17px] font-extrabold text-white shadow-[0_10px_0_-2px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out ${
+            bubuLanded ? 'kids-cta-wiggle-always' : ''
+          }`}
           style={{
             background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
             opacity: bubuLanded ? 1 : 0,

@@ -9,7 +9,7 @@ type KidsGuideEntranceProps = {
 
 type Phase = 'flying' | 'greeting' | 'idle'
 
-const FLY_IN_MS = 900
+const FLY_IN_MS = 1900
 const GREETING_MS = 1600
 
 const PARTICLES = [...Array(8)].map((_, i) => ({

@@ -797,6 +797,13 @@ code {
   outline-offset: 2px;
 }
 
+/* Botón "¡Vamos a jugar!" del saludo de Bubu (KidsWelcomeGuide.tsx): el
+ * wiggle de reposo corre todo el tiempo desde que Bubu aterriza, no solo al
+ * pasar el mouse — para invitar al toque desde el primer momento. */
+[data-theme='kids'] .kids-cta-wiggle-always:not(:disabled) {
+  animation-play-state: running;
+}
+
 /* Botón "Unirme con código": glow pulsante para atraer la atención,
  * usa un halo animado (box-shadow) en vez de opacity para no perder contraste. */
 .join-code-glow-btn {
