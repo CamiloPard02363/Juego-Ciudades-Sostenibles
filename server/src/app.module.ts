@@ -6,8 +6,9 @@ import { CategoryModule } from './infrastructure/category.module.js';
 import { UploadModule } from './infrastructure/upload.module.js';
 import { RoomsModule } from './infrastructure/rooms.module.js';
 import { AnalyticsModule } from './infrastructure/analytics.module.js';
+import { ClassModule } from './infrastructure/class.module.js';
 
 @Module({
-  imports: [UserModule, OrganizationModule, GameModule, CategoryModule, UploadModule, RoomsModule, AnalyticsModule],
+  imports: [UserModule, OrganizationModule, GameModule, CategoryModule, ClassModule, UploadModule, RoomsModule, AnalyticsModule],
 })
 export class AppModule {}

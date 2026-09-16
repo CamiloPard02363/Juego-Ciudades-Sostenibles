@@ -10,6 +10,7 @@ import { MyGamesPage } from './components/home/sections/MyGamesPage'
 import { ThemesPage } from './components/home/sections/ThemesPage'
 import { AdminUsersPage } from './components/home/sections/AdminUsersPage'
 import { OrganizationDashboardPage } from './components/home/sections/OrganizationDashboardPage'
+import { MyClassesPage } from './components/home/sections/MyClassesPage'
 import { CreateGameLayout } from './components/home/games/create/CreateGameLayout'
 import { GameTypePickerPage } from './components/home/games/create/GameTypePickerPage'
 import { GameModePickerPage } from './components/home/games/create/GameModePickerPage'
@@ -102,6 +103,7 @@ function App() {
         <Route path=":slug" element={<HomePage />} />
         <Route path="materias" element={<CategoriesPage />} />
         <Route path="materias/:slug" element={<CategoriesPage />} />
+        <Route path="mis-clases" element={<MyClassesPage />} />
         <Route path="comunidad" element={<CommunityPage />} />
         <Route path="comunidad/:slug" element={<CommunityPage />} />
         <Route path="mis-juegos" element={<MyGamesPage />} />

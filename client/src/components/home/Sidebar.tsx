@@ -98,13 +98,23 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           onClick={() => navigate('/')}
           icon={<Gamepad2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
-        <SidebarItem
-          label="Materias"
-          collapsed={collapsed}
-          active={location.pathname === '/materias'}
-          onClick={() => navigate('/materias')}
-          icon={<BookOpen className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
-        />
+        {userRole.toUpperCase() === 'TEACHER' ? (
+          <SidebarItem
+            label="Mis clases"
+            collapsed={collapsed}
+            active={location.pathname === '/mis-clases'}
+            onClick={() => navigate('/mis-clases')}
+            icon={<Users2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+          />
+        ) : (
+          <SidebarItem
+            label="Materias"
+            collapsed={collapsed}
+            active={location.pathname === '/materias'}
+            onClick={() => navigate('/materias')}
+            icon={<BookOpen className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+          />
+        )}
         <SidebarItem
           label="Comunidad"
           collapsed={collapsed}
