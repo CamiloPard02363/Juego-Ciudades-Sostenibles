@@ -1,281 +1,229 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
     <defs>
-        <!-- Gradient for the magical sky -->
+        <!-- Cielo con colores más saturados y vivos -->
         <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#b4a0e5"/>
-            <stop offset="40%" stop-color="#d8c5ea"/>
-            <stop offset="100%" stop-color="#f8cfd9"/>
+            <stop offset="0%" stop-color="#4fc3f7"/>
+            <stop offset="50%" stop-color="#81d4fa"/>
+            <stop offset="100%" stop-color="#b39ddb"/>
         </linearGradient>
 
-        <!-- Gradient for clouds -->
+        <!-- Gradiente para el cuerpo del Sol (más vivo y brillante) -->
+        <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffee58"/>
+            <stop offset="70%" stop-color="#ffb300"/>
+            <stop offset="100%" stop-color="#ff6f00"/>
+        </radialGradient>
+
+        <!-- Gradiente para nubes con sutil tono crema/blanco brillante -->
         <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="100%" stop-color="#f2ebf7"/>
+            <stop offset="85%" stop-color="#faf8ff"/>
+            <stop offset="100%" stop-color="#d1c4e9"/>
         </linearGradient>
 
-        <!-- Drop shadow for depth on clouds and characters -->
-        <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-            <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#7a5599" flood-opacity="0.2"/>
+        <!-- Sombra suave para nubes -->
+        <filter id="cloudShadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="8" stdDeviation="5" flood-color="#5c6bc0" flood-opacity="0.4"/>
         </filter>
 
-        <!-- Reusable Rainbow -->
-        <g id="rainbow">
-            <path d="M -50 0 A 50 50 0 0 1 50 0" fill="none" stroke="#ff5c5c" stroke-width="8"/>
-            <path d="M -42 0 A 42 42 0 0 1 42 0" fill="none" stroke="#ffb347" stroke-width="8"/>
-            <path d="M -34 0 A 34 34 0 0 1 34 0" fill="none" stroke="#ffeb3b" stroke-width="8"/>
-            <path d="M -26 0 A 26 26 0 0 1 26 0" fill="none" stroke="#77dd77" stroke-width="8"/>
-            <path d="M -18 0 A 18 18 0 0 1 18 0" fill="none" stroke="#77b6ea" stroke-width="8"/>
-            <path d="M -10 0 A 10 10 0 0 1 10 0" fill="none" stroke="#b39ddb" stroke-width="8"/>
-        </g>
+        <!-- Brillo para estrellas -->
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
 
-        <!-- Reusable Star/Sparkle -->
-        <g id="star">
-            <path d="M 0 -12 Q 0 0 12 0 Q 0 0 0 12 Q 0 0 -12 0 Q 0 0 0 -12 Z" fill="#fffbee" opacity="0.9"/>
+        <g id="sparkle">
+            <path d="M 0 -10 Q 0 0 10 0 Q 0 0 0 10 Q 0 0 -10 0 Q 0 0 0 -10 Z" />
         </g>
     </defs>
 
-    <!-- Base Sky -->
+    <!-- FONDO CIELO -->
     <rect width="100%" height="100%" fill="url(#skyGrad)"/>
 
-    <!-- Scattered Stars & Sparkles -->
-    <use href="#star" x="120" y="80" transform="scale(0.8)"/>
-    <use href="#star" x="380" y="140" transform="scale(1.2)"/>
-    <use href="#star" x="850" y="90" transform="scale(0.6)"/>
-    <use href="#star" x="1150" y="120" transform="scale(1)"/>
-    <use href="#star" x="280" y="320" transform="scale(0.5)"/>
-    <use href="#star" x="950" y="380" transform="scale(0.7)"/>
-    <use href="#star" x="70" y="450" transform="scale(1.1)"/>
-    <circle cx="650" cy="180" r="3" fill="#ffffff" opacity="0.6"/>
-    <circle cx="200" cy="250" r="4" fill="#ffffff" opacity="0.8"/>
-    <circle cx="1050" cy="280" r="2" fill="#ffffff" opacity="0.5"/>
+    <!-- CHISPAS Y ESTRELLAS -->
+    <use href="#sparkle" x="400" y="100" fill="#ffffff" transform="scale(0.8)"/>
+    <use href="#sparkle" x="800" y="450" fill="#ffffff" transform="scale(0.9)"/>
+    <use href="#sparkle" x="300" y="220" fill="#ffeb3b" transform="scale(0.8)"/>
+    <use href="#sparkle" x="1100" y="450" fill="#ffeb3b" transform="scale(1.1)"/>
+    <use href="#sparkle" x="750" y="150" fill="#ffeb3b" transform="scale(0.7)"/>
+    <use href="#sparkle" x="1230" y="150" fill="#00e5ff" transform="scale(0.9)"/>
+    <use href="#sparkle" x="650" y="550" fill="#b388ff" transform="scale(1)"/>
+    <use href="#sparkle" x="150" y="350" fill="#b388ff" transform="scale(0.8)"/>
 
-    <!-- Top Clouds Framing -->
-    <path d="M -50 -50 L 1330 -50 L 1330 180 Q 1200 240 1100 150 Q 950 250 800 160 Q 650 280 450 170 Q 300 260 150 150 Q 50 210 -50 130 Z" fill="url(#cloudGrad)" filter="url(#shadow)"/>
+    <use href="#sparkle" x="520" y="280" fill="#ffffff" transform="scale(0.7)"/>
+    <use href="#sparkle" x="950" y="260" fill="#ffeb3b" transform="scale(0.85)"/>
+    <use href="#sparkle" x="250" y="520" fill="#00e5ff" transform="scale(0.75)"/>
+    <use href="#sparkle" x="780" y="320" fill="#ff80ab" transform="scale(0.6)"/>
 
-    <!-- Additional overlapping top clouds -->
-    <circle cx="100" cy="80" r="90" fill="url(#cloudGrad)"/>
-    <circle cx="400" cy="70" r="110" fill="url(#cloudGrad)"/>
-    <circle cx="750" cy="60" r="130" fill="url(#cloudGrad)"/>
-    <circle cx="1050" cy="90" r="100" fill="url(#cloudGrad)"/>
-
-    <!-- Bottom Clouds Framing -->
-    <path d="M -50 770 L 1330 770 L 1330 520 Q 1200 450 1100 540 Q 950 420 800 520 Q 650 400 500 550 Q 350 420 200 530 Q 50 450 -50 550 Z" fill="url(#cloudGrad)" filter="url(#shadow)"/>
-
-    <!-- Additional overlapping bottom clouds -->
-    <circle cx="150" cy="630" r="110" fill="url(#cloudGrad)"/>
-    <circle cx="400" cy="670" r="140" fill="url(#cloudGrad)"/>
-    <circle cx="680" cy="600" r="160" fill="url(#cloudGrad)"/>
-    <circle cx="950" cy="650" r="120" fill="url(#cloudGrad)"/>
-    <circle cx="1200" cy="600" r="140" fill="url(#cloudGrad)"/>
-
-    <!-- Decorative Rainbows -->
-    <use href="#rainbow" x="820" y="180" transform="rotate(-15 820 180) scale(0.9)"/>
-    <use href="#rainbow" x="130" y="450" transform="rotate(10 130 450) scale(0.7)"/>
-    <use href="#rainbow" x="1150" y="460" transform="rotate(-10 1150 460) scale(0.85)"/>
-
-    <!-- Character: Fox on cloud (Middle Left) -->
-    <g id="fox" transform="translate(350, 220)">
-        <!-- Fox's personal mini cloud -->
-        <circle cx="0" cy="30" r="35" fill="#ffffff" filter="url(#shadow)"/>
-        <circle cx="-25" cy="35" r="25" fill="#ffffff"/>
-        <circle cx="25" cy="35" r="25" fill="#ffffff"/>
-
-        <!-- Fox Tail -->
-        <path d="M -15 25 Q -40 10 -45 35 Q -30 40 -15 35" fill="#e66b33"/>
-        <circle cx="-44" cy="36" r="6" fill="white"/> <!-- tail tip -->
-
-        <!-- Fox Body -->
-        <path d="M -12 10 L 12 10 L 18 35 L -18 35 Z" fill="#e66b33"/>
-        <path d="M -6 15 L 6 15 L 10 35 L -10 35 Z" fill="#ffffff"/> <!-- belly -->
-
-        <!-- Fox Head -->
-        <polygon points="-22,-5 22,-5 0,20" fill="#e66b33" stroke="#e66b33" stroke-width="6" stroke-linejoin="round"/>
-        <!-- Ears -->
-        <polygon points="-12,-5 -20,-22 -4,-5" fill="#e66b33"/>
-        <polygon points="12,-5 20,-22 4,-5" fill="#e66b33"/>
-        <!-- Face details -->
-        <polygon points="-18,2 18,2 0,20" fill="#ffffff"/>
-        <circle cx="-8" cy="4" r="2.5" fill="#111"/>
-        <circle cx="8" cy="4" r="2.5" fill="#111"/>
-        <circle cx="0" cy="17" r="3" fill="#111"/>
-        <circle cx="-14" cy="9" r="3" fill="#ff9999" opacity="0.7"/> <!-- blush -->
-        <circle cx="14" cy="9" r="3" fill="#ff9999" opacity="0.7"/>
+    <!-- ESTRELLITAS CON CARA -->
+    <g transform="translate(100, 150) rotate(-15)">
+        <path d="M 0 -22 L 6 -6 L 24 -6 L 10 6 L 14 24 L 0 12 L -14 24 L -10 6 L -24 -6 L -6 -6 Z" fill="#ff80ab" stroke="#c2185b" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="-5" cy="2" r="1.5" fill="#311b92"/>
+        <circle cx="5" cy="2" r="1.5" fill="#311b92"/>
+        <path d="M -2 6 Q 0 9 2 6" fill="none" stroke="#311b92" stroke-width="1.5"/>
     </g>
 
-    <!-- Character: Flying Panda in Plane (Top Right) -->
-    <g id="panda-plane" transform="translate(950, 160)">
-        <!-- Propeller -->
-        <path d="M -55 5 C -55 -20, -45 -20, -45 5 C -45 30, -55 30, -55 5 Z" fill="#b0c4de" opacity="0.7"/>
-        <ellipse cx="-50" cy="5" rx="6" ry="18" fill="#dcdcdc"/>
-        <circle cx="-50" cy="5" r="4" fill="#333"/>
-
-        <!-- Plane Back Wing / Tail -->
-        <path d="M 60 -10 L 80 -35 L 90 -10 Z" fill="#ffcc00"/>
-
-        <!-- Plane body -->
-        <path d="M -50 5 Q -25 -20 25 -20 L 75 -5 L 75 15 L 25 30 Q -25 30 -50 5 Z" fill="#4da6ff" filter="url(#shadow)"/>
-
-        <!-- Main Wing -->
-        <path d="M -15 5 L 35 25 L 10 45 Z" fill="#ff5c5c"/>
-        <path d="M -15 5 L 35 25 L 10 45 Z" fill="none" stroke="#fff" stroke-width="2"/>
-
-        <!-- Panda Head -->
-        <g transform="translate(10, -25)">
-            <!-- Ears -->
-            <circle cx="-15" cy="-15" r="8" fill="#111"/>
-            <circle cx="15" cy="-15" r="8" fill="#111"/>
-            <!-- Head -->
-            <circle cx="0" cy="0" r="22" fill="#fff"/>
-            <!-- Eye patches -->
-            <ellipse cx="-9" cy="-2" rx="7" ry="9" fill="#111" transform="rotate(-15 -9 -2)"/>
-            <ellipse cx="9" cy="-2" rx="7" ry="9" fill="#111" transform="rotate(15 9 -2)"/>
-            <!-- Eyes -->
-            <circle cx="-8" cy="-3" r="2.5" fill="#fff"/>
-            <circle cx="10" cy="-3" r="2.5" fill="#fff"/>
-            <!-- Nose/Mouth -->
-            <circle cx="0" cy="7" r="2.5" fill="#111"/>
-            <path d="M -4 11 Q 0 14 4 11" fill="none" stroke="#111" stroke-width="1.5"/>
-            <!-- Blush -->
-            <circle cx="-16" cy="6" r="4" fill="#ff9999" opacity="0.6"/>
-            <circle cx="16" cy="6" r="4" fill="#ff9999" opacity="0.6"/>
-        </g>
+    <g transform="translate(930, 110) rotate(15)">
+        <path d="M 0 -22 L 6 -6 L 24 -6 L 10 6 L 14 24 L 0 12 L -14 24 L -10 6 L -24 -6 L -6 -6 Z" fill="#ffd54f" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="-6" cy="4" r="2" fill="#3e2723"/>
+        <circle cx="6" cy="4" r="2" fill="#3e2723"/>
+        <path d="M -2 8 Q 0 11 2 8" fill="none" stroke="#3e2723" stroke-width="1.5"/>
+        <circle cx="-10" cy="7" r="2.5" fill="#ff5722" opacity="0.9"/>
+        <circle cx="10" cy="7" r="2.5" fill="#ff5722" opacity="0.9"/>
     </g>
 
-    <!-- Character: Unicorn in Red Plane (Bottom Right) -->
-    <g id="unicorn-plane" transform="translate(1000, 500) scale(0.95)">
-        <!-- Propeller -->
-        <path d="M -55 5 C -55 -20, -45 -20, -45 5 C -45 30, -55 30, -55 5 Z" fill="#b0c4de" opacity="0.7"/>
-        <ellipse cx="-50" cy="5" rx="6" ry="18" fill="#dcdcdc"/>
-        <circle cx="-50" cy="5" r="4" fill="#333"/>
+    <!-- NUBES DETALLADAS -->
+    <path d="M -20 -20 L 1300 -20 L 1300 130 C 1200 200, 1100 100, 1000 150 C 900 210, 800 110, 700 160 C 600 220, 500 110, 400 180 C 300 240, 200 140, 100 190 C 0 230, -20 150, -20 150 Z" fill="#9575cd" opacity="0.5" filter="url(#cloudShadow)"/>
 
-        <!-- Tail -->
-        <path d="M 60 -10 L 80 -35 L 90 -10 Z" fill="#4da6ff"/>
+    <path d="M -20 740 L 1300 740 L 1300 630 C 1200 560, 1100 660, 1000 610 C 900 550, 800 660, 700 600 C 600 540, 500 650, 400 580 C 300 510, 200 620, 100 560 C 0 520, -20 600, -20 600 Z" fill="#9575cd" opacity="0.5" filter="url(#cloudShadow)"/>
 
-        <!-- Plane body -->
-        <path d="M -50 5 Q -25 -20 25 -20 L 75 -5 L 75 15 L 25 30 Q -25 30 -50 5 Z" fill="#ff5c5c" filter="url(#shadow)"/>
+    <!-- Nubes Superiores -->
+    <path d="M -20 -20 L 1300 -20 L 1300 110
+             C 1220 180, 1120 80, 1020 130
+             C 920 180, 820 80, 720 140
+             C 620 190, 520 90, 420 150
+             C 320 210, 220 110, 120 160
+             C 20 200, -20 120, -20 120 Z" fill="url(#cloudGrad)"/>
 
-        <!-- Wing -->
-        <path d="M -15 5 L 35 25 L 10 45 Z" fill="#ffcc00"/>
+    <circle cx="80" cy="70" r="90" fill="url(#cloudGrad)"/>
+    <circle cx="300" cy="50" r="110" fill="url(#cloudGrad)"/>
+    <circle cx="600" cy="30" r="130" fill="url(#cloudGrad)"/>
+    <circle cx="900" cy="40" r="120" fill="url(#cloudGrad)"/>
+    <circle cx="1180" cy="60" r="100" fill="url(#cloudGrad)"/>
 
-        <!-- Unicorn Head -->
-        <g transform="translate(15, -25)">
-            <!-- Mane Background -->
-            <circle cx="10" cy="-18" r="7" fill="#ff99cc"/>
-            <circle cx="15" cy="-8" r="7" fill="#b39ddb"/>
-
-            <!-- Head -->
-            <path d="M -12 10 L -20 -15 L 0 -22 L 20 -8 Q 20 15 0 20 Q -12 20 -12 10 Z" fill="#fff"/>
-
-            <!-- Horn -->
-            <polygon points="-8,-20 0,-40 8,-18" fill="#ffeb3b" stroke="#ffb347" stroke-width="2"/>
-
-            <!-- Mane Foreground -->
-            <circle cx="-2" cy="-25" r="6" fill="#77b6ea"/>
-            <circle cx="18" cy="2" r="7" fill="#ff99cc"/>
-
-            <!-- Ear -->
-            <polygon points="8,-18 18,-28 16,-12" fill="#fff"/>
-            <polygon points="10,-18 16,-24 14,-14" fill="#ff99cc"/>
-
-            <!-- Face -->
-            <circle cx="-5" cy="-4" r="3.5" fill="#111"/>
-            <circle cx="-5" cy="-5.5" r="1.5" fill="#fff"/>
-            <circle cx="-12" cy="8" r="4" fill="#ff9999" opacity="0.7"/> <!-- blush -->
-        </g>
+    <!-- COHETE ASOMÁNDOSE EN LA PARTE SUPERIOR IZQUIERDA -->
+    <g transform="translate(280, 75) rotate(25)">
+        <path d="M -10 20 L 0 45 L 10 20 Z" fill="#ff3d00" stroke="#bf360c" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M -4 20 L 0 32 L 4 20 Z" fill="#ffea00"/>
+        <rect x="-14" y="-20" width="28" height="42" rx="12" fill="#ffffff" stroke="#37474f" stroke-width="2.5"/>
+        <path d="M -14 -5 L -22 8 L -14 12 Z" fill="#e53935" stroke="#37474f" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M 14 -5 L 22 8 L 14 12 Z" fill="#e53935" stroke="#37474f" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="0" cy="-3" r="7" fill="#00b0ff" stroke="#01579b" stroke-width="2"/>
+        <circle cx="-2" cy="-5" r="1.5" fill="#ffffff"/>
     </g>
 
-    <!-- Character: Panda on Cloud (Bottom Middle) -->
-    <g id="panda-cloud" transform="translate(800, 500)">
-        <circle cx="0" cy="25" r="35" fill="#ffffff" filter="url(#shadow)"/>
-        <circle cx="-25" cy="30" r="25" fill="#ffffff"/>
-        <circle cx="25" cy="30" r="25" fill="#ffffff"/>
-
-        <!-- Panda Body -->
-        <circle cx="0" cy="5" r="18" fill="#111"/>
-        <circle cx="0" cy="12" r="16" fill="#fff"/>
-
-        <!-- Feet -->
-        <ellipse cx="-12" cy="22" rx="8" ry="6" fill="#111"/>
-        <ellipse cx="12" cy="22" rx="8" ry="6" fill="#111"/>
-
-        <!-- Arms -->
-        <path d="M -15 2 C -25 5 -25 15 -15 15 Z" fill="#111"/>
-        <path d="M 15 2 C 25 5 25 15 15 15 Z" fill="#111"/>
-
-        <!-- Panda Head -->
-        <g transform="translate(0, -12)">
-            <!-- Ears -->
-            <circle cx="-14" cy="-14" r="8" fill="#111"/>
-            <circle cx="14" cy="-14" r="8" fill="#111"/>
-            <!-- Head -->
-            <circle cx="0" cy="0" r="22" fill="#fff"/>
-            <!-- Eye patches -->
-            <ellipse cx="-9" cy="-2" rx="6" ry="8" fill="#111" transform="rotate(-15 -9 -2)"/>
-            <ellipse cx="9" cy="-2" rx="6" ry="8" fill="#111" transform="rotate(15 9 -2)"/>
-            <!-- Eyes -->
-            <circle cx="-8" cy="-3" r="2.5" fill="#fff"/>
-            <circle cx="10" cy="-3" r="2.5" fill="#fff"/>
-            <!-- Nose/Mouth -->
-            <circle cx="0" cy="6" r="3" fill="#111"/>
-            <path d="M -4 10 Q 0 13 4 10" fill="none" stroke="#111" stroke-width="1.5"/>
-            <!-- blush -->
-            <circle cx="-15" cy="6" r="4" fill="#ff9999" opacity="0.6"/>
-            <circle cx="15" cy="6" r="4" fill="#ff9999" opacity="0.6"/>
-        </g>
+    <!-- OSO CARISMÁTICO ASOMÁNDOSE EN LA PARTE SUPERIOR DERECHA -->
+    <g transform="translate(980, 70)">
+        <!-- Orejas -->
+        <circle cx="-22" cy="-18" r="12" fill="#8d6e63" stroke="#3e2723" stroke-width="2.5"/>
+        <circle cx="-22" cy="-18" r="6" fill="#d7ccc8"/>
+        <circle cx="22" cy="-18" r="12" fill="#8d6e63" stroke="#3e2723" stroke-width="2.5"/>
+        <circle cx="22" cy="-18" r="6" fill="#d7ccc8"/>
+        <!-- Cabeza -->
+        <rect x="-28" y="-22" width="56" height="46" rx="22" fill="#8d6e63" stroke="#3e2723" stroke-width="2.5"/>
+        <!-- Hocico -->
+        <ellipse cx="0" cy="5" rx="14" ry="10" fill="#d7ccc8" stroke="#3e2723" stroke-width="2"/>
+        <ellipse cx="0" cy="2" rx="6" ry="4" fill="#3e2723"/>
+        <path d="M 0 6 Q 0 12 4 10" fill="none" stroke="#3e2723" stroke-width="2" stroke-linecap="round"/>
+        <!-- Ojos -->
+        <circle cx="-10" cy="-4" r="3" fill="#3e2723"/>
+        <circle cx="-11" cy="-5" r="1" fill="#ffffff"/>
+        <circle cx="10" cy="-4" r="3" fill="#3e2723"/>
+        <circle cx="9" cy="-5" r="1" fill="#ffffff"/>
+        <!-- Mejillas -->
+        <circle cx="-16" cy="2" r="3.5" fill="#ff8a80" opacity="0.8"/>
+        <circle cx="16" cy="2" r="3.5" fill="#ff8a80" opacity="0.8"/>
     </g>
 
-    <!-- Character: Rocket (Bottom Middle-Left) -->
-    <g id="rocket" transform="translate(680, 600) rotate(25) scale(0.9)" filter="url(#shadow)">
-        <!-- Fire -->
-        <path d="M -18 45 L 0 85 L 18 45 Z" fill="#ffb347"/>
-        <path d="M -10 45 L 0 70 L 10 45 Z" fill="#ff5c5c"/>
-        <path d="M -4 45 L 0 55 L 4 45 Z" fill="#ffeb3b"/>
+    <!-- Nubes Inferiores -->
+    <path d="M -20 740 L 1300 740 L 1300 650
+             C 1220 580, 1120 680, 1020 630
+             C 920 580, 820 680, 720 620
+             C 620 570, 520 670, 420 600
+             C 320 530, 220 640, 120 580
+             C 20 540, -20 620, -20 620 Z" fill="url(#cloudGrad)"/>
 
-        <!-- Fins -->
-        <path d="M -22 20 L -40 45 L -22 35 Z" fill="#4da6ff"/>
-        <path d="M 22 20 L 40 45 L 22 35 Z" fill="#4da6ff"/>
+    <circle cx="100" cy="680" r="100" fill="url(#cloudGrad)"/>
+    <circle cx="380" cy="670" r="120" fill="url(#cloudGrad)"/>
+    <circle cx="680" cy="690" r="140" fill="url(#cloudGrad)"/>
+    <circle cx="980" cy="660" r="110" fill="url(#cloudGrad)"/>
+    <circle cx="1250" cy="670" r="100" fill="url(#cloudGrad)"/>
 
-        <!-- Body -->
-        <path d="M 0 -50 Q 30 -15 25 45 L -25 45 Q -30 -15 0 -50 Z" fill="#ffffff"/>
-
-        <!-- Red Tip -->
-        <path d="M -16 -16 Q 0 -35 16 -16 L 0 -50 Z" fill="#ff5c5c"/>
-
-        <!-- Window -->
-        <circle cx="0" cy="8" r="12" fill="#77b6ea" stroke="#dcdcdc" stroke-width="4"/>
-        <circle cx="-4" cy="4" r="3" fill="#fff" opacity="0.8"/>
+    <!-- Nube flotante pequeña -->
+    <g transform="translate(850, 480)" filter="url(#cloudShadow)">
+        <path d="M 30 30 C 10 30, 0 50, 20 70 L 140 70 C 160 70, 170 40, 140 30 C 140 0, 90 -10, 70 10 C 60 -5, 30 0, 30 30 Z" fill="url(#cloudGrad)"/>
     </g>
 
-    <!-- Sun and Moon Decoration (Bottom Right Corner) -->
-    <g id="sun-moon" transform="translate(1180, 600)">
-        <!-- Sun Rays -->
-        <g stroke="#ffcc00" stroke-width="8" stroke-linecap="round">
-            <line x1="0" y1="-55" x2="0" y2="-75"/>
-            <line x1="0" y1="55" x2="0" y2="75"/>
-            <line x1="-55" y1="0" x2="-75" y2="0"/>
-            <line x1="55" y1="0" x2="75" y2="0"/>
-            <line x1="-40" y1="-40" x2="-55" y2="-55"/>
-            <line x1="40" y1="40" x2="55" y2="55"/>
-            <line x1="-40" y1="40" x2="-55" y2="55"/>
-            <line x1="40" y1="-40" x2="55" y2="-55"/>
+    <!-- ARCOIRIS MÁS GRANDE Y ELEVADO EN LA ESQUINA INFERIOR IZQUIERDA -->
+    <g transform="translate(0, 680)">
+        <path d="M 0 0 A 280 280 0 0 1 280 0" fill="none" stroke="#ff5c5c" stroke-width="15" opacity="0.95"/>
+        <path d="M 0 0 A 262 262 0 0 1 262 0" fill="none" stroke="#ffb347" stroke-width="15" opacity="0.95"/>
+        <path d="M 0 0 A 244 244 0 0 1 244 0" fill="none" stroke="#ffeb3b" stroke-width="15" opacity="0.95"/>
+        <path d="M 0 0 A 226 226 0 0 1 226 0" fill="none" stroke="#77dd77" stroke-width="15" opacity="0.95"/>
+        <path d="M 0 0 A 208 208 0 0 1 208 0" fill="none" stroke="#77b6ea" stroke-width="15" opacity="0.95"/>
+        <path d="M 0 0 A 190 190 0 0 1 190 0" fill="none" stroke="#b39ddb" stroke-width="15" opacity="0.95"/>
+    </g>
+
+    <!-- EL SOL CARISMÁTICO CON RAYOS DE SOL -->
+    <g transform="translate(0, 0)">
+        <!-- Rayos de sol extendidos manteniendo el mismo estilo y color -->
+        <g stroke="#ffb300" stroke-width="6" stroke-linecap="round" opacity="0.85">
+            <line x1="1130" y1="490" x2="1130" y2="465"/>
+            <line x1="1130" y1="670" x2="1130" y2="695"/>
+            <line x1="1040" y1="580" x2="1015" y2="580"/>
+            <line x1="1220" y1="580" x2="1245" y2="580"/>
+            <line x1="1066" y1="516" x2="1048" y2="498"/>
+            <line x1="1194" y1="644" x2="1212" y2="662"/>
+            <line x1="1066" y1="644" x2="1048" y2="662"/>
+            <line x1="1194" y1="516" x2="1212" y2="498"/>
         </g>
 
-        <!-- Sun Body -->
-        <circle cx="0" cy="0" r="45" fill="#ffeb3b" filter="url(#shadow)"/>
-        <!-- Sun Face -->
-        <circle cx="-15" cy="-8" r="5" fill="#111"/>
-        <circle cx="15" cy="-8" r="5" fill="#111"/>
-        <path d="M -20 12 Q 0 30 20 12" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round"/>
-        <circle cx="-25" cy="5" r="6" fill="#ff9999" opacity="0.8"/>
-        <circle cx="25" cy="5" r="6" fill="#ff9999" opacity="0.8"/>
+        <!-- Base de picos (Estrella de 8 puntas) -->
+        <polygon points="1190.1,604.9 1161.8,611.8 1154.9,640.1 1130.0,625.0 1105.1,640.1 1098.2,611.8 1069.9,604.9 1085.0,580.0 1069.9,555.1 1098.2,548.2 1105.1,519.9 1130.0,535.0 1154.9,519.9 1161.8,548.2 1190.1,555.1 1175.0,580.0" fill="#ff8f00" stroke="#e65100" stroke-width="4" stroke-linejoin="round" filter="url(#glow)"/>
+        <circle cx="1130" cy="580" r="48" fill="url(#sunGrad)" stroke="#e65100" stroke-width="3"/>
+        <circle cx="1115" cy="575" r="5" fill="#3e2723"/>
+        <circle cx="1113" cy="573" r="1.5" fill="#ffffff"/>
+        <circle cx="1145" cy="575" r="5" fill="#3e2723"/>
+        <circle cx="1143" cy="573" r="1.5" fill="#ffffff"/>
+        <path d="M 1123 585 Q 1130 595 1137 585" fill="none" stroke="#3e2723" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="1103" cy="582" r="7" fill="#f4511e" opacity="0.9"/>
+        <circle cx="1157" cy="582" r="7" fill="#f4511e" opacity="0.9"/>
+    </g>
 
-        <!-- Crescent Moon Hugging the Sun -->
-        <path d="M -48 -15 A 35 35 0 1 0 -15 -48 A 45 45 0 1 1 -48 -15 Z" fill="#e6e6fa" filter="url(#shadow)"/>
-        <!-- Moon Face -->
-        <circle cx="-42" cy="-30" r="3" fill="#111"/>
-        <path d="M -50 -20 Q -42 -15 -35 -20" fill="none" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
-        <!-- Moon sleeping eye -->
-        <path d="M -46 -30 Q -42 -27 -38 -30" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="-48" cy="-22" r="3" fill="#ff9999" opacity="0.8"/>
+    <!-- ROBOT VOLADOR -->
+    <g transform="translate(150, 420)">
+        <path d="M -12 25 L 0 50 L 12 25 Z" fill="#ff3d00" stroke="#bf360c" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M -5 25 L 0 38 L 5 25 Z" fill="#ffea00"/>
+        <path d="M -18 5 Q -30 15 -25 25" fill="none" stroke="#37474f" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="-25" cy="25" r="4" fill="#00e5ff" stroke="#37474f" stroke-width="2"/>
+        <path d="M 18 5 Q 30 15 25 25" fill="none" stroke="#37474f" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="25" cy="25" r="4" fill="#00e5ff" stroke="#37474f" stroke-width="2"/>
+        <rect x="-18" y="-10" width="36" height="35" rx="12" fill="#ffffff" stroke="#37474f" stroke-width="3"/>
+        <rect x="-10" y="5" width="20" height="15" rx="4" fill="#b0bec5" stroke="#37474f" stroke-width="2"/>
+        <circle cx="0" cy="12.5" r="3" fill="#00e5ff"/>
+        <line x1="0" y1="-30" x2="0" y2="-45" stroke="#37474f" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="0" cy="-48" r="5" fill="#ffea00" stroke="#37474f" stroke-width="2.5"/>
+        <rect x="-24" y="-35" width="48" height="30" rx="12" fill="#ffffff" stroke="#37474f" stroke-width="3"/>
+        <rect x="-16" y="-28" width="32" height="16" rx="6" fill="#00b0ff" stroke="#01579b" stroke-width="2"/>
+        <circle cx="-8" cy="-20" r="3" fill="#ffffff"/>
+        <path d="M -11 -23 Q -8 -25 -5 -23" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="8" cy="-20" r="3" fill="#ffffff"/>
+        <path d="M 5 -23 Q 8 -25 11 -23" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+
+    <!-- ZORRITO -->
+    <g transform="translate(630, 470)">
+        <path d="M 12 15 C 35 20, 40 -5, 25 -5 C 20 -5, 15 5, 12 15 Z" fill="#ff6d00" stroke="#3e2723" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="31" cy="0" r="4" fill="#fffde7"/>
+        <rect x="-14" y="14" width="12" height="12" rx="5" fill="#ff6d00" stroke="#3e2723" stroke-width="2.5"/>
+        <rect x="8" y="14" width="12" height="12" rx="5" fill="#ff6d00" stroke="#3e2723" stroke-width="2.5"/>
+        <rect x="-16" y="-8" width="38" height="30" rx="15" fill="#ff6d00" stroke="#3e2723" stroke-width="2.5"/>
+        <rect x="-8" y="2" width="22" height="20" rx="10" fill="#ffe082"/>
+        <rect x="-8" y="18" width="8" height="12" rx="4" fill="#e65100" stroke="#3e2723" stroke-width="2.5"/>
+        <rect x="6" y="18" width="8" height="12" rx="4" fill="#e65100" stroke="#3e2723" stroke-width="2.5"/>
+        <polygon points="-16,-28 -24,-45 -4,-34" fill="#ff6d00" stroke="#3e2723" stroke-width="2.5" stroke-linejoin="round"/>
+        <polygon points="-15,-32 -20,-41 -8,-35" fill="#ffe082"/>
+        <polygon points="12,-28 20,-45 0,-34" fill="#ff6d00" stroke="#3e2723" stroke-width="2.5" stroke-linejoin="round"/>
+        <polygon points="11,-32 16,-41 4,-35" fill="#ffe082"/>
+        <circle cx="-2" cy="-20" r="20" fill="#ff6d00" stroke="#3e2723" stroke-width="2.5"/>
+        <path d="M -20 -18 Q -2 -2 16 -18 C 16 -10, -20 -10, -20 -18 Z" fill="#ffffff" stroke="#3e2723" stroke-width="1.5"/>
+        <circle cx="-9" cy="-23" r="3" fill="#212121"/>
+        <circle cx="-10" cy="-24" r="1" fill="#ffffff"/>
+        <circle cx="5" cy="-23" r="3" fill="#212121"/>
+        <circle cx="4" cy="-24" r="1" fill="#ffffff"/>
+        <circle cx="-2" cy="-14" r="2.5" fill="#212121"/>
+        <path d="M -6 -10 Q -2 -6 2 -10" fill="none" stroke="#212121" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="-14" cy="-16" r="3" fill="#ff5722" opacity="0.8"/>
+        <circle cx="10" cy="-16" r="3" fill="#ff5722" opacity="0.8"/>
     </g>
 </svg>
