@@ -110,7 +110,10 @@ function App() {
         <Route path="comunidad/:slug" element={<CommunityPage />} />
         <Route path="mis-juegos" element={<MyGamesPage />} />
         <Route path="mis-juegos/:slug" element={<MyGamesPage />} />
-        <Route path="temas" element={<ThemesPage />} />
+        <Route
+          path="temas"
+          element={user.role === 'ADMIN' ? <ThemesPage /> : <Navigate to="/" replace />}
+        />
         <Route path="usuarios" element={<AdminUsersPage />} />
         <Route path="organizacion" element={<OrganizationDashboardPage />} />
       </Route>
