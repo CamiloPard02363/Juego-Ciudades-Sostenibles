@@ -43,6 +43,7 @@ export interface GameRepository {
    */
   bulkInsert(games: Game[], session?: unknown): Promise<void>;
   findById(id: string): Promise<Game | null>;
+  findByIds(ids: string[]): Promise<Game[]>;
   findBySlug(slug: string): Promise<Game | null>;
   existsBySlug(slug: string): Promise<boolean>;
   findAll(filter: FindAllGamesFilter): Promise<PaginatedGames>;

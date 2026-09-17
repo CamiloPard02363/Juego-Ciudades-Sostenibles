@@ -95,8 +95,26 @@ model ClassModel {
   teacher       UserModel @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now()) @map("created_at")
 
+  games         ClassGameModel[]
+
   @@index([teacherUserId, createdAt(sort: Desc)])
   @@map("classes")
+}
+
+/// Relación N:M entre una Class (agrupador privado de trabajo del profesor)
+/// y un Game (que vive en MongoDB, no en Postgres — de ahí que gameId sea un
+/// string suelto sin FK real; la existencia se valida a mano en el use-case
+/// contra el repositorio de Game, igual que Subject.categoryId).
+model ClassGameModel {
+  id        String     @id @default(uuid())
+  classId   String     @map("class_id")
+  class     ClassModel @relation(fields: [classId], references: [id], onDelete: Cascade)
+  gameId    String     @map("game_id")
+  addedAt   DateTime   @default(now()) @map("added_at")
+
+  @@unique([classId, gameId])
+  @@index([classId])
+  @@map("class_games")
 }
 
 enum SubjectStatusEnum {

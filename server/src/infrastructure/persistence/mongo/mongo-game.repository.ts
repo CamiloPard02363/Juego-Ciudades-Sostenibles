@@ -123,6 +123,12 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
     return doc ? GameMapper.toDomain(doc) : null;
   }
 
+  async findByIds(ids: string[]): Promise<Game[]> {
+    if (ids.length === 0) return [];
+    const docs = await this.collection.find({ _id: { $in: ids } }).toArray();
+    return docs.map(GameMapper.toDomain);
+  }
+
   async findBySlug(slug: string): Promise<Game | null> {
     const doc = await this.collection.findOne({ slug });
     return doc ? GameMapper.toDomain(doc) : null;

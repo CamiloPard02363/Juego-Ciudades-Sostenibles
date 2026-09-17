@@ -59,6 +59,12 @@ export class CategorySlugAlreadyTakenError extends ApplicationError {
   }
 }
 
+export class ClassNotFoundError extends ApplicationError {
+  constructor(identifier: string) {
+    super(`No se encontró una clase con identificador "${identifier}".`);
+  }
+}
+
 export class SubjectNotFoundError extends ApplicationError {
   constructor(identifier: string) {
     super(`No se encontró una materia con identificador "${identifier}".`);
