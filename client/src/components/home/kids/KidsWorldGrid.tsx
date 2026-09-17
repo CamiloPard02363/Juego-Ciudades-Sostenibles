@@ -1,4 +1,4 @@
-import type { CategoryWithGameCount } from '../../../services/category.service'
+import type { SubjectWithGameCount as CategoryWithGameCount } from '../../../services/subject.service'
 import { colorForCategory, iconForCategory } from '../gamesCatalogVisuals'
 
 type KidsWorldGridProps = {

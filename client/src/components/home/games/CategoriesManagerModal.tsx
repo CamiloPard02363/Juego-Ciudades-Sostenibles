@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { CategoryWithGameCount } from '../../../services/category.service'
+import type { SubjectWithGameCount as CategoryWithGameCount } from '../../../services/subject.service'
 import { Modal } from './Modal'
 
 type CategoriesManagerModalProps = {

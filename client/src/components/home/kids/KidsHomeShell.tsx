@@ -3,7 +3,10 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { Building2 } from 'lucide-react'
 import type { AuthUser } from '../../../services/auth.service'
 import { useAuth } from '../../../hooks/useAuth'
-import { listCategories, type CategoryWithGameCount } from '../../../services/category.service'
+import {
+  listSubjects as listCategories,
+  type SubjectWithGameCount as CategoryWithGameCount,
+} from '../../../services/subject.service'
 import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import type { GameSummary } from '../../../services/game.service'
 import { HomeSearchContext } from '../homeSearchContext'

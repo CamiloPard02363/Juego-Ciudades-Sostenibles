@@ -41,6 +41,7 @@ model UserModel {
   organizationsCreated  OrganizationModel[]           @relation("OrganizationCreatedBy")
   organizationMemberships OrganizationMembershipModel[]
   classes               ClassModel[]
+  subjectsCreated       SubjectModel[]
 
   @@map("users")
 }
@@ -96,6 +97,36 @@ model ClassModel {
 
   @@index([teacherUserId, createdAt(sort: Desc)])
   @@map("classes")
+}
+
+enum SubjectStatusEnum {
+  PRIVATE
+  PUBLIC
+
+  @@map("subject_status")
+}
+
+/// Materia raíz (parentSubjectId null, PUBLIC desde su creación por un admin) o
+/// sub-materia (parentSubjectId con valor, nace PRIVATE). PRIVATE -> PUBLIC es
+/// irreversible; el soft-delete (deletedAt) solo aplica en PRIVATE, porque una
+/// materia pública puede tener juegos de otros usuarios colgados debajo.
+model SubjectModel {
+  id              String            @id @default(uuid())
+  name            String
+  slug            String            @unique
+  parentSubjectId String?           @map("parent_subject_id")
+  parent          SubjectModel?     @relation("SubjectHierarchy", fields: [parentSubjectId], references: [id], onDelete: Restrict)
+  children        SubjectModel[]    @relation("SubjectHierarchy")
+  /// null = materia raíz creada por un admin sin registrar autoría individual.
+  creatorUserId   String?           @map("creator_user_id")
+  creator         UserModel?        @relation(fields: [creatorUserId], references: [id], onDelete: SetNull)
+  status          SubjectStatusEnum @default(PRIVATE)
+  deletedAt       DateTime?         @map("deleted_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  @@index([parentSubjectId])
+  @@index([creatorUserId])
+  @@map("subjects")
 }
 
 model RefreshTokenModel {

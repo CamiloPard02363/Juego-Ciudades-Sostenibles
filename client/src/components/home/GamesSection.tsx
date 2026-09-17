@@ -11,11 +11,11 @@ import {
   type GameDetail,
 } from '../../services/game.service'
 import {
-  listCategories,
-  createCategory,
-  deleteCategory,
-  type CategoryWithGameCount,
-} from '../../services/category.service'
+  listSubjects as listCategories,
+  createSubject,
+  deleteSubject as deleteCategory,
+  type SubjectWithGameCount as CategoryWithGameCount,
+} from '../../services/subject.service'
 import { ApiError } from '../../utils/http'
 import { trackEvent } from '../../services/analytics.service'
 import { GameCard } from './games/GameCard'
@@ -160,6 +160,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<CategoryWithGameCount | null>(null)
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryParentId, setNewCategoryParentId] = useState('')
   const [categoryError, setCategoryError] = useState<string | null>(null)
   const [savingCategory, setSavingCategory] = useState(false)
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -281,10 +282,8 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   }
 
   function canDeleteCategory(category: CategoryWithGameCount): boolean {
-    return Boolean(
-      user &&
-        (user.role === 'ADMIN' || user.id === category.creatorUserId || category.creatorUserId === null),
-    )
+    if (category.status !== 'PRIVATE') return false
+    return Boolean(user && (user.role === 'ADMIN' || user.id === category.creatorUserId))
   }
 
   function refreshCategories() {
@@ -294,13 +293,19 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       .catch(() => {})
   }
 
+  // Materias raíz (parentSubjectId null): son el esqueleto fijo del catálogo,
+  // solo un admin las crea. Toda materia nueva de un usuario normal nace como
+  // sub-materia de una de estas — de ahí el selector obligatorio de abajo.
+  const rootCategories = categories.filter((c) => c.parentSubjectId === null)
+
   async function handleCreateCategory() {
-    if (!token || !newCategoryName.trim()) return
+    if (!token || !newCategoryName.trim() || !newCategoryParentId) return
     setSavingCategory(true)
     setCategoryError(null)
     try {
-      await createCategory(token, newCategoryName.trim())
+      await createSubject(token, newCategoryName.trim(), newCategoryParentId)
       setNewCategoryName('')
+      setNewCategoryParentId('')
       setCreatingCategory(false)
       refreshCategories()
     } catch (err) {
@@ -532,7 +537,23 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
         {creatingCategory && (
           <Modal onClose={() => (savingCategory ? null : setCreatingCategory(false))} maxWidthClassName="max-w-[400px]">
             <h2 className="mb-1 text-[18px] tracking-tight text-text-h">Nueva materia</h2>
-            <p className="mb-4 text-[13px] text-text">Dale un nombre claro y corto.</p>
+            <p className="mb-4 text-[13px] text-text">
+              Se crea como sub-materia privada: solo tú la ves hasta que decidas publicarla.
+            </p>
+            <label className="mb-1 block text-[12.5px] font-medium text-text-h">Materia principal</label>
+            <select
+              value={newCategoryParentId}
+              disabled={savingCategory}
+              onChange={(event) => setNewCategoryParentId(event.target.value)}
+              className="mb-3 w-full rounded-lg border border-border bg-bg px-[13px] py-2.5 text-[13px] text-text-h outline-none focus:border-accent"
+            >
+              <option value="">Elige una materia principal…</option>
+              {rootCategories.map((root) => (
+                <option key={root.id} value={root.id}>
+                  {root.name}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               autoFocus
@@ -542,7 +563,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
               onKeyDown={(event) => {
                 if (event.key === 'Enter') handleCreateCategory()
               }}
-              placeholder="Ej. Matemáticas"
+              placeholder="Ej. Álgebra"
               className="w-full rounded-lg border border-border bg-bg px-[13px] py-2.5 text-[13px] text-text-h outline-none focus:border-accent"
             />
             {categoryError && (
@@ -555,7 +576,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                 type="button"
                 className="flex-1 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-                disabled={savingCategory || !newCategoryName.trim()}
+                disabled={savingCategory || !newCategoryName.trim() || !newCategoryParentId}
                 onClick={handleCreateCategory}
               >
                 {savingCategory ? 'Creando…' : 'Crear'}

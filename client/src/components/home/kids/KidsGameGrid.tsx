@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { listGames, type GameSummary } from '../../../services/game.service'
-import type { CategoryWithGameCount } from '../../../services/category.service'
+import type { SubjectWithGameCount as CategoryWithGameCount } from '../../../services/subject.service'
 import { colorForCategory } from '../gamesCatalogVisuals'
 import { KidsGameCard } from './KidsGameCard'
 
