@@ -6,10 +6,13 @@ type KidsPlanetIconProps = {
 }
 
 /**
- * Planeta kawaii que representa cada "mundo" (materia) en `KidsWorldGrid`,
- * reemplazando la burbuja de color + ícono de antes. Los ids de gradiente/
- * clip-path se generan con `useId` porque el grid renderiza varias
- * instancias a la vez y los ids de un `<defs>` de SVG son globales al DOM.
+ * Planeta kawaii que representa cada "mundo" (materia) en `KidsWorldGrid`:
+ * el círculo del planeta ocupa el 100% del badge (antes era una burbuja de
+ * color + ícono) — el viewBox recorta justo al borde del círculo (sin la
+ * plantita/anillo decorativos, que quedan fuera de encuadre) para que no
+ * quede espacio transparente alrededor. Los ids de gradiente/clip-path se
+ * generan con `useId` porque el grid renderiza varias instancias a la vez y
+ * los ids de un `<defs>` de SVG son globales al DOM.
  */
 export function KidsPlanetIcon({ size = 80, className }: KidsPlanetIconProps) {
   const uid = useId()
@@ -20,7 +23,7 @@ export function KidsPlanetIcon({ size = 80, className }: KidsPlanetIconProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 500 500"
+      viewBox="138 148 224 224"
       width={size}
       height={size}
       className={className}
