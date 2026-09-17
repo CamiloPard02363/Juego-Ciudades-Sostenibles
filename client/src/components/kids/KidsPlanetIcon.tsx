@@ -15,7 +15,7 @@ type KidsPlanetIconProps = {
  * grid renderiza varias instancias a la vez y los ids de un `<defs>` de SVG
  * son globales al DOM.
  */
-export function KidsPlanetIcon({ label, size = 200, className }: KidsPlanetIconProps) {
+export function KidsPlanetIcon({ label, size = 230, className }: KidsPlanetIconProps) {
   const uid = useId()
   const gradId = `kids-planet-grad-${uid}`
   const shadowId = `kids-planet-shadow-${uid}`
@@ -52,9 +52,9 @@ export function KidsPlanetIcon({ label, size = 200, className }: KidsPlanetIconP
         </clipPath>
       </defs>
 
-      {/* Planeta agrandado (~1.3x): se escala todo el grupo desde el
+      {/* Planeta agrandado (~1.55x): se escala todo el grupo desde el
           centro del círculo en vez de recalcular cada coordenada a mano. */}
-      <g transform="translate(250 260) scale(1.3) translate(-250 -260)">
+      <g transform="translate(250 260) scale(1.55) translate(-250 -260)">
         <g filter={`url(#${shadowId})`}>
           {/* Cuerpo base del planeta */}
           <circle cx="250" cy="260" r="110" fill={`url(#${gradId})`} stroke="#01579b" strokeWidth="3" />
