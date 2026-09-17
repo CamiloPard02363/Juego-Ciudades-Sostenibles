@@ -1,5 +1,4 @@
 import type { CategoryWithGameCount } from '../../../services/category.service'
-import { colorForCategory } from '../gamesCatalogVisuals'
 import { KidsPlanetIcon } from '../../kids/KidsPlanetIcon'
 
 type KidsWorldGridProps = {
@@ -31,23 +30,17 @@ export function KidsWorldGrid({ categories, onSelect }: KidsWorldGridProps) {
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      {worlds.map((category) => {
-        const color = colorForCategory(category.name)
-        return (
-          <button
-            key={category.id}
-            type="button"
-            onClick={() => onSelect(category)}
-            className="flex aspect-square flex-col items-center justify-center gap-3 rounded-[32px] border-4 text-center shadow-[0_10px_0_-2px_rgba(0,0,0,0.08)] transition-transform hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:shadow-none"
-            style={{ borderColor: color, background: `linear-gradient(160deg, ${color}33, var(--surface))` }}
-          >
-            <KidsPlanetIcon size={80} className="h-16 w-16 sm:h-20 sm:w-20" />
-            <p className="px-2 text-[16px] leading-tight font-extrabold text-text-h sm:text-[18px]">
-              {category.name}
-            </p>
-          </button>
-        )
-      })}
+      {worlds.map((category) => (
+        <button
+          key={category.id}
+          type="button"
+          onClick={() => onSelect(category)}
+          className="flex aspect-square flex-col items-center justify-center gap-3 rounded-[32px] border-4 border-border bg-surface text-center shadow-[0_10px_0_-2px_rgba(0,0,0,0.08)] transition-transform hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:shadow-none"
+        >
+          <KidsPlanetIcon size={80} className="h-16 w-16 sm:h-20 sm:w-20" />
+          <p className="px-2 text-[16px] leading-tight font-extrabold text-text-h sm:text-[18px]">{category.name}</p>
+        </button>
+      ))}
     </div>
   )
 }
