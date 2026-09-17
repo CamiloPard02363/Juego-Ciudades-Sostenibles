@@ -48,6 +48,7 @@ export function ProfileMenu({ user, onOpenSettings, onSignOut }: ProfileMenuProp
         type="button"
         className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pr-3 pl-1 transition-colors hover:bg-code-bg"
         aria-haspopup="menu"
+        data-tour="profile"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >

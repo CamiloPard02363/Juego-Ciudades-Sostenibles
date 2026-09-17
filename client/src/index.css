@@ -839,3 +839,23 @@ code {
       0 10px 28px -6px rgba(200, 29, 99, 0.85);
   }
 }
+/* El recorrido señala controles reales sin bloquear la navegación. */
+[data-tour-active='true'] {
+  outline: 3px solid var(--accent);
+  outline-offset: 5px;
+  scroll-margin-top: 20px;
+}
+
+.welcome-tour-card {
+  max-height: min(440px, 55dvh);
+}
+
+/* Mantener quietos los controles de lectura incluso con el wiggle del modo Kids. */
+[data-theme='kids'] .welcome-tour-card button {
+  animation: none !important;
+}
+
+[data-theme='kids'] .welcome-tour-card .text-accent,
+[data-theme='kids'] .welcome-tour-card button.bg-accent {
+  color: var(--text-h);
+}

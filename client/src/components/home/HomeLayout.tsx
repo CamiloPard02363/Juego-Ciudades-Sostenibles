@@ -10,6 +10,7 @@ import { HomeSearchContext } from './homeSearchContext'
 import { KidsMascot } from '../kids/KidsMascot'
 import { listMyOrganizations } from '../../services/organization.service'
 import { KidsHomeShell } from './kids/KidsHomeShell'
+import { WelcomeTour } from './WelcomeTour'
 
 export function HomeLayout() {
   const { user, token, signOut } = useAuth()
@@ -60,8 +61,9 @@ export function HomeLayout() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-6 py-4">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
           <SearchBar value={searchInput} onChange={setSearchInput} onSearch={handleSearch} />
+          <WelcomeTour key={`${user.id}:${user.role}`} user={user} />
           <ProfileMenu
             user={user}
             onOpenSettings={() => setSettingsOpen(true)}
