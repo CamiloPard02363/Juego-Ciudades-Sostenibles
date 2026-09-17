@@ -1,34 +1,36 @@
 import { useId } from 'react'
 
 type KidsPlanetIconProps = {
+  label: string
   size?: number
   className?: string
 }
 
 /**
  * Planeta kawaii que representa cada "mundo" (materia) en `KidsWorldGrid`:
- * el círculo del planeta ocupa el 100% del badge (antes era una burbuja de
- * color + ícono) — el viewBox recorta justo al borde del círculo (sin la
- * plantita/anillo decorativos, que quedan fuera de encuadre) para que no
- * quede espacio transparente alrededor. Los ids de gradiente/clip-path se
- * generan con `useId` porque el grid renderiza varias instancias a la vez y
- * los ids de un `<defs>` de SVG son globales al DOM.
+ * el planeta completo (cuerpo, continentes, anillo y plantita, como en el
+ * fondo del Modo Kids) es la tarjeta de la materia, con su nombre escrito
+ * dentro, debajo de la carita — igual que los "planetas ecológicos" del
+ * fondo. Los ids de gradiente/clip-path se generan con `useId` porque el
+ * grid renderiza varias instancias a la vez y los ids de un `<defs>` de SVG
+ * son globales al DOM.
  */
-export function KidsPlanetIcon({ size = 80, className }: KidsPlanetIconProps) {
+export function KidsPlanetIcon({ label, size = 160, className }: KidsPlanetIconProps) {
   const uid = useId()
   const gradId = `kids-planet-grad-${uid}`
   const shadowId = `kids-planet-shadow-${uid}`
+  const textShadowId = `kids-planet-text-shadow-${uid}`
   const clipId = `kids-planet-clip-${uid}`
 
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="138 148 224 224"
+      viewBox="0 0 500 500"
       width={size}
       height={size}
       className={className}
       role="img"
-      aria-label="Planeta"
+      aria-label={label}
     >
       <defs>
         <radialGradient id={gradId} cx="50%" cy="50%" r="50%">
@@ -39,6 +41,10 @@ export function KidsPlanetIcon({ size = 80, className }: KidsPlanetIconProps) {
 
         <filter id={shadowId} x="-10%" y="-10%" width="120%" height="120%">
           <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#000000" floodOpacity="0.2" />
+        </filter>
+
+        <filter id={textShadowId} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.8" />
         </filter>
 
         <clipPath id={clipId}>
@@ -87,6 +93,20 @@ export function KidsPlanetIcon({ size = 80, className }: KidsPlanetIconProps) {
 
         <circle cx="-35" cy="5" r="5" fill="#ff7675" opacity="0.85" />
         <circle cx="35" cy="5" r="5" fill="#ff7675" opacity="0.85" />
+
+        {/* Nombre de la materia, debajo de la carita */}
+        <text
+          x="0"
+          y="32"
+          textAnchor="middle"
+          fill="#ffffff"
+          fontFamily="Arial, sans-serif"
+          fontWeight="bold"
+          fontSize="20"
+          filter={`url(#${textShadowId})`}
+        >
+          {label}
+        </text>
       </g>
     </svg>
   )

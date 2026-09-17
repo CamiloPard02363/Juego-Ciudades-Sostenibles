@@ -7,11 +7,12 @@ type KidsWorldGridProps = {
 }
 
 /**
- * Pantalla de inicio del Modo Kids: cada materia es un "mundo" — un tile
- * grande, a todo color, con un solo ícono y una sola palabra — en vez de la
- * barra de filtros de texto del Home de adulto. Solo se listan materias con
- * juegos publicados: un mundo vacío sería un callejón sin salida para un
- * niño que no puede interpretar un estado vacío.
+ * Pantalla de inicio del Modo Kids: cada materia es un "mundo" — un planeta
+ * gigante con su nombre escrito adentro (ver `KidsPlanetIcon`), como los
+ * planetas del fondo del Modo Kids — en vez de la barra de filtros de texto
+ * del Home de adulto. Solo se listan materias con juegos publicados: un
+ * mundo vacío sería un callejón sin salida para un niño que no puede
+ * interpretar un estado vacío.
  */
 export function KidsWorldGrid({ categories, onSelect }: KidsWorldGridProps) {
   const worlds = categories.filter((category) => category.gameCount > 0)
@@ -35,10 +36,9 @@ export function KidsWorldGrid({ categories, onSelect }: KidsWorldGridProps) {
           key={category.id}
           type="button"
           onClick={() => onSelect(category)}
-          className="flex aspect-square flex-col items-center justify-center gap-3 rounded-[32px] border-4 border-border bg-surface text-center shadow-[0_10px_0_-2px_rgba(0,0,0,0.08)] transition-transform hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:shadow-none"
+          className="flex aspect-square flex-col items-center justify-center rounded-[32px] transition-transform hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0"
         >
-          <KidsPlanetIcon size={80} className="h-16 w-16 sm:h-20 sm:w-20" />
-          <p className="px-2 text-[16px] leading-tight font-extrabold text-text-h sm:text-[18px]">{category.name}</p>
+          <KidsPlanetIcon label={category.name} size={180} className="h-full w-full max-h-[220px] max-w-[220px]" />
         </button>
       ))}
     </div>
