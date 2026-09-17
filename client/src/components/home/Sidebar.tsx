@@ -129,13 +129,15 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           onClick={() => navigate('/mis-juegos')}
           icon={<Lock className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
-        <SidebarItem
-          label="Temas"
-          collapsed={collapsed}
-          active={location.pathname === '/temas'}
-          onClick={() => navigate('/temas')}
-          icon={<Palette className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
-        />
+        {userRole === 'ADMIN' && (
+          <SidebarItem
+            label="Temas"
+            collapsed={collapsed}
+            active={location.pathname === '/temas'}
+            onClick={() => navigate('/temas')}
+            icon={<Palette className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+          />
+        )}
         {(canManageUsers || canAccessOrganization) && (
           <>
             {!collapsed && (
