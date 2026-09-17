@@ -32,9 +32,17 @@ export function createSubject(
   })
 }
 
-/** POST /subjects/:id/publish — irreversible: solo el creador o un admin. */
-export function publishSubject(token: string, subjectId: string): Promise<Subject> {
-  return request<Subject>(`/subjects/${subjectId}/publish`, { method: 'POST', token })
+export type PublishSubjectResult = Subject & {
+  /** Juegos que estaban en borrador y pasaron a publicados por la cascada. */
+  gamesPublished: number
+}
+
+/**
+ * POST /subjects/:id/publish — irreversible: solo el creador o un admin.
+ * Publica en cascada todos los juegos en borrador de esta materia.
+ */
+export function publishSubject(token: string, subjectId: string): Promise<PublishSubjectResult> {
+  return request<PublishSubjectResult>(`/subjects/${subjectId}/publish`, { method: 'POST', token })
 }
 
 /** DELETE /subjects/:id — soft-delete, solo si sigue privada. */

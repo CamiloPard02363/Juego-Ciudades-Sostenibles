@@ -188,4 +188,12 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
 
     return new Map(results.map((row) => [row._id, row.count]));
   }
+
+  async publishAllDraftsByCategory(categoryId: string): Promise<number> {
+    const result = await this.collection.updateMany(
+      { categoryId, status: 'DRAFT' },
+      { $set: { status: 'PUBLISHED', updatedAt: new Date() }, $inc: { version: 1 } },
+    );
+    return result.modifiedCount;
+  }
 }
