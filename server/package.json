@@ -20,15 +20,16 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
-    "db:seed": "node --experimental-strip-types prisma/seed.ts",
-    "db:seed:nexus-play": "node --experimental-strip-types prisma/seed-nexus-play.ts",
-    "db:seed:maze-collector-demos": "node --experimental-strip-types prisma/seed-maze-collector-demos.ts",
-    "db:seed:snakes-ladders-demo": "node --experimental-strip-types prisma/seed-snakes-ladders-demo.ts",
-    "db:seed:dual-quest-demo": "node --experimental-strip-types prisma/seed-dual-quest-demo.ts",
-    "db:seed:dual-quest-pixi-demo": "node --experimental-strip-types prisma/seed-dual-quest-pixi-demo.ts"
+    "build:seed": "tsc -p prisma/tsconfig.seed.json",
+    "db:seed": "npm run build:seed && node dist-seed/prisma/seed.js",
+    "db:seed:nexus-play": "npm run build:seed && node dist-seed/prisma/seed-nexus-play.js",
+    "db:seed:maze-collector-demos": "npm run build:seed && node dist-seed/prisma/seed-maze-collector-demos.js",
+    "db:seed:snakes-ladders-demo": "npm run build:seed && node dist-seed/prisma/seed-snakes-ladders-demo.js",
+    "db:seed:dual-quest-demo": "npm run build:seed && node dist-seed/prisma/seed-dual-quest-demo.js",
+    "db:seed:dual-quest-pixi-demo": "npm run build:seed && node dist-seed/prisma/seed-dual-quest-pixi-demo.js"
   },
   "prisma": {
-    "seed": "node --experimental-strip-types prisma/seed.ts"
+    "seed": "npm run build:seed && node dist-seed/prisma/seed.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

@@ -12,7 +12,7 @@ import { MongoClient } from 'mongodb';
  *
  * Es idempotente: correrlo dos veces no duplica el juego (upsert por slug).
  *
- * Uso: node --experimental-strip-types prisma/seed-nexus-play.ts
+ * Uso: npm run db:seed:nexus-play
  */
 
 const SLUG = 'nexus-play-ecosistemas-sostenibles';
