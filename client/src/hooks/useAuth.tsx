@@ -16,6 +16,9 @@ type AuthContextValue = {
   user: AuthUser | null
   token: string | null
   status: AuthStatus
+  /** Motivo por el que se cerró la sesión sola (p. ej. cuenta desactivada). */
+  authMessage: string | null
+  clearAuthMessage: () => void
   signIn: (credentials: LoginCredentials) => Promise<void>
   signUp: (input: RegisterInput) => Promise<void>
   signOut: () => void
@@ -28,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [status, setStatus] = useState<AuthStatus>('checking')
+  const [authMessage, setAuthMessage] = useState<string | null>(null)
   // El access token vive solo en memoria (dura 15 min, no vale la pena
   // persistirlo); un ref evita que `refreshAccessToken` capture un `token`
   // obsoleto en closures viejas de `request()`.
@@ -38,13 +42,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(accessToken)
     setUser(profile)
     setStatus('authenticated')
+    setAuthMessage(null)
   }, [])
 
-  const signOut = useCallback(() => {
+  const clearAuthMessage = useCallback(() => setAuthMessage(null), [])
+
+  const signOut = useCallback((reason?: string) => {
     tokenRef.current = null
     setToken(null)
     setUser(null)
     setStatus('anonymous')
+    if (reason) setAuthMessage(reason)
     // Best-effort: revoca el refresh token en servidor. Si falla (red caída,
     // ya revocado), la sesión local ya quedó cerrada de todos modos.
     authService.logout().catch(() => {})
@@ -133,7 +141,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, status, signIn, signUp, signOut, updateProfile }}
+      value={{
+        user,
+        token,
+        status,
+        authMessage,
+        clearAuthMessage,
+        signIn,
+        signUp,
+        signOut,
+        updateProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>

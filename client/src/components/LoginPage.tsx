@@ -1,12 +1,15 @@
 import { Zap } from 'lucide-react'
 import { LoginForm } from './LoginForm'
 import { ThemeToggle } from './ThemeToggle'
+import { useAuth } from '../hooks/useAuth'
 
 type LoginPageProps = {
   onSwitchToRegister: () => void
 }
 
 export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
+  const { authMessage } = useAuth()
+
   return (
     <main className="relative flex flex-1 items-center justify-center overflow-x-hidden overflow-y-auto p-5 sm:p-8">
       <div
@@ -42,6 +45,15 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
           </h1>
           <p className="text-[15px]">Inicia sesión para continuar tu partida.</p>
         </header>
+
+        {authMessage && (
+          <p
+            className="mb-4.5 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
+            role="alert"
+          >
+            {authMessage}
+          </p>
+        )}
 
         <LoginForm />
 

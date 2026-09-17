@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../../hooks/useToast'
 import { deactivateUser, listUsers, reactivateUser, updateUserRole } from '../../services/auth.service'
 import type { AuthUser } from '../../services/auth.service'
 import { ApiError } from '../../utils/http'
@@ -10,6 +11,7 @@ const ROLES = ['STUDENT', 'TEACHER', 'ADMIN'] as const
 
 export function AdminUsersSection() {
   const { token, user: currentUser } = useAuth()
+  const { showToast } = useToast()
   const [items, setItems] = useState<AuthUser[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -56,12 +58,18 @@ export function AdminUsersSection() {
     setPendingUserId(targetUser.id)
     clearActionError(targetUser.id)
     try {
-      const updated = targetUser.isActive
-        ? await deactivateUser(token, targetUser.id)
-        : await reactivateUser(token, targetUser.id)
+      if (targetUser.isActive) {
+        await deactivateUser(token, targetUser.id)
+      } else {
+        await reactivateUser(token, targetUser.id)
+      }
+      const nextIsActive = !targetUser.isActive
       setItems((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
+        current.map((item) =>
+          item.id === targetUser.id ? { ...item, isActive: nextIsActive } : item,
+        ),
       )
+      showToast(nextIsActive ? 'Usuario reactivado' : 'Usuario desactivado')
     } catch (err) {
       setActionErrors((current) => ({
         ...current,

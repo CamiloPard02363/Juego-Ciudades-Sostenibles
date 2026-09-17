@@ -6,16 +6,19 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './hooks/useAuth.tsx'
 import { ToastProvider } from './hooks/useToast.tsx'
+import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <ToastProvider>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </ToastProvider>
-      <Analytics />
+      <ErrorBoundary>
+        <ToastProvider>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </ToastProvider>
+        <Analytics />
+      </ErrorBoundary>
     </BrowserRouter>
   </StrictMode>,
 )

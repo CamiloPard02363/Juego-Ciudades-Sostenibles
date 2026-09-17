@@ -24,11 +24,13 @@ type RequestOptions = {
 /**
  * `AuthProvider` registra aquí cómo reaccionar cuando una petición
  * autenticada agota los reintentos de refresh: la sesión ya no es
- * recuperable y hay que cerrarla y volver al login.
+ * recuperable y hay que cerrarla y volver al login. Recibe el motivo (por
+ * ejemplo, "cuenta desactivada por un administrador") para mostrarlo en la
+ * pantalla de login.
  */
-let unauthorizedHandler: (() => void) | null = null
+let unauthorizedHandler: ((reason?: string) => void) | null = null
 
-export function setUnauthorizedHandler(handler: (() => void) | null): void {
+export function setUnauthorizedHandler(handler: ((reason?: string) => void) | null): void {
   unauthorizedHandler = handler
 }
 
@@ -121,8 +123,11 @@ export async function request<T>(
       if (newAccessToken) {
         return request<T>(path, { ...options, token: newAccessToken, _isRetry: true })
       }
-      unauthorizedHandler?.()
-      throw new ApiError('Tu sesión expiró. Inicia sesión de nuevo.', response.status)
+      // El mensaje original (p. ej. "cuenta inactiva") es más útil que uno
+      // genérico: se conserva para mostrarlo en la pantalla de login.
+      const reason = extractMessage(payload, response.status)
+      unauthorizedHandler?.(reason)
+      throw new ApiError(reason, response.status)
     }
     throw new ApiError(extractMessage(payload, response.status), response.status)
   }
