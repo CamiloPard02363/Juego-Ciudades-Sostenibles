@@ -68,6 +68,8 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route path="/register" element={<Navigate to="/" replace />} />
       <Route path="/juegos/crear" element={<CreateGameLayout />}>
         <Route index element={<GameTypePickerPage />} />
         <Route path="cartas" element={<GameModePickerPage />} />
