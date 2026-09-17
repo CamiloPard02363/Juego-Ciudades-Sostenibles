@@ -90,7 +90,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
         </button>
       )}
 
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navegación principal">
+      <nav data-tour="navigation" className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navegación principal">
         <SidebarItem
           label="Inicio"
           collapsed={collapsed}
