@@ -38,7 +38,7 @@ export function KidsWorldGrid({ categories, onSelect }: KidsWorldGridProps) {
           onClick={() => onSelect(category)}
           className="flex aspect-square flex-col items-center justify-center rounded-[32px] transition-transform hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0"
         >
-          <KidsPlanetIcon label={category.name} size={180} className="h-full w-full max-h-[220px] max-w-[220px]" />
+          <KidsPlanetIcon label={category.name} size={260} className="h-full w-full max-h-[280px] max-w-[280px]" />
         </button>
       ))}
     </div>
