@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { Building2 } from 'lucide-react'
+import kidsBackground from '../../../assets/kids/kids-bg.svg'
 import type { AuthUser } from '../../../services/auth.service'
 import { useAuth } from '../../../hooks/useAuth'
 import { listCategories, type CategoryWithGameCount } from '../../../services/category.service'
@@ -65,7 +66,12 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-y-auto" style={{ background: 'var(--bg)' }}>
+    <div
+      className="fixed inset-0 flex flex-col overflow-y-auto"
+      style={{
+        background: `var(--bg) url(${kidsBackground}) center / cover no-repeat fixed`,
+      }}
+    >
       <header className="flex shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <div>
           <p className="text-[20px] font-extrabold text-text-h sm:text-[24px]">

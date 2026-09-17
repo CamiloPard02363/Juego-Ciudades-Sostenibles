@@ -675,6 +675,74 @@ code {
   }
 }
 
+/* Saludo enérgico del brazo derecho (KidsGuideCharacter, rightArmWave=true):
+ * usado solo en el saludo de entrada (KidsGuideEntrance), más rápido y con
+ * más recorrido que el vaivén sutil del brazo izquierdo. */
+@keyframes kids-guide-wave-strong {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-32deg);
+  }
+}
+
+/* Entrada de Bubu dentro del recuadro del modal de bienvenida
+ * (KidsGuideEntrance.tsx): cae desde arriba del propio modal y rebota al
+ * posarse, sin salir del recuadro — el modal ya abre con su propio "pop"
+ * y desenfoque de fondo (ver Modal.tsx). */
+@keyframes kids-intro-fly-in-modal {
+  0% {
+    transform: translateY(-110px) scale(0.75) rotate(-4deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(0) scale(1.02) rotate(1deg);
+    opacity: 1;
+  }
+  80% {
+    transform: translateY(-4px) scale(0.99) rotate(-0.5deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Cartel de bienvenida debajo de Bubu (KidsWelcomeGuide.tsx): usa la misma
+ * curva y duración que `kids-intro-fly-in-modal` y arranca al mismo tiempo
+ * (al montarse el modal), para que ambos se sientan como una sola entrada
+ * en vez de dos animaciones desfasadas. */
+@keyframes kids-intro-card-in {
+  0% {
+    transform: translateY(14px) scale(0.97);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(0) scale(1.005);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Partículas amarillas que suelta Bubu mientras vuela hacia el centro
+ * (KidsGuideEntrance.tsx): caen, se alejan y se desvanecen. Cada partícula
+ * fija su propia dirección con --particle-x. */
+@keyframes kids-intro-particle {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(var(--particle-x, 0), 90px) scale(0.3);
+    opacity: 0;
+  }
+}
+
 /*
  * Modo niños: los botones "cobran vida" — un pequeño wiggle constante para
  * invitar al toque, un salto exagerado al presionar y un destello al soltar.
@@ -743,6 +811,13 @@ code {
   animation: kids-btn-sparkle-ring 0.6s ease-out;
   outline: 3px solid var(--accent-2);
   outline-offset: 2px;
+}
+
+/* Botón "¡Vamos a jugar!" del saludo de Bubu (KidsWelcomeGuide.tsx): el
+ * wiggle de reposo corre todo el tiempo desde que Bubu aterriza, no solo al
+ * pasar el mouse — para invitar al toque desde el primer momento. */
+[data-theme='kids'] .kids-cta-wiggle-always:not(:disabled) {
+  animation-play-state: running;
 }
 
 /* Botón "Unirme con código": glow pulsante para atraer la atención,
