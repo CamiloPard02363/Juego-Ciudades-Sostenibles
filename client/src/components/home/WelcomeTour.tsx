@@ -94,9 +94,8 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
   return <>
     {/* Bloquea y desenfoca todo lo demás mientras el botón sigue arriba, ya
         elevado en z-index, así que es lo único clicable en la pantalla. */}
-    {forcedInvite && createPortal(
-      <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm" aria-hidden="true" />,
-      document.body,
+    {forcedInvite && (
+      <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm" aria-hidden="true" />
     )}
 
     <div className="relative inline-flex">
@@ -106,7 +105,7 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
         onClick={start}
         aria-label="Repetir recorrido de bienvenida"
         data-tour-active={forcedInvite ? 'true' : undefined}
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-h hover:bg-code-bg focus-visible:outline-2 focus-visible:outline-accent ${forcedInvite ? 'relative z-50' : ''}`}
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-500 bg-linear-to-r from-violet-600 to-fuchsia-700 px-3 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/25 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${forcedInvite ? 'relative z-50' : ''}`}
       >
         <Compass className="h-4 w-4" aria-hidden="true" /> Guía
       </button>
