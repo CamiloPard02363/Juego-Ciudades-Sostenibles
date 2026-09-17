@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { KeyRound, PlusCircle, Sparkles, Trash2, Trophy } from 'lucide-react'
+import { AlertTriangle, KeyRound, PlusCircle, Sparkles, Trash2, Trophy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { DEFAULT_CATEGORY_COLOR, colorForCategory, iconForCategory } from './gamesCatalogVisuals'
 import {
@@ -14,6 +14,7 @@ import {
   listSubjects as listCategories,
   createSubject,
   deleteSubject as deleteCategory,
+  publishSubject,
   type SubjectWithGameCount as CategoryWithGameCount,
 } from '../../services/subject.service'
 import { ApiError } from '../../utils/http'
@@ -297,6 +298,48 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   // solo un admin las crea. Toda materia nueva de un usuario normal nace como
   // sub-materia de una de estas — de ahí el selector obligatorio de abajo.
   const rootCategories = categories.filter((c) => c.parentSubjectId === null)
+  const subCategories = categories.filter((c) => c.parentSubjectId !== null)
+
+  const [publishingCategory, setPublishingCategory] = useState<CategoryWithGameCount | null>(null)
+  const [publishDraftGames, setPublishDraftGames] = useState<GameSummary[]>([])
+  const [loadingPublishPreview, setLoadingPublishPreview] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+
+  function canPublishCategory(category: CategoryWithGameCount): boolean {
+    if (category.status !== 'PRIVATE') return false
+    return Boolean(user && (user.role === 'ADMIN' || user.id === category.creatorUserId))
+  }
+
+  async function openPublishModal(category: CategoryWithGameCount) {
+    if (!token) return
+    setPublishingCategory(category)
+    setPublishError(null)
+    setLoadingPublishPreview(true)
+    try {
+      const result = await listGames(token, { categoryId: category.id, status: 'DRAFT', pageSize: 100 })
+      setPublishDraftGames(result.items)
+    } catch {
+      setPublishDraftGames([])
+    } finally {
+      setLoadingPublishPreview(false)
+    }
+  }
+
+  async function confirmPublishCategory() {
+    if (!token || !publishingCategory) return
+    setPublishing(true)
+    setPublishError(null)
+    try {
+      await publishSubject(token, publishingCategory.id)
+      setPublishingCategory(null)
+      refreshCategories()
+    } catch (err) {
+      setPublishError(err instanceof ApiError ? err.message : 'No se pudo publicar la materia.')
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   async function handleCreateCategory() {
     if (!token || !newCategoryName.trim() || !newCategoryParentId) return
@@ -494,44 +537,47 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
             <p className="mt-1 max-w-[320px] text-[13px] text-text">Crea la primera para organizar los juegos.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {categories.map((category) => {
-              const color = colorForCategory(category.name)
-              const Icon = iconForCategory(category.name)
-              return (
-                <div
-                  key={category.id}
-                  className="group relative rounded-2xl border border-border p-4 text-left transition-transform hover:-translate-y-0.5"
-                  style={{ background: 'var(--surface)' }}
-                >
-                  <button type="button" onClick={() => setActiveCategoryId(category.id)} className="w-full text-left">
-                    <span
-                      className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg text-white"
-                      style={{ background: color }}
-                      aria-hidden="true"
-                    >
-                      <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-                    </span>
-                    <p className="truncate pr-6 text-[14px] font-semibold text-text-h">{category.name}</p>
-                    <p className="text-[12px] text-text">
-                      {category.gameCount} {category.gameCount === 1 ? 'juego' : 'juegos'}
-                    </p>
-                  </button>
-                  {canDeleteCategory(category) && (
-                    <button
-                      type="button"
-                      aria-label={`Eliminar materia ${category.name}`}
-                      title="Eliminar materia"
-                      className="absolute top-3 right-3 rounded-lg p-1 text-text/50 opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
-                      onClick={() => setPendingDeleteCategory(category)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    </button>
-                  )}
+          <>
+            {rootCategories.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-text/70">Materias raíz</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {rootCategories.map((category) => (
+                    <CategoryCard
+                      key={category.id}
+                      category={category}
+                      countLabel={`${subCategories.filter((s) => s.parentSubjectId === category.id).length} sub-materias`}
+                      onOpen={() => setActiveCategoryId(category.id)}
+                      canDelete={canDeleteCategory(category)}
+                      onDelete={() => setPendingDeleteCategory(category)}
+                      canPublish={false}
+                      onPublish={() => {}}
+                    />
+                  ))}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )}
+
+            {subCategories.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-text/70">Sub-materias</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {subCategories.map((category) => (
+                    <CategoryCard
+                      key={category.id}
+                      category={category}
+                      countLabel={`${category.gameCount} ${category.gameCount === 1 ? 'juego' : 'juegos'}`}
+                      onOpen={() => setActiveCategoryId(category.id)}
+                      canDelete={canDeleteCategory(category)}
+                      onDelete={() => setPendingDeleteCategory(category)}
+                      canPublish={canPublishCategory(category)}
+                      onPublish={() => openPublishModal(category)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {creatingCategory && (
@@ -624,6 +670,74 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                 className="rounded-lg border border-border px-4 py-3 text-[15px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => setPendingDeleteCategory(null)}
                 disabled={deletingCategory}
+              >
+                Cancelar
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {publishingCategory && (
+          <Modal
+            onClose={() => (publishing ? null : setPublishingCategory(null))}
+            maxWidthClassName="max-w-[480px]"
+          >
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-danger/35 bg-danger/10 p-3.5">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-danger" strokeWidth={2} />
+              <div>
+                <p className="text-[14px] font-semibold text-danger">Esta acción no se puede deshacer</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-text">
+                  Al publicar "{publishingCategory.name}", otros usuarios podrán ver y usar esta materia. No podrás
+                  volver a hacerla privada ni eliminarla.
+                </p>
+              </div>
+            </div>
+
+            {loadingPublishPreview ? (
+              <p className="py-2 text-[13px] text-text">Cargando juegos en borrador…</p>
+            ) : publishDraftGames.length > 0 ? (
+              <div className="mb-4">
+                <p className="mb-2 text-[13px] font-medium text-text-h">
+                  Estos juegos en borrador se publicarán automáticamente:
+                </p>
+                <ul className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
+                  {publishDraftGames.map((game) => (
+                    <li
+                      key={game.id}
+                      className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-[13px] text-text-h"
+                    >
+                      <span className="truncate">{game.title}</span>
+                      <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent">
+                        pasará a Comunidad
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="mb-4 text-[13px] text-text">Esta materia no tiene juegos en borrador todavía.</p>
+            )}
+
+            {publishError && (
+              <p className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm text-danger" role="alert">
+                {publishError}
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg border-2 border-danger px-4 py-3 text-[15px] font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={confirmPublishCategory}
+                disabled={publishing || loadingPublishPreview}
+              >
+                {publishing ? 'Publicando…' : 'Sí, publicar materia'}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-4 py-3 text-[15px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => setPublishingCategory(null)}
+                disabled={publishing}
               >
                 Cancelar
               </button>
@@ -864,5 +978,76 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
 
       {renderGameOverlays()}
     </section>
+  )
+}
+
+function CategoryCard({
+  category,
+  countLabel,
+  onOpen,
+  canDelete,
+  onDelete,
+  canPublish,
+  onPublish,
+}: {
+  category: CategoryWithGameCount
+  countLabel: string
+  onOpen: () => void
+  canDelete: boolean
+  onDelete: () => void
+  canPublish: boolean
+  onPublish: () => void
+}) {
+  const color = colorForCategory(category.name)
+  const Icon = iconForCategory(category.name)
+  const isPublic = category.status === 'PUBLIC'
+
+  return (
+    <div
+      className="group relative rounded-2xl border border-border p-4 text-left transition-transform hover:-translate-y-0.5"
+      style={{ background: 'var(--surface)' }}
+    >
+      <button type="button" onClick={onOpen} className="w-full text-left">
+        <span
+          className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg text-white"
+          style={{ background: color }}
+          aria-hidden="true"
+        >
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
+        <p className="truncate pr-6 text-[14px] font-semibold text-text-h">{category.name}</p>
+        <span
+          className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold tracking-wide ${
+            isPublic ? 'bg-accent/15 text-accent' : 'bg-text/10 text-text'
+          }`}
+        >
+          {isPublic ? 'PÚBLICA' : 'PRIVADA'}
+        </span>
+        <p className="mt-1.5 text-[12px] text-text">{countLabel}</p>
+      </button>
+
+      {canDelete && (
+        <button
+          type="button"
+          aria-label={`Eliminar materia ${category.name}`}
+          title="Eliminar materia"
+          className="absolute top-3 right-3 rounded-lg p-1 text-text/50 opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
+          onClick={onDelete}
+        >
+          <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
+      )}
+
+      {canPublish && (
+        <button
+          type="button"
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-danger/60 px-3 py-1.5 text-[12px] font-semibold text-danger transition-colors hover:bg-danger/10"
+          onClick={onPublish}
+        >
+          <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
+          Publicar
+        </button>
+      )}
+    </div>
   )
 }
