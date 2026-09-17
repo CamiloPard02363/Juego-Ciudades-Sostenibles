@@ -48,8 +48,8 @@ export function KidsWelcomeGuide({ displayName, onClose }: KidsWelcomeGuideProps
         >
           <p className="text-[19px] leading-snug font-extrabold text-text-h">¡Hola, {firstName}! 👋 Soy Bubu</p>
           <p className="mt-2 text-[15px] leading-relaxed text-text">
-            En esta zona puedes <strong className="text-text-h">jugar y aprender</strong> tocando tus materias.
-            ¡Elige un mundo para empezar la aventura! 🚀
+            En esta zona puedes <strong className="text-text-h">jugar y aprender</strong> explorando nuevas áreas.
+            ¡Elige un mundo, vamos a empezar la aventura! 🚀
           </p>
         </div>
 
