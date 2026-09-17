@@ -86,7 +86,7 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <WelcomeTour key={`${user.id}:${user.role}`} user={user} />
           <ProfileMenu user={user} onOpenSettings={() => setSettingsOpen(true)} onSignOut={onSignOut} />
         </div>
