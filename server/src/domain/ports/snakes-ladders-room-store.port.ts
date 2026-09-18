@@ -10,6 +10,8 @@ export type SnakesLaddersRoomPhase = 'WAITING' | 'PLAYING' | 'FINISHED';
 
 export interface SnakesLaddersRoomPlayer {
   socketId: string;
+  /** Confirmación individual para el lobby actual. */
+  ready?: boolean;
   userId: string;
   displayName: string;
   position: number;

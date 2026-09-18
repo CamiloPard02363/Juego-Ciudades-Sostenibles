@@ -20,6 +20,7 @@ export type RoomPlayerView = {
   displayName: string
   discardedCardIds: string[]
   secretCardId: string | null
+  ready?: boolean
   isSelf: boolean
   hasVotedRematch: boolean
   /**
@@ -73,6 +74,7 @@ export type TournamentParticipantView = {
   points: number
   eliminated: boolean
   eliminatedAtRound: number | null
+  ready?: boolean
   isSelf: boolean
 }
 

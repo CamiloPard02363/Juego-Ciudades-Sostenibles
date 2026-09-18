@@ -1,3 +1,4 @@
+import { LobbyReadyControl } from './LobbyReadyControl'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Copy, Dices, LogOut, RotateCcw, Trophy, Users } from 'lucide-react'
@@ -26,7 +27,7 @@ export function SnakesLaddersRoomPage() {
     lastChallengeResult,
     createRoom,
     joinRoom,
-    startGame,
+    setReady,
     rollDice,
     answerChallenge,
     voteRematch,
@@ -79,10 +80,8 @@ export function SnakesLaddersRoomPage() {
   }
 
   const self = room?.players.find((p) => p.isSelf)
-  const isHostSelf = Boolean(self?.isHost)
   const isMyTurn = room?.phase === 'PLAYING' && room.activePlayerUserId === user?.id
   const activePlayer = room?.players.find((p) => p.userId === room.activePlayerUserId)
-  const canStart = Boolean(room && room.players.length >= 2 && room.players.length <= 4)
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
@@ -185,19 +184,7 @@ export function SnakesLaddersRoomPage() {
               <p className="mt-3 text-[11.5px] text-text">Se necesitan entre 2 y 4 jugadores para empezar.</p>
             </div>
 
-            <button
-              type="button"
-              disabled={!canStart || !isHostSelf}
-              className="rounded-2xl px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-all duration-200 hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={() => startGame()}
-            >
-              {!isHostSelf
-                ? 'Esperando a que el anfitrión inicie…'
-                : canStart
-                  ? 'Empezar partida'
-                  : 'Esperando más jugadores…'}
-            </button>
+            <LobbyReadyControl players={room.players} onReady={setReady} disconnected={connecting} />
           </div>
         )}
 

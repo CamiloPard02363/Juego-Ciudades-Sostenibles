@@ -1,3 +1,4 @@
+import { LobbyReadyControl } from './LobbyReadyControl'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Check, Copy, LogOut, RotateCcw, Trophy, Users } from 'lucide-react'
@@ -30,7 +31,7 @@ export function DominoRoomPage() {
     lastPlacedTileId,
     createRoom,
     joinRoom,
-    startGame,
+    setReady,
     updateTurnDuration,
     playTile,
     drawTile,
@@ -372,23 +373,7 @@ export function DominoRoomPage() {
               </div>
             )}
 
-            {isHostSelf ? (
-              <button
-                type="button"
-                className="rounded-2xl px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-all duration-200 hover:not-disabled:-translate-y-0.5 hover:shadow-[0_16px_28px_-14px_var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-                disabled={room.players.length !== 2}
-                onClick={() => startGame(Number(turnDurationText) || undefined)}
-              >
-                {room.players.length === 2 ? 'Barajar y empezar' : 'Esperando al segundo jugador…'}
-              </button>
-            ) : (
-              <p className="rounded-2xl border border-dashed border-border bg-surface px-4 py-3 text-center text-[13px] text-text shadow-[var(--shadow)]">
-                {room.players.length === 2
-                  ? 'Esperando a que el anfitrión inicie la partida…'
-                  : 'Esperando al segundo jugador…'}
-              </p>
-            )}
+            <LobbyReadyControl players={room.players} onReady={setReady} disconnected={connecting} />
           </div>
         )}
 

@@ -12,6 +12,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  */
 export function useGuessWhoTournament(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
+  const waitingCodeRef = useRef<string | null>(null)
   const [tournament, setTournament] = useState<TournamentStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
@@ -27,9 +28,14 @@ export function useGuessWhoTournament(token: string | null) {
     })
     socketRef.current = socket
 
-    socket.on('connect', () => setConnecting(false))
+    socket.on('connect', () => {
+      setConnecting(false)
+      // Reingresar al lobby tras reconectar; el servidor exige confirmar de nuevo.
+      if (waitingCodeRef.current) socket.emit('tournament:join', { code: waitingCodeRef.current })
+    })
     socket.on('disconnect', () => setConnecting(true))
     socket.on('tournament:state', (state: TournamentStateView) => {
+      waitingCodeRef.current = state.phase === 'WAITING' ? state.code : null
       setTournament(state)
       setError(null)
     })
@@ -66,11 +72,12 @@ export function useGuessWhoTournament(token: string | null) {
   }, [])
 
   const joinTournament = useCallback((code: string) => {
-    socketRef.current?.emit('tournament:join', { code })
+    waitingCodeRef.current = code
+    if (socketRef.current?.connected) socketRef.current.emit('tournament:join', { code })
   }, [])
 
-  const startTournament = useCallback((turnDurationSeconds: number) => {
-    socketRef.current?.emit('tournament:start', { turnDurationSeconds })
+  const setReady = useCallback((ready: boolean) => {
+    if (socketRef.current?.connected) socketRef.current.emit('tournament:ready', { ready })
   }, [])
 
   const updateTurnDuration = useCallback((turnDurationSeconds: number) => {
@@ -78,6 +85,7 @@ export function useGuessWhoTournament(token: string | null) {
   }, [])
 
   const leaveTournament = useCallback(() => {
+    waitingCodeRef.current = null
     socketRef.current?.emit('tournament:leave')
     setTournament(null)
   }, [])
@@ -104,7 +112,7 @@ export function useGuessWhoTournament(token: string | null) {
     clearMatchAccusationFailedMessage: () => setMatchAccusationFailedMessage(null),
     createTournament,
     joinTournament,
-    startTournament,
+    setReady,
     updateTurnDuration,
     leaveTournament,
     discardMatchCard,

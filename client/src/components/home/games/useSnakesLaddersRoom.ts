@@ -14,6 +14,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  */
 export function useSnakesLaddersRoom(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
+  const waitingCodeRef = useRef<string | null>(null)
   const [room, setRoom] = useState<SnakesLaddersRoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
@@ -29,9 +30,14 @@ export function useSnakesLaddersRoom(token: string | null) {
     })
     socketRef.current = socket
 
-    socket.on('connect', () => setConnecting(false))
+    socket.on('connect', () => {
+      setConnecting(false)
+      // Reingresar al lobby tras reconectar; el servidor exige confirmar de nuevo.
+      if (waitingCodeRef.current) socket.emit('snakes-ladders:join', { code: waitingCodeRef.current })
+    })
     socket.on('disconnect', () => setConnecting(true))
     socket.on('snakes-ladders:state', (state: SnakesLaddersRoomStateView) => {
+      waitingCodeRef.current = state.phase === 'WAITING' ? state.code : null
       setRoom(state)
       setError(null)
     })
@@ -41,6 +47,7 @@ export function useSnakesLaddersRoom(token: string | null) {
     })
     socket.on('snakes-ladders:rematch-rejected', (payload: { message: string }) => {
       setRematchRejectedMessage(payload.message)
+      waitingCodeRef.current = null
       setRoom(null)
     })
 
@@ -55,13 +62,13 @@ export function useSnakesLaddersRoom(token: string | null) {
   }, [])
 
   const joinRoom = useCallback((code: string) => {
-    socketRef.current?.emit('snakes-ladders:join', { code })
+    waitingCodeRef.current = code
+    if (socketRef.current?.connected) socketRef.current.emit('snakes-ladders:join', { code })
   }, [])
 
-  const startGame = useCallback((turnDurationSeconds?: number) => {
-    socketRef.current?.emit('snakes-ladders:start', { turnDurationSeconds })
+  const setReady = useCallback((ready: boolean) => {
+    if (socketRef.current?.connected) socketRef.current.emit('snakes-ladders:ready', { ready })
   }, [])
-
   const rollDice = useCallback(() => {
     socketRef.current?.emit('snakes-ladders:roll-dice')
   }, [])
@@ -75,6 +82,7 @@ export function useSnakesLaddersRoom(token: string | null) {
   }, [])
 
   const leaveRoom = useCallback(() => {
+    waitingCodeRef.current = null
     socketRef.current?.emit('snakes-ladders:leave')
     setRoom(null)
   }, [])
@@ -87,7 +95,7 @@ export function useSnakesLaddersRoom(token: string | null) {
     lastChallengeResult,
     createRoom,
     joinRoom,
-    startGame,
+    setReady,
     rollDice,
     answerChallenge,
     voteRematch,

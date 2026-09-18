@@ -1,3 +1,4 @@
+import { LobbyReadyControl } from './LobbyReadyControl'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Copy, LogOut, RotateCcw, Trophy, Users } from 'lucide-react'
@@ -40,7 +41,7 @@ export function DualQuestRoomPage() {
     lastAssemblyResult,
     createRoom,
     joinRoom,
-    startGame,
+    setReady,
     move,
     activateTrigger,
     answerTrigger,
@@ -257,19 +258,7 @@ export function DualQuestRoomPage() {
               </div>
             </div>
 
-            <button
-              type="button"
-              disabled={room.players.length !== 2 || !isHostSelf}
-              className="rounded-2xl px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-all duration-200 hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={startGame}
-            >
-              {room.players.length !== 2
-                ? 'Esperando al segundo jugador…'
-                : isHostSelf
-                  ? 'Empezar partida'
-                  : 'Esperando a que el anfitrión inicie…'}
-            </button>
+            <LobbyReadyControl players={room.players} onReady={setReady} disconnected={connecting} />
           </div>
         )}
 
