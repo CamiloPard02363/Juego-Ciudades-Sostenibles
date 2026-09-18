@@ -4,6 +4,8 @@ import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { IconPickerField } from './IconPickerField'
+import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
@@ -125,6 +127,24 @@ export function DominoGameForm({
     } finally {
       setCreatingCategory(false)
     }
+  }
+
+  function applyAiDraft(draft: GameDraft) {
+    const items = Array.isArray(draft.content) ? draft.content : []
+    setConcepts(
+      items.map((item, index) => {
+        const raw = (item ?? {}) as Record<string, unknown>
+        return {
+          label: typeof raw.label === 'string' ? raw.label : '',
+          icon: typeof raw.icon === 'string' && DOMINO_ICON_KEYS.includes(raw.icon)
+            ? raw.icon
+            : DOMINO_ICON_KEYS[index % DOMINO_ICON_KEYS.length],
+          color: typeof raw.color === 'string' ? raw.color : SUGGESTED_COLORS[index % SUGGESTED_COLORS.length],
+        }
+      }),
+    )
+    const config = (draft.config ?? {}) as Record<string, unknown>
+    if (typeof config.handSize === 'number') setHandSize(config.handSize)
   }
 
   function updateConcept<K extends keyof ConceptDraft>(index: number, field: K, value: ConceptDraft[K]) {
@@ -256,6 +276,8 @@ export function DominoGameForm({
           onChange={setDescription}
           onBlur={() => {}}
         />
+
+        <AiGameAssistantPanel gameType="DOMINO" disabled={submitting} onDraftReady={applyAiDraft} />
 
         <ImageUploadField
           label="Portada del juego (opcional)"
