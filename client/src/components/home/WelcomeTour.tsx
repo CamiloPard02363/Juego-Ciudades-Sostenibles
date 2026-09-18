@@ -4,8 +4,13 @@ import { Compass, Gamepad2, Plus, UserRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../services/auth.service'
 import { getWelcomeSteps, hasSeenWelcome, markWelcomeSeen, welcomeStorageKey } from './welcomeTourSteps'
+import tourArrow from '../../assets/tour-arrow.svg'
 
 const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRound }
+
+// Solo controles puntuales (botones/menú): una región grande como el
+// Sidebar completo o el catálogo no tiene un punto claro al que apuntar.
+const ARROW_TARGETS = new Set(['create', 'join', 'profile'])
 
 /**
  * La primera vez que una cuenta entra, el botón "Guía" se vuelve obligatorio:
@@ -24,6 +29,7 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
   const [previousRoute, setPreviousRoute] = useState(location.key)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
   const steps = getWelcomeSteps(user.role)
   const step = steps[index]
   // No interrumpir enlaces a juegos, salas ni otras secciones.
@@ -72,6 +78,33 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
       target?.removeEventListener('click', onUseTarget)
     }
   }, [visible, phase, step.target, index, close])
+
+  // Posición de la flecha que complementa el resaltado: se recalcula tras el
+  // scroll de arriba y ante cualquier scroll/resize mientras el paso siga
+  // activo, para no quedar apuntando a un lugar vacío.
+  useEffect(() => {
+    if (!visible || phase !== 'tour' || !ARROW_TARGETS.has(step.target)) {
+      setTargetRect(null)
+      return
+    }
+    const target = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`)
+    if (!target) {
+      setTargetRect(null)
+      return
+    }
+    function updateRect() {
+      setTargetRect(target!.getBoundingClientRect())
+    }
+    updateRect()
+    const raf = requestAnimationFrame(updateRect)
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [visible, phase, step.target, index])
 
   function start() {
     markWelcomeSeen(storageKey)
@@ -126,6 +159,17 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
         </div>
       )}
     </div>
+
+    {visible && phase === 'tour' && targetRect && createPortal(
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed z-[45] h-9 w-9 -translate-x-1/2 -rotate-90 animate-bounce"
+        style={{ left: targetRect.left + targetRect.width / 2, top: targetRect.bottom + 10 }}
+      >
+        <img src={tourArrow} alt="" className="h-full w-full drop-shadow-lg" />
+      </div>,
+      document.body,
+    )}
 
     {visible && phase === 'tour' && createPortal(
       <section aria-label="Recorrido de NexusPlay" className="welcome-tour-card fixed right-3 bottom-3 z-40 w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-3xl border border-border bg-surface p-5 text-left text-text shadow-[var(--shadow)] sm:right-6 sm:bottom-6">
