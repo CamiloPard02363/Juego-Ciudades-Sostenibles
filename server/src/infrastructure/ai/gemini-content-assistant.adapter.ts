@@ -21,13 +21,14 @@ export class GeminiContentAssistant implements AiContentAssistant {
   private client: GoogleGenAI | null = null;
 
   private getClient(): GoogleGenAI {
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = process.env.GOOGLE_IA_STUDIO_API_KEY;
+    if (!apiKey) {
       throw new ServiceUnavailableException(
         'El asistente de IA no está configurado todavía.',
       );
     }
     if (!this.client) {
-      this.client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      this.client = new GoogleGenAI({ apiKey });
     }
     return this.client;
   }
