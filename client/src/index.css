@@ -839,11 +839,22 @@ code {
       0 10px 28px -6px rgba(200, 29, 99, 0.85);
   }
 }
-/* El recorrido señala controles reales sin bloquear la navegación. */
+/*
+ * El recorrido señala controles reales sin bloquear la navegación. El anillo
+ * de "bg" entre el borde y el acento evita que se camufle en tarjetas que ya
+ * traen degradados o brillos en el mismo color de acento (p. ej. el botón
+ * "Crear un juego nuevo" del hero de Home).
+ */
 [data-tour-active='true'] {
+  position: relative;
+  z-index: 41;
   outline: 3px solid var(--accent);
   outline-offset: 5px;
-  scroll-margin-top: 20px;
+  scroll-margin-top: 96px;
+  box-shadow:
+    0 0 0 4px var(--bg),
+    0 0 0 8px var(--accent),
+    0 0 28px 8px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .welcome-tour-card {

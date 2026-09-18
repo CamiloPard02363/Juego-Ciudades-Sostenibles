@@ -60,7 +60,10 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
     headingRef.current?.focus({ preventScroll: true })
     const target = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`)
     target?.setAttribute('data-tour-active', 'true')
-    target?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+    // "center" (en vez de "start") deja margen a ambos lados: con "start" un
+    // objetivo pegado al borde superior (como el botón de crear juego) podía
+    // terminar justo debajo del encabezado, apenas visible.
+    target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
     // Interactuar con la aplicación termina la guía sin impedir ese clic.
     const onUseTarget = () => close(false)
     target?.addEventListener('click', onUseTarget)
@@ -91,10 +94,13 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
   }
 
   const Icon = icons[step.icon]
+  // Tanto el aviso obligatorio inicial como cada paso del recorrido
+  // desenfocan el resto de la pantalla: el elemento señalado (botón, menú,
+  // Sidebar…) ya queda por encima gracias a [data-tour-active], así que es
+  // lo único que se ve nítido — el ojo va directo a donde apunta la flecha.
+  const dimBackground = forcedInvite || (visible && phase === 'tour')
   return <>
-    {/* Bloquea y desenfoca todo lo demás mientras el botón sigue arriba, ya
-        elevado en z-index, así que es lo único clicable en la pantalla. */}
-    {forcedInvite && (
+    {dimBackground && (
       <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm" aria-hidden="true" />
     )}
 
@@ -125,7 +131,7 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
     </div>
 
     {visible && phase === 'tour' && createPortal(
-      <section aria-label="Recorrido de NexusPlay" className="welcome-tour-card fixed right-3 bottom-3 z-40 w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-3xl border border-border bg-surface p-5 text-left text-text shadow-[var(--shadow)] sm:right-6 sm:bottom-6">
+      <section aria-label="Recorrido de NexusPlay" className="welcome-tour-card fixed right-3 bottom-3 z-[45] w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-3xl border border-border bg-surface p-5 text-left text-text shadow-[var(--shadow)] sm:right-6 sm:bottom-6">
         <div className="mb-3 flex items-center justify-between gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/15 text-accent"><Icon className="h-6 w-6" aria-hidden="true" /></span>
           <span className="flex-1 text-xs font-semibold text-accent">{index + 1} de {steps.length} · A tu ritmo</span>
