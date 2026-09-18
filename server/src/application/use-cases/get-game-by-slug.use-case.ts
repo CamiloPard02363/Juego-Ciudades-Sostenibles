@@ -8,6 +8,7 @@ import { ForbiddenActionError } from '../../domain/errors/authorization.errors.j
 import { toGameDetailDto, type GameDetailDto } from '../dtos/game-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
 import { GameAuthorizationService } from '../services/game-authorization.service.js';
+import { ClassEnrollmentGameVisibilityService } from '../services/class-enrollment-game-visibility.service.js';
 
 export interface GetGameBySlugInput {
   slug: string;
@@ -19,6 +20,7 @@ export class GetGameBySlugUseCase implements UseCase<GetGameBySlugInput, GameDet
   constructor(
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
     private readonly gameAuthorization: GameAuthorizationService,
+    private readonly classEnrollmentGameVisibility: ClassEnrollmentGameVisibilityService,
   ) {}
 
   async execute(input: GetGameBySlugInput): Promise<GameDetailDto> {
@@ -28,10 +30,17 @@ export class GetGameBySlugUseCase implements UseCase<GetGameBySlugInput, GameDet
       throw new GameNotFoundError(input.slug);
     }
 
+    // Ver comentario equivalente en GetGameByIdUseCase (issue #101, punto 2).
     if (!game.status.isPublished()) {
       const canManage = await this.gameAuthorization.canManage(game, input.requestingUserId);
+      const canViewAsEnrolledStudent = canManage
+        ? false
+        : await this.classEnrollmentGameVisibility.isEnrolledInAClassContainingGame(
+            game.id,
+            input.requestingUserId,
+          );
 
-      if (!canManage) {
+      if (!canManage && !canViewAsEnrolledStudent) {
         throw new ForbiddenActionError('ver este juego');
       }
     }

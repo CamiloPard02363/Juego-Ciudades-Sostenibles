@@ -22,6 +22,8 @@ import { ChangeUserRoleUseCase } from '../../../application/use-cases/change-use
 import { ResetUserPasswordUseCase } from '../../../application/use-cases/reset-user-password.use-case.js';
 import { UpdateUserProfileByAdminUseCase } from '../../../application/use-cases/update-user-profile-by-admin.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
+import { RolesGuard } from '../guards/roles.guard.js';
+import { Roles } from '../decorators/roles.decorator.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { UpdateUserProfileDto } from '../dtos/update-user-profile.dto.js';
 import { ChangeUserPasswordDto } from '../dtos/change-user-password.dto.js';
@@ -58,6 +60,8 @@ export class UserController {
   }
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   list(@CurrentUserId() requestingUserId: string, @Query() query: ListUsersQueryDto) {
     return this.listUsersUseCase.execute({
       requestingUserId,

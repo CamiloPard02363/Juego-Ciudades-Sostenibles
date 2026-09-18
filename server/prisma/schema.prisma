@@ -20,28 +20,29 @@ model RoleModel {
 }
 
 model UserModel {
-  id               String            @id @default(uuid())
-  email            String            @unique
-  passwordHash     String            @map("password_hash")
-  firstName        String            @map("first_name")
-  middleName       String?           @map("middle_name")
-  lastName         String            @map("last_name")
-  displayName      String            @map("display_name")
-  roleId           String            @map("role_id")
-  role             RoleModel         @relation(fields: [roleId], references: [id])
-  avatarUrl        String?           @map("avatar_url")
-  birthDate        DateTime?         @map("birth_date")
-  locale           String            @default("es-CO")
-  isActive         Boolean           @default(true) @map("is_active")
-  isEmailVerified  Boolean           @default(false) @map("is_email_verified")
-  lastLoginAt      DateTime?         @map("last_login_at")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  lastUpdate       DateTime          @updatedAt @map("last_update")
-  refreshTokens    RefreshTokenModel[]
-  organizationsCreated  OrganizationModel[]           @relation("OrganizationCreatedBy")
+  id                      String                        @id @default(uuid())
+  email                   String                        @unique
+  passwordHash            String                        @map("password_hash")
+  firstName               String                        @map("first_name")
+  middleName              String?                       @map("middle_name")
+  lastName                String                        @map("last_name")
+  displayName             String                        @map("display_name")
+  roleId                  String                        @map("role_id")
+  role                    RoleModel                     @relation(fields: [roleId], references: [id])
+  avatarUrl               String?                       @map("avatar_url")
+  birthDate               DateTime?                     @map("birth_date")
+  locale                  String                        @default("es-CO")
+  isActive                Boolean                       @default(true) @map("is_active")
+  isEmailVerified         Boolean                       @default(false) @map("is_email_verified")
+  lastLoginAt             DateTime?                     @map("last_login_at")
+  createdAt               DateTime                      @default(now()) @map("created_at")
+  lastUpdate              DateTime                      @updatedAt @map("last_update")
+  refreshTokens           RefreshTokenModel[]
+  organizationsCreated    OrganizationModel[]           @relation("OrganizationCreatedBy")
   organizationMemberships OrganizationMembershipModel[]
-  classes               ClassModel[]
-  subjectsCreated       SubjectModel[]
+  classes                 ClassModel[]
+  classEnrollments        ClassEnrollmentModel[]
+  subjectsCreated         SubjectModel[]
 
   @@map("users")
 }
@@ -67,7 +68,8 @@ model OrganizationModel {
   createdBy       UserModel @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id])
   createdAt       DateTime  @default(now()) @map("created_at")
 
-  memberships     OrganizationMembershipModel[]
+  memberships OrganizationMembershipModel[]
+  classes     ClassModel[]
 
   @@index([createdByUserId])
   @@map("organizations")
@@ -88,17 +90,46 @@ model OrganizationMembershipModel {
 }
 
 model ClassModel {
-  id            String    @id @default(uuid())
-  name          String
-  description   String    @default("")
-  teacherUserId String    @map("teacher_user_id")
-  teacher       UserModel @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id             String             @id @default(uuid())
+  name           String
+  description    String             @default("")
+  teacherUserId  String             @map("teacher_user_id")
+  teacher        UserModel          @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
+  /// Organización personal del profesor (issue #101). Opcional porque Class
+  /// nació sin FK a Organization (agrupador privado vía teacherUserId
+  /// solamente, ver issue #80); las clases creadas antes de esta migración
+  /// quedan con organizationId null.
+  organizationId String?            @map("organization_id")
+  organization   OrganizationModel? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  /// Código de invitación estático generado una vez al crear la clase (no
+  /// rota). Único a nivel global para que POST /classes/join lo resuelva sin
+  /// ambigüedad.
+  inviteCode     String             @unique @map("invite_code")
+  createdAt      DateTime           @default(now()) @map("created_at")
 
-  games         ClassGameModel[]
+  games       ClassGameModel[]
+  enrollments ClassEnrollmentModel[]
 
   @@index([teacherUserId, createdAt(sort: Desc)])
+  @@index([organizationId])
   @@map("classes")
+}
+
+/// Relación N:M entre una Class y un estudiante matriculado (issue #101).
+/// Análoga a OrganizationMembership: la identidad real es el par
+/// (classId, userId), respaldada por un constraint único compuesto para que
+/// unirse dos veces con el mismo inviteCode sea idempotente/no duplique fila.
+model ClassEnrollmentModel {
+  id         String     @id @default(uuid())
+  classId    String     @map("class_id")
+  class      ClassModel @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId     String     @map("user_id")
+  user       UserModel  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime   @default(now()) @map("enrolled_at")
+
+  @@unique([classId, userId])
+  @@index([userId])
+  @@map("class_enrollments")
 }
 
 /// Relación N:M entre una Class (agrupador privado de trabajo del profesor)
@@ -106,11 +137,11 @@ model ClassModel {
 /// string suelto sin FK real; la existencia se valida a mano en el use-case
 /// contra el repositorio de Game, igual que Subject.categoryId).
 model ClassGameModel {
-  id        String     @id @default(uuid())
-  classId   String     @map("class_id")
-  class     ClassModel @relation(fields: [classId], references: [id], onDelete: Cascade)
-  gameId    String     @map("game_id")
-  addedAt   DateTime   @default(now()) @map("added_at")
+  id      String     @id @default(uuid())
+  classId String     @map("class_id")
+  class   ClassModel @relation(fields: [classId], references: [id], onDelete: Cascade)
+  gameId  String     @map("game_id")
+  addedAt DateTime   @default(now()) @map("added_at")
 
   @@unique([classId, gameId])
   @@index([classId])
