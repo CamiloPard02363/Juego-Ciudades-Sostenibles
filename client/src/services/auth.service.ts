@@ -160,17 +160,17 @@ export function updateProfile(
   })
 }
 
-/** PATCH /users/:id/deactivate — desactiva un usuario. Solo ADMIN global. */
-export function deactivateUser(token: string, userId: string): Promise<AuthUser> {
-  return request<AuthUser>(`/users/${userId}/deactivate`, {
+/** PATCH /users/:id/deactivate — desactiva un usuario. Solo ADMIN global. Responde 204 sin cuerpo. */
+export function deactivateUser(token: string, userId: string): Promise<void> {
+  return request<void>(`/users/${userId}/deactivate`, {
     method: 'PATCH',
     token,
   })
 }
 
-/** PATCH /users/:id/reactivate — reactiva un usuario previamente desactivado. Solo ADMIN global. */
-export function reactivateUser(token: string, userId: string): Promise<AuthUser> {
-  return request<AuthUser>(`/users/${userId}/reactivate`, {
+/** PATCH /users/:id/reactivate — reactiva un usuario previamente desactivado. Solo ADMIN global. Responde 204 sin cuerpo. */
+export function reactivateUser(token: string, userId: string): Promise<void> {
+  return request<void>(`/users/${userId}/reactivate`, {
     method: 'PATCH',
     token,
   })

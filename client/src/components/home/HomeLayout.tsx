@@ -10,6 +10,7 @@ import { HomeSearchContext } from './homeSearchContext'
 import { KidsMascot } from '../kids/KidsMascot'
 import { listMyOrganizations } from '../../services/organization.service'
 import { KidsHomeShell } from './kids/KidsHomeShell'
+import { WelcomeTour } from './WelcomeTour'
 
 export function HomeLayout() {
   const { user, token, signOut } = useAuth()
@@ -60,13 +61,16 @@ export function HomeLayout() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-6 py-4">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
           <SearchBar value={searchInput} onChange={setSearchInput} onSearch={handleSearch} />
-          <ProfileMenu
-            user={user}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onSignOut={signOut}
-          />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <WelcomeTour key={`${user.id}:${user.role}`} user={user} />
+            <ProfileMenu
+              user={user}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onSignOut={signOut}
+            />
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 sm:p-8">

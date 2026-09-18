@@ -907,6 +907,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                   className="flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
                   style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
                   onClick={() => navigate('/juegos/crear')}
+                  data-tour="create"
                 >
                   <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
                   Crear un juego nuevo
@@ -916,6 +917,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                   className="join-code-glow-btn relative flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5"
                   style={{ background: 'linear-gradient(135deg, var(--accent-2), #c81d63)' }}
                   onClick={() => setJoinByCodeOpen(true)}
+                  data-tour="join"
                 >
                   <KeyRound className="h-[18px] w-[18px]" strokeWidth={2.5} />
                   Unirme con código

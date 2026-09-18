@@ -90,7 +90,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
         </button>
       )}
 
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navegación principal">
+      <nav data-tour="navigation" className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navegación principal">
         <SidebarItem
           label="Inicio"
           collapsed={collapsed}
@@ -128,13 +128,15 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           onClick={() => navigate('/mis-juegos')}
           icon={<Lock className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
-        <SidebarItem
-          label="Temas"
-          collapsed={collapsed}
-          active={location.pathname === '/temas'}
-          onClick={() => navigate('/temas')}
-          icon={<Palette className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
-        />
+        {userRole === 'ADMIN' && (
+          <SidebarItem
+            label="Temas"
+            collapsed={collapsed}
+            active={location.pathname === '/temas'}
+            onClick={() => navigate('/temas')}
+            icon={<Palette className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+          />
+        )}
         {(canManageUsers || canAccessOrganization) && (
           <>
             {!collapsed && (

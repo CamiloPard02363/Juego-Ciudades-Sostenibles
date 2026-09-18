@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { Building2 } from 'lucide-react'
+import kidsBackground from '../../../assets/kids/kids-bg.svg'
 import type { AuthUser } from '../../../services/auth.service'
 import { useAuth } from '../../../hooks/useAuth'
 import {
@@ -15,7 +16,7 @@ import { ProfileSettings } from '../ProfileSettings'
 import { KidsMascot } from '../../kids/KidsMascot'
 import { KidsWorldGrid } from './KidsWorldGrid'
 import { KidsGameGrid } from './KidsGameGrid'
-import { KidsWelcomeGuide } from './KidsWelcomeGuide'
+import { WelcomeTour } from '../WelcomeTour'
 
 type KidsHomeShellProps = {
   user: AuthUser
@@ -40,7 +41,6 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
   const { token } = useAuth()
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [showWelcome, setShowWelcome] = useState(true)
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [selectedCategory, setSelectedCategory] = useState<CategoryWithGameCount | null>(null)
   const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
@@ -68,8 +68,13 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-y-auto" style={{ background: 'var(--bg)' }}>
-      <header className="flex shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-8">
+    <div
+      className="fixed inset-0 flex flex-col overflow-y-auto"
+      style={{
+        background: `var(--bg) url(${kidsBackground}) center / cover no-repeat fixed`,
+      }}
+    >
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <div>
           <p className="text-[20px] font-extrabold text-text-h sm:text-[24px]">
             ¡Hola, {user.displayName.split(' ')[0]}! 👋
@@ -84,10 +89,13 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
             </span>
           )}
         </div>
-        <ProfileMenu user={user} onOpenSettings={() => setSettingsOpen(true)} onSignOut={onSignOut} />
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <WelcomeTour key={`${user.id}:${user.role}`} user={user} />
+          <ProfileMenu user={user} onOpenSettings={() => setSettingsOpen(true)} onSignOut={onSignOut} />
+        </div>
       </header>
 
-      <main className="flex flex-1 flex-col px-5 pb-10 sm:px-8">
+      <main data-tour="worlds" className="flex flex-1 flex-col px-5 pb-10 sm:px-8">
         {selectedCategory ? (
           token && (
             <KidsGameGrid
@@ -112,7 +120,6 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
       </main>
 
       {settingsOpen && <ProfileSettings onClose={() => setSettingsOpen(false)} />}
-      {showWelcome && <KidsWelcomeGuide displayName={user.displayName} onClose={() => setShowWelcome(false)} />}
       <KidsMascot />
     </div>
   )
