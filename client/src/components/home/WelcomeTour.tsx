@@ -60,7 +60,10 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
     headingRef.current?.focus({ preventScroll: true })
     const target = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`)
     target?.setAttribute('data-tour-active', 'true')
-    target?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+    // "center" (en vez de "start") deja margen a ambos lados: con "start" un
+    // objetivo pegado al borde superior (como el botón de crear juego) podía
+    // terminar justo debajo del encabezado, apenas visible.
+    target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
     // Interactuar con la aplicación termina la guía sin impedir ese clic.
     const onUseTarget = () => close(false)
     target?.addEventListener('click', onUseTarget)
