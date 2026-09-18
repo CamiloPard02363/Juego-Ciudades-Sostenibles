@@ -17,3 +17,10 @@ export class InvalidSubjectStateError extends DomainError {
     super(`Operación inválida sobre la materia: ${reason}`);
   }
 }
+
+/** El árbol de la materia (ella o alguna sub-materia descendiente) tiene juegos asociados. */
+export class SubjectHasGamesError extends DomainError {
+  constructor() {
+    super('No se puede eliminar la materia: ella o alguna de sus sub-materias tiene juegos asociados.');
+  }
+}

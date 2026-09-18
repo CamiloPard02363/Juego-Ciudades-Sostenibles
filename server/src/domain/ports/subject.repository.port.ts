@@ -15,6 +15,8 @@ export interface SubjectRepository {
    * alcance, solo listado del catálogo vigente.
    */
   findAll(): Promise<Subject[]>;
-  /** Soft-delete: solo debe invocarse sobre una materia en estado PRIVATE. */
+  /** Hijas directas (`parentSubjectId = id`), en cualquier estado (PUBLIC o PRIVATE). */
+  findByParentId(parentId: string): Promise<Subject[]>;
+  /** Soft-delete: solo debe invocarse sobre una materia que pasó `canBeDeletedBy`. */
   softDelete(id: string): Promise<void>;
 }
