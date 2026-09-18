@@ -4,6 +4,8 @@ export type TournamentPhase = 'WAITING' | 'RUNNING' | 'FINISHED';
 
 export interface TournamentParticipant {
   socketId: string;
+  /** Confirmación individual para el lobby actual. */
+  ready?: boolean;
   userId: string;
   displayName: string;
   /** Puntos acumulados a lo largo del torneo (1 por ronda ganada, incluye byes). */

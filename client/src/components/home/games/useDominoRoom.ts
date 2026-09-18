@@ -11,6 +11,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  */
 export function useDominoRoom(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
+  const waitingCodeRef = useRef<string | null>(null)
   const [room, setRoom] = useState<DominoRoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
@@ -28,9 +29,14 @@ export function useDominoRoom(token: string | null) {
     })
     socketRef.current = socket
 
-    socket.on('connect', () => setConnecting(false))
+    socket.on('connect', () => {
+      setConnecting(false)
+      // Reingresar al lobby tras reconectar; el servidor exige confirmar de nuevo.
+      if (waitingCodeRef.current) socket.emit('domino:join', { code: waitingCodeRef.current })
+    })
     socket.on('disconnect', () => setConnecting(true))
     socket.on('domino:state', (state: DominoRoomStateView) => {
+      waitingCodeRef.current = state.phase === 'WAITING' ? state.code : null
       setRoom((previous) => {
         const previousBoardIds = new Set((previous?.board ?? []).map((tile) => tile.id))
         const newlyPlaced = state.board.find((tile) => !previousBoardIds.has(tile.id))
@@ -50,10 +56,12 @@ export function useDominoRoom(token: string | null) {
     })
     socket.on('domino:rematch-rejected', (payload: { message: string }) => {
       setRematchRejectedMessage(payload.message)
+      waitingCodeRef.current = null
       setRoom(null)
     })
     socket.on('domino:opponent-left', (payload: { message: string }) => {
       setRematchRejectedMessage(payload.message)
+      waitingCodeRef.current = null
       setRoom(null)
     })
 
@@ -68,11 +76,12 @@ export function useDominoRoom(token: string | null) {
   }, [])
 
   const joinRoom = useCallback((code: string) => {
-    socketRef.current?.emit('domino:join', { code })
+    waitingCodeRef.current = code
+    if (socketRef.current?.connected) socketRef.current.emit('domino:join', { code })
   }, [])
 
-  const startGame = useCallback((turnDurationSeconds?: number) => {
-    socketRef.current?.emit('domino:start', { turnDurationSeconds })
+  const setReady = useCallback((ready: boolean) => {
+    if (socketRef.current?.connected) socketRef.current.emit('domino:ready', { ready })
   }, [])
 
   const updateTurnDuration = useCallback((turnDurationSeconds: number) => {
@@ -96,6 +105,7 @@ export function useDominoRoom(token: string | null) {
   }, [])
 
   const leaveRoom = useCallback(() => {
+    waitingCodeRef.current = null
     socketRef.current?.emit('domino:leave')
     setRoom(null)
   }, [])
@@ -109,7 +119,7 @@ export function useDominoRoom(token: string | null) {
     lastPlacedTileId,
     createRoom,
     joinRoom,
-    startGame,
+    setReady,
     updateTurnDuration,
     playTile,
     drawTile,

@@ -6,6 +6,8 @@ export type RoomPhase = 'WAITING' | 'PLAYING' | 'FINISHED';
 
 export interface RoomPlayer {
   socketId: string;
+  /** Confirmación individual para el lobby actual. */
+  ready?: boolean;
   userId: string;
   displayName: string;
   /** Id de la carta secreta que este jugador debe hacer adivinar al rival. */

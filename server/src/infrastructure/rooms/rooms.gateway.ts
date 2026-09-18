@@ -19,7 +19,6 @@ import {
   type TournamentStore,
   type TournamentState,
   type TournamentMatch,
-  type TournamentParticipant,
 } from '../../domain/ports/tournament-store.port.js';
 import type { GuessWhoCard } from '../../application/content-validators/guess-who.content-validator.js';
 import type { DominoConcept } from '../../application/content-validators/domino.content-validator.js';
@@ -55,6 +54,7 @@ import type {
 } from '../../application/content-validators/dual-quest.content-validator.js';
 import { AnalyticsTrackerService } from '../../application/services/analytics-tracker.service.js';
 import { WsExceptionFilter } from './ws-exception.filter.js';
+import { allLobbyReady, recordLobbyReady, resetLobbyReady } from './lobby-ready.js';
 
 interface AuthenticatedSocket extends Socket {
   data: {
@@ -120,6 +120,7 @@ function toTournamentClientView(tournament: TournamentState, forUserId: string) 
     participants: tournament.participants.map((participant) => ({
       userId: participant.userId,
       displayName: participant.displayName,
+      ready: participant.ready === true,
       points: participant.points,
       eliminated: participant.eliminated,
       eliminatedAtRound: participant.eliminatedAtRound,
@@ -238,6 +239,7 @@ function toDominoClientView(room: DominoRoomState, forSocketId: string) {
     players: room.players.map((player) => ({
       userId: player.userId,
       displayName: player.displayName,
+      ready: player.ready === true,
       handCount: player.hand.length,
       hand: player.socketId === forSocketId ? player.hand : null,
       isSelf: player.socketId === forSocketId,
@@ -286,6 +288,7 @@ function toSnakesLaddersClientView(room: SnakesLaddersRoomState, forSocketId: st
     players: room.players.map((player) => ({
       userId: player.userId,
       displayName: player.displayName,
+      ready: player.ready === true,
       position: player.position,
       isSelf: player.socketId === forSocketId,
       isHost: player.userId === room.hostUserId,
@@ -349,6 +352,7 @@ function toDualQuestClientView(room: DualQuestRoomState, forSocketId: string) {
     players: room.players.map((player) => ({
       userId: player.userId,
       displayName: player.displayName,
+      ready: player.ready === true,
       role: player.role,
       position: player.position,
       isSelf: player.socketId === forSocketId,
@@ -372,6 +376,7 @@ function toClientView(room: RoomState, forSocketId: string) {
     players: room.players.map((player) => ({
       userId: player.userId,
       displayName: player.displayName,
+      ready: player.ready === true,
       discardedCardIds: player.discardedCardIds,
       // La carta secreta propia sí se revela al dueño (para que sepa qué le preguntan);
       // la del rival nunca viaja a este socket.
@@ -443,6 +448,13 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
    */
   private readonly dualQuestMovementTicks = new Map<string, NodeJS.Timeout>();
 
+  private readonly dealTimers = new Map<string, NodeJS.Timeout>();
+
+  private cancelDealCountdown(key: string) {
+    clearTimeout(this.dealTimers.get(key));
+    this.dealTimers.delete(key);
+  }
+
   constructor(
     private readonly jwtService: JwtService,
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
@@ -498,75 +510,94 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   handleDisconnect(socket: AuthenticatedSocket) {
     const room = this.roomStore.findBySocketId(socket.id);
     if (room) {
+      const wasWaiting = room.phase === 'WAITING';
+      this.cancelDealCountdown('room:' + room.code);
       this.clearTurnTimer(room.code);
       room.players = room.players.filter((player) => player.socketId !== socket.id);
 
       if (room.players.length === 0) {
         this.roomStore.delete(room.code);
       } else {
+        if (!wasWaiting) resetLobbyReady(room.players);
+        if (!room.players.some((p) => p.userId === room.hostUserId)) room.hostUserId = room.players[0].userId;
         room.phase = room.phase === 'FINISHED' ? room.phase : 'WAITING';
         room.activePlayerUserId = null;
         room.turnDeadline = null;
         this.roomStore.set(room);
         this.broadcastState(room);
+        if (wasWaiting) this.tryStartRoom(room);
       }
     }
 
-    // La desconexión de un participante de torneo NO se trata como abandono
-    // definitivo (no queremos eliminar a nadie por un refresh de página):
-    // solo se actualiza el socketId guardado la próxima vez que ese userId
-    // se reconecte a través de tournament:join / evento de match. Aquí solo
-    // limpiamos el puntero de socket para no emitir a un socket muerto.
+    // En espera solo cuentan los conectados; durante el torneo se conserva
+    // el participante para no alterar partidas ni ranking por un corte de red.
     const tournament = this.tournamentStore.findBySocketId(socket.id);
-    if (tournament) {
+    if (tournament?.phase === 'WAITING') {
+      this.handleTournamentLeave(socket);
+    } else if (tournament) {
       this.tournamentStore.set(tournament);
     }
 
     const dominoRoom = this.dominoRoomStore.findBySocketId(socket.id);
     if (dominoRoom) {
+      const wasWaiting = dominoRoom.phase === 'WAITING';
+      this.cancelDealCountdown('domino:' + dominoRoom.code);
       this.clearDominoTurnTimer(dominoRoom.code);
       dominoRoom.players = dominoRoom.players.filter((player) => player.socketId !== socket.id);
 
       if (dominoRoom.players.length === 0) {
         this.dominoRoomStore.delete(dominoRoom.code);
       } else {
+        if (!wasWaiting) resetLobbyReady(dominoRoom.players);
+        if (!dominoRoom.players.some((p) => p.userId === dominoRoom.hostUserId)) dominoRoom.hostUserId = dominoRoom.players[0].userId;
         dominoRoom.phase = dominoRoom.phase === 'FINISHED' ? dominoRoom.phase : 'WAITING';
         dominoRoom.activePlayerUserId = null;
         dominoRoom.turnDeadline = null;
         this.dominoRoomStore.set(dominoRoom);
         this.broadcastDominoState(dominoRoom);
+        if (wasWaiting) this.tryStartDomino(dominoRoom);
       }
     }
 
     const snakesLaddersRoom = this.snakesLaddersRoomStore.findBySocketId(socket.id);
     if (snakesLaddersRoom) {
+      const wasWaiting = snakesLaddersRoom.phase === 'WAITING';
+      this.cancelDealCountdown('snakes-ladders:' + snakesLaddersRoom.code);
       this.clearSnakesLaddersTurnTimer(snakesLaddersRoom.code);
       snakesLaddersRoom.players = snakesLaddersRoom.players.filter((player) => player.socketId !== socket.id);
 
       if (snakesLaddersRoom.players.length === 0) {
         this.snakesLaddersRoomStore.delete(snakesLaddersRoom.code);
       } else {
+        if (!wasWaiting) resetLobbyReady(snakesLaddersRoom.players);
+        if (!snakesLaddersRoom.players.some((p) => p.userId === snakesLaddersRoom.hostUserId)) snakesLaddersRoom.hostUserId = snakesLaddersRoom.players[0].userId;
         snakesLaddersRoom.phase = snakesLaddersRoom.phase === 'FINISHED' ? snakesLaddersRoom.phase : 'WAITING';
         snakesLaddersRoom.activePlayerUserId = null;
         snakesLaddersRoom.turnDeadline = null;
         snakesLaddersRoom.pendingChallenge = null;
         this.snakesLaddersRoomStore.set(snakesLaddersRoom);
         this.broadcastSnakesLaddersState(snakesLaddersRoom);
+        if (wasWaiting) this.tryStartSnakesLadders(snakesLaddersRoom);
       }
     }
 
     const dualQuestRoom = this.dualQuestRoomStore.findBySocketId(socket.id);
     if (dualQuestRoom) {
+      const wasWaiting = dualQuestRoom.phase === 'WAITING';
+      this.cancelDealCountdown('dual-quest:' + dualQuestRoom.code);
       this.clearDualQuestMovementTick(dualQuestRoom.code);
       dualQuestRoom.players = dualQuestRoom.players.filter((player) => player.socketId !== socket.id);
 
       if (dualQuestRoom.players.length === 0) {
         this.dualQuestRoomStore.delete(dualQuestRoom.code);
       } else {
+        if (!wasWaiting) resetLobbyReady(dualQuestRoom.players);
+        if (!dualQuestRoom.players.some((p) => p.userId === dualQuestRoom.hostUserId)) dualQuestRoom.hostUserId = dualQuestRoom.players[0].userId;
         dualQuestRoom.phase = dualQuestRoom.phase === 'FINISHED' ? dualQuestRoom.phase : 'WAITING';
         dualQuestRoom.pendingQuestion = null;
         this.dualQuestRoomStore.set(dualQuestRoom);
         this.broadcastDualQuestState(dualQuestRoom);
+        if (wasWaiting) this.tryStartDualQuest(dualQuestRoom);
       }
     }
   }
@@ -600,6 +631,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
           socketId: socket.id,
           userId: socket.data.userId,
           displayName: socket.data.displayName,
+          ready: false,
           secretCardId: null,
           discardedCardIds: [],
         },
@@ -677,12 +709,18 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     const existing = room.players.find((player) => player.userId === socket.data.userId);
     if (existing) {
+      if (room.phase === 'WAITING' && existing.socketId !== socket.id) {
+        existing.ready = false;
+        this.cancelDealCountdown('room:' + room.code);
+      }
       existing.socketId = socket.id;
     } else {
+      if (room.phase !== 'WAITING') throw new Error('La partida ya inició.');
       room.players.push({
         socketId: socket.id,
         userId: socket.data.userId,
         displayName: socket.data.displayName,
+        ready: false,
         secretCardId: null,
         discardedCardIds: [],
       });
@@ -693,31 +731,30 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     this.broadcastState(room);
   }
 
+  /** Compatibilidad: Iniciar solo confirma al emisor, nunca a toda la sala. */
   @SubscribeMessage('room:start')
-  handleStart(
-    @ConnectedSocket() socket: AuthenticatedSocket,
-    @MessageBody() body: { turnDurationSeconds?: number },
-  ) {
+  handleStart(@ConnectedSocket() socket: AuthenticatedSocket) {
+    this.handleReady(socket, { ready: true });
+  }
+
+  @SubscribeMessage('room:ready')
+  handleReady(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { ready: boolean }) {
     const room = this.roomStore.findBySocketId(socket.id);
     if (!room) throw new Error('No estás en ninguna sala.');
-    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
-    if (room.players.length !== 2) throw new Error('Se necesitan 2 jugadores para iniciar.');
+    // Una retransmisión del último Listo no inicia otra partida ni produce un error tardío.
+    if (room.phase !== 'WAITING' && body?.ready === true && room.players.some(
+      (p) => p.socketId === socket.id && p.userId === socket.data.userId && p.ready === true,
+    )) return;
+    if (room.phase !== 'WAITING') throw new Error('La sala ya no está esperando jugadores.');
+    if (!recordLobbyReady(room.players, socket, body?.ready)) return;
+    this.cancelDealCountdown('room:' + room.code);
+    this.roomStore.set(room);
+    this.broadcastState(room);
+    this.tryStartRoom(room);
+  }
 
-    // El tiempo por turno se elige en la sala (no en la creación del
-    // juego), así que cada partida puede tener su propio ritmo; si viene
-    // fuera de rango o no llega, se conserva el valor con el que se creó
-    // la sala (heredado de la configuración del juego). Solo el anfitrión
-    // puede fijarlo — si quien se unió con el código manda un valor, se
-    // ignora en vez de fallar, para no bloquear el inicio de la partida.
-    if (body?.turnDurationSeconds !== undefined && socket.data.userId === room.hostUserId) {
-      const { turnDurationSeconds } = body;
-      if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
-        throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
-      }
-      room.turnDurationSeconds = turnDurationSeconds;
-      this.roomStore.set(room);
-    }
-
+  private tryStartRoom(room: RoomState) {
+    if (room.phase !== 'WAITING' || !allLobbyReady(room.players)) return;
     this.startDealCountdown(room);
   }
 
@@ -749,6 +786,9 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
     }
 
+    if (room.turnDurationSeconds === turnDurationSeconds) return;
+    this.cancelDealCountdown('room:' + room.code);
+    resetLobbyReady(room.players);
     room.turnDurationSeconds = turnDurationSeconds;
     this.roomStore.set(room);
     this.broadcastState(room);
@@ -821,13 +861,21 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
    * cartas y arranca el turno.
    */
   private startDealCountdown(room: RoomState) {
-    this.server.to(room.code).emit('room:dealing', { countdownMs: DEAL_COUNTDOWN_MS });
-    setTimeout(() => {
-      // La sala pudo cerrarse (alguien se desconectó) durante la cuenta regresiva.
+    const key = 'room:' + room.code;
+    if (this.dealTimers.has(key)) return;
+    const phase = room.phase;
+    const sockets = room.players.map((p) => p.socketId).join(',');
+    const timer = setTimeout(() => {
+      this.dealTimers.delete(key);
       const current = this.roomStore.get(room.code);
-      if (!current || current.players.length !== 2) return;
-      this.dealNewGame(current);
+      if (current !== room || current.phase !== phase || current.players.length !== 2 ||
+          current.players.map((p) => p.socketId).join(',') !== sockets) return;
+      const consent = phase === 'WAITING' ? allLobbyReady(current.players) :
+        phase === 'FINISHED' && current.players.every((p) => current.rematchVotes[p.userId] === true);
+      if (consent) this.dealNewGame(current);
     }, DEAL_COUNTDOWN_MS);
+    this.dealTimers.set(key, timer);
+    this.server.to(room.code).emit('room:dealing', { countdownMs: DEAL_COUNTDOWN_MS });
   }
 
   /** Baraja cartas nuevas, reparte, elige turno al azar y pasa la sala a PLAYING. */
@@ -1016,6 +1064,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
           socketId: socket.id,
           userId: socket.data.userId,
           displayName: socket.data.displayName,
+          ready: false,
           points: 0,
           eliminated: false,
           eliminatedAtRound: null,
@@ -1048,6 +1097,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     const existing = tournament.participants.find((p) => p.userId === socket.data.userId);
     if (existing) {
+      if (existing.socketId !== socket.id) existing.ready = false;
       existing.socketId = socket.id;
     } else {
       if (tournament.participants.length >= tournament.maxParticipants) {
@@ -1057,6 +1107,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         socketId: socket.id,
         userId: socket.data.userId,
         displayName: socket.data.displayName,
+        ready: false,
         points: 0,
         eliminated: false,
         eliminatedAtRound: null,
@@ -1090,41 +1141,40 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
     }
 
+    if (tournament.turnDurationSeconds === turnDurationSeconds) return;
+    resetLobbyReady(tournament.participants);
     tournament.turnDurationSeconds = turnDurationSeconds;
     this.broadcastTournamentState(tournament);
   }
 
   /**
-   * Arranca la primera ronda del torneo. Requiere un número PAR de
+   * Confirma al emisor. La primera ronda requiere unanimidad y un número PAR de
    * participantes (2, 4, 6, 8 o 10) — no hace falta llegar al cupo
    * configurado, solo que el número actual sea par para poder emparejar a
    * todos sin dejar a nadie afuera desde el arranque.
    */
   @SubscribeMessage('tournament:start')
-  handleTournamentStart(
-    @ConnectedSocket() socket: AuthenticatedSocket,
-    @MessageBody() body: { turnDurationSeconds?: number },
-  ) {
+  handleTournamentStart(@ConnectedSocket() socket: AuthenticatedSocket) {
+    this.handleTournamentReady(socket, { ready: true });
+  }
+
+  @SubscribeMessage('tournament:ready')
+  handleTournamentReady(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { ready: boolean }) {
     const tournament = this.tournamentStore.findBySocketId(socket.id);
     if (!tournament) throw new Error('No estás en ninguna sala grupal.');
-    if (tournament.creatorUserId !== socket.data.userId) {
-      throw new Error('Solo quien creó la sala puede iniciar el torneo.');
-    }
+    // Una retransmisión del último Listo no inicia otra partida ni produce un error tardío.
+    if (tournament.phase !== 'WAITING' && body?.ready === true && tournament.participants.some(
+      (p) => p.socketId === socket.id && p.userId === socket.data.userId && p.ready === true,
+    )) return;
     if (tournament.phase !== 'WAITING') throw new Error('El torneo ya inició.');
+    if (!recordLobbyReady(tournament.participants, socket, body?.ready)) return;
+    this.tournamentStore.set(tournament);
+    this.broadcastTournamentState(tournament);
+    this.tryStartTournament(tournament);
+  }
 
-    const count = tournament.participants.length;
-    if (count < 2 || count % 2 !== 0) {
-      throw new Error('Se necesita un número par de jugadores (2, 4, 6, 8 o 10) para iniciar.');
-    }
-
-    if (body?.turnDurationSeconds !== undefined) {
-      const { turnDurationSeconds } = body;
-      if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
-        throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
-      }
-      tournament.turnDurationSeconds = turnDurationSeconds;
-    }
-
+  private tryStartTournament(tournament: TournamentState) {
+    if (tournament.phase !== 'WAITING' || !allLobbyReady(tournament.participants, 2, TOURNAMENT_MAX_PARTICIPANTS, true)) return;
     tournament.phase = 'RUNNING';
     this.startTournamentRound(tournament, tournament.participants.map((p) => p.userId));
   }
@@ -1141,8 +1191,12 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         this.tournamentStore.delete(tournament.code);
         return;
       }
+      if (!tournament.participants.some((p) => p.userId === tournament.creatorUserId)) {
+        tournament.creatorUserId = tournament.participants[0].userId;
+      }
       this.tournamentStore.set(tournament);
       this.broadcastTournamentState(tournament);
+      this.tryStartTournament(tournament);
     }
     // Si el torneo ya está RUNNING o FINISHED, no se elimina al participante
     // del estado (para no romper el ranking histórico); simplemente deja de
@@ -1440,6 +1494,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
           socketId: socket.id,
           userId: socket.data.userId,
           displayName: socket.data.displayName,
+          ready: false,
           hand: [],
         },
       ],
@@ -1478,12 +1533,18 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     const existing = room.players.find((player) => player.userId === socket.data.userId);
     if (existing) {
+      if (room.phase === 'WAITING' && existing.socketId !== socket.id) {
+        existing.ready = false;
+        this.cancelDealCountdown('domino:' + room.code);
+      }
       existing.socketId = socket.id;
     } else {
+      if (room.phase !== 'WAITING') throw new Error('La partida ya inició.');
       room.players.push({
         socketId: socket.id,
         userId: socket.data.userId,
         displayName: socket.data.displayName,
+        ready: false,
         hand: [],
       });
     }
@@ -1493,28 +1554,30 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     this.broadcastDominoState(room);
   }
 
+  /** Compatibilidad: Iniciar solo confirma al emisor, nunca a toda la sala. */
   @SubscribeMessage('domino:start')
-  handleDominoStart(
-    @ConnectedSocket() socket: AuthenticatedSocket,
-    @MessageBody() body: { turnDurationSeconds?: number },
-  ) {
+  handleDominoStart(@ConnectedSocket() socket: AuthenticatedSocket) {
+    this.handleDominoReady(socket, { ready: true });
+  }
+
+  @SubscribeMessage('domino:ready')
+  handleDominoReady(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { ready: boolean }) {
     const room = this.dominoRoomStore.findBySocketId(socket.id);
     if (!room) throw new Error('No estás en ninguna sala.');
-    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
-    if (room.players.length !== 2) throw new Error('Se necesitan 2 jugadores para iniciar.');
+    // Una retransmisión del último Listo no inicia otra partida ni produce un error tardío.
+    if (room.phase !== 'WAITING' && body?.ready === true && room.players.some(
+      (p) => p.socketId === socket.id && p.userId === socket.data.userId && p.ready === true,
+    )) return;
+    if (room.phase !== 'WAITING') throw new Error('La sala ya no está esperando jugadores.');
+    if (!recordLobbyReady(room.players, socket, body?.ready)) return;
+    this.cancelDealCountdown('domino:' + room.code);
+    this.dominoRoomStore.set(room);
+    this.broadcastDominoState(room);
+    this.tryStartDomino(room);
+  }
 
-    // Igual que en "¿Quién Es?": solo el anfitrión puede fijar el tiempo por
-    // turno; si el otro jugador manda un valor al iniciar, se ignora en vez
-    // de bloquear el arranque de la partida.
-    if (body?.turnDurationSeconds !== undefined && socket.data.userId === room.hostUserId) {
-      const { turnDurationSeconds } = body;
-      if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 5 || turnDurationSeconds > 120) {
-        throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
-      }
-      room.turnDurationSeconds = turnDurationSeconds;
-      this.dominoRoomStore.set(room);
-    }
-
+  private tryStartDomino(room: DominoRoomState) {
+    if (room.phase !== 'WAITING' || !allLobbyReady(room.players)) return;
     this.startDominoDealCountdown(room);
   }
 
@@ -1535,18 +1598,30 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       throw new Error('Los segundos por turno deben ser un entero entre 5 y 120.');
     }
 
+    if (room.turnDurationSeconds === turnDurationSeconds) return;
+    this.cancelDealCountdown('domino:' + room.code);
+    resetLobbyReady(room.players);
     room.turnDurationSeconds = turnDurationSeconds;
     this.dominoRoomStore.set(room);
     this.broadcastDominoState(room);
   }
 
   private startDominoDealCountdown(room: DominoRoomState) {
-    this.server.to(`domino:${room.code}`).emit('domino:dealing', { countdownMs: DEAL_COUNTDOWN_MS });
-    setTimeout(() => {
+    const key = 'domino:' + room.code;
+    if (this.dealTimers.has(key)) return;
+    const phase = room.phase;
+    const sockets = room.players.map((p) => p.socketId).join(',');
+    const timer = setTimeout(() => {
+      this.dealTimers.delete(key);
       const current = this.dominoRoomStore.get(room.code);
-      if (!current || current.players.length !== 2) return;
-      this.dealNewDominoGame(current);
+      if (current !== room || current.phase !== phase || current.players.length !== 2 ||
+          current.players.map((p) => p.socketId).join(',') !== sockets) return;
+      const consent = phase === 'WAITING' ? allLobbyReady(current.players) :
+        phase === 'FINISHED' && current.players.every((p) => current.rematchVotes[p.userId] === true);
+      if (consent) this.dealNewDominoGame(current);
     }, DEAL_COUNTDOWN_MS);
+    this.dealTimers.set(key, timer);
+    this.server.to(`domino:${room.code}`).emit('domino:dealing', { countdownMs: DEAL_COUNTDOWN_MS });
   }
 
   /** Genera el set completo desde los conceptos publicados, baraja y reparte `handSize` fichas a cada jugador. */
@@ -1823,6 +1898,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
           socketId: socket.id,
           userId: socket.data.userId,
           displayName: socket.data.displayName,
+          ready: false,
           position: 1,
         },
       ],
@@ -1860,12 +1936,18 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     }
 
     if (existing) {
+      if (room.phase === 'WAITING' && existing.socketId !== socket.id) {
+        existing.ready = false;
+        this.cancelDealCountdown('snakes-ladders:' + room.code);
+      }
       existing.socketId = socket.id;
     } else {
+      if (room.phase !== 'WAITING') throw new Error('La partida ya inició.');
       room.players.push({
         socketId: socket.id,
         userId: socket.data.userId,
         displayName: socket.data.displayName,
+        ready: false,
         position: 1,
       });
     }
@@ -1875,38 +1957,37 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     this.broadcastSnakesLaddersState(room);
   }
 
+  /** Compatibilidad: Iniciar solo confirma al emisor, nunca a toda la sala. */
   @SubscribeMessage('snakes-ladders:start')
-  handleSnakesLaddersStart(
-    @ConnectedSocket() socket: AuthenticatedSocket,
-    @MessageBody() body: { turnDurationSeconds?: number },
-  ) {
+  handleSnakesLaddersStart(@ConnectedSocket() socket: AuthenticatedSocket) {
+    this.handleSnakesLaddersReady(socket, { ready: true });
+  }
+
+  @SubscribeMessage('snakes-ladders:ready')
+  handleSnakesLaddersReady(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { ready: boolean }) {
     const room = this.snakesLaddersRoomStore.findBySocketId(socket.id);
     if (!room) throw new Error('No estás en ninguna sala.');
-    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
-    if (
-      room.players.length < RoomsGateway.SNAKES_LADDERS_MIN_PLAYERS ||
-      room.players.length > RoomsGateway.SNAKES_LADDERS_MAX_PLAYERS
-    ) {
-      throw new Error('Se necesitan entre 2 y 4 jugadores para iniciar.');
-    }
+    // Una retransmisión del último Listo no inicia otra partida ni produce un error tardío.
+    if (room.phase !== 'WAITING' && body?.ready === true && room.players.some(
+      (p) => p.socketId === socket.id && p.userId === socket.data.userId && p.ready === true,
+    )) return;
+    if (room.phase !== 'WAITING') throw new Error('La sala ya no está esperando jugadores.');
+    if (!recordLobbyReady(room.players, socket, body?.ready)) return;
+    this.cancelDealCountdown('snakes-ladders:' + room.code);
+    this.snakesLaddersRoomStore.set(room);
+    this.broadcastSnakesLaddersState(room);
+    this.tryStartSnakesLadders(room);
+  }
 
-    if (body?.turnDurationSeconds !== undefined && socket.data.userId === room.hostUserId) {
-      const { turnDurationSeconds } = body;
-      if (!Number.isInteger(turnDurationSeconds) || turnDurationSeconds < 15 || turnDurationSeconds > 180) {
-        throw new Error('Los segundos por turno deben ser un entero entre 15 y 180.');
-      }
-      room.turnDurationSeconds = turnDurationSeconds;
-    }
-
+  private tryStartSnakesLadders(room: SnakesLaddersRoomState) {
+    if (room.phase !== 'WAITING' || !allLobbyReady(room.players, 2, 4)) return;
     for (const player of room.players) player.position = 1;
     room.phase = 'PLAYING';
     room.winnerUserId = null;
     room.pendingChallenge = null;
     room.lastRoll = null;
     room.rematchVotes = {};
-
-    const firstPlayer = room.players[Math.floor(Math.random() * room.players.length)];
-    this.setActiveSnakesLaddersTurn(room, firstPlayer.userId);
+    this.setActiveSnakesLaddersTurn(room, room.players[Math.floor(Math.random() * room.players.length)].userId);
   }
 
   /** El servidor tira el dado — nunca el cliente, así nadie puede manipular el resultado. */
@@ -2200,6 +2281,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
           socketId: socket.id,
           userId: socket.data.userId,
           displayName: socket.data.displayName,
+          ready: false,
           role,
           position: startPosition,
           desiredDirection: null,
@@ -2231,8 +2313,13 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     const existing = room.players.find((player) => player.userId === socket.data.userId);
     if (existing) {
+      if (room.phase === 'WAITING' && existing.socketId !== socket.id) {
+        existing.ready = false;
+        this.cancelDealCountdown('dual-quest:' + room.code);
+      }
       existing.socketId = socket.id;
     } else {
+      if (room.phase !== 'WAITING') throw new Error('La partida ya inició.');
       if (room.players.length >= 2) throw new Error('La sala ya está llena.');
       // El segundo jugador siempre recibe el rol que falta — Dúo Lógico
       // necesita exactamente un FIRE y un WATER, nunca dos del mismo.
@@ -2243,6 +2330,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         socketId: socket.id,
         userId: socket.data.userId,
         displayName: socket.data.displayName,
+        ready: false,
         role,
         position: startPosition,
         desiredDirection: null,
@@ -2254,13 +2342,30 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     this.broadcastDualQuestState(room);
   }
 
+  /** Compatibilidad: Iniciar solo confirma al emisor, nunca a toda la sala. */
   @SubscribeMessage('dual-quest:start')
   handleDualQuestStart(@ConnectedSocket() socket: AuthenticatedSocket) {
+    this.handleDualQuestReady(socket, { ready: true });
+  }
+
+  @SubscribeMessage('dual-quest:ready')
+  handleDualQuestReady(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { ready: boolean }) {
     const room = this.dualQuestRoomStore.findBySocketId(socket.id);
     if (!room) throw new Error('No estás en ninguna sala.');
-    if (room.phase !== 'WAITING') throw new Error('La partida ya está en curso o terminó.');
-    if (room.players.length !== 2) throw new Error('Se necesitan 2 jugadores (Fuego y Agua) para iniciar.');
+    // Una retransmisión del último Listo no inicia otra partida ni produce un error tardío.
+    if (room.phase !== 'WAITING' && body?.ready === true && room.players.some(
+      (p) => p.socketId === socket.id && p.userId === socket.data.userId && p.ready === true,
+    )) return;
+    if (room.phase !== 'WAITING') throw new Error('La sala ya no está esperando jugadores.');
+    if (!recordLobbyReady(room.players, socket, body?.ready)) return;
+    this.cancelDealCountdown('dual-quest:' + room.code);
+    this.dualQuestRoomStore.set(room);
+    this.broadcastDualQuestState(room);
+    this.tryStartDualQuest(room);
+  }
 
+  private tryStartDualQuest(room: DualQuestRoomState) {
+    if (room.phase !== 'WAITING' || !allLobbyReady(room.players)) return;
     room.phase = 'PLAYING';
     room.bothAtCore = false;
     room.pendingQuestion = null;
@@ -2419,11 +2524,11 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     room.collectedGemIds = [];
     room.pendingQuestion = null;
     room.bothAtCore = false;
-    room.phase = 'PLAYING';
+    room.phase = 'WAITING';
+    resetLobbyReady(room.players);
 
     this.dualQuestRoomStore.set(room);
     this.broadcastDualQuestState(room);
-    this.startDualQuestMovementTick(room.code);
   }
 
   @SubscribeMessage('dual-quest:leave')

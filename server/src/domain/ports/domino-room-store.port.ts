@@ -23,6 +23,8 @@ export interface DominoPlacedTile {
 
 export interface DominoRoomPlayer {
   socketId: string;
+  /** Confirmación individual para el lobby actual. */
+  ready?: boolean;
   userId: string;
   displayName: string;
   hand: DominoTile[];

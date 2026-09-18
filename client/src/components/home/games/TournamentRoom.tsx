@@ -1,3 +1,4 @@
+import { LobbyReadyControl } from './LobbyReadyControl'
 import { useEffect, useRef, useState } from 'react'
 import { Copy, Crown, Link, LogOut, Skull, Swords, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
@@ -22,19 +23,13 @@ type TournamentRoomProps = {
 /** Antes de entrar a la sala grupal, cada jugador decide si crea una sala nueva o se une con un código. */
 type EntryChoice = 'undecided' | 'choosing-create' | 'joining-input' | 'creating' | 'joining'
 
-// Cupos válidos para poder iniciar sin llegar al máximo configurado: hace
-// falta un número PAR de jugadores unidos (no el cupo completo).
-function isValidStartCount(count: number): boolean {
-  return count >= 2 && count % 2 === 0
-}
-
 /** Debe coincidir con TOURNAMENT_MAX_PARTICIPANTS del gateway. */
 const MAX_PARTICIPANTS_LIMIT = 10
 const MIN_PARTICIPANTS_LIMIT = 2
 
 /**
  * Sala de torneo eliminatorio (modo grupo de "¿Quién Es?"): crear/unirse a
- * una sala grupal, esperar a que el creador inicie, ver el anuncio de
+ * una sala grupal, confirmar que todos están listos, ver el anuncio de
  * compañero de ronda, jugar el match 1v1 de la ronda (reutilizando
  * MatchBoard) y, si se es eliminado, ver el resumen del torneo en vez de la
  * partida de los demás.
@@ -57,7 +52,7 @@ export function TournamentRoom({
     clearMatchAccusationFailedMessage,
     createTournament,
     joinTournament,
-    startTournament,
+    setReady,
     updateTurnDuration,
     leaveTournament,
     discardMatchCard,
@@ -355,7 +350,8 @@ export function TournamentRoom({
         <WaitingLobby
           tournament={tournament}
           isCreator={isCreator}
-          onStart={startTournament}
+          onReady={setReady}
+          disconnected={connecting}
           onUpdateTurnDuration={updateTurnDuration}
         />
       )}
@@ -411,16 +407,17 @@ export function TournamentRoom({
 function WaitingLobby({
   tournament,
   isCreator,
-  onStart,
+  onReady,
+  disconnected,
   onUpdateTurnDuration,
 }: {
   tournament: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>
   isCreator: boolean
-  onStart: (turnDurationSeconds: number) => void
+  onReady: (ready: boolean) => void
+  disconnected: boolean
   onUpdateTurnDuration: (turnDurationSeconds: number) => void
 }) {
   const count = tournament.participants.length
-  const canStart = isValidStartCount(count)
   // Segundos por turno para el torneo: solo el creador lo edita (como
   // texto, no número, para poder dejar el campo vacío mientras se
   // reescribe sin que quede pegado en "0"). Se emite en cada cambio válido
@@ -507,26 +504,7 @@ function WaitingLobby({
         </div>
       )}
 
-      {isCreator ? (
-        <button
-          type="button"
-          className="rounded-lg px-4 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-          disabled={!canStart}
-          onClick={() => onStart(Number(turnDurationText) || tournament.turnDurationSeconds)}
-        >
-          {canStart ? 'Iniciar partida' : 'Se necesita un número par de jugadores (2, 4, 6, 8 o 10)'}
-        </button>
-      ) : (
-        <div className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-4 py-3 text-[13px] font-medium text-text-h">
-          Esperando a que los demás jugadores acepten…
-          <span className="flex items-center gap-0.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-[waiting-dot-bounce_1.2s_ease-in-out_infinite]" />
-            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-[waiting-dot-bounce_1.2s_ease-in-out_0.15s_infinite]" />
-            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-[waiting-dot-bounce_1.2s_ease-in-out_0.3s_infinite]" />
-          </span>
-        </div>
-      )}
+      <LobbyReadyControl players={tournament.participants} onReady={onReady} disconnected={disconnected} requireEven />
     </div>
   )
 }

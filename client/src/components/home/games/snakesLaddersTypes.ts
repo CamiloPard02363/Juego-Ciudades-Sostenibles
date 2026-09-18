@@ -33,6 +33,7 @@ export type SnakesLaddersRoomPlayerView = {
   userId: string
   displayName: string
   position: number
+  ready?: boolean
   isSelf: boolean
   isHost: boolean
   hasVotedRematch: boolean
