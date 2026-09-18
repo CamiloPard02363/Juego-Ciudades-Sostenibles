@@ -14,6 +14,8 @@ import { ListAllOrganizationsUseCase } from '../../../application/use-cases/list
 import { ListOrganizationMembersUseCase } from '../../../application/use-cases/list-organization-members.use-case.js';
 import { AddOrganizationMemberUseCase } from '../../../application/use-cases/add-organization-member.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
+import { RolesGuard } from '../guards/roles.guard.js';
+import { Roles } from '../decorators/roles.decorator.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { CreateOrganizationDto } from '../dtos/create-organization.dto.js';
 import { AddOrganizationMemberDto } from '../dtos/add-organization-member.dto.js';
@@ -47,6 +49,8 @@ export class OrganizationController {
    * propio path evita que un cambio de query param la exponga por accidente.
    */
   @Get('all')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   listAll(@CurrentUserId() requestingUserId: string) {
     return this.listAllOrganizationsUseCase.execute({ requestingUserId });
   }

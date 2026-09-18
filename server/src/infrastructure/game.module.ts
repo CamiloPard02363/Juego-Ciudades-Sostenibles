@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UserModule } from './user.module.js';
 import { OrganizationCoreModule } from './organization-core.module.js';
+import { ClassCoreModule } from './class-core.module.js';
 import { GAME_REPOSITORY } from '../domain/ports/game.repository.port.js';
 import { GAME_IMPORT_JOB_REPOSITORY } from '../domain/ports/game-import-job.repository.port.js';
 import { TRANSACTION_RUNNER } from '../domain/ports/transaction-runner.port.js';
@@ -18,6 +19,7 @@ import { DualQuestPixiContentValidator } from '../application/content-validators
 import { ContentValidatorRegistry } from '../application/content-validators/content-validator.registry.js';
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
 import { GameAuthorizationService } from '../application/services/game-authorization.service.js';
+import { ClassEnrollmentGameVisibilityService } from '../application/services/class-enrollment-game-visibility.service.js';
 import { GameFactoryService } from '../application/services/game-factory.service.js';
 import { GameImportExtractor } from '../application/etl/game-import.extractor.js';
 import { CreateGameUseCase } from '../application/use-cases/create-game.use-case.js';
@@ -34,7 +36,7 @@ import { GameController } from './http/controllers/game.controller.js';
 import { GameImportController } from './http/controllers/game-import.controller.js';
 
 @Module({
-  imports: [UserModule, OrganizationCoreModule],
+  imports: [UserModule, OrganizationCoreModule, ClassCoreModule],
   controllers: [GameController, GameImportController],
   providers: [
     MongoService,
@@ -51,6 +53,7 @@ import { GameImportController } from './http/controllers/game-import.controller.
     ContentValidatorRegistry,
     RequesterAdminResolver,
     GameAuthorizationService,
+    ClassEnrollmentGameVisibilityService,
     GameFactoryService,
     GameImportExtractor,
     CreateGameUseCase,

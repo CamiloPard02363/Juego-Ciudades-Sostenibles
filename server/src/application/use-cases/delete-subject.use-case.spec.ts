@@ -40,6 +40,7 @@ function setup(options: {
     findBySlug: vi.fn(),
     existsBySlug: vi.fn(),
     findVisibleTo: vi.fn(),
+    findAll: vi.fn(),
     findByParentId: vi.fn(async (parentId: string) => options.childrenByParentId.get(parentId) ?? []),
     softDelete: vi.fn(),
   };
