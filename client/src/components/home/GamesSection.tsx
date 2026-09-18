@@ -87,6 +87,8 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
 
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
+  const [rootUnclassifiedGames, setRootUnclassifiedGames] = useState<GameSummary[]>([])
+  const [loadingRootUnclassified, setLoadingRootUnclassified] = useState(false)
 
   // El detalle abierto se deriva de la URL (slug en la ruta), no de un click
   // aislado: así el juego es compartible/recargable y el botón atrás cierra
@@ -177,8 +179,13 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
 
   // En modo "categories" (Materias) no hay lista de juegos hasta elegir una
   // materia — la grilla de materias se muestra sola, y solo entonces se
-  // carga el catálogo filtrado por esa categoría (dentro del pop-up).
-  const shouldLoadGames = mode !== 'categories' || activeCategoryId !== null
+  // carga el catálogo filtrado por esa categoría (dentro del pop-up). Una
+  // materia raíz abierta no carga juegos: primero muestra sus sub-materias
+  // (ver el modal de categorías más abajo) — solo al entrar a una sub-materia
+  // (o a los "juegos sin sub-materia" de la raíz) se listan juegos de verdad.
+  const activeCategory = categories.find((c) => c.id === activeCategoryId) ?? null
+  const isActiveCategoryRoot = activeCategory !== null && activeCategory.parentSubjectId === null
+  const shouldLoadGames = mode !== 'categories' || (activeCategoryId !== null && !isActiveCategoryRoot)
 
   const reload = useCallback(() => {
     if (!token || !shouldLoadGames || browsingHidden) return
@@ -203,6 +210,22 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   useEffect(() => {
     reload()
   }, [reload])
+
+  // Al entrar a una materia raíz se muestran sus sub-materias, no un catálogo
+  // de juegos — pero la raíz puede tener juegos asignados directo a ella
+  // (categoryId = id de la raíz, sin pasar por ninguna sub-materia), y esos
+  // deben verse igual dentro de la vista, en su propia sección.
+  useEffect(() => {
+    if (!token || !isActiveCategoryRoot || !activeCategoryId) {
+      setRootUnclassifiedGames([])
+      return
+    }
+    setLoadingRootUnclassified(true)
+    listGames(token, { categoryId: activeCategoryId, pageSize: 40 })
+      .then((result) => setRootUnclassifiedGames(result.items))
+      .catch(() => setRootUnclassifiedGames([]))
+      .finally(() => setLoadingRootUnclassified(false))
+  }, [token, activeCategoryId, isActiveCategoryRoot])
 
   // Se carga siempre (no solo en mode 'categories'): el color por psicología
   // del color de cada tarjeta de juego (colorForGame) necesita el nombre de
@@ -745,34 +768,87 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
           </Modal>
         )}
 
-        {activeCategoryId && (
+        {activeCategoryId && activeCategory && (
           <Modal onClose={() => setActiveCategoryId(null)} maxWidthClassName="max-w-[880px]">
-            <h2 className="mb-1 text-[22px] tracking-tight text-text-h">
-              {categories.find((c) => c.id === activeCategoryId)?.name ?? 'Materia'}
-            </h2>
-            <p className="mb-6 text-[14px] text-text">Juegos publicados en esta materia.</p>
+            <h2 className="mb-1 text-[22px] tracking-tight text-text-h">{activeCategory.name}</h2>
 
-            {error && (
-              <p
-                className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
-                role="alert"
-              >
-                {error}
-              </p>
-            )}
+            {isActiveCategoryRoot ? (
+              <>
+                <p className="mb-6 text-[14px] text-text">Elige una sub-materia para ver sus juegos.</p>
 
-            {loading ? (
-              <p className="py-8 text-center text-[14px] text-text">Cargando juegos…</p>
-            ) : games.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
-                <p className="text-[15px] font-medium text-text-h">Aún no hay juegos en esta materia.</p>
-              </div>
+                {subCategories.filter((s) => s.parentSubjectId === activeCategoryId).length === 0 &&
+                rootUnclassifiedGames.length === 0 &&
+                !loadingRootUnclassified ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                    <p className="text-[15px] font-medium text-text-h">Esta materia todavía no tiene sub-materias.</p>
+                  </div>
+                ) : (
+                  <>
+                    {subCategories.filter((s) => s.parentSubjectId === activeCategoryId).length > 0 && (
+                      <div className="mb-6 grid max-h-[45vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3">
+                        {subCategories
+                          .filter((sub) => sub.parentSubjectId === activeCategoryId)
+                          .map((sub) => (
+                            <CategoryCard
+                              key={sub.id}
+                              category={sub}
+                              countLabel={`${sub.gameCount} ${sub.gameCount === 1 ? 'juego' : 'juegos'}`}
+                              onOpen={() => setActiveCategoryId(sub.id)}
+                              canDelete={canDeleteCategory(sub)}
+                              onDelete={() => setPendingDeleteCategory(sub)}
+                              canPublish={canPublishCategory(sub)}
+                              onPublish={() => openPublishModal(sub)}
+                            />
+                          ))}
+                      </div>
+                    )}
+
+                    {(loadingRootUnclassified || rootUnclassifiedGames.length > 0) && (
+                      <div>
+                        <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-text/70">
+                          Juegos sin sub-materia
+                        </h3>
+                        {loadingRootUnclassified ? (
+                          <p className="py-4 text-center text-[14px] text-text">Cargando…</p>
+                        ) : (
+                          <div className="grid max-h-[35vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                            {rootUnclassifiedGames.map((game) => (
+                              <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             ) : (
-              <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-                {games.map((game) => (
-                  <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
-                ))}
-              </div>
+              <>
+                <p className="mb-6 text-[14px] text-text">Juegos publicados en esta materia.</p>
+
+                {error && (
+                  <p
+                    className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                )}
+
+                {loading ? (
+                  <p className="py-8 text-center text-[14px] text-text">Cargando juegos…</p>
+                ) : games.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                    <p className="text-[15px] font-medium text-text-h">Aún no hay juegos en esta materia.</p>
+                  </div>
+                ) : (
+                  <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                    {games.map((game) => (
+                      <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             <button
