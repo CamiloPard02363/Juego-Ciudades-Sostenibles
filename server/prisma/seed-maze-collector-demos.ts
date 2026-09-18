@@ -11,7 +11,7 @@ import { MongoClient } from 'mongodb';
  *
  * Es idempotente: correrlo dos veces no duplica los juegos (upsert por slug).
  *
- * Uso: node --experimental-strip-types prisma/seed-maze-collector-demos.ts
+ * Uso: npm run db:seed:maze-collector-demos
  */
 
 type SeedItem = {

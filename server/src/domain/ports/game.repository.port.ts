@@ -43,10 +43,19 @@ export interface GameRepository {
    */
   bulkInsert(games: Game[], session?: unknown): Promise<void>;
   findById(id: string): Promise<Game | null>;
+  findByIds(ids: string[]): Promise<Game[]>;
   findBySlug(slug: string): Promise<Game | null>;
   existsBySlug(slug: string): Promise<boolean>;
   findAll(filter: FindAllGamesFilter): Promise<PaginatedGames>;
   delete(id: string): Promise<void>;
   /** Conteo de juegos PUBLISHED agrupados por categoría, para el catálogo de materias. */
   countPublishedByCategory(): Promise<Map<string, number>>;
+  /**
+   * Publica en bloque (DRAFT -> PUBLISHED) todos los juegos de una categoría.
+   * Usado por la cascada de "publicar materia": es un `updateMany` atómico a
+   * nivel de Mongo, no find+mutate+save por documento, para no competir con
+   * el control de concurrencia optimista de cada juego individual. Devuelve
+   * cuántos se publicaron.
+   */
+  publishAllDraftsByCategory(categoryId: string): Promise<number>;
 }

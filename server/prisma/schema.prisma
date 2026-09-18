@@ -40,6 +40,8 @@ model UserModel {
   refreshTokens    RefreshTokenModel[]
   organizationsCreated  OrganizationModel[]           @relation("OrganizationCreatedBy")
   organizationMemberships OrganizationMembershipModel[]
+  classes               ClassModel[]
+  subjectsCreated       SubjectModel[]
 
   @@map("users")
 }
@@ -83,6 +85,66 @@ model OrganizationMembershipModel {
   @@unique([organizationId, userId])
   @@index([userId])
   @@map("organization_memberships")
+}
+
+model ClassModel {
+  id            String    @id @default(uuid())
+  name          String
+  description   String    @default("")
+  teacherUserId String    @map("teacher_user_id")
+  teacher       UserModel @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  games         ClassGameModel[]
+
+  @@index([teacherUserId, createdAt(sort: Desc)])
+  @@map("classes")
+}
+
+/// Relación N:M entre una Class (agrupador privado de trabajo del profesor)
+/// y un Game (que vive en MongoDB, no en Postgres — de ahí que gameId sea un
+/// string suelto sin FK real; la existencia se valida a mano en el use-case
+/// contra el repositorio de Game, igual que Subject.categoryId).
+model ClassGameModel {
+  id        String     @id @default(uuid())
+  classId   String     @map("class_id")
+  class     ClassModel @relation(fields: [classId], references: [id], onDelete: Cascade)
+  gameId    String     @map("game_id")
+  addedAt   DateTime   @default(now()) @map("added_at")
+
+  @@unique([classId, gameId])
+  @@index([classId])
+  @@map("class_games")
+}
+
+enum SubjectStatusEnum {
+  PRIVATE
+  PUBLIC
+
+  @@map("subject_status")
+}
+
+/// Materia raíz (parentSubjectId null, PUBLIC desde su creación por un admin) o
+/// sub-materia (parentSubjectId con valor, nace PRIVATE). PRIVATE -> PUBLIC es
+/// irreversible; el soft-delete (deletedAt) solo aplica en PRIVATE, porque una
+/// materia pública puede tener juegos de otros usuarios colgados debajo.
+model SubjectModel {
+  id              String            @id @default(uuid())
+  name            String
+  slug            String            @unique
+  parentSubjectId String?           @map("parent_subject_id")
+  parent          SubjectModel?     @relation("SubjectHierarchy", fields: [parentSubjectId], references: [id], onDelete: Restrict)
+  children        SubjectModel[]    @relation("SubjectHierarchy")
+  /// null = materia raíz creada por un admin sin registrar autoría individual.
+  creatorUserId   String?           @map("creator_user_id")
+  creator         UserModel?        @relation(fields: [creatorUserId], references: [id], onDelete: SetNull)
+  status          SubjectStatusEnum @default(PRIVATE)
+  deletedAt       DateTime?         @map("deleted_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  @@index([parentSubjectId])
+  @@index([creatorUserId])
+  @@map("subjects")
 }
 
 model RefreshTokenModel {

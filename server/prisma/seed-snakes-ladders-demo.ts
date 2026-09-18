@@ -9,7 +9,7 @@ import { MongoClient } from 'mongodb';
  *
  * Es idempotente: correrlo dos veces no duplica el juego (upsert por slug).
  *
- * Uso: node --experimental-strip-types prisma/seed-snakes-ladders-demo.ts
+ * Uso: npm run db:seed:snakes-ladders-demo
  */
 
 const SLUG = 'matematicas-escaleras-y-numeros';

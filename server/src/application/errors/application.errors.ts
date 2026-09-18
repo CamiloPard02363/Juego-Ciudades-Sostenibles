@@ -59,6 +59,30 @@ export class CategorySlugAlreadyTakenError extends ApplicationError {
   }
 }
 
+export class ClassNotFoundError extends ApplicationError {
+  constructor(identifier: string) {
+    super(`No se encontró una clase con identificador "${identifier}".`);
+  }
+}
+
+export class SubjectNotFoundError extends ApplicationError {
+  constructor(identifier: string) {
+    super(`No se encontró una materia con identificador "${identifier}".`);
+  }
+}
+
+export class SubjectSlugAlreadyTakenError extends ApplicationError {
+  constructor(slug: string) {
+    super(`Ya existe una materia con el identificador "${slug}".`);
+  }
+}
+
+export class ParentSubjectNotFoundError extends ApplicationError {
+  constructor(parentSubjectId: string) {
+    super(`No se encontró la materia raíz "${parentSubjectId}" para crear la sub-materia.`);
+  }
+}
+
 export class OrganizationNotFoundError extends ApplicationError {
   constructor(identifier: string) {
     super(`No se encontró una organización con identificador "${identifier}".`);

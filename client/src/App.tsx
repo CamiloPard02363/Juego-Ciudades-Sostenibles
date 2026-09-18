@@ -106,6 +106,7 @@ function App() {
         <Route path="materias" element={<CategoriesPage />} />
         <Route path="materias/:slug" element={<CategoriesPage />} />
         <Route path="mis-clases" element={<MyClassesPage />} />
+        <Route path="mis-clases/:classId" element={<MyClassesPage />} />
         <Route path="comunidad" element={<CommunityPage />} />
         <Route path="comunidad/:slug" element={<CommunityPage />} />
         <Route path="mis-juegos" element={<MyGamesPage />} />

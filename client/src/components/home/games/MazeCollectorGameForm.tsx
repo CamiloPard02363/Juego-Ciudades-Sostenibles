@@ -8,7 +8,11 @@ import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { createGame, publishGame } from '../../../services/game.service'
-import { createCategory, listCategories, type CategoryWithGameCount } from '../../../services/category.service'
+import {
+  createSubject,
+  listSubjects as listCategories,
+  type SubjectWithGameCount as CategoryWithGameCount,
+} from '../../../services/subject.service'
 import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { ApiError } from '../../../utils/http'
 import {
@@ -112,12 +116,15 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
       })
   }, [token])
 
+  // Toda materia nueva creada al vuelo aquí nace como sub-materia privada de
+  // la materia raíz que ya esté elegida en el selector de arriba — por eso
+  // exige tener un categoryId (raíz) seleccionado antes de poder crearla.
   async function handleCreateCategory() {
-    if (!token || !newCategoryName.trim()) return
+    if (!token || !newCategoryName.trim() || !categoryId) return
     setCreatingCategory(true)
     setError(null)
     try {
-      const category = await createCategory(token, newCategoryName.trim())
+      const category = await createSubject(token, newCategoryName.trim(), categoryId)
       setCategories((current) => [...current, { ...category, gameCount: 0 }])
       setCategoryId(category.id)
       setNewCategoryName('')
@@ -379,16 +386,16 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
             <input
               type="text"
               className="flex-1 rounded-lg border border-border bg-bg px-[13px] py-2 text-[13px] text-text-h outline-none focus:border-accent"
-              placeholder="¿No está tu materia? Créala aquí…"
+              placeholder={categoryId ? 'Nombre de la sub-materia…' : 'Elige una materia arriba primero'}
               value={newCategoryName}
-              disabled={submitting || creatingCategory}
+              disabled={submitting || creatingCategory || !categoryId}
               onChange={(event) => setNewCategoryName(event.target.value)}
             />
             <button
               type="button"
               className="shrink-0 rounded-lg border border-dashed border-border px-3 py-2 text-[12px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleCreateCategory}
-              disabled={submitting || creatingCategory || !newCategoryName.trim()}
+              disabled={submitting || creatingCategory || !newCategoryName.trim() || !categoryId}
             >
               {creatingCategory ? 'Creando…' : '+ Crear'}
             </button>

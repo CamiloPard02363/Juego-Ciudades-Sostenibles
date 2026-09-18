@@ -8,5 +8,13 @@
     "incremental": false,
     "noEmit": false
   },
-  "include": ["seed.ts", "../src/generated/prisma/**/*.ts"]
+  "include": [
+    "seed.ts",
+    "seed-nexus-play.ts",
+    "seed-maze-collector-demos.ts",
+    "seed-snakes-ladders-demo.ts",
+    "seed-dual-quest-demo.ts",
+    "seed-dual-quest-pixi-demo.ts",
+    "../src/generated/prisma/**/*.ts"
+  ]
 }

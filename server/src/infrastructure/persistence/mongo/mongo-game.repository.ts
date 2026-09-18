@@ -123,6 +123,12 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
     return doc ? GameMapper.toDomain(doc) : null;
   }
 
+  async findByIds(ids: string[]): Promise<Game[]> {
+    if (ids.length === 0) return [];
+    const docs = await this.collection.find({ _id: { $in: ids } }).toArray();
+    return docs.map(GameMapper.toDomain);
+  }
+
   async findBySlug(slug: string): Promise<Game | null> {
     const doc = await this.collection.findOne({ slug });
     return doc ? GameMapper.toDomain(doc) : null;
@@ -181,5 +187,13 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
       .toArray();
 
     return new Map(results.map((row) => [row._id, row.count]));
+  }
+
+  async publishAllDraftsByCategory(categoryId: string): Promise<number> {
+    const result = await this.collection.updateMany(
+      { categoryId, status: 'DRAFT' },
+      { $set: { status: 'PUBLISHED', updatedAt: new Date() }, $inc: { version: 1 } },
+    );
+    return result.modifiedCount;
   }
 }

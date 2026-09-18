@@ -1,9 +1,9 @@
 /**
- * Deriva un slug legible a partir de un nombre de categoría libre (ej. "Ciencias
+ * Deriva un slug legible a partir de un nombre de materia libre (ej. "Ciencias
  * Naturales" -> "ciencias-naturales"). No garantiza unicidad — para eso está el
- * índice único en Mongo + captura de duplicados en el repositorio.
+ * índice único en Postgres + captura de duplicados en el repositorio.
  */
-export function categorySlugFromName(name: string, fallbackSuffix: string): string {
+export function subjectSlugFromName(name: string, fallbackSuffix: string): string {
   const base = name
     .trim()
     .toLowerCase()
@@ -16,5 +16,5 @@ export function categorySlugFromName(name: string, fallbackSuffix: string): stri
     .slice(0, 60)
     .replace(/-$/, '');
 
-  return base || `categoria-${fallbackSuffix.slice(0, 8)}`;
+  return base || `materia-${fallbackSuffix.slice(0, 8)}`;
 }

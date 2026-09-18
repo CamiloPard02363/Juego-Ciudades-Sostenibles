@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { KeyRound, PlusCircle, Sparkles, Trash2, Trophy } from 'lucide-react'
+import { AlertTriangle, KeyRound, PlusCircle, Sparkles, Trash2, Trophy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { DEFAULT_CATEGORY_COLOR, colorForCategory, iconForCategory } from './gamesCatalogVisuals'
 import {
@@ -11,11 +11,12 @@ import {
   type GameDetail,
 } from '../../services/game.service'
 import {
-  listCategories,
-  createCategory,
-  deleteCategory,
-  type CategoryWithGameCount,
-} from '../../services/category.service'
+  listSubjects as listCategories,
+  createSubject,
+  deleteSubject as deleteCategory,
+  publishSubject,
+  type SubjectWithGameCount as CategoryWithGameCount,
+} from '../../services/subject.service'
 import { ApiError } from '../../utils/http'
 import { trackEvent } from '../../services/analytics.service'
 import { GameCard } from './games/GameCard'
@@ -86,6 +87,8 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
 
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
+  const [rootUnclassifiedGames, setRootUnclassifiedGames] = useState<GameSummary[]>([])
+  const [loadingRootUnclassified, setLoadingRootUnclassified] = useState(false)
 
   // El detalle abierto se deriva de la URL (slug en la ruta), no de un click
   // aislado: así el juego es compartible/recargable y el botón atrás cierra
@@ -160,6 +163,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<CategoryWithGameCount | null>(null)
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryParentId, setNewCategoryParentId] = useState('')
   const [categoryError, setCategoryError] = useState<string | null>(null)
   const [savingCategory, setSavingCategory] = useState(false)
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -175,8 +179,13 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
 
   // En modo "categories" (Materias) no hay lista de juegos hasta elegir una
   // materia — la grilla de materias se muestra sola, y solo entonces se
-  // carga el catálogo filtrado por esa categoría (dentro del pop-up).
-  const shouldLoadGames = mode !== 'categories' || activeCategoryId !== null
+  // carga el catálogo filtrado por esa categoría (dentro del pop-up). Una
+  // materia raíz abierta no carga juegos: primero muestra sus sub-materias
+  // (ver el modal de categorías más abajo) — solo al entrar a una sub-materia
+  // (o a los "juegos sin sub-materia" de la raíz) se listan juegos de verdad.
+  const activeCategory = categories.find((c) => c.id === activeCategoryId) ?? null
+  const isActiveCategoryRoot = activeCategory !== null && activeCategory.parentSubjectId === null
+  const shouldLoadGames = mode !== 'categories' || (activeCategoryId !== null && !isActiveCategoryRoot)
 
   const reload = useCallback(() => {
     if (!token || !shouldLoadGames || browsingHidden) return
@@ -201,6 +210,22 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   useEffect(() => {
     reload()
   }, [reload])
+
+  // Al entrar a una materia raíz se muestran sus sub-materias, no un catálogo
+  // de juegos — pero la raíz puede tener juegos asignados directo a ella
+  // (categoryId = id de la raíz, sin pasar por ninguna sub-materia), y esos
+  // deben verse igual dentro de la vista, en su propia sección.
+  useEffect(() => {
+    if (!token || !isActiveCategoryRoot || !activeCategoryId) {
+      setRootUnclassifiedGames([])
+      return
+    }
+    setLoadingRootUnclassified(true)
+    listGames(token, { categoryId: activeCategoryId, pageSize: 40 })
+      .then((result) => setRootUnclassifiedGames(result.items))
+      .catch(() => setRootUnclassifiedGames([]))
+      .finally(() => setLoadingRootUnclassified(false))
+  }, [token, activeCategoryId, isActiveCategoryRoot])
 
   // Se carga siempre (no solo en mode 'categories'): el color por psicología
   // del color de cada tarjeta de juego (colorForGame) necesita el nombre de
@@ -281,10 +306,8 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   }
 
   function canDeleteCategory(category: CategoryWithGameCount): boolean {
-    return Boolean(
-      user &&
-        (user.role === 'ADMIN' || user.id === category.creatorUserId || category.creatorUserId === null),
-    )
+    if (category.status !== 'PRIVATE') return false
+    return Boolean(user && (user.role === 'ADMIN' || user.id === category.creatorUserId))
   }
 
   function refreshCategories() {
@@ -294,13 +317,61 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       .catch(() => {})
   }
 
+  // Materias raíz (parentSubjectId null): son el esqueleto fijo del catálogo,
+  // solo un admin las crea. Toda materia nueva de un usuario normal nace como
+  // sub-materia de una de estas — de ahí el selector obligatorio de abajo.
+  const rootCategories = categories.filter((c) => c.parentSubjectId === null)
+  const subCategories = categories.filter((c) => c.parentSubjectId !== null)
+
+  const [publishingCategory, setPublishingCategory] = useState<CategoryWithGameCount | null>(null)
+  const [publishDraftGames, setPublishDraftGames] = useState<GameSummary[]>([])
+  const [loadingPublishPreview, setLoadingPublishPreview] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+
+  function canPublishCategory(category: CategoryWithGameCount): boolean {
+    if (category.status !== 'PRIVATE') return false
+    return Boolean(user && (user.role === 'ADMIN' || user.id === category.creatorUserId))
+  }
+
+  async function openPublishModal(category: CategoryWithGameCount) {
+    if (!token) return
+    setPublishingCategory(category)
+    setPublishError(null)
+    setLoadingPublishPreview(true)
+    try {
+      const result = await listGames(token, { categoryId: category.id, status: 'DRAFT', pageSize: 100 })
+      setPublishDraftGames(result.items)
+    } catch {
+      setPublishDraftGames([])
+    } finally {
+      setLoadingPublishPreview(false)
+    }
+  }
+
+  async function confirmPublishCategory() {
+    if (!token || !publishingCategory) return
+    setPublishing(true)
+    setPublishError(null)
+    try {
+      await publishSubject(token, publishingCategory.id)
+      setPublishingCategory(null)
+      refreshCategories()
+    } catch (err) {
+      setPublishError(err instanceof ApiError ? err.message : 'No se pudo publicar la materia.')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   async function handleCreateCategory() {
-    if (!token || !newCategoryName.trim()) return
+    if (!token || !newCategoryName.trim() || !newCategoryParentId) return
     setSavingCategory(true)
     setCategoryError(null)
     try {
-      await createCategory(token, newCategoryName.trim())
+      await createSubject(token, newCategoryName.trim(), newCategoryParentId)
       setNewCategoryName('')
+      setNewCategoryParentId('')
       setCreatingCategory(false)
       refreshCategories()
     } catch (err) {
@@ -489,50 +560,69 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
             <p className="mt-1 max-w-[320px] text-[13px] text-text">Crea la primera para organizar los juegos.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {categories.map((category) => {
-              const color = colorForCategory(category.name)
-              const Icon = iconForCategory(category.name)
-              return (
-                <div
-                  key={category.id}
-                  className="group relative rounded-2xl border border-border p-4 text-left transition-transform hover:-translate-y-0.5"
-                  style={{ background: 'var(--surface)' }}
-                >
-                  <button type="button" onClick={() => setActiveCategoryId(category.id)} className="w-full text-left">
-                    <span
-                      className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg text-white"
-                      style={{ background: color }}
-                      aria-hidden="true"
-                    >
-                      <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-                    </span>
-                    <p className="truncate pr-6 text-[14px] font-semibold text-text-h">{category.name}</p>
-                    <p className="text-[12px] text-text">
-                      {category.gameCount} {category.gameCount === 1 ? 'juego' : 'juegos'}
-                    </p>
-                  </button>
-                  {canDeleteCategory(category) && (
-                    <button
-                      type="button"
-                      aria-label={`Eliminar materia ${category.name}`}
-                      title="Eliminar materia"
-                      className="absolute top-3 right-3 rounded-lg p-1 text-text/50 opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
-                      onClick={() => setPendingDeleteCategory(category)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    </button>
-                  )}
+          <>
+            {rootCategories.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-text/70">Materias raíz</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {rootCategories.map((category) => (
+                    <CategoryCard
+                      key={category.id}
+                      category={category}
+                      countLabel={`${subCategories.filter((s) => s.parentSubjectId === category.id).length} sub-materias`}
+                      onOpen={() => setActiveCategoryId(category.id)}
+                      canDelete={canDeleteCategory(category)}
+                      onDelete={() => setPendingDeleteCategory(category)}
+                      canPublish={false}
+                      onPublish={() => {}}
+                    />
+                  ))}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )}
+
+            {subCategories.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-text/70">Sub-materias</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {subCategories.map((category) => (
+                    <CategoryCard
+                      key={category.id}
+                      category={category}
+                      countLabel={`${category.gameCount} ${category.gameCount === 1 ? 'juego' : 'juegos'}`}
+                      onOpen={() => setActiveCategoryId(category.id)}
+                      canDelete={canDeleteCategory(category)}
+                      onDelete={() => setPendingDeleteCategory(category)}
+                      canPublish={canPublishCategory(category)}
+                      onPublish={() => openPublishModal(category)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {creatingCategory && (
           <Modal onClose={() => (savingCategory ? null : setCreatingCategory(false))} maxWidthClassName="max-w-[400px]">
             <h2 className="mb-1 text-[18px] tracking-tight text-text-h">Nueva materia</h2>
-            <p className="mb-4 text-[13px] text-text">Dale un nombre claro y corto.</p>
+            <p className="mb-4 text-[13px] text-text">
+              Se crea como sub-materia privada: solo tú la ves hasta que decidas publicarla.
+            </p>
+            <label className="mb-1 block text-[12.5px] font-medium text-text-h">Materia principal</label>
+            <select
+              value={newCategoryParentId}
+              disabled={savingCategory}
+              onChange={(event) => setNewCategoryParentId(event.target.value)}
+              className="mb-3 w-full rounded-lg border border-border bg-bg px-[13px] py-2.5 text-[13px] text-text-h outline-none focus:border-accent"
+            >
+              <option value="">Elige una materia principal…</option>
+              {rootCategories.map((root) => (
+                <option key={root.id} value={root.id}>
+                  {root.name}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               autoFocus
@@ -542,7 +632,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
               onKeyDown={(event) => {
                 if (event.key === 'Enter') handleCreateCategory()
               }}
-              placeholder="Ej. Matemáticas"
+              placeholder="Ej. Álgebra"
               className="w-full rounded-lg border border-border bg-bg px-[13px] py-2.5 text-[13px] text-text-h outline-none focus:border-accent"
             />
             {categoryError && (
@@ -555,7 +645,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                 type="button"
                 className="flex-1 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-                disabled={savingCategory || !newCategoryName.trim()}
+                disabled={savingCategory || !newCategoryName.trim() || !newCategoryParentId}
                 onClick={handleCreateCategory}
               >
                 {savingCategory ? 'Creando…' : 'Crear'}
@@ -610,34 +700,155 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
           </Modal>
         )}
 
-        {activeCategoryId && (
-          <Modal onClose={() => setActiveCategoryId(null)} maxWidthClassName="max-w-[880px]">
-            <h2 className="mb-1 text-[22px] tracking-tight text-text-h">
-              {categories.find((c) => c.id === activeCategoryId)?.name ?? 'Materia'}
-            </h2>
-            <p className="mb-6 text-[14px] text-text">Juegos publicados en esta materia.</p>
+        {publishingCategory && (
+          <Modal
+            onClose={() => (publishing ? null : setPublishingCategory(null))}
+            maxWidthClassName="max-w-[480px]"
+          >
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-danger/35 bg-danger/10 p-3.5">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-danger" strokeWidth={2} />
+              <div>
+                <p className="text-[14px] font-semibold text-danger">Esta acción no se puede deshacer</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-text">
+                  Al publicar "{publishingCategory.name}", otros usuarios podrán ver y usar esta materia. No podrás
+                  volver a hacerla privada ni eliminarla.
+                </p>
+              </div>
+            </div>
 
-            {error && (
-              <p
-                className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
-                role="alert"
-              >
-                {error}
+            {loadingPublishPreview ? (
+              <p className="py-2 text-[13px] text-text">Cargando juegos en borrador…</p>
+            ) : publishDraftGames.length > 0 ? (
+              <div className="mb-4">
+                <p className="mb-2 text-[13px] font-medium text-text-h">
+                  Estos juegos en borrador se publicarán automáticamente:
+                </p>
+                <ul className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
+                  {publishDraftGames.map((game) => (
+                    <li
+                      key={game.id}
+                      className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-[13px] text-text-h"
+                    >
+                      <span className="truncate">{game.title}</span>
+                      <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent">
+                        pasará a Comunidad
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="mb-4 text-[13px] text-text">Esta materia no tiene juegos en borrador todavía.</p>
+            )}
+
+            {publishError && (
+              <p className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm text-danger" role="alert">
+                {publishError}
               </p>
             )}
 
-            {loading ? (
-              <p className="py-8 text-center text-[14px] text-text">Cargando juegos…</p>
-            ) : games.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
-                <p className="text-[15px] font-medium text-text-h">Aún no hay juegos en esta materia.</p>
-              </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg border-2 border-danger px-4 py-3 text-[15px] font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={confirmPublishCategory}
+                disabled={publishing || loadingPublishPreview}
+              >
+                {publishing ? 'Publicando…' : 'Sí, publicar materia'}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-4 py-3 text-[15px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => setPublishingCategory(null)}
+                disabled={publishing}
+              >
+                Cancelar
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {activeCategoryId && activeCategory && (
+          <Modal onClose={() => setActiveCategoryId(null)} maxWidthClassName="max-w-[880px]">
+            <h2 className="mb-1 text-[22px] tracking-tight text-text-h">{activeCategory.name}</h2>
+
+            {isActiveCategoryRoot ? (
+              <>
+                <p className="mb-6 text-[14px] text-text">Elige una sub-materia para ver sus juegos.</p>
+
+                {subCategories.filter((s) => s.parentSubjectId === activeCategoryId).length === 0 &&
+                rootUnclassifiedGames.length === 0 &&
+                !loadingRootUnclassified ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                    <p className="text-[15px] font-medium text-text-h">Esta materia todavía no tiene sub-materias.</p>
+                  </div>
+                ) : (
+                  <>
+                    {subCategories.filter((s) => s.parentSubjectId === activeCategoryId).length > 0 && (
+                      <div className="mb-6 grid max-h-[45vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3">
+                        {subCategories
+                          .filter((sub) => sub.parentSubjectId === activeCategoryId)
+                          .map((sub) => (
+                            <CategoryCard
+                              key={sub.id}
+                              category={sub}
+                              countLabel={`${sub.gameCount} ${sub.gameCount === 1 ? 'juego' : 'juegos'}`}
+                              onOpen={() => setActiveCategoryId(sub.id)}
+                              canDelete={canDeleteCategory(sub)}
+                              onDelete={() => setPendingDeleteCategory(sub)}
+                              canPublish={canPublishCategory(sub)}
+                              onPublish={() => openPublishModal(sub)}
+                            />
+                          ))}
+                      </div>
+                    )}
+
+                    {(loadingRootUnclassified || rootUnclassifiedGames.length > 0) && (
+                      <div>
+                        <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-text/70">
+                          Juegos sin sub-materia
+                        </h3>
+                        {loadingRootUnclassified ? (
+                          <p className="py-4 text-center text-[14px] text-text">Cargando…</p>
+                        ) : (
+                          <div className="grid max-h-[35vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                            {rootUnclassifiedGames.map((game) => (
+                              <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             ) : (
-              <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-                {games.map((game) => (
-                  <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
-                ))}
-              </div>
+              <>
+                <p className="mb-6 text-[14px] text-text">Juegos publicados en esta materia.</p>
+
+                {error && (
+                  <p
+                    className="mb-4 rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                )}
+
+                {loading ? (
+                  <p className="py-8 text-center text-[14px] text-text">Cargando juegos…</p>
+                ) : games.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                    <p className="text-[15px] font-medium text-text-h">Aún no hay juegos en esta materia.</p>
+                  </div>
+                ) : (
+                  <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                    {games.map((game) => (
+                      <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             <button
@@ -845,5 +1056,76 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
 
       {renderGameOverlays()}
     </section>
+  )
+}
+
+function CategoryCard({
+  category,
+  countLabel,
+  onOpen,
+  canDelete,
+  onDelete,
+  canPublish,
+  onPublish,
+}: {
+  category: CategoryWithGameCount
+  countLabel: string
+  onOpen: () => void
+  canDelete: boolean
+  onDelete: () => void
+  canPublish: boolean
+  onPublish: () => void
+}) {
+  const color = colorForCategory(category.name)
+  const Icon = iconForCategory(category.name)
+  const isPublic = category.status === 'PUBLIC'
+
+  return (
+    <div
+      className="group relative rounded-2xl border border-border p-4 text-left transition-transform hover:-translate-y-0.5"
+      style={{ background: 'var(--surface)' }}
+    >
+      <button type="button" onClick={onOpen} className="w-full text-left">
+        <span
+          className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg text-white"
+          style={{ background: color }}
+          aria-hidden="true"
+        >
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
+        <p className="truncate pr-6 text-[14px] font-semibold text-text-h">{category.name}</p>
+        <span
+          className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold tracking-wide ${
+            isPublic ? 'bg-accent/15 text-accent' : 'bg-text/10 text-text'
+          }`}
+        >
+          {isPublic ? 'PÚBLICA' : 'PRIVADA'}
+        </span>
+        <p className="mt-1.5 text-[12px] text-text">{countLabel}</p>
+      </button>
+
+      {canDelete && (
+        <button
+          type="button"
+          aria-label={`Eliminar materia ${category.name}`}
+          title="Eliminar materia"
+          className="absolute top-3 right-3 rounded-lg p-1 text-text/50 opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
+          onClick={onDelete}
+        >
+          <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
+      )}
+
+      {canPublish && (
+        <button
+          type="button"
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-danger/60 px-3 py-1.5 text-[12px] font-semibold text-danger transition-colors hover:bg-danger/10"
+          onClick={onPublish}
+        >
+          <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
+          Publicar
+        </button>
+      )}
+    </div>
   )
 }
