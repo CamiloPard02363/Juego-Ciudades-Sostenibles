@@ -64,7 +64,7 @@ export function HomeLayout() {
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
           <SearchBar value={searchInput} onChange={setSearchInput} onSearch={handleSearch} />
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <WelcomeTour key={`${user.id}:${user.role}`} user={user} />
+            <WelcomeTour key={`${user.id}:${user.role}`} user={user} canAccessOrganization={canAccessOrganization || canManageUsers} />
             <ProfileMenu
               user={user}
               onOpenSettings={() => setSettingsOpen(true)}

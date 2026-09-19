@@ -50,6 +50,8 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
       <button
         type="button"
         onClick={toggleCollapsed}
+        data-tour="menu-toggle"
+        style={{ position: 'absolute' }}
         aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
         className="absolute top-6 -right-3 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-text shadow-[var(--shadow)] transition-transform hover:text-text-h"
       >
@@ -92,6 +94,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
 
       <nav data-tour="navigation" className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navegación principal">
         <SidebarItem
+          tourTarget="nav-home"
           label="Inicio"
           collapsed={collapsed}
           active={location.pathname === '/'}
@@ -99,6 +102,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           icon={<Gamepad2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         <SidebarItem
+          tourTarget="nav-subjects"
           label="Materias"
           collapsed={collapsed}
           active={location.pathname.startsWith('/materias')}
@@ -107,6 +111,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
         />
         {userRole.toUpperCase() === 'TEACHER' && (
           <SidebarItem
+            tourTarget="nav-classes"
             label="Mis clases"
             collapsed={collapsed}
             active={location.pathname.startsWith('/mis-clases')}
@@ -115,6 +120,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           />
         )}
         <SidebarItem
+          tourTarget="nav-community"
           label="Comunidad"
           collapsed={collapsed}
           active={location.pathname === '/comunidad'}
@@ -122,6 +128,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           icon={<Users2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         <SidebarItem
+          tourTarget="nav-own-games"
           label={userRole.toUpperCase() === 'TEACHER' ? 'Mis actividades' : 'Mis juegos privados'}
           collapsed={collapsed}
           active={location.pathname === '/mis-juegos'}
@@ -130,6 +137,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
         />
         {userRole === 'ADMIN' && (
           <SidebarItem
+            tourTarget="nav-themes"
             label="Temas"
             collapsed={collapsed}
             active={location.pathname === '/temas'}
@@ -146,6 +154,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
             )}
             {canManageUsers && (
               <SidebarItem
+                tourTarget="nav-users"
                 label="Usuarios"
                 collapsed={collapsed}
                 active={location.pathname === '/usuarios'}
@@ -155,6 +164,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
             )}
             {canAccessOrganization && (
               <SidebarItem
+                tourTarget="nav-organization"
                 label="Organización"
                 collapsed={collapsed}
                 active={location.pathname === '/organizacion'}
@@ -167,6 +177,7 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
       </nav>
 
       <div
+        data-tour="theme-toggle"
         className={`mt-2 flex items-center border-t border-border px-1.5 pt-4 ${
           collapsed ? 'flex-col gap-2' : 'justify-between'
         }`}
@@ -179,12 +190,14 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
 }
 
 function SidebarItem({
+  tourTarget,
   label,
   active,
   collapsed,
   onClick,
   icon,
 }: {
+  tourTarget: string
   label: string
   active: boolean
   collapsed: boolean
@@ -194,6 +207,7 @@ function SidebarItem({
   return (
     <button
       type="button"
+      data-tour={tourTarget}
       title={collapsed ? label : undefined}
       className={`${BASE_ITEM_CLASS} ${collapsed ? 'justify-center px-0' : ''} ${
         active ? 'bg-accent/10 text-accent' : 'text-text-h hover:bg-code-bg'
