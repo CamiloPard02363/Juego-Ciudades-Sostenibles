@@ -7,6 +7,7 @@ export interface OrganizationResponseDto {
   domain: string | null;
   createdByUserId: string;
   createdAt: Date;
+  isActive: boolean;
 }
 
 export interface OrganizationWithMyRoleDto extends OrganizationResponseDto {
@@ -34,6 +35,7 @@ export function toOrganizationResponseDto(
     domain: organization.domain?.getValue() ?? null,
     createdByUserId: organization.createdByUserId,
     createdAt: organization.createdAt,
+    isActive: organization.isActive,
   };
 }
 

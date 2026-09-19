@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { CreateClassUseCase } from '../../../application/use-cases/create-class.use-case.js';
 import { ListMyClassesUseCase } from '../../../application/use-cases/list-my-classes.use-case.js';
+import { ListMyClassesDetailUseCase } from '../../../application/use-cases/list-my-classes-detail.use-case.js';
 import { ListAllClassesUseCase } from '../../../application/use-cases/list-all-classes.use-case.js';
 import { AddGameToClassUseCase } from '../../../application/use-cases/add-game-to-class.use-case.js';
 import { RemoveGameFromClassUseCase } from '../../../application/use-cases/remove-game-from-class.use-case.js';
@@ -32,6 +33,7 @@ export class ClassController {
   constructor(
     private readonly createClassUseCase: CreateClassUseCase,
     private readonly listMyClassesUseCase: ListMyClassesUseCase,
+    private readonly listMyClassesDetailUseCase: ListMyClassesDetailUseCase,
     private readonly listAllClassesUseCase: ListAllClassesUseCase,
     private readonly addGameToClassUseCase: AddGameToClassUseCase,
     private readonly removeGameFromClassUseCase: RemoveGameFromClassUseCase,
@@ -44,6 +46,18 @@ export class ClassController {
   @Get('mine')
   listMine(@CurrentUserId() teacherUserId: string) {
     return this.listMyClassesUseCase.execute(teacherUserId);
+  }
+
+  /**
+   * Vista consolidada de las clases propias con código de invitación y
+   * estudiantes matriculados por clase (issue #106, CA1.2). Ruta separada de
+   * `mine` en vez de un query param: mismo criterio que `classes/all` vs
+   * `classes/mine` — evita ambigüedad sobre qué trae cada respuesta y no
+   * rompe a los consumidores existentes de `GET /classes/mine`.
+   */
+  @Get('mine/detail')
+  listMineDetail(@CurrentUserId() teacherUserId: string) {
+    return this.listMyClassesDetailUseCase.execute(teacherUserId);
   }
 
   /** Clases donde el usuario autenticado está matriculado como estudiante. */

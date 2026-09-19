@@ -36,6 +36,12 @@ export class OrganizationAutoJoinService {
         return;
       }
 
+      // Organización desactivada: no admite auto-join de nuevos miembros
+      // (issue #106, CA2.3). Los miembros existentes conservan su membresía.
+      if (!organization.isActive) {
+        return;
+      }
+
       const existing = await this.organizationRepository.findMembership(
         organization.id,
         userId,

@@ -31,4 +31,10 @@ export interface ClassRepository {
   findEnrollment(classId: string, userId: string): Promise<ClassEnrollment | null>;
   findClassIdsEnrolledByUserId(userId: string): Promise<string[]>;
   findAllClassesEnrolledByUserId(userId: string): Promise<ClassEntity[]>;
+  /**
+   * Matrículas de varias clases a la vez (issue #106, CA1.2): evita N
+   * consultas al armar la vista consolidada "mis clases + estudiantes" de un
+   * profesor con varias clases.
+   */
+  findEnrollmentsByClassIds(classIds: string[]): Promise<ClassEnrollment[]>;
 }

@@ -8,6 +8,7 @@ import { MongoGameRepository } from './persistence/mongo/mongo-game.repository.j
 import { TeacherPersonalOrganizationService } from '../application/services/teacher-personal-organization.service.js';
 import { CreateClassUseCase } from '../application/use-cases/create-class.use-case.js';
 import { ListMyClassesUseCase } from '../application/use-cases/list-my-classes.use-case.js';
+import { ListMyClassesDetailUseCase } from '../application/use-cases/list-my-classes-detail.use-case.js';
 import { ListAllClassesUseCase } from '../application/use-cases/list-all-classes.use-case.js';
 import { AddGameToClassUseCase } from '../application/use-cases/add-game-to-class.use-case.js';
 import { RemoveGameFromClassUseCase } from '../application/use-cases/remove-game-from-class.use-case.js';
@@ -28,6 +29,7 @@ import { ClassController } from './http/controllers/class.controller.js';
     TeacherPersonalOrganizationService,
     CreateClassUseCase,
     ListMyClassesUseCase,
+    ListMyClassesDetailUseCase,
     ListAllClassesUseCase,
     AddGameToClassUseCase,
     RemoveGameFromClassUseCase,

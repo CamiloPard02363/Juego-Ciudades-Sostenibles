@@ -67,6 +67,9 @@ model OrganizationModel {
   createdByUserId String    @map("created_by_user_id")
   createdBy       UserModel @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id])
   createdAt       DateTime  @default(now()) @map("created_at")
+  /// Desactivada = no admite nuevas matrículas/auto-join, conserva historial
+  /// (issue #106, CA2.3). Campo propio, no derivado.
+  isActive        Boolean   @default(true) @map("is_active")
 
   memberships OrganizationMembershipModel[]
   classes     ClassModel[]

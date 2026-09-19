@@ -11,6 +11,8 @@ export interface ListUsersInput {
   requestingUserId: string;
   role?: RoleName;
   isActive?: boolean;
+  /** Substring case-insensitive contra nombre (displayName) o email (issue #106, CA2.1). */
+  search?: string;
   page?: number;
   pageSize?: number;
 }
@@ -36,6 +38,7 @@ export class ListUsersUseCase implements UseCase<ListUsersInput, ListUsersOutput
     const result = await this.userRepository.findAll({
       role: input.role,
       isActive: input.isActive,
+      search: input.search,
       page: input.page ?? 1,
       pageSize: input.pageSize ?? 20,
     });

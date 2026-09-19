@@ -12,10 +12,24 @@ import type { UseCase } from '../ports/use-case.port.js';
 
 export interface ListAllOrganizationsInput {
   requestingUserId: string;
+  /** Substring case-insensitive contra nombre o dominio (issue #106, CA2.2). */
+  search?: string;
+  isActive?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListAllOrganizationsOutput {
+  items: OrganizationResponseDto[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 /**
- * Query sin filtro de pertenencia: devuelve TODAS las organizaciones.
+ * Query sin filtro de pertenencia: devuelve TODAS las organizaciones, con
+ * paginación, `search` e `isActive` (issue #106, CA2.2 — mismo contrato que
+ * `ListUsersUseCase`).
  *
  * La autorización de ADMIN global ya no se resuelve acá — la aplica
  * `RolesGuard` (`@Roles('ADMIN')`) sobre el endpoint HTTP antes de llegar a
@@ -24,15 +38,26 @@ export interface ListAllOrganizationsInput {
  */
 @Injectable()
 export class ListAllOrganizationsUseCase
-  implements UseCase<ListAllOrganizationsInput, OrganizationResponseDto[]>
+  implements UseCase<ListAllOrganizationsInput, ListAllOrganizationsOutput>
 {
   constructor(
     @Inject(ORGANIZATION_REPOSITORY)
     private readonly organizationRepository: OrganizationRepository,
   ) {}
 
-  async execute(_input: ListAllOrganizationsInput): Promise<OrganizationResponseDto[]> {
-    const organizations = await this.organizationRepository.findAll();
-    return organizations.map(toOrganizationResponseDto);
+  async execute(input: ListAllOrganizationsInput): Promise<ListAllOrganizationsOutput> {
+    const result = await this.organizationRepository.findAll({
+      search: input.search,
+      isActive: input.isActive,
+      page: input.page ?? 1,
+      pageSize: input.pageSize ?? 20,
+    });
+
+    return {
+      items: result.items.map(toOrganizationResponseDto),
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+    };
   }
 }
