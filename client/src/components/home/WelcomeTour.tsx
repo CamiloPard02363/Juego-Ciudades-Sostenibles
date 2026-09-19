@@ -4,6 +4,7 @@ import { Compass, Gamepad2, Plus, UserRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../services/auth.service'
 import { getWelcomeSteps, hasSeenWelcome, markWelcomeSeen, welcomeStorageKey } from './welcomeTourSteps'
+import type { WelcomeOptions } from './welcomeTourSteps'
 
 const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRound }
 
@@ -15,7 +16,7 @@ const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRou
  * menos una vez. Una vez iniciado el recorrido en sí (paso a paso) sigue
  * siendo cerrable con la X o Escape, como antes.
  */
-export function WelcomeTour({ user }: { user: AuthUser }) {
+export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: { user: AuthUser } & WelcomeOptions) {
   const location = useLocation()
   const navigate = useNavigate()
   const storageKey = welcomeStorageKey(user.id, user.role)
@@ -24,7 +25,8 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
   const [previousRoute, setPreviousRoute] = useState(location.key)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const steps = getWelcomeSteps(user.role)
+  // Fijar los pasos al abrir evita desplazarlos si los permisos terminan de cargar durante la guía.
+  const [steps, setSteps] = useState(() => getWelcomeSteps(user.role, { canAccessOrganization, canGoBackToWorlds }))
   const step = steps[index]
   // No interrumpir enlaces a juegos, salas ni otras secciones.
   const atHome = location.pathname === '/' && !location.search
@@ -75,6 +77,7 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
 
   function start() {
     markWelcomeSeen(storageKey)
+    setSteps(getWelcomeSteps(user.role, { canAccessOrganization, canGoBackToWorlds }))
     setIndex(0)
     setPhase('tour')
     if (!atHome) navigate('/')
@@ -87,8 +90,8 @@ export function WelcomeTour({ user }: { user: AuthUser }) {
       target.focus()
       target.click()
     } else {
-      const firstButton = target?.querySelector<HTMLButtonElement>('button')
-      if (firstButton) firstButton.focus()
+      const firstControl = target?.querySelector<HTMLElement>('input') ?? target?.querySelector<HTMLElement>('button')
+      if (firstControl) firstControl.focus()
       else triggerRef.current?.focus()
     }
   }
