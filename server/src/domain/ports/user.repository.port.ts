@@ -7,6 +7,8 @@ export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
 export interface FindAllUsersFilter {
   role?: RoleName;
   isActive?: boolean;
+  /** Substring case-insensitive contra nombre (displayName) o email (issue #106, CA2.1). */
+  search?: string;
   page: number;
   pageSize: number;
 }

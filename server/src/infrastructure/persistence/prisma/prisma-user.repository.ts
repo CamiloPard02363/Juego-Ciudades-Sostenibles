@@ -61,6 +61,14 @@ export class PrismaUserRepository implements UserRepository {
     const where = {
       ...(filter.role ? { role: { name: filter.role } } : {}),
       ...(filter.isActive !== undefined ? { isActive: filter.isActive } : {}),
+      ...(filter.search
+        ? {
+            OR: [
+              { displayName: { contains: filter.search, mode: 'insensitive' as const } },
+              { email: { contains: filter.search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
     };
 
     const [records, total] = await Promise.all([

@@ -1,6 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { ClassEnrollment } from '../../domain/entities/class-enrollment.entity.js';
 import { CLASS_REPOSITORY, type ClassRepository } from '../../domain/ports/class.repository.port.js';
+import {
+  ORGANIZATION_REPOSITORY,
+  type OrganizationRepository,
+} from '../../domain/ports/organization.repository.port.js';
 import { ID_GENERATOR, type IdGenerator } from '../../domain/ports/id-generator.port.js';
 import { ClassNotFoundError } from '../errors/application.errors.js';
 import { toClassDto, type ClassDto } from '../dtos/class-response.dto.js';
@@ -29,6 +33,8 @@ export interface JoinClassInput {
 export class JoinClassUseCase {
   constructor(
     @Inject(CLASS_REPOSITORY) private readonly classRepository: ClassRepository,
+    @Inject(ORGANIZATION_REPOSITORY)
+    private readonly organizationRepository: OrganizationRepository,
     @Inject(ID_GENERATOR) private readonly idGenerator: IdGenerator,
   ) {}
 
@@ -38,6 +44,19 @@ export class JoinClassUseCase {
 
     if (!classEntity) {
       throw new ClassNotFoundError(normalizedCode);
+    }
+
+    // Organización desactivada: no admite nuevas matrículas (issue #106,
+    // CA2.3). Clases sin organización (profesor particular) no aplican.
+    if (classEntity.organizationId) {
+      const organization = await this.organizationRepository.findById(
+        classEntity.organizationId,
+      );
+      if (organization && !organization.isActive) {
+        throw new ForbiddenException(
+          'La organización de esta clase está desactivada y no admite nuevas matrículas.',
+        );
+      }
     }
 
     const enrollment = ClassEnrollment.create({

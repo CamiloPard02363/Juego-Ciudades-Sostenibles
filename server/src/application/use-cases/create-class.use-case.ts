@@ -7,6 +7,10 @@ import {
   type InviteCodeGenerator,
 } from '../../domain/ports/invite-code-generator.port.js';
 import { USER_REPOSITORY, type UserRepository } from '../../domain/ports/user.repository.port.js';
+import {
+  ORGANIZATION_REPOSITORY,
+  type OrganizationRepository,
+} from '../../domain/ports/organization.repository.port.js';
 import type { User } from '../../domain/entities/user.entity.js';
 import { toClassDto, type ClassDto } from '../dtos/class-response.dto.js';
 import { TeacherPersonalOrganizationService } from '../services/teacher-personal-organization.service.js';
@@ -15,6 +19,13 @@ export interface CreateClassInput {
   teacherUserId: string;
   name: string;
   description?: string;
+  /**
+   * Organización a la que se asocia la clase (issue #106, CA1.1). El profesor
+   * debe pertenecer a esa organización (cualquier `OrganizationRole`) o se
+   * lanza 403. Si se omite, se mantiene el comportamiento previo: la clase se
+   * asocia a la organización personal auto-creada del profesor.
+   */
+  organizationId?: string;
 }
 
 /**
@@ -34,14 +45,16 @@ export class CreateClassUseCase {
     @Inject(ID_GENERATOR) private readonly idGenerator: IdGenerator,
     @Inject(INVITE_CODE_GENERATOR) private readonly inviteCodeGenerator: InviteCodeGenerator,
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
+    @Inject(ORGANIZATION_REPOSITORY)
+    private readonly organizationRepository: OrganizationRepository,
     private readonly teacherPersonalOrganization: TeacherPersonalOrganizationService,
   ) {}
 
   async execute(input: CreateClassInput): Promise<ClassDto> {
     const teacher = await this.ensureTeacher(input.teacherUserId);
-    const organizationId = await this.teacherPersonalOrganization.ensurePersonalOrganization(
-      teacher,
-    );
+    const organizationId = input.organizationId
+      ? await this.resolveExplicitOrganization(input.organizationId, teacher.id)
+      : await this.teacherPersonalOrganization.ensurePersonalOrganization(teacher);
 
     const classEntity = ClassEntity.create({
       id: this.idGenerator.generate(),
@@ -53,6 +66,28 @@ export class CreateClassUseCase {
     });
     await this.classRepository.save(classEntity);
     return toClassDto(classEntity);
+  }
+
+  /**
+   * CA1.1: si el body trae `organizationId`, el profesor debe pertenecer a
+   * esa organización (cualquier `OrganizationRole`); si no, 403. No exige
+   * `OrganizationRole.ADMIN` — cualquier TEACHER miembro puede crear clases
+   * asociadas a su organización.
+   */
+  private async resolveExplicitOrganization(
+    organizationId: string,
+    teacherUserId: string,
+  ): Promise<string> {
+    const membership = await this.organizationRepository.findMembership(
+      organizationId,
+      teacherUserId,
+    );
+
+    if (!membership) {
+      throw new ForbiddenException('No pertenece a la organización indicada.');
+    }
+
+    return organizationId;
   }
 
   private async ensureTeacher(userId: string): Promise<User> {

@@ -67,6 +67,7 @@ export class UserController {
       requestingUserId,
       role: query.role,
       isActive: query.isActive,
+      search: query.search,
       page: query.page,
       pageSize: query.pageSize,
     });

@@ -116,4 +116,13 @@ export class PrismaClassRepository implements ClassRepository {
     });
     return records.map(ClassMapper.toDomain);
   }
+
+  async findEnrollmentsByClassIds(classIds: string[]): Promise<ClassEnrollment[]> {
+    if (classIds.length === 0) return [];
+    const records = await this.prisma.classEnrollmentModel.findMany({
+      where: { classId: { in: classIds } },
+      orderBy: { enrolledAt: 'asc' },
+    });
+    return records.map(ClassEnrollmentMapper.toDomain);
+  }
 }

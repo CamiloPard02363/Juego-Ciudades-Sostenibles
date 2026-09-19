@@ -8,6 +8,12 @@ export interface OrganizationProps {
   domain: EmailDomain | null;
   createdByUserId: string;
   createdAt: Date;
+  /**
+   * Desactivada = no admite nuevas matrículas ni auto-join, conserva
+   * historial (issue #106, CA2.3). Campo propio, no derivado — decisión de
+   * producto confirmada por Manuel.
+   */
+  isActive: boolean;
 }
 
 export interface CreateOrganizationProps {
@@ -41,6 +47,7 @@ export class Organization {
       domain: props.domain ? EmailDomain.create(props.domain) : null,
       createdByUserId: props.createdByUserId,
       createdAt: new Date(),
+      isActive: true,
     });
   }
 
@@ -66,6 +73,18 @@ export class Organization {
 
   get createdAt(): Date {
     return this.props.createdAt;
+  }
+
+  get isActive(): boolean {
+    return this.props.isActive;
+  }
+
+  deactivate(): void {
+    this.props.isActive = false;
+  }
+
+  reactivate(): void {
+    this.props.isActive = true;
   }
 
   rename(newName: string): void {
