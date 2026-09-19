@@ -6,11 +6,22 @@ import { generateGameDraft, type GameDraft } from '../../../services/ai-game-ass
 import { ApiError } from '../../../utils/http'
 
 const ACCEPTED = '.pdf,.doc,.docx,.xls,.xlsx,.csv,image/*'
-const MAX_FILES = 5
+const DEFAULT_MAX_FILES = 5
+/** Documentos de referencia extra permitidos además del cupo de imágenes. */
+const EXTRA_REFERENCE_FILES = 5
 
 type AiGameAssistantPanelProps = {
   gameType: string
+  /** Solo para MEMORY_MATCH: 'PAIRS' u 'OPPOSITES'. */
+  mode?: string
   disabled?: boolean
+  /**
+   * Cuando el tipo de juego necesita una imagen real por elemento (Quién Es,
+   * Parejas), la IA no puede inventarlas: el usuario SIEMPRE sube sus propias
+   * imágenes, y la IA solo las organiza — les asigna el concepto que le
+   * corresponde a cada una.
+   */
+  imagesRequired?: { min: number; max: number }
   onDraftReady: (draft: GameDraft) => void
 }
 
@@ -20,7 +31,13 @@ type AiGameAssistantPanelProps = {
  * formulario con un borrador — que sigue el flujo normal de revisar/editar y
  * crear con el botón de siempre. No crea el juego por sí solo.
  */
-export function AiGameAssistantPanel({ gameType, disabled, onDraftReady }: AiGameAssistantPanelProps) {
+export function AiGameAssistantPanel({
+  gameType,
+  mode,
+  disabled,
+  imagesRequired,
+  onDraftReady,
+}: AiGameAssistantPanelProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -28,12 +45,16 @@ export function AiGameAssistantPanel({ gameType, disabled, onDraftReady }: AiGam
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const maxFiles = imagesRequired ? imagesRequired.max + EXTRA_REFERENCE_FILES : DEFAULT_MAX_FILES
+  const imageCount = files.filter((file) => file.type.startsWith('image/')).length
+  const hasEnoughImages = !imagesRequired || imageCount >= imagesRequired.min
+
   function handleFilesChosen(event: React.ChangeEvent<HTMLInputElement>) {
     const chosen = Array.from(event.target.files ?? [])
     event.target.value = ''
     if (chosen.length === 0) return
     setError(null)
-    setFiles((current) => [...current, ...chosen].slice(0, MAX_FILES))
+    setFiles((current) => [...current, ...chosen].slice(0, maxFiles))
   }
 
   function removeFile(index: number) {
@@ -41,11 +62,11 @@ export function AiGameAssistantPanel({ gameType, disabled, onDraftReady }: AiGam
   }
 
   async function handleGenerate() {
-    if (!token || files.length === 0) return
+    if (!token || files.length === 0 || !hasEnoughImages) return
     setGenerating(true)
     setError(null)
     try {
-      const draft = await generateGameDraft(token, gameType, files)
+      const draft = await generateGameDraft(token, gameType, files, mode)
       onDraftReady(draft)
       showToast('Juego configurado con IA — revisa y ajusta lo que necesites', 'success')
       setFiles([])
@@ -62,10 +83,19 @@ export function AiGameAssistantPanel({ gameType, disabled, onDraftReady }: AiGam
         <Sparkles className="h-4 w-4 text-accent" strokeWidth={2} />
         <p className="text-[13.5px] font-semibold text-text-h">Sube tus archivos y configura tu juego automáticamente con IA</p>
       </div>
-      <p className="mb-3 text-[12px] leading-relaxed text-text">
-        PDF, Word, Excel, CSV o imágenes con tu propio material — la IA extrae la información y
-        llena el resto del formulario con ese tema. No se aceptan links, solo archivos que subas tú.
-      </p>
+      {imagesRequired ? (
+        <p className="mb-3 text-[12px] leading-relaxed text-text">
+          Este juego necesita una imagen por elemento — eso lo subes tú (mínimo {imagesRequired.min}),
+          la IA no puede inventarlas. Súbelas aquí y la IA se encarga de organizarlas: le asigna a cada
+          imagen el concepto que le corresponde. También puedes agregar PDF/Word/Excel/CSV de
+          referencia para guiar el tema (opcional). No se aceptan links, solo archivos que subas tú.
+        </p>
+      ) : (
+        <p className="mb-3 text-[12px] leading-relaxed text-text">
+          PDF, Word, Excel, CSV o imágenes con tu propio material — la IA extrae la información y
+          llena el resto del formulario con ese tema. No se aceptan links, solo archivos que subas tú.
+        </p>
+      )}
 
       <input
         ref={inputRef}
@@ -73,9 +103,16 @@ export function AiGameAssistantPanel({ gameType, disabled, onDraftReady }: AiGam
         accept={ACCEPTED}
         multiple
         className="hidden"
-        disabled={disabled || generating || files.length >= MAX_FILES}
+        disabled={disabled || generating || files.length >= maxFiles}
         onChange={handleFilesChosen}
       />
+
+      {imagesRequired && (
+        <p className={`mb-2 text-[12px] font-medium ${hasEnoughImages ? 'text-accent' : 'text-text'}`}>
+          {imageCount} / {imagesRequired.min} imágenes mínimo
+          {imageCount > 0 && !hasEnoughImages ? ' — sigue subiendo' : ''}
+        </p>
+      )}
 
       {files.length > 0 && (
         <ul className="mb-3 flex flex-col gap-1.5">
@@ -105,7 +142,7 @@ export function AiGameAssistantPanel({ gameType, disabled, onDraftReady }: AiGam
         <button
           type="button"
           className="rounded-lg border border-dashed border-accent/50 px-3.5 py-2 text-[12.5px] font-medium text-accent disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={disabled || generating || files.length >= MAX_FILES}
+          disabled={disabled || generating || files.length >= maxFiles}
           onClick={() => inputRef.current?.click()}
         >
           + Agregar archivos
@@ -114,7 +151,7 @@ export function AiGameAssistantPanel({ gameType, disabled, onDraftReady }: AiGam
           type="button"
           className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-semibold text-white shadow-[0_6px_16px_-8px_var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-          disabled={disabled || generating || files.length === 0}
+          disabled={disabled || generating || files.length === 0 || !hasEnoughImages}
           onClick={handleGenerate}
         >
           {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />}

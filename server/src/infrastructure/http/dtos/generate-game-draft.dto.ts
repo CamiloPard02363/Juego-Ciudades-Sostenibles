@@ -1,4 +1,4 @@
-import { IsIn } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { VALID_GAME_TYPES } from '../../../domain/value-objects/game-type.vo.js';
 
 /**
@@ -8,4 +8,9 @@ import { VALID_GAME_TYPES } from '../../../domain/value-objects/game-type.vo.js'
 export class GenerateGameDraftDto {
   @IsIn(VALID_GAME_TYPES)
   gameType!: string;
+
+  /** Solo relevante para MEMORY_MATCH: 'PAIRS' u 'OPPOSITES'. */
+  @IsOptional()
+  @IsString()
+  mode?: string;
 }

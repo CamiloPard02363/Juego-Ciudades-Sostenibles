@@ -57,8 +57,16 @@ export class GeminiContentAssistant implements AiContentAssistant {
     gameType,
     sourceText,
     instructions,
+    imageDescriptions,
   }: GenerateGameDraftInput): Promise<GenerateGameDraftOutput> {
     const client = this.getClient();
+    const imagesSection =
+      imageDescriptions && imageDescriptions.length > 0
+        ? `\n\nImágenes disponibles (referéncialas por su número, "imageIndex", NUNCA inventes una URL):\n${imageDescriptions
+            .map((description, index) => `${index}: ${description || '(sin descripción legible)'}`)
+            .join('\n')}`
+        : '';
+
     const prompt = `${instructions}
 
 Responde ÚNICAMENTE con un objeto JSON con esta forma exacta (sin texto adicional, sin markdown):
@@ -67,7 +75,7 @@ Responde ÚNICAMENTE con un objeto JSON con esta forma exacta (sin texto adicion
 Texto fuente (extraído de los archivos que subió el usuario para el tema "${gameType}"):
 """
 ${sourceText.slice(0, 200_000)}
-"""`;
+"""${imagesSection}`;
 
     const response = await client.models.generateContent({
       model: TEXT_MODEL,

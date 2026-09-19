@@ -14,7 +14,10 @@ import { GenerateGameDraftUseCase } from '../../../application/use-cases/generat
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { GenerateGameDraftDto } from '../dtos/generate-game-draft.dto.js';
 
-const MAX_FILES = 5;
+// Quién Es admite hasta 60 tarjetas (una imagen cada una) — el límite tiene
+// que cubrir ese techo aunque la mayoría de los tipos de juego use muchos
+// menos archivos.
+const MAX_FILES = 65;
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -61,6 +64,7 @@ export class GameAiDraftController {
 
     return this.generateGameDraftUseCase.execute({
       gameType: dto.gameType,
+      mode: dto.mode,
       files: files.map((file) => ({
         buffer: file.buffer,
         mimeType: file.mimetype,

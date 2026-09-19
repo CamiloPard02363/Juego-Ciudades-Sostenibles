@@ -4,6 +4,8 @@ import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { AudioUploadField } from './AudioUploadField'
+import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
@@ -99,6 +101,22 @@ export function GuessWhoGameForm({
     } finally {
       setCreatingCategory(false)
     }
+  }
+
+  function applyAiDraft(draft: GameDraft) {
+    const items = Array.isArray(draft.content) ? draft.content : []
+    setCards(
+      items.map((item) => {
+        const raw = (item ?? {}) as Record<string, unknown>
+        return {
+          imageUrl: typeof raw.imageUrl === 'string' ? raw.imageUrl : null,
+          label: typeof raw.label === 'string' ? raw.label : '',
+          audioUrl: typeof raw.audioUrl === 'string' ? raw.audioUrl : null,
+        }
+      }),
+    )
+    const config = (draft.config ?? {}) as Record<string, unknown>
+    if (typeof config.maxAccusationCount === 'number') setMaxAccusationCount(config.maxAccusationCount)
   }
 
   function updateCard<K extends keyof CardDraft>(index: number, field: K, value: CardDraft[K]) {
@@ -214,6 +232,13 @@ export function GuessWhoGameForm({
           disabled={submitting}
           onChange={setDescription}
           onBlur={() => {}}
+        />
+
+        <AiGameAssistantPanel
+          gameType="GUESS_WHO"
+          disabled={submitting}
+          imagesRequired={{ min: MIN_CARDS, max: 60 }}
+          onDraftReady={applyAiDraft}
         />
 
         <ImageUploadField

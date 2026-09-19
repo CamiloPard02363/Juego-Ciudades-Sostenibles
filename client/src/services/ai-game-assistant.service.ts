@@ -16,9 +16,11 @@ export async function generateGameDraft(
   token: string,
   gameType: string,
   files: File[],
+  mode?: string,
 ): Promise<GameDraft> {
   const formData = new FormData()
   formData.append('gameType', gameType)
+  if (mode) formData.append('mode', mode)
   for (const file of files) formData.append('files', file)
 
   const response = await fetch(`${API_URL}/games/ai-draft`, {

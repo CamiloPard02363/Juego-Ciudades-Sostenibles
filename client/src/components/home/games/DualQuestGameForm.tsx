@@ -3,6 +3,8 @@ import type { FormEvent, ReactNode } from 'react'
 import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
+import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { DualQuestBoard } from './DualQuestBoard'
 import { useAuth } from '../../../hooks/useAuth'
@@ -59,6 +61,15 @@ function emptyTrigger(index: number, gateId: string): DualQuestTriggerDraft {
 
 function emptyGem(index: number, role: DualQuestRole): DualQuestGemDraft {
   return { gemId: `gem-${index + 1}`, role, position: { row: 0, col: 0 }, label: '' }
+}
+
+function isPosition(value: unknown): value is DualQuestCellPosition {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Number.isInteger((value as DualQuestCellPosition).row) &&
+    Number.isInteger((value as DualQuestCellPosition).col)
+  )
 }
 
 type DualQuestGameFormProps = {
@@ -148,6 +159,68 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
     } finally {
       setCreatingCategory(false)
     }
+  }
+
+  function applyAiDraft(draft: GameDraft) {
+    const config = (draft.config ?? {}) as Record<string, unknown>
+    const content = Array.isArray(draft.content) ? draft.content : []
+
+    if (typeof config.coreQuestion === 'string') setCoreQuestion(config.coreQuestion)
+
+    if (Array.isArray(config.grid) && typeof config.gridCols === 'number' && typeof config.gridRows === 'number') {
+      setGrid(config.grid as number[][])
+      setGridCols(config.gridCols)
+      setGridRows(config.gridRows)
+    }
+
+    if (isPosition(config.fireStart)) setFireStart(config.fireStart)
+    if (isPosition(config.waterStart)) setWaterStart(config.waterStart)
+    if (isPosition(config.corePosition)) setCorePosition(config.corePosition)
+
+    if (Array.isArray(config.gates)) {
+      setGates(
+        config.gates.map((item, index) => {
+          const raw = (item ?? {}) as Record<string, unknown>
+          return {
+            gateId: typeof raw.gateId === 'string' ? raw.gateId : `gate-${index + 1}`,
+            position: isPosition(raw.position) ? raw.position : { row: 0, col: 0 },
+          }
+        }),
+      )
+    }
+
+    if (Array.isArray(config.triggers)) {
+      setTriggers(
+        config.triggers.map((item, index) => {
+          const raw = (item ?? {}) as Record<string, unknown>
+          return {
+            triggerId: typeof raw.triggerId === 'string' ? raw.triggerId : `trigger-${index + 1}`,
+            kind: raw.kind === 'QUESTION' ? 'QUESTION' : 'SWITCH',
+            activatedByRole: raw.activatedByRole === 'WATER' ? 'WATER' : 'FIRE',
+            switchPosition: isPosition(raw.switchPosition) ? raw.switchPosition : { row: 0, col: 0 },
+            gateId: typeof raw.gateId === 'string' ? raw.gateId : '',
+            prompt: typeof raw.prompt === 'string' ? raw.prompt : undefined,
+            options: Array.isArray(raw.options) ? (raw.options as string[]) : undefined,
+            correctOptionIndex:
+              typeof raw.correctOptionIndex === 'number' ? raw.correctOptionIndex : undefined,
+          }
+        }),
+      )
+    }
+
+    // "order" (1..N) llega del validador del servidor; el estado local lo
+    // deriva de la posición en el arreglo, así que se ordena antes de setearlo.
+    const gems = content
+      .map((item) => (item ?? {}) as Record<string, unknown>)
+      .filter((raw) => typeof raw.order === 'number')
+      .sort((a, b) => (a.order as number) - (b.order as number))
+      .map((raw, index) => ({
+        gemId: typeof raw.gemId === 'string' ? raw.gemId : `gem-${index + 1}`,
+        role: (raw.role === 'WATER' ? 'WATER' : 'FIRE') as DualQuestRole,
+        position: isPosition(raw.position) ? raw.position : { row: 0, col: 0 },
+        label: typeof raw.label === 'string' ? raw.label : '',
+      }))
+    if (gems.length > 0) setGems(gems)
   }
 
   function handleGridSizeChange(nextRows: number, nextCols: number) {
@@ -342,6 +415,9 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
           onChange={setDescription}
           onBlur={() => {}}
         />
+
+        <AiGameAssistantPanel gameType="DUAL_QUEST" disabled={submitting} onDraftReady={applyAiDraft} />
+
         <ImageUploadField
           label="Portada del juego (opcional)"
           imageUrl={coverImageUrl}

@@ -11,6 +11,15 @@ export interface GenerateGameDraftInput {
   sourceText: string;
   /** Instrucciones + forma de JSON esperada para este gameType (ver game-prompt-catalog). */
   instructions: string;
+  /**
+   * Descripciones (por visión del modelo) de las imágenes que el usuario
+   * subió como CONTENIDO del juego (no como material de referencia) — solo
+   * presente en tipos de juego con imagen obligatoria por elemento (Quién
+   * Es, Parejas). El índice de este arreglo es el "imageIndex" que la IA
+   * debe usar para referenciar cada imagen en el JSON generado, en vez de
+   * inventar una URL.
+   */
+  imageDescriptions?: string[];
 }
 
 export interface GenerateGameDraftOutput {
