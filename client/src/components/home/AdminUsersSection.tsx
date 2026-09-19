@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Search } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
 import { deactivateUser, listUsers, reactivateUser, updateUserRole } from '../../services/auth.service'
@@ -15,17 +16,29 @@ export function AdminUsersSection() {
   const [items, setItems] = useState<AuthUser[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({})
   const [pendingUserId, setPendingUserId] = useState<string | null>(null)
 
+  // Debounce de 250ms (mismo patrón que `AddGameModal` en `MyClassesPage`):
+  // resetea a página 1 en cada búsqueda nueva (issue #106/#108, CA2.2).
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [search])
+
   const reload = useCallback(() => {
     if (!token) return
     setLoading(true)
     setError(null)
-    listUsers(token, { page, pageSize: PAGE_SIZE })
+    listUsers(token, { page, pageSize: PAGE_SIZE, search: debouncedSearch || undefined })
       .then((result) => {
         setItems(result.items)
         setTotal(result.total)
@@ -36,7 +49,7 @@ export function AdminUsersSection() {
         )
       })
       .finally(() => setLoading(false))
-  }, [token, page])
+  }, [token, page, debouncedSearch])
 
   useEffect(() => {
     reload()
@@ -135,6 +148,17 @@ export function AdminUsersSection() {
           onCancel={() => setShowCreateForm(false)}
         />
       )}
+
+      <div className="relative mb-4 max-w-[320px]">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text/50" strokeWidth={2} />
+        <input
+          type="text"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar por nombre o correo…"
+          className="w-full rounded-lg border border-border bg-bg py-2.5 pl-9 pr-3 text-[13px] text-text-h outline-none focus:border-accent"
+        />
+      </div>
 
       {error && (
         <p

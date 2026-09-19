@@ -106,6 +106,7 @@ export type ListUsersParams = {
   pageSize?: number
   role?: string
   isActive?: boolean
+  search?: string
 }
 
 export type PaginatedUsers = {
@@ -141,6 +142,7 @@ export function listUsers(
   if (params.pageSize) query.set('pageSize', String(params.pageSize))
   if (params.role) query.set('role', params.role)
   if (params.isActive !== undefined) query.set('isActive', String(params.isActive))
+  if (params.search) query.set('search', params.search)
 
   const queryString = query.toString()
   return request<PaginatedUsers>(`/users${queryString ? `?${queryString}` : ''}`, {
