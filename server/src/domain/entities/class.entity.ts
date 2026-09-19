@@ -5,6 +5,10 @@ export interface ClassProps {
   name: string;
   description: string;
   teacherUserId: string;
+  /** Organización personal del profesor (issue #101). `null` para clases previas a la migración. */
+  organizationId: string | null;
+  /** Código de invitación estático generado una vez al crear la clase (no rota). */
+  inviteCode: string;
   createdAt: Date;
 }
 
@@ -13,6 +17,8 @@ export interface CreateClassProps {
   name: string;
   description?: string;
   teacherUserId: string;
+  organizationId?: string | null;
+  inviteCode: string;
 }
 
 const NAME_MIN_LENGTH = 3;
@@ -32,6 +38,8 @@ export class ClassEntity {
       name,
       description: props.description?.trim() ?? '',
       teacherUserId: props.teacherUserId,
+      organizationId: props.organizationId ?? null,
+      inviteCode: props.inviteCode,
       createdAt: new Date(),
     });
   }
@@ -51,6 +59,12 @@ export class ClassEntity {
   }
   get teacherUserId(): string {
     return this.props.teacherUserId;
+  }
+  get organizationId(): string | null {
+    return this.props.organizationId;
+  }
+  get inviteCode(): string {
+    return this.props.inviteCode;
   }
   get createdAt(): Date {
     return this.props.createdAt;

@@ -15,6 +15,7 @@ export class OrganizationMapper {
       domain: record.domain ? EmailDomain.create(record.domain) : null,
       createdByUserId: record.createdByUserId,
       createdAt: record.createdAt,
+      isActive: record.isActive,
     });
   }
 
@@ -27,6 +28,7 @@ export class OrganizationMapper {
       domain: props.domain?.getValue() ?? null,
       createdByUserId: props.createdByUserId,
       createdAt: props.createdAt,
+      isActive: props.isActive,
     };
   }
 }

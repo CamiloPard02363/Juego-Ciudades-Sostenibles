@@ -12,6 +12,8 @@ export type DualQuestDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
 
 export interface DualQuestRoomPlayer {
   socketId: string;
+  /** Confirmación individual para el lobby actual. */
+  ready?: boolean;
   userId: string;
   displayName: string;
   role: DualQuestRole;

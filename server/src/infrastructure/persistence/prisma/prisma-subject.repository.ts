@@ -68,6 +68,21 @@ export class PrismaSubjectRepository implements SubjectRepository {
     return records.map(SubjectMapper.toDomain);
   }
 
+  async findAll(): Promise<Subject[]> {
+    const records = await this.prisma.subjectModel.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+    return records.map(SubjectMapper.toDomain);
+  }
+
+  async findByParentId(parentId: string): Promise<Subject[]> {
+    const records = await this.prisma.subjectModel.findMany({
+      where: { parentSubjectId: parentId, deletedAt: null },
+    });
+    return records.map(SubjectMapper.toDomain);
+  }
+
   async softDelete(id: string): Promise<void> {
     await this.prisma.subjectModel.update({
       where: { id },

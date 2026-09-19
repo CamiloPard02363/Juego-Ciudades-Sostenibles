@@ -88,6 +88,7 @@ export type DualQuestPlayerView = {
   displayName: string
   role: DualQuestRole
   position: DualQuestCellPosition
+  ready?: boolean
   isSelf: boolean
   isHost: boolean
 }

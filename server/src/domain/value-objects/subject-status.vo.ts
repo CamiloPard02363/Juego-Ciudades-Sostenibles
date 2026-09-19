@@ -4,9 +4,11 @@ import { InvalidSubjectStatusError } from '../errors/subject.errors.js';
  * PRIVATE: recién creada, solo visible para su creador. Puede eliminarse
  *          (soft-delete) mientras esté en este estado.
  * PUBLIC: visible para todos en el catálogo. Transición unidireccional desde
- *         PRIVATE — no existe camino de vuelta ni eliminación, porque otros
- *         usuarios pueden haber publicado juegos bajo esta materia mientras
- *         tanto y quedarían huérfanos.
+ *         PRIVATE — no existe camino de vuelta, porque otros usuarios pueden
+ *         haber publicado juegos bajo esta materia mientras tanto y
+ *         quedarían huérfanos. Sí puede eliminarse estando PUBLIC, pero solo
+ *         si su árbol (ella y sus descendientes) no tiene juegos asociados —
+ *         ver `Subject.canBeDeletedBy`.
  */
 export type SubjectStatusName = 'PRIVATE' | 'PUBLIC';
 

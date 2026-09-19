@@ -11,6 +11,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  */
 export function useGuessWhoRoom(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
+  const waitingCodeRef = useRef<string | null>(null)
   const [room, setRoom] = useState<RoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
@@ -28,9 +29,14 @@ export function useGuessWhoRoom(token: string | null) {
     })
     socketRef.current = socket
 
-    socket.on('connect', () => setConnecting(false))
+    socket.on('connect', () => {
+      setConnecting(false)
+      // Reingresar al lobby tras reconectar; el servidor exige confirmar de nuevo.
+      if (waitingCodeRef.current) socket.emit('room:join', { code: waitingCodeRef.current })
+    })
     socket.on('disconnect', () => setConnecting(true))
     socket.on('room:state', (state: RoomStateView) => {
+      waitingCodeRef.current = state.phase === 'WAITING' ? state.code : null
       setRoom(state)
       setError(null)
       // Si llegó un nuevo estado de sala, la cuenta regresiva de reparto ya
@@ -48,6 +54,7 @@ export function useGuessWhoRoom(token: string | null) {
     // que aquí solo mostramos el aviso y limpiamos el estado local.
     socket.on('room:rematch-rejected', (payload: { message: string }) => {
       setRematchRejectedMessage(payload.message)
+      waitingCodeRef.current = null
       setRoom(null)
     })
     // Acusación fallida: el juego sigue, solo mostramos un aviso temporal.
@@ -74,11 +81,12 @@ export function useGuessWhoRoom(token: string | null) {
   }, [])
 
   const joinRoom = useCallback((code: string) => {
-    socketRef.current?.emit('room:join', { code })
+    waitingCodeRef.current = code
+    if (socketRef.current?.connected) socketRef.current.emit('room:join', { code })
   }, [])
 
-  const startGame = useCallback((turnDurationSeconds?: number) => {
-    socketRef.current?.emit('room:start', { turnDurationSeconds })
+  const setReady = useCallback((ready: boolean) => {
+    if (socketRef.current?.connected) socketRef.current.emit('room:ready', { ready })
   }, [])
 
   const updateTurnDuration = useCallback((turnDurationSeconds: number) => {
@@ -108,6 +116,7 @@ export function useGuessWhoRoom(token: string | null) {
   }, [])
 
   const leaveRoom = useCallback(() => {
+    waitingCodeRef.current = null
     socketRef.current?.emit('room:leave')
     setRoom(null)
     setMessages([])
@@ -124,7 +133,7 @@ export function useGuessWhoRoom(token: string | null) {
     messages,
     createRoom,
     joinRoom,
-    startGame,
+    setReady,
     updateTurnDuration,
     discardCard,
     accuseCard,

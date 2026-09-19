@@ -4,43 +4,60 @@ import {
   ORGANIZATION_REPOSITORY,
   type OrganizationRepository,
 } from '../../domain/ports/organization.repository.port.js';
-import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
 import {
   toOrganizationResponseDto,
   type OrganizationResponseDto,
 } from '../dtos/organization-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
-import { RequesterAdminResolver } from '../services/requester-admin-resolver.service.js';
 
 export interface ListAllOrganizationsInput {
   requestingUserId: string;
+  /** Substring case-insensitive contra nombre o dominio (issue #106, CA2.2). */
+  search?: string;
+  isActive?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListAllOrganizationsOutput {
+  items: OrganizationResponseDto[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 /**
- * Query sin filtro de pertenencia: devuelve TODAS las organizaciones.
- * La autorización es simplemente `role.isAdmin()` global resuelto contra BD —
- * no hay modelo de datos adicional para este permiso (decisión del issue #29).
+ * Query sin filtro de pertenencia: devuelve TODAS las organizaciones, con
+ * paginación, `search` e `isActive` (issue #106, CA2.2 — mismo contrato que
+ * `ListUsersUseCase`).
+ *
+ * La autorización de ADMIN global ya no se resuelve acá — la aplica
+ * `RolesGuard` (`@Roles('ADMIN')`) sobre el endpoint HTTP antes de llegar a
+ * este use-case (issue #101, reemplaza al chequeo inline con
+ * `RequesterAdminResolver` que vivía aquí).
  */
 @Injectable()
 export class ListAllOrganizationsUseCase
-  implements UseCase<ListAllOrganizationsInput, OrganizationResponseDto[]>
+  implements UseCase<ListAllOrganizationsInput, ListAllOrganizationsOutput>
 {
   constructor(
     @Inject(ORGANIZATION_REPOSITORY)
     private readonly organizationRepository: OrganizationRepository,
-    private readonly requesterAdminResolver: RequesterAdminResolver,
   ) {}
 
-  async execute(input: ListAllOrganizationsInput): Promise<OrganizationResponseDto[]> {
-    const isPlatformAdmin = await this.requesterAdminResolver.resolve(
-      input.requestingUserId,
-    );
+  async execute(input: ListAllOrganizationsInput): Promise<ListAllOrganizationsOutput> {
+    const result = await this.organizationRepository.findAll({
+      search: input.search,
+      isActive: input.isActive,
+      page: input.page ?? 1,
+      pageSize: input.pageSize ?? 20,
+    });
 
-    if (!isPlatformAdmin) {
-      throw new ForbiddenActionError('ver todas las organizaciones');
-    }
-
-    const organizations = await this.organizationRepository.findAll();
-    return organizations.map(toOrganizationResponseDto);
+    return {
+      items: result.items.map(toOrganizationResponseDto),
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+    };
   }
 }

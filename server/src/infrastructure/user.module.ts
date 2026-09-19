@@ -30,6 +30,7 @@ import { ListUsersUseCase } from '../application/use-cases/list-users.use-case.j
 import { ChangeUserRoleUseCase } from '../application/use-cases/change-user-role.use-case.js';
 import { ResetUserPasswordUseCase } from '../application/use-cases/reset-user-password.use-case.js';
 import { UpdateUserProfileByAdminUseCase } from '../application/use-cases/update-user-profile-by-admin.use-case.js';
+import { RolesGuard } from './http/guards/roles.guard.js';
 import { UserController } from './http/controllers/user.controller.js';
 import { AuthController } from './http/controllers/auth.controller.js';
 
@@ -55,6 +56,7 @@ import { AuthController } from './http/controllers/auth.controller.js';
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: TOKEN_GENERATOR, useClass: JwtTokenGenerator },
     { provide: OPAQUE_TOKEN_GENERATOR, useClass: CryptoOpaqueTokenGenerator },
+    RolesGuard,
     TokenPairIssuer,
     RegisterUserUseCase,
     CreateUserUseCase,

@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { OrganizationRepository } from '../../../domain/ports/organization.repository.port.js';
+import type {
+  FindAllOrganizationsFilter,
+  OrganizationRepository,
+  PaginatedOrganizations,
+} from '../../../domain/ports/organization.repository.port.js';
 import type { Organization } from '../../../domain/entities/organization.entity.js';
 import type { OrganizationMembership } from '../../../domain/entities/organization-membership.entity.js';
 import type { EmailDomain } from '../../../domain/value-objects/email-domain.vo.js';
@@ -98,11 +102,35 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
     return record ? OrganizationMapper.toDomain(record) : null;
   }
 
-  async findAll(): Promise<Organization[]> {
-    const records = await this.prisma.organizationModel.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-    return records.map(OrganizationMapper.toDomain);
+  async findAll(filter: FindAllOrganizationsFilter): Promise<PaginatedOrganizations> {
+    const where = {
+      ...(filter.isActive !== undefined ? { isActive: filter.isActive } : {}),
+      ...(filter.search
+        ? {
+            OR: [
+              { name: { contains: filter.search, mode: 'insensitive' as const } },
+              { domain: { contains: filter.search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const [records, total] = await Promise.all([
+      this.prisma.organizationModel.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (filter.page - 1) * filter.pageSize,
+        take: filter.pageSize,
+      }),
+      this.prisma.organizationModel.count({ where }),
+    ]);
+
+    return {
+      items: records.map(OrganizationMapper.toDomain),
+      total,
+      page: filter.page,
+      pageSize: filter.pageSize,
+    };
   }
 
   async findAllByUserId(userId: string): Promise<Organization[]> {
@@ -177,5 +205,11 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
       orderBy: { joinedAt: 'asc' },
     });
     return records.map(OrganizationMembershipMapper.toDomain);
+  }
+
+  async removeMembership(organizationId: string, userId: string): Promise<void> {
+    await this.prisma.organizationMembershipModel.deleteMany({
+      where: { organizationId, userId },
+    });
   }
 }

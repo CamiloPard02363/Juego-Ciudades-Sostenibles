@@ -28,9 +28,11 @@ const NAME_MAX_LENGTH = 60;
  * Materia raíz (`parentSubjectId: null`): solo la crea un ADMIN, nace pública
  * de una vez (es el esqueleto fijo del catálogo, no contenido de un usuario).
  * Sub-materia (`parentSubjectId` con valor): la crea cualquier profesor o
- * admin, nace PRIVATE. Pasar a PUBLIC es irreversible — no hay `unpublish` ni
- * `delete` una vez pública, porque otros usuarios pueden haber publicado
- * juegos bajo ella mientras tanto y quedarían huérfanos.
+ * admin, nace PRIVATE. Pasar a PUBLIC es irreversible — no hay `unpublish`
+ * una vez pública, porque otros usuarios pueden haber publicado juegos bajo
+ * ella mientras tanto y quedarían huérfanos. Sí puede eliminarse siendo
+ * PUBLIC, pero solo si su árbol completo (ella y sus descendientes, en
+ * cualquier estado) sigue sin juegos asociados — ver `canBeDeletedBy`.
  */
 export class Subject {
   private props: SubjectProps;
@@ -103,12 +105,33 @@ export class Subject {
     return isAdmin || this.props.creatorUserId === requestingUserId;
   }
 
-  /** Solo se puede borrar (soft-delete) mientras sigue privada; una pública nunca se elimina. */
-  canBeDeletedBy(requestingUserId: string, isAdmin: boolean): boolean {
-    if (!this.props.status.isPrivate()) {
-      return false;
+  /**
+   * `isEmpty` lo calcula el use-case recorriendo recursivamente el árbol
+   * (ella y todas sus descendientes, en cualquier estado) contra el
+   * repositorio de Game en Mongo — la entidad de dominio no puede consultar
+   * Mongo directamente.
+   *
+   * - Materia raíz (`parentSubjectId === null`, siempre PUBLIC): solo un
+   *   admin puede borrarla, y solo si el árbol está vacío. Nunca por
+   *   "creador": la mayoría de raíces no tienen `creatorUserId`.
+   * - Sub-materia PRIVATE: regla histórica sin cambios — su creador o un
+   *   admin, sin depender de si el árbol está vacío (una PRIVATE no puede
+   *   tener descendientes con juegos publicados por otros usuarios).
+   * - Sub-materia PUBLIC: nueva excepción a la irreversibilidad de
+   *   `publish()` — su creador o un admin pueden borrarla, pero SOLO si el
+   *   árbol está vacío. Esto no reabre PUBLIC -> PRIVATE, es exclusivamente
+   *   una condición de borrado.
+   */
+  canBeDeletedBy(requestingUserId: string, isAdmin: boolean, isEmpty: boolean): boolean {
+    if (this.isRoot()) {
+      return isAdmin && isEmpty;
     }
-    return isAdmin || this.props.creatorUserId === requestingUserId;
+
+    const isOwnerOrAdmin = isAdmin || this.props.creatorUserId === requestingUserId;
+    if (this.props.status.isPrivate()) {
+      return isOwnerOrAdmin;
+    }
+    return isOwnerOrAdmin && isEmpty;
   }
 
   publish(): void {

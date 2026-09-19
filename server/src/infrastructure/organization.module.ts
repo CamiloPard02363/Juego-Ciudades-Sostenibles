@@ -7,6 +7,10 @@ import { ListMyOrganizationsUseCase } from '../application/use-cases/list-my-org
 import { ListAllOrganizationsUseCase } from '../application/use-cases/list-all-organizations.use-case.js';
 import { ListOrganizationMembersUseCase } from '../application/use-cases/list-organization-members.use-case.js';
 import { AddOrganizationMemberUseCase } from '../application/use-cases/add-organization-member.use-case.js';
+import { RemoveOrganizationMemberUseCase } from '../application/use-cases/remove-organization-member.use-case.js';
+import { DeactivateOrganizationUseCase } from '../application/use-cases/deactivate-organization.use-case.js';
+import { ReactivateOrganizationUseCase } from '../application/use-cases/reactivate-organization.use-case.js';
+import { RolesGuard } from './http/guards/roles.guard.js';
 import { OrganizationController } from './http/controllers/organization.controller.js';
 
 /** Módulo público de organizaciones: casos de uso + endpoints HTTP. */
@@ -15,11 +19,15 @@ import { OrganizationController } from './http/controllers/organization.controll
   controllers: [OrganizationController],
   providers: [
     RequesterAdminResolver,
+    RolesGuard,
     CreateOrganizationUseCase,
     ListMyOrganizationsUseCase,
     ListAllOrganizationsUseCase,
     ListOrganizationMembersUseCase,
     AddOrganizationMemberUseCase,
+    RemoveOrganizationMemberUseCase,
+    DeactivateOrganizationUseCase,
+    ReactivateOrganizationUseCase,
   ],
 })
 export class OrganizationModule {}

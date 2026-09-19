@@ -10,4 +10,9 @@ export class CreateClassDto {
   @IsString()
   @MaxLength(240)
   description?: string;
+
+  /** Organización a la que se asocia la clase (issue #106, CA1.1). Opcional. */
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
 }

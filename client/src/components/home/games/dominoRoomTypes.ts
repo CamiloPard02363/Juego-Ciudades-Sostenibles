@@ -26,6 +26,7 @@ export type DominoRoomPlayerView = {
   handCount: number
   /** La mano completa solo llega para el jugador dueño de este socket; null para el rival. */
   hand: DominoTileView[] | null
+  ready?: boolean
   isSelf: boolean
   hasVotedRematch: boolean
   /** true solo para quien creó la sala — único que puede fijar los segundos por turno. */
