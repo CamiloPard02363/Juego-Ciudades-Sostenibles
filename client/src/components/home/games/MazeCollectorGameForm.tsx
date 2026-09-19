@@ -4,6 +4,8 @@ import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { IconPickerField } from './IconPickerField'
+import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
@@ -137,6 +139,38 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
     }
   }
 
+  function applyAiDraft(draft: GameDraft) {
+    const items = Array.isArray(draft.content) ? draft.content : []
+    setItems(
+      items.map((item, index) => {
+        const raw = (item ?? {}) as Record<string, unknown>
+        return {
+          label: typeof raw.label === 'string' ? raw.label : '',
+          icon: typeof raw.icon === 'string' && DOMINO_ICON_KEYS.includes(raw.icon)
+            ? raw.icon
+            : DOMINO_ICON_KEYS[index % DOMINO_ICON_KEYS.length],
+          color: typeof raw.color === 'string' ? raw.color : SUGGESTED_COLORS[index % SUGGESTED_COLORS.length],
+          fact: typeof raw.fact === 'string' ? raw.fact : '',
+        }
+      }),
+    )
+    const config = (draft.config ?? {}) as Record<string, unknown>
+    const validLayouts = LAYOUT_OPTIONS.map((option) => option.value)
+    if (typeof config.layout === 'string' && validLayouts.includes(config.layout as MazeLayout)) {
+      setLayout(config.layout as MazeLayout)
+    }
+    if (typeof config.lives === 'number') setLives(config.lives)
+    if (typeof config.enemySpeed === 'number') setEnemySpeed(config.enemySpeed)
+    if (typeof config.collectorLabel === 'string') setCollectorLabel(config.collectorLabel)
+    if (typeof config.enemyLabel === 'string') setEnemyLabel(config.enemyLabel)
+    if (typeof config.collectorIcon === 'string' && DOMINO_ICON_KEYS.includes(config.collectorIcon)) {
+      setCollectorIcon(config.collectorIcon)
+    }
+    if (typeof config.enemyIcon === 'string' && DOMINO_ICON_KEYS.includes(config.enemyIcon)) {
+      setEnemyIcon(config.enemyIcon)
+    }
+  }
+
   function updateItem<K extends keyof ItemDraft>(index: number, field: K, value: ItemDraft[K]) {
     setItems((current) => current.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
   }
@@ -250,6 +284,8 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
           onChange={setDescription}
           onBlur={() => {}}
         />
+
+        <AiGameAssistantPanel gameType="MAZE_COLLECTOR" disabled={submitting} onDraftReady={applyAiDraft} />
 
         <ImageUploadField
           label="Portada del juego (opcional)"

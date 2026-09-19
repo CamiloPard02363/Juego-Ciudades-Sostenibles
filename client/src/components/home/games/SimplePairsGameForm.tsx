@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
+import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
@@ -86,6 +88,19 @@ export function SimplePairsGameForm({
     } finally {
       setCreatingCategory(false)
     }
+  }
+
+  function applyAiDraft(draft: GameDraft) {
+    const items = Array.isArray(draft.content) ? draft.content : []
+    setPairs(
+      items.map((item) => {
+        const raw = (item ?? {}) as Record<string, unknown>
+        return {
+          imageUrl: typeof raw.imageUrl === 'string' ? raw.imageUrl : null,
+          label: typeof raw.label === 'string' ? raw.label : '',
+        }
+      }),
+    )
   }
 
   function updatePair<K extends keyof PairDraft>(index: number, field: K, value: PairDraft[K]) {
@@ -193,6 +208,14 @@ export function SimplePairsGameForm({
           disabled={submitting}
           onChange={setDescription}
           onBlur={() => {}}
+        />
+
+        <AiGameAssistantPanel
+          gameType="MEMORY_MATCH"
+          mode="PAIRS"
+          disabled={submitting}
+          imagesRequired={{ min: 4, max: 40 }}
+          onDraftReady={applyAiDraft}
         />
 
         <ImageUploadField

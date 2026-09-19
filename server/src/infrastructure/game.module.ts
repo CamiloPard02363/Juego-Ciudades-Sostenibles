@@ -32,12 +32,19 @@ import { UnpublishGameUseCase } from '../application/use-cases/unpublish-game.us
 import { DeleteGameUseCase } from '../application/use-cases/delete-game.use-case.js';
 import { DonateGameToOrganizationUseCase } from '../application/use-cases/donate-game-to-organization.use-case.js';
 import { ImportGamesBatchUseCase } from '../application/use-cases/import-games-batch.use-case.js';
+import { GenerateGameDraftUseCase } from '../application/use-cases/generate-game-draft.use-case.js';
+import { AI_CONTENT_ASSISTANT } from '../domain/ports/ai-content-assistant.port.js';
+import { IMAGE_STORAGE } from '../domain/ports/image-storage.port.js';
+import { GeminiContentAssistant } from './ai/gemini-content-assistant.adapter.js';
+import { CloudinaryImageStorage } from './storage/cloudinary-image.storage.js';
+import { FileTextExtractor } from './ai/file-text-extractor.js';
 import { GameController } from './http/controllers/game.controller.js';
 import { GameImportController } from './http/controllers/game-import.controller.js';
+import { GameAiDraftController } from './http/controllers/game-ai-draft.controller.js';
 
 @Module({
   imports: [UserModule, OrganizationCoreModule, ClassCoreModule],
-  controllers: [GameController, GameImportController],
+  controllers: [GameController, GameImportController, GameAiDraftController],
   providers: [
     MongoService,
     { provide: GAME_REPOSITORY, useClass: MongoGameRepository },
@@ -66,6 +73,10 @@ import { GameImportController } from './http/controllers/game-import.controller.
     DeleteGameUseCase,
     DonateGameToOrganizationUseCase,
     ImportGamesBatchUseCase,
+    { provide: AI_CONTENT_ASSISTANT, useClass: GeminiContentAssistant },
+    { provide: IMAGE_STORAGE, useClass: CloudinaryImageStorage },
+    FileTextExtractor,
+    GenerateGameDraftUseCase,
   ],
 })
 export class GameModule {}
