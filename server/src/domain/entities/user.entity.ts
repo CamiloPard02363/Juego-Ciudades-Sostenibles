@@ -147,6 +147,25 @@ export class User {
     this.touch();
   }
 
+  /**
+   * Solo se cambia desde el registro o desde que la propia persona corrige
+   * su fecha de nacimiento en su perfil — determina el Modo Kids (ver
+   * `client/src/utils/kidsMode.ts`), así que no puede ser una fecha futura
+   * ni una edad absurda (> 120 años) que sugiera un dato mal ingresado.
+   */
+  changeBirthDate(birthDate: Date): void {
+    const now = new Date();
+    if (birthDate.getTime() > now.getTime()) {
+      throw new InvalidUserStateError('la fecha de nacimiento no puede ser futura.');
+    }
+    const maxAgeDate = new Date(now.getFullYear() - 120, now.getMonth(), now.getDate());
+    if (birthDate.getTime() < maxAgeDate.getTime()) {
+      throw new InvalidUserStateError('la fecha de nacimiento no es válida.');
+    }
+    this.props.birthDate = birthDate;
+    this.touch();
+  }
+
   changeRole(newRole: Role): void {
     this.props.role = newRole;
     this.touch();

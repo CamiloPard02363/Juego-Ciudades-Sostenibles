@@ -11,13 +11,20 @@ export type WelcomeOptions = {
   canGoBackToWorlds?: boolean
 }
 
-export function getWelcomeSteps(role: string, options: WelcomeOptions = {}): WelcomeStep[] {
+/**
+ * `isKids` (no `role === 'STUDENT'` a secas) decide el set de pasos: un
+ * STUDENT de 10+ años ve el Home normal (Sidebar, no KidsHomeShell — ver
+ * isKidsMode en utils/kidsMode.ts), así que necesita los pasos "normales" con
+ * sus mismos `target` (data-tour) reales — los pasos de kids apuntan a
+ * elementos que solo existen en KidsHomeShell y no encontrarían nada ahí.
+ */
+export function getWelcomeSteps(role: string, isKids: boolean, options: WelcomeOptions = {}): WelcomeStep[] {
   const profile: WelcomeStep = {
     title: 'Tu espacio, a un toque',
     text: 'En tu perfil puedes ajustar tus datos o salir. Usa Guía cuando quieras repetir este recorrido.',
     target: 'profile', icon: 'profile', action: 'Abrir mi perfil',
   }
-  if (role === 'STUDENT') return [
+  if (isKids) return [
     { title: 'Elige tu mundo', text: 'Toca una materia y descubre sus juegos. Si aún no hay mundos, pídele a tu profe que publique un juego.', target: 'worlds', icon: 'explore' },
     { title: '¡A jugar con tu equipo!', text: 'Elige la portada de un juego. Si tu profe te dio un código de sala, escríbelo en ese juego y toca Unirme. Para jugar por tu cuenta, toca Jugar.', target: 'worlds', icon: 'play', action: 'Explorar juegos' },
     ...(options.canGoBackToWorlds ? [{

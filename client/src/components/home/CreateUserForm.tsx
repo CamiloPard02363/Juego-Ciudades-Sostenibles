@@ -4,7 +4,7 @@ import { TextField } from '../TextField'
 import { useAuth } from '../../hooks/useAuth'
 import { createUser } from '../../services/auth.service'
 import { ApiError } from '../../utils/http'
-import { validateEmail, validateNewPassword, validateRequiredName } from '../../utils/validation'
+import { validateBirthDate, validateEmail, validateNewPassword, validateRequiredName } from '../../utils/validation'
 
 const ROLES = ['STUDENT', 'TEACHER', 'ADMIN'] as const
 
@@ -20,6 +20,7 @@ export function CreateUserForm({ onCreated, onCancel }: CreateUserFormProps) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [role, setRole] = useState<(typeof ROLES)[number]>('STUDENT')
+  const [birthDate, setBirthDate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -31,7 +32,8 @@ export function CreateUserForm({ onCreated, onCancel }: CreateUserFormProps) {
       validateEmail(email) ??
       validateNewPassword(password) ??
       validateRequiredName(firstName, 'El nombre') ??
-      validateRequiredName(lastName, 'El apellido')
+      validateRequiredName(lastName, 'El apellido') ??
+      (birthDate ? validateBirthDate(birthDate) : null)
     if (validationError) {
       setError(validationError)
       return
@@ -40,7 +42,7 @@ export function CreateUserForm({ onCreated, onCancel }: CreateUserFormProps) {
     setSubmitting(true)
     setError(null)
     try {
-      await createUser(token, { email, password, firstName, lastName, role })
+      await createUser(token, { email, password, firstName, lastName, role, birthDate: birthDate || undefined })
       onCreated()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear el usuario.')
@@ -110,6 +112,18 @@ export function CreateUserForm({ onCreated, onCancel }: CreateUserFormProps) {
           ))}
         </select>
       </div>
+
+      {role === 'STUDENT' && (
+        <TextField
+          label="Fecha de nacimiento (opcional)"
+          type="date"
+          value={birthDate}
+          max={new Date().toISOString().slice(0, 10)}
+          disabled={submitting}
+          onChange={setBirthDate}
+          onBlur={() => {}}
+        />
+      )}
 
       {error && (
         <p

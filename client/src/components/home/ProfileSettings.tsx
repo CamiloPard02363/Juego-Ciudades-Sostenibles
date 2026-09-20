@@ -5,7 +5,7 @@ import { Building2, X } from 'lucide-react'
 import { TextField } from '../TextField'
 import { useAuth } from '../../hooks/useAuth'
 import { ApiError } from '../../utils/http'
-import { validateRequiredName } from '../../utils/validation'
+import { validateBirthDate, validateRequiredName } from '../../utils/validation'
 import { getEmailDomain, isPublicEmailProviderDomain } from '../../utils/publicEmailProviders'
 import {
   createOrganization,
@@ -33,7 +33,9 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
   const [lastName, setLastName] = useState(user?.lastName ?? '')
   const [middleName, setMiddleName] = useState(user?.middleName ?? '')
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
-  const [errors, setErrors] = useState<{ firstName?: string; lastName?: string }>({})
+  // El backend devuelve un datetime ISO completo; <input type="date"> solo acepta "YYYY-MM-DD".
+  const [birthDate, setBirthDate] = useState(user?.birthDate?.slice(0, 10) ?? '')
+  const [errors, setErrors] = useState<{ firstName?: string; lastName?: string; birthDate?: string }>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -91,9 +93,10 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
     const nextErrors = {
       firstName: validateRequiredName(firstName, 'El nombre') ?? undefined,
       lastName: validateRequiredName(lastName, 'El apellido') ?? undefined,
+      birthDate: validateBirthDate(birthDate) ?? undefined,
     }
     setErrors(nextErrors)
-    if (nextErrors.firstName || nextErrors.lastName) return
+    if (nextErrors.firstName || nextErrors.lastName || nextErrors.birthDate) return
 
     setSubmitting(true)
     try {
@@ -102,6 +105,7 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
         lastName: lastName.trim(),
         middleName: middleName.trim() || null,
         displayName: displayName.trim() || undefined,
+        birthDate,
       })
       setSuccessMessage('Perfil actualizado correctamente.')
     } catch (error) {
@@ -245,6 +249,23 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
           onChange={setDisplayName}
           onBlur={() => {}}
         />
+
+        <TextField
+          label="Fecha de nacimiento"
+          type="date"
+          value={birthDate}
+          error={errors.birthDate}
+          max={new Date().toISOString().slice(0, 10)}
+          disabled={submitting}
+          onChange={setBirthDate}
+          onBlur={() => {}}
+        />
+        {user.role === 'STUDENT' && (
+          <p className="-mt-2.5 text-[12px] leading-snug text-text">
+            Si corriges la fecha y la persona ya tiene 10 años o más, en su próxima vista deja
+            de ver el Modo Kids automáticamente.
+          </p>
+        )}
 
         {submitError && (
           <p

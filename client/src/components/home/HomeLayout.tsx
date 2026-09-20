@@ -11,6 +11,7 @@ import { KidsMascot } from '../kids/KidsMascot'
 import { listMyOrganizations } from '../../services/organization.service'
 import { KidsHomeShell } from './kids/KidsHomeShell'
 import { WelcomeTour } from './WelcomeTour'
+import { isKidsMode } from '../../utils/kidsMode'
 
 export function HomeLayout() {
   const { user, token, signOut } = useAuth()
@@ -23,13 +24,15 @@ export function HomeLayout() {
   const [canAccessOrganization, setCanAccessOrganization] = useState(false)
 
   useEffect(() => {
-    // Un STUDENT nunca ve organizaciones/sidebar (ver KidsHomeShell más
-    // abajo) — evita esta llamada de red que no se va a usar para nada.
-    if (!token || user?.role === 'STUDENT') return
+    // Un STUDENT en Modo Kids nunca ve organizaciones/sidebar (ver
+    // KidsHomeShell más abajo) — evita esta llamada de red que no se va a
+    // usar para nada. Un STUDENT de 10+ años sí ve el Home normal, así que sí
+    // necesita esta llamada.
+    if (!token || isKidsMode(user)) return
     listMyOrganizations(token)
       .then((items) => setCanAccessOrganization(items.some((org) => org.myOrgRole === 'ADMIN')))
       .catch(() => setCanAccessOrganization(false))
-  }, [token, user?.role])
+  }, [token, user])
   // Se incrementa en cada Enter, incluso si el texto no cambió, para que la
   // búsqueda y el scroll a resultados se disparen siempre y no dependan de
   // que el valor sea distinto al anterior.
@@ -42,11 +45,12 @@ export function HomeLayout() {
 
   if (!user) return null
 
-  // Un estudiante nunca ve el Home de adulto (Sidebar + búsqueda + grid de
-  // texto): entra directo a una navegación propia, pensada para que llegue
-  // solo a un juego sin necesitar leer mucho (ver KidsHomeShell). No hay
-  // toggle manual para esto — es automático por rol (ver useTheme.ts).
-  if (user.role === 'STUDENT') {
+  // Un estudiante menor de 10 años nunca ve el Home de adulto (Sidebar +
+  // búsqueda + grid de texto): entra directo a una navegación propia, pensada
+  // para que llegue solo a un juego sin necesitar leer mucho (ver
+  // KidsHomeShell). No hay toggle manual para esto — es automático según
+  // rol + edad (ver isKidsMode en utils/kidsMode.ts).
+  if (isKidsMode(user)) {
     return <KidsHomeShell user={user} onSignOut={signOut} />
   }
 

@@ -32,6 +32,7 @@ export interface CreateUserInput {
   middleName?: string;
   displayName?: string;
   role: string;
+  birthDate?: Date;
 }
 
 @Injectable()
@@ -74,6 +75,7 @@ export class CreateUserUseCase implements UseCase<CreateUserInput, UserResponseD
       name,
       role,
       displayName: input.displayName,
+      birthDate: input.birthDate ?? null,
     });
 
     await this.userRepository.save(user);

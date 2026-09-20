@@ -55,6 +55,17 @@ export function RegisterForm() {
       />
 
       <TextField
+        label="Fecha de nacimiento"
+        type="date"
+        value={values.birthDate}
+        error={errors.birthDate}
+        max={new Date().toISOString().slice(0, 10)}
+        disabled={submitting}
+        onChange={(value) => handleChange('birthDate', value)}
+        onBlur={(value) => handleBlur('birthDate', value)}
+      />
+
+      <TextField
         label="Correo electrónico"
         type="email"
         value={values.email}
