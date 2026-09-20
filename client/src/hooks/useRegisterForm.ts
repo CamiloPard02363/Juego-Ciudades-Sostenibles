@@ -2,9 +2,14 @@ import { useCallback, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from './useAuth'
 import { ApiError } from '../utils/http'
-import { validateEmail, validateNewPassword, validateRequiredName } from '../utils/validation'
+import {
+  validateBirthDate,
+  validateEmail,
+  validateNewPassword,
+  validateRequiredName,
+} from '../utils/validation'
 
-type Field = 'email' | 'password' | 'firstName' | 'lastName' | 'middleName'
+type Field = 'email' | 'password' | 'firstName' | 'lastName' | 'middleName' | 'birthDate'
 
 type FormState = Record<Field, string>
 type FieldErrors = Partial<Record<Field, string>>
@@ -15,6 +20,7 @@ const VALIDATORS: Record<Field, (value: string) => string | null> = {
   firstName: (value) => validateRequiredName(value, 'El nombre'),
   lastName: (value) => validateRequiredName(value, 'El apellido'),
   middleName: () => null,
+  birthDate: validateBirthDate,
 }
 
 /** Estado, validación y envío del formulario de registro. */
@@ -26,6 +32,7 @@ export function useRegisterForm() {
     firstName: '',
     lastName: '',
     middleName: '',
+    birthDate: '',
   })
   const [errors, setErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({})
@@ -71,6 +78,7 @@ export function useRegisterForm() {
         firstName: true,
         lastName: true,
         middleName: true,
+        birthDate: true,
       })
       setErrors(nextErrors)
       setSubmitError(null)
@@ -84,6 +92,7 @@ export function useRegisterForm() {
           firstName: values.firstName,
           lastName: values.lastName,
           middleName: values.middleName || undefined,
+          birthDate: values.birthDate,
         })
       } catch (error) {
         setSubmitError(

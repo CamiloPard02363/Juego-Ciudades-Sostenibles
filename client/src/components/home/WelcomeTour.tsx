@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../services/auth.service'
 import { getWelcomeSteps, hasSeenWelcome, markWelcomeSeen, welcomeStorageKey } from './welcomeTourSteps'
 import type { WelcomeOptions } from './welcomeTourSteps'
+import { isKidsMode } from '../../utils/kidsMode'
 
 const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRound }
 
@@ -19,6 +20,7 @@ const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRou
 export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: { user: AuthUser } & WelcomeOptions) {
   const location = useLocation()
   const navigate = useNavigate()
+  const isKids = isKidsMode(user)
   const storageKey = welcomeStorageKey(user.id, user.role)
   const [phase, setPhase] = useState<'invite' | 'tour' | 'closed'>(() => hasSeenWelcome(storageKey) ? 'closed' : 'invite')
   const [index, setIndex] = useState(0)
@@ -26,7 +28,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   const triggerRef = useRef<HTMLButtonElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   // Fijar los pasos al abrir evita desplazarlos si los permisos terminan de cargar durante la guía.
-  const [steps, setSteps] = useState(() => getWelcomeSteps(user.role, { canAccessOrganization, canGoBackToWorlds }))
+  const [steps, setSteps] = useState(() => getWelcomeSteps(user.role, isKids, { canAccessOrganization, canGoBackToWorlds }))
   const step = steps[index]
   // No interrumpir enlaces a juegos, salas ni otras secciones.
   const atHome = location.pathname === '/' && !location.search
@@ -77,7 +79,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
 
   function start() {
     markWelcomeSeen(storageKey)
-    setSteps(getWelcomeSteps(user.role, { canAccessOrganization, canGoBackToWorlds }))
+    setSteps(getWelcomeSteps(user.role, isKids, { canAccessOrganization, canGoBackToWorlds }))
     setIndex(0)
     setPhase('tour')
     if (!atHome) navigate('/')
@@ -114,7 +116,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
         onClick={start}
         aria-label="Repetir recorrido de bienvenida"
         data-tour-active={forcedInvite ? 'true' : undefined}
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-linear-to-r px-3 py-2 text-sm font-semibold shadow-md hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${user.role === 'STUDENT' ? 'border-orange-400 from-amber-200 to-orange-300 text-[#3a2a6d] shadow-orange-400/30' : 'border-violet-500 from-violet-600 to-fuchsia-700 text-white shadow-violet-500/25'} ${forcedInvite ? 'relative z-50' : ''}`}
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-linear-to-r px-3 py-2 text-sm font-semibold shadow-md hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${isKids ? 'border-orange-400 from-amber-200 to-orange-300 text-[#3a2a6d] shadow-orange-400/30' : 'border-violet-500 from-violet-600 to-fuchsia-700 text-white shadow-violet-500/25'} ${forcedInvite ? 'relative z-50' : ''}`}
       >
         <Compass className="h-4 w-4" aria-hidden="true" /> Guía
       </button>

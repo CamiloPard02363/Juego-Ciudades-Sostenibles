@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsDateString, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
 /** Solo para ADMIN (`POST /users`). A diferencia del registro público, sí permite elegir rol. */
 export class CreateUserDto {
@@ -27,4 +27,9 @@ export class CreateUserDto {
 
   @IsIn(['STUDENT', 'TEACHER', 'ADMIN'])
   role!: string;
+
+  /** Para poder segmentar a un STUDENT dado de alta a mano en el Modo Kids (ver kidsMode.ts en el cliente). */
+  @IsOptional()
+  @IsDateString()
+  birthDate?: string;
 }

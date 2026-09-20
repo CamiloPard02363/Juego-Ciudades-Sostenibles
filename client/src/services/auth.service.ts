@@ -11,6 +11,8 @@ export type RegisterInput = {
   firstName: string
   lastName: string
   middleName?: string
+  /** ISO "YYYY-MM-DD" — decide el Modo Kids (ver utils/kidsMode.ts), nunca opcional en el formulario. */
+  birthDate: string
 }
 
 export type UpdateProfileInput = {
@@ -18,6 +20,8 @@ export type UpdateProfileInput = {
   lastName?: string
   middleName?: string | null
   displayName?: string
+  /** ISO "YYYY-MM-DD". */
+  birthDate?: string
 }
 
 export type AuthUser = {
@@ -29,6 +33,7 @@ export type AuthUser = {
   displayName: string
   role: string
   avatarUrl: string | null
+  birthDate: string | null
   isActive: boolean
   isEmailVerified: boolean
   lastLoginAt: string | null
@@ -61,6 +66,7 @@ export function registerUser(input: RegisterInput): Promise<AuthUser> {
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),
       middleName: input.middleName?.trim() || undefined,
+      birthDate: input.birthDate,
     },
   })
 }
@@ -99,6 +105,8 @@ export type CreateUserInput = {
   lastName: string
   middleName?: string
   role: string
+  /** ISO "YYYY-MM-DD" — opcional; permite segmentar por Modo Kids a un STUDENT dado de alta a mano. */
+  birthDate?: string
 }
 
 export type ListUsersParams = {
@@ -127,6 +135,7 @@ export function createUser(token: string, input: CreateUserInput): Promise<AuthU
       lastName: input.lastName.trim(),
       middleName: input.middleName?.trim() || undefined,
       role: input.role,
+      birthDate: input.birthDate || undefined,
     },
   })
 }

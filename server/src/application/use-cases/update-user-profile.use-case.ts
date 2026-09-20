@@ -15,6 +15,7 @@ export interface UpdateUserProfileInput {
   middleName?: string | null;
   displayName?: string;
   avatarUrl?: string | null;
+  birthDate?: Date;
 }
 
 @Injectable()
@@ -45,6 +46,10 @@ export class UpdateUserProfileUseCase
 
     if (input.avatarUrl !== undefined) {
       user.changeAvatar(input.avatarUrl);
+    }
+
+    if (input.birthDate !== undefined) {
+      user.changeBirthDate(input.birthDate);
     }
 
     await this.userRepository.save(user);

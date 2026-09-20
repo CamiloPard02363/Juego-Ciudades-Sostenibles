@@ -3,13 +3,16 @@ import type { ReactNode } from 'react'
 
 type TextFieldProps = {
   label: string
-  type: 'text' | 'email' | 'password'
+  type: 'text' | 'email' | 'password' | 'date'
   value: string
   error?: string
   autoComplete?: string
   placeholder?: string
   disabled?: boolean
   autoFocus?: boolean
+  /** Solo relevante para type="date": acota el selector de calendario. */
+  min?: string
+  max?: string
   onChange: (value: string) => void
   onBlur: (value: string) => void
   /** Contenido opcional al final del campo, p. ej. mostrar/ocultar clave. */
@@ -25,6 +28,8 @@ export function TextField({
   placeholder,
   disabled,
   autoFocus,
+  min,
+  max,
   onChange,
   onBlur,
   action,
@@ -52,6 +57,8 @@ export function TextField({
           autoComplete={autoComplete}
           disabled={disabled}
           autoFocus={autoFocus}
+          min={min}
+          max={max}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           onChange={(event) => onChange(event.target.value)}

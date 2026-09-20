@@ -56,7 +56,11 @@ export class UserController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@CurrentUserId() requestingUserId: string, @Body() dto: CreateUserDto) {
-    return this.createUserUseCase.execute({ requestingUserId, ...dto });
+    return this.createUserUseCase.execute({
+      requestingUserId,
+      ...dto,
+      birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+    });
   }
 
   @Get()
@@ -80,7 +84,11 @@ export class UserController {
 
   @Patch('me/profile')
   updateProfile(@CurrentUserId() userId: string, @Body() dto: UpdateUserProfileDto) {
-    return this.updateUserProfileUseCase.execute({ userId, ...dto });
+    return this.updateUserProfileUseCase.execute({
+      userId,
+      ...dto,
+      birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+    });
   }
 
   @Patch('me/password')
