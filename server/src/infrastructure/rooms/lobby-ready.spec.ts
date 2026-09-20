@@ -309,7 +309,7 @@ describe('salas de varios participantes', () => {
   });
 });
 
-describe.each([modes[0], modes[1], modes[4]])(
+describe.each([modes[0], modes[1], modes[2], modes[4]])(
   '$name: configuración',
   (mode) => {
     it('cambiar el turno exige que todos vuelvan a confirmar', async () => {
@@ -320,7 +320,9 @@ describe.each([modes[0], modes[1], modes[4]])(
           ? h.gateway.handleUpdateTurnDuration
           : mode.name === 'domino'
             ? h.gateway.handleDominoUpdateTurnDuration
-            : h.gateway.handleTournamentUpdateTurnDuration;
+            : mode.name === 'snakes-ladders'
+              ? h.gateway.handleSnakesLaddersUpdateTurnDuration
+              : h.gateway.handleTournamentUpdateTurnDuration;
       update.call(h.gateway, h.sockets[0], { turnDurationSeconds: 40 });
       expect(h.players().every((p) => p.ready === false)).toBe(true);
       h.ready(1);
@@ -362,3 +364,69 @@ describe.each(modes.slice(0, 3))(
     });
   },
 );
+
+const chatHandlers = {
+  room: 'handleChat',
+  domino: 'handleDominoChat',
+  tournament: 'handleTournamentChat',
+  'snakes-ladders': 'handleSnakesLaddersChat',
+  'dual-quest': 'handleDualQuestChat',
+} as const;
+describe.each(modes)('$name: chat compartido', (mode) => {
+  it('entrega texto solo a los participantes actuales con identidad del servidor', async () => {
+    const h = await setup(mode);
+    h.events.length = 0;
+    h.gateway[chatHandlers[mode.name]](h.sockets[0], { text: ' Hola equipo ' });
+    expect(h.events).toHaveLength(2);
+    expect(h.events.map((e) => e.target)).toEqual(['p0', 'p1']);
+    for (const event of h.events) {
+      expect(event.event).toBe(`${mode.name}:chat-message`);
+      expect(event.payload).toMatchObject({
+        userId: 'p0',
+        displayName: 'p0',
+        text: 'Hola equipo',
+      });
+    }
+  });
+  it('rechaza intrusos, datos inválidos y al socket reemplazado', async () => {
+    const h = await setup(mode);
+    const chat = (socket: Client, text: string) =>
+      h.gateway[chatHandlers[mode.name]](socket, { text });
+    expect(() => chat(client('intruso'), 'hola')).toThrow();
+    expect(() => chat(h.sockets[0], 42 as unknown as string)).toThrow();
+    const forged = client('p0');
+    forged.data.userId = 'p1';
+    expect(() => chat(forged, 'hola')).toThrow();
+    const replacement = client('p1-new');
+    replacement.data.userId = 'p1';
+    h.gateway[mode.join](replacement, { code: h.room.code });
+    expect(() => chat(h.sockets[1], 'hola')).toThrow();
+    h.events.length = 0;
+    chat(h.sockets[0], 'hola');
+    expect(h.events.map((e) => e.target)).toEqual(['p0', 'p1-new']);
+  });
+  it('ignora mensajes vacíos y limita su tamaño a 500 caracteres', async () => {
+    const h = await setup(mode);
+    h.events.length = 0;
+    h.gateway[chatHandlers[mode.name]](h.sockets[0], { text: '  ' });
+    expect(h.events).toHaveLength(0);
+    h.gateway[chatHandlers[mode.name]](h.sockets[0], { text: 'a'.repeat(600) });
+    expect(h.events[0].payload).toMatchObject({ text: 'a'.repeat(500) });
+  });
+});
+it('Escaleras solo deja configurar al anfitrión, en espera y dentro de límites', async () => {
+  const h = await setup(modes[2]);
+  const update = (index: number, value: number) =>
+    h.gateway.handleSnakesLaddersUpdateTurnDuration(h.sockets[index], {
+      turnDurationSeconds: value,
+    });
+  expect(() => update(1, 60)).toThrow();
+  for (const value of [14, 181, 30.5, NaN])
+    expect(() => update(0, value)).toThrow();
+  update(0, 15);
+  update(0, 180);
+  expect(h.room).toHaveProperty('turnDurationSeconds', 180);
+  h.ready(0);
+  h.ready(1);
+  expect(() => update(0, 60)).toThrow();
+});

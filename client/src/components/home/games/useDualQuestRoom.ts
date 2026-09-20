@@ -1,3 +1,4 @@
+import type { GuessWhoChatMessage } from './guessWhoTypes'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import type {
@@ -20,6 +21,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  */
 export function useDualQuestRoom(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
+  const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
   const waitingCodeRef = useRef<string | null>(null)
   const [room, setRoom] = useState<DualQuestRoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -35,6 +37,7 @@ export function useDualQuestRoom(token: string | null) {
       transports: ['websocket'],
     })
     socketRef.current = socket
+    socket.on('dual-quest:chat-message', (message: GuessWhoChatMessage) => setMessages(current => [...current, message]))
 
     socket.on('connect', () => {
       setConnecting(false)
@@ -66,6 +69,10 @@ export function useDualQuestRoom(token: string | null) {
     if (socketRef.current?.connected) socketRef.current.emit('dual-quest:join', { code })
   }, [])
 
+  const sendChatMessage = useCallback((text: string) => {
+    if (socketRef.current?.connected && text.trim()) socketRef.current.emit('dual-quest:chat', { text: text.trim() })
+  }, [])
+
   const setReady = useCallback((ready: boolean) => {
     if (socketRef.current?.connected) socketRef.current.emit('dual-quest:ready', { ready })
   }, [])
@@ -91,11 +98,14 @@ export function useDualQuestRoom(token: string | null) {
 
   const leaveRoom = useCallback(() => {
     waitingCodeRef.current = null
+    setMessages([])
     socketRef.current?.emit('dual-quest:leave')
     setRoom(null)
   }, [])
 
   return {
+    messages,
+    sendChatMessage,
     room,
     error,
     connecting,

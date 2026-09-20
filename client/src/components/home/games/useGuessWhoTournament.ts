@@ -1,3 +1,4 @@
+import type { GuessWhoChatMessage } from './guessWhoTypes'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import type { TournamentMatchStateView, TournamentPairingAnnouncement, TournamentStateView } from './guessWhoTypes'
@@ -12,6 +13,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  */
 export function useGuessWhoTournament(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
+  const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
   const waitingCodeRef = useRef<string | null>(null)
   const [tournament, setTournament] = useState<TournamentStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +29,7 @@ export function useGuessWhoTournament(token: string | null) {
       transports: ['websocket'],
     })
     socketRef.current = socket
+    socket.on('tournament:chat-message', (message: GuessWhoChatMessage) => setMessages(current => [...current, message]))
 
     socket.on('connect', () => {
       setConnecting(false)
@@ -76,6 +79,10 @@ export function useGuessWhoTournament(token: string | null) {
     if (socketRef.current?.connected) socketRef.current.emit('tournament:join', { code })
   }, [])
 
+  const sendChatMessage = useCallback((text: string) => {
+    if (socketRef.current?.connected && text.trim()) socketRef.current.emit('tournament:chat', { text: text.trim() })
+  }, [])
+
   const setReady = useCallback((ready: boolean) => {
     if (socketRef.current?.connected) socketRef.current.emit('tournament:ready', { ready })
   }, [])
@@ -86,6 +93,7 @@ export function useGuessWhoTournament(token: string | null) {
 
   const leaveTournament = useCallback(() => {
     waitingCodeRef.current = null
+    setMessages([])
     socketRef.current?.emit('tournament:leave')
     setTournament(null)
   }, [])
@@ -103,6 +111,8 @@ export function useGuessWhoTournament(token: string | null) {
   }, [])
 
   return {
+    messages,
+    sendChatMessage,
     tournament,
     error,
     connecting,

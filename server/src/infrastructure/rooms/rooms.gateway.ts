@@ -798,19 +798,56 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   handleChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
     const room = this.roomStore.findBySocketId(socket.id);
     if (!room) throw new Error('No estás en ninguna sala.');
+    this.relayLobbyChat(socket, body, room.players, 'room:chat-message');
+  }
 
-    const sender = room.players.find((p) => p.socketId === socket.id);
+  @SubscribeMessage('domino:chat')
+  handleDominoChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
+    const room = this.dominoRoomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    this.relayLobbyChat(socket, body, room.players, 'domino:chat-message');
+  }
+
+  @SubscribeMessage('snakes-ladders:chat')
+  handleSnakesLaddersChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
+    const room = this.snakesLaddersRoomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    this.relayLobbyChat(socket, body, room.players, 'snakes-ladders:chat-message');
+  }
+
+  @SubscribeMessage('dual-quest:chat')
+  handleDualQuestChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
+    const room = this.dualQuestRoomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    this.relayLobbyChat(socket, body, room.players, 'dual-quest:chat-message');
+  }
+
+  @SubscribeMessage('tournament:chat')
+  handleTournamentChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
+    const room = this.tournamentStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    this.relayLobbyChat(socket, body, room.participants, 'tournament:chat-message');
+  }
+
+  private relayLobbyChat(
+    socket: AuthenticatedSocket,
+    body: { text: string },
+    players: { socketId: string; userId: string; displayName: string }[],
+    event: string,
+  ) {
+    const sender = players.find((p) => p.socketId === socket.id && p.userId === socket.data.userId);
     if (!sender) throw new Error('No estás en esta sala.');
-
-    const text = body?.text?.trim().slice(0, MAX_CHAT_MESSAGE_LENGTH);
+    if (typeof body?.text !== 'string') throw new Error('El mensaje debe ser texto.');
+    const text = body.text.trim().slice(0, MAX_CHAT_MESSAGE_LENGTH);
     if (!text) return;
-
-    this.server.to(room.code).emit('room:chat-message', {
+    const message = {
       userId: sender.userId,
       displayName: sender.displayName,
       text,
       sentAt: Date.now(),
-    });
+    };
+    // Solo conexiones actuales: un socket reemplazado o que salió no recibe mensajes.
+    for (const player of players) this.server.to(player.socketId).emit(event, message);
   }
 
   /**
@@ -1961,6 +1998,25 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   @SubscribeMessage('snakes-ladders:start')
   handleSnakesLaddersStart(@ConnectedSocket() socket: AuthenticatedSocket) {
     this.handleSnakesLaddersReady(socket, { ready: true });
+  }
+
+  @SubscribeMessage('snakes-ladders:update-turn-duration')
+  handleSnakesLaddersUpdateTurnDuration(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() body: { turnDurationSeconds: number },
+  ) {
+    const room = this.snakesLaddersRoomStore.findBySocketId(socket.id);
+    if (!room || room.phase !== 'WAITING') throw new Error('La sala ya no está esperando jugadores.');
+    if (room.hostUserId !== socket.data.userId) throw new Error('Solo el anfitrión puede cambiar el tiempo.');
+    const seconds = body?.turnDurationSeconds;
+    if (!Number.isInteger(seconds) || seconds < 15 || seconds > 180) {
+      throw new Error('Los segundos por turno deben ser un entero entre 15 y 180.');
+    }
+    if (room.turnDurationSeconds === seconds) return;
+    resetLobbyReady(room.players);
+    room.turnDurationSeconds = seconds;
+    this.snakesLaddersRoomStore.set(room);
+    this.broadcastSnakesLaddersState(room);
   }
 
   @SubscribeMessage('snakes-ladders:ready')

@@ -5,9 +5,11 @@ type ModalProps = {
   onClose: () => void
   children: ReactNode
   maxWidthClassName?: string
+  ariaLabel?: string
+  ariaModal?: boolean
 }
 
-export function Modal({ onClose, children, maxWidthClassName = 'max-w-[480px]' }: ModalProps) {
+export function Modal({ onClose, children, maxWidthClassName = 'max-w-[480px]', ariaLabel, ariaModal = true }: ModalProps) {
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose()
@@ -25,7 +27,8 @@ export function Modal({ onClose, children, maxWidthClassName = 'max-w-[480px]' }
       <div
         className={`w-full ${maxWidthClassName} max-h-[85vh] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] animate-[modal-panel-in_0.25s_cubic-bezier(0.16,1,0.3,1)] sm:p-8`}
         role="dialog"
-        aria-modal="true"
+        aria-label={ariaLabel}
+        aria-modal={ariaModal}
         onClick={(event) => event.stopPropagation()}
       >
         {children}
