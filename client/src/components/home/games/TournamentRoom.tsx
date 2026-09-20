@@ -1,6 +1,6 @@
-import { LobbyReadyControl } from './LobbyReadyControl'
+import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
-import { Copy, Crown, Link, LogOut, Skull, Swords, Trophy, Users } from 'lucide-react'
+import { Crown, LogOut, Skull, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoTournament } from './useGuessWhoTournament'
 import { Modal } from './Modal'
@@ -53,6 +53,8 @@ export function TournamentRoom({
     createTournament,
     joinTournament,
     setReady,
+    messages,
+    sendChatMessage,
     updateTurnDuration,
     leaveTournament,
     discardMatchCard,
@@ -67,7 +69,6 @@ export function TournamentRoom({
   const [maxParticipantsText, setMaxParticipantsText] = useState('4')
   const [maxParticipantsWarning, setMaxParticipantsWarning] = useState<string | null>(null)
   const [showPairingOverlay, setShowPairingOverlay] = useState(false)
-  const [copyFeedback, setCopyFeedback] = useState(false)
   const joinedWithInitialCode = useRef(false)
   useEffect(() => {
     if (!initialJoinCode || joinedWithInitialCode.current) return
@@ -103,24 +104,6 @@ export function TournamentRoom({
   function handleExit() {
     leaveTournament()
     onExit()
-  }
-
-  function copyTournamentLink() {
-    if (!tournament) return
-    const url = new URL(window.location.href)
-    url.searchParams.set('sala', tournament.code)
-    void navigator.clipboard.writeText(url.toString()).then(() => {
-      setCopyFeedback(true)
-      setTimeout(() => setCopyFeedback(false), 1800)
-    })
-  }
-
-  function copyTournamentCode() {
-    if (!tournament) return
-    void navigator.clipboard.writeText(tournament.code).then(() => {
-      setCopyFeedback(true)
-      setTimeout(() => setCopyFeedback(false), 1800)
-    })
   }
 
   if (entryChoice === 'undecided' || entryChoice === 'choosing-create') {
@@ -280,6 +263,13 @@ export function TournamentRoom({
   const iAmEliminated = self?.eliminated ?? false
   const tournamentWinnerName = tournament.participants.find((p) => p.userId === tournament.winnerUserId)?.displayName
 
+  if (tournament.phase === 'WAITING') return <MultiplayerLobby
+    room={{ ...tournament, players: tournament.participants }} roomPath={`/?sala=${encodeURIComponent(tournament.code)}`}
+    maxPlayers={tournament.maxParticipants} isHost={isCreator} connecting={connecting} error={error} requireEven
+    turnDurationSeconds={tournament.turnDurationSeconds} onUpdateTurnDuration={updateTurnDuration}
+    onReady={setReady} onExit={handleExit} messages={messages} onSend={sendChatMessage}
+  />
+
   return (
     <Modal onClose={handleExit} maxWidthClassName="max-w-[840px]">
       {showPairingOverlay && pairingAnnouncement && (
@@ -289,28 +279,6 @@ export function TournamentRoom({
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-[19px] tracking-tight text-text-h">{tournament.gameTitle} — Grupo</h2>
-          {tournament.phase === 'WAITING' && (
-            <p className="flex items-center gap-1.5 text-[12.5px] text-text">
-              Código de sala: <code className="text-[13px] font-semibold text-accent">{tournament.code}</code>
-              <button
-                type="button"
-                className="ml-1 inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
-                onClick={copyTournamentCode}
-              >
-                <Copy className="h-3 w-3" strokeWidth={2} />
-                Copiar código
-              </button>
-              <button
-                type="button"
-                className="ml-1 inline-flex items-center gap-1 rounded-md border border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
-                onClick={copyTournamentLink}
-              >
-                <Link className="h-3 w-3" strokeWidth={2} />
-                Copiar enlace
-              </button>
-              {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">Enlace copiado</span>}
-            </p>
-          )}
           {tournament.phase === 'RUNNING' && (
             <p className="text-[12.5px] text-text">Ronda {tournament.currentRound}</p>
           )}
@@ -344,16 +312,6 @@ export function TournamentRoom({
             ? `Turno de ${tournament.myMatch.players.find((player) => player.userId === tournament.myMatch?.activePlayerUserId)?.displayName}.`
             : ''}
         </p>
-      )}
-
-      {tournament.phase === 'WAITING' && (
-        <WaitingLobby
-          tournament={tournament}
-          isCreator={isCreator}
-          onReady={setReady}
-          disconnected={connecting}
-          onUpdateTurnDuration={updateTurnDuration}
-        />
       )}
 
       {tournament.phase === 'RUNNING' && iAmEliminated && (
@@ -401,111 +359,6 @@ export function TournamentRoom({
         </div>
       )}
     </Modal>
-  )
-}
-
-function WaitingLobby({
-  tournament,
-  isCreator,
-  onReady,
-  disconnected,
-  onUpdateTurnDuration,
-}: {
-  tournament: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>
-  isCreator: boolean
-  onReady: (ready: boolean) => void
-  disconnected: boolean
-  onUpdateTurnDuration: (turnDurationSeconds: number) => void
-}) {
-  const count = tournament.participants.length
-  // Segundos por turno para el torneo: solo el creador lo edita (como
-  // texto, no número, para poder dejar el campo vacío mientras se
-  // reescribe sin que quede pegado en "0"). Se emite en cada cambio válido
-  // para que el resto lo vea en vivo; quien no es creador resincroniza en
-  // cada actualización del torneo, y el creador solo al entrar a una sala
-  // nueva, para no pisar lo que esté escribiendo.
-  const [turnDurationText, setTurnDurationText] = useState(String(tournament.turnDurationSeconds))
-  useEffect(() => {
-    if (isCreator) return
-    setTurnDurationText(String(tournament.turnDurationSeconds))
-  }, [tournament.turnDurationSeconds, isCreator])
-  useEffect(() => {
-    setTurnDurationText(String(tournament.turnDurationSeconds))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournament.code])
-
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="rounded-xl border border-border p-4">
-        <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-text-h">
-          <Users className="h-4 w-4 text-accent" strokeWidth={2} />
-          Jugadores en la sala ({count}/{tournament.maxParticipants})
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {tournament.participants.map((participant) => (
-            <span
-              key={participant.userId}
-              className="rounded-full border border-border bg-code-bg px-3 py-1.5 text-[12.5px] font-medium text-text-h"
-            >
-              {participant.displayName}
-              {participant.isSelf ? ' (tú)' : ''}
-              {participant.userId === tournament.creatorUserId ? ' · creador' : ''}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-dashed border-border p-4 text-center">
-        <p className="text-[13px] font-medium text-text-h">
-          Comparte el código <strong className="text-accent">{tournament.code}</strong> con más personas para
-          que se unan.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-2.5 rounded-xl border border-accent/30 bg-accent/5 p-3.5">
-        <Swords className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
-        <p className="text-[12.5px] text-text-h">
-          Podrán acusar a su rival después de descartar al menos{' '}
-          <strong className="text-accent">{MIN_DISCARDS_TO_ACCUSE} tarjetas</strong>.
-        </p>
-      </div>
-
-      {!isCreator && (
-        <p className="text-[12.5px] text-text">
-          Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define quien
-          creó la sala).
-        </p>
-      )}
-
-      {isCreator && (
-        <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="tournament-turn-duration-input">
-            Segundos por turno
-          </label>
-          <input
-            id="tournament-turn-duration-input"
-            type="number"
-            min={5}
-            max={120}
-            className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[14px] text-text-h outline-none focus:border-accent"
-            value={turnDurationText}
-            onChange={(event) => {
-              const raw = event.target.value
-              setTurnDurationText(raw)
-              const parsed = Number(raw)
-              if (raw.trim() !== '' && Number.isInteger(parsed) && parsed >= 5 && parsed <= 120) {
-                onUpdateTurnDuration(parsed)
-              }
-            }}
-          />
-          <p className="mt-1 text-[11.5px] text-text">
-            Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
-          </p>
-        </div>
-      )}
-
-      <LobbyReadyControl players={tournament.participants} onReady={onReady} disconnected={disconnected} requireEven />
-    </div>
   )
 }
 
