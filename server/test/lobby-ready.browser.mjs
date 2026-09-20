@@ -199,10 +199,12 @@ try {
         return route.abort();
       });
       await page.goto(base + path(room.code));
-      if (prefix === 'domino')
-        await page
-          .getByRole('button', { name: 'Entendido, continuar' })
-          .click();
+      await page.getByRole('heading', { name: 'Cómo jugar', exact: true }).waitFor();
+      assert.equal(await page.locator('[data-lobby="shared"]').count(), 0);
+      const beforeInstructions = players().map((player) => player.socketId);
+      await page.waitForTimeout(500);
+      assert.deepEqual(players().map((player) => player.socketId), beforeInstructions);
+      await page.getByRole('button', { name: 'Entendido, continuar' }).click();
       await page
         .getByRole('region', { name: 'Confirmación de jugadores' })
         .waitFor();
@@ -260,8 +262,7 @@ try {
       .click();
     await until(() => players().length === 1, 'salida del invitado');
     await guest.goto(sharedLink);
-    if (prefix === 'domino')
-      await guest.getByRole('button', { name: 'Entendido, continuar' }).click();
+    await guest.getByRole('button', { name: 'Entendido, continuar' }).click();
     await lobby(guest).waitFor();
     await until(() => players().length === 2, 'entrada desde enlace');
     await lobby(host)

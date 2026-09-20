@@ -1,3 +1,4 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { ChatPanel } from './ChatPanel'
 import { useEffect, useRef, useState } from 'react'
@@ -168,7 +169,11 @@ export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode, onR
  */
 type EntryChoice = 'undecided' | 'joining-input' | 'creating' | 'joining'
 
-function IndividualGuessWhoRoom({
+function IndividualGuessWhoRoom(props: GuessWhoRoomProps) {
+  return <GameInstructionsGate kind="GUESS_WHO"><IndividualGuessWhoSession {...props} /></GameInstructionsGate>
+}
+
+function IndividualGuessWhoSession({
   gameId,
   onExit,
   initialJoinCode,

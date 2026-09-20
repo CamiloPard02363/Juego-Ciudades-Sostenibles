@@ -1,3 +1,4 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -14,6 +15,10 @@ import { useCountdown } from './MatchBoard'
  * criterio que `DominoRoomPage` — compartible/recargable por link.
  */
 export function SnakesLaddersRoomPage() {
+  return <GameInstructionsGate kind="SNAKES_LADDERS"><SnakesLaddersRoomPageSession /></GameInstructionsGate>
+}
+
+function SnakesLaddersRoomPageSession() {
   const { code: codeFromUrl } = useParams<{ code?: string }>()
   const [searchParams] = useSearchParams()
   const gameIdToCreate = searchParams.get('gameId')

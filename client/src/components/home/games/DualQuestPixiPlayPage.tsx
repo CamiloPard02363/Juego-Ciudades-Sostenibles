@@ -1,3 +1,4 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
@@ -14,6 +15,11 @@ import type { LevelDef } from './dual-quest-pixi/dualQuestPixiTypes'
  * usa un LevelDef fijo importado del código para pruebas locales.
  */
 export function DualQuestPixiPlayPage() {
+  const { slug } = useParams<{ slug: string }>()
+  return <GameInstructionsGate key={slug} kind="DUAL_QUEST_PIXI"><DualQuestPixiPlaySession /></GameInstructionsGate>
+}
+
+function DualQuestPixiPlaySession() {
   const { slug } = useParams<{ slug: string }>()
   const { token } = useAuth()
   const [state, setState] = useState<
