@@ -22,6 +22,7 @@ import { RefreshAccessTokenUseCase } from '../application/use-cases/refresh-acce
 import { LogoutUseCase } from '../application/use-cases/logout.use-case.js';
 import { UpdateUserProfileUseCase } from '../application/use-cases/update-user-profile.use-case.js';
 import { ChangeUserPasswordUseCase } from '../application/use-cases/change-user-password.use-case.js';
+import { DeleteOwnAccountUseCase } from '../application/use-cases/delete-own-account.use-case.js';
 import { GetUserByIdUseCase } from '../application/use-cases/get-user-by-id.use-case.js';
 import { DeactivateUserUseCase } from '../application/use-cases/deactivate-user.use-case.js';
 import { ReactivateUserUseCase } from '../application/use-cases/reactivate-user.use-case.js';
@@ -65,6 +66,7 @@ import { AuthController } from './http/controllers/auth.controller.js';
     LogoutUseCase,
     UpdateUserProfileUseCase,
     ChangeUserPasswordUseCase,
+    DeleteOwnAccountUseCase,
     GetUserByIdUseCase,
     DeactivateUserUseCase,
     ReactivateUserUseCase,
