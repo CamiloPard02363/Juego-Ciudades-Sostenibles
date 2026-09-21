@@ -8,7 +8,10 @@ import type {
   GenerateGameDraftOutput,
 } from '../../domain/ports/ai-content-assistant.port.js';
 
-const TEXT_MODEL = 'gemini-2.5-flash';
+// gemini-2.5-flash dejó de estar disponible para keys nuevas (Google
+// responde 404 "no longer available to new users" y recomienda este
+// modelo en su lugar).
+const TEXT_MODEL = 'gemini-3.6-flash';
 
 /**
  * Único archivo que sabe que el proveedor de IA es Gemini. Si el día de
