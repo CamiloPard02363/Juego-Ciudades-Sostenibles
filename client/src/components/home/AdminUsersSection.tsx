@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
-import { deactivateUser, listUsers, reactivateUser, updateUserRole } from '../../services/auth.service'
+import {
+  deactivateUser,
+  deleteUser,
+  listUsers,
+  reactivateUser,
+  updateUserRole,
+} from '../../services/auth.service'
 import type { AuthUser } from '../../services/auth.service'
 import { ApiError } from '../../utils/http'
 import { CreateUserForm } from './CreateUserForm'
@@ -20,6 +26,7 @@ export function AdminUsersSection() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({})
   const [pendingUserId, setPendingUserId] = useState<string | null>(null)
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
 
   const reload = useCallback(() => {
     if (!token) return
@@ -75,6 +82,28 @@ export function AdminUsersSection() {
         ...current,
         [targetUser.id]:
           err instanceof ApiError ? err.message : 'No se pudo actualizar el estado del usuario.',
+      }))
+    } finally {
+      setPendingUserId(null)
+    }
+  }
+
+  async function handleDeleteUser(targetUser: AuthUser) {
+    if (!token) return
+    setPendingUserId(targetUser.id)
+    clearActionError(targetUser.id)
+    try {
+      await deleteUser(token, targetUser.id)
+      // Los juegos que haya creado no se tocan (viven en Mongo, sin relación
+      // con la cuenta en Postgres) — solo desaparece de este listado.
+      setItems((current) => current.filter((item) => item.id !== targetUser.id))
+      setTotal((current) => current - 1)
+      setConfirmingDeleteId(null)
+      showToast('Usuario eliminado')
+    } catch (err) {
+      setActionErrors((current) => ({
+        ...current,
+        [targetUser.id]: err instanceof ApiError ? err.message : 'No se pudo eliminar el usuario.',
       }))
     } finally {
       setPendingUserId(null)
@@ -205,15 +234,48 @@ export function AdminUsersSection() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={isSelf || isPending}
-                        title={isSelf ? 'No puedes desactivar tu propia cuenta.' : undefined}
-                        onClick={() => handleToggleActive(item)}
-                      >
-                        {isPending ? 'Procesando…' : item.isActive ? 'Desactivar' : 'Reactivar'}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={isSelf || isPending}
+                          title={isSelf ? 'No puedes desactivar tu propia cuenta.' : undefined}
+                          onClick={() => handleToggleActive(item)}
+                        >
+                          {isPending ? 'Procesando…' : item.isActive ? 'Desactivar' : 'Reactivar'}
+                        </button>
+
+                        {confirmingDeleteId === item.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className="rounded-lg bg-danger px-3 py-1.5 text-[12.5px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={isPending}
+                              onClick={() => handleDeleteUser(item)}
+                            >
+                              {isPending ? 'Eliminando…' : 'Confirmar'}
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={isPending}
+                              onClick={() => setConfirmingDeleteId(null)}
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="rounded-lg border border-danger/50 px-3 py-1.5 text-[12.5px] font-medium text-danger disabled:cursor-not-allowed disabled:opacity-50 hover:bg-danger/10"
+                            disabled={isSelf || isPending}
+                            title={isSelf ? 'Usa "Eliminar mi cuenta" en tu configuración de perfil.' : undefined}
+                            onClick={() => setConfirmingDeleteId(item.id)}
+                          >
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
                       {actionError && (
                         <p className="mt-1 max-w-[220px] text-[12px] text-danger" role="alert">
                           {actionError}

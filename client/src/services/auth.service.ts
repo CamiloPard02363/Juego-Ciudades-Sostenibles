@@ -198,6 +198,18 @@ export function reactivateUser(token: string, userId: string): Promise<void> {
   })
 }
 
+/**
+ * DELETE /users/:id — borra la cuenta de OTRO usuario de forma definitiva
+ * (a diferencia de `deactivateUser`, que es reversible). Solo ADMIN global.
+ * No borra los juegos que esa persona haya creado. Responde 204 sin cuerpo.
+ */
+export function deleteUser(token: string, userId: string): Promise<void> {
+  return request<void>(`/users/${userId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
 /** PATCH /users/:id/role — cambia el rol global de un usuario. Solo ADMIN global. */
 export function updateUserRole(
   token: string,

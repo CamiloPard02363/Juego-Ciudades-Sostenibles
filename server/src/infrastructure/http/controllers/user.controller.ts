@@ -15,6 +15,7 @@ import { CreateUserUseCase } from '../../../application/use-cases/create-user.us
 import { UpdateUserProfileUseCase } from '../../../application/use-cases/update-user-profile.use-case.js';
 import { ChangeUserPasswordUseCase } from '../../../application/use-cases/change-user-password.use-case.js';
 import { DeleteOwnAccountUseCase } from '../../../application/use-cases/delete-own-account.use-case.js';
+import { DeleteUserUseCase } from '../../../application/use-cases/delete-user.use-case.js';
 import { GetUserByIdUseCase } from '../../../application/use-cases/get-user-by-id.use-case.js';
 import { DeactivateUserUseCase } from '../../../application/use-cases/deactivate-user.use-case.js';
 import { ReactivateUserUseCase } from '../../../application/use-cases/reactivate-user.use-case.js';
@@ -43,6 +44,7 @@ export class UserController {
     private readonly updateUserProfileUseCase: UpdateUserProfileUseCase,
     private readonly changeUserPasswordUseCase: ChangeUserPasswordUseCase,
     private readonly deleteOwnAccountUseCase: DeleteOwnAccountUseCase,
+    private readonly deleteUserUseCase: DeleteUserUseCase,
     private readonly deactivateUserUseCase: DeactivateUserUseCase,
     private readonly reactivateUserUseCase: ReactivateUserUseCase,
     private readonly verifyUserEmailUseCase: VerifyUserEmailUseCase,
@@ -123,6 +125,12 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   reactivate(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
     return this.reactivateUserUseCase.execute({ requestingUserId, userId });
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteUser(@CurrentUserId() requestingUserId: string, @Param('id') userId: string) {
+    return this.deleteUserUseCase.execute({ requestingUserId, userId });
   }
 
   @Patch(':id/role')
