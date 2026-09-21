@@ -1,3 +1,4 @@
+import type { GuessWhoChatMessage } from './guessWhoTypes'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import type { SnakesLaddersChallengeResult, SnakesLaddersRoomStateView } from './snakesLaddersTypes'
@@ -14,6 +15,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  */
 export function useSnakesLaddersRoom(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
+  const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
   const waitingCodeRef = useRef<string | null>(null)
   const [room, setRoom] = useState<SnakesLaddersRoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -29,6 +31,7 @@ export function useSnakesLaddersRoom(token: string | null) {
       transports: ['websocket'],
     })
     socketRef.current = socket
+    socket.on('snakes-ladders:chat-message', (message: GuessWhoChatMessage) => setMessages(current => [...current, message]))
 
     socket.on('connect', () => {
       setConnecting(false)
@@ -66,8 +69,15 @@ export function useSnakesLaddersRoom(token: string | null) {
     if (socketRef.current?.connected) socketRef.current.emit('snakes-ladders:join', { code })
   }, [])
 
+  const sendChatMessage = useCallback((text: string) => {
+    if (socketRef.current?.connected && text.trim()) socketRef.current.emit('snakes-ladders:chat', { text: text.trim() })
+  }, [])
+
   const setReady = useCallback((ready: boolean) => {
     if (socketRef.current?.connected) socketRef.current.emit('snakes-ladders:ready', { ready })
+  }, [])
+  const updateTurnDuration = useCallback((turnDurationSeconds: number) => {
+    if (socketRef.current?.connected) socketRef.current.emit('snakes-ladders:update-turn-duration', { turnDurationSeconds })
   }, [])
   const rollDice = useCallback(() => {
     socketRef.current?.emit('snakes-ladders:roll-dice')
@@ -83,11 +93,14 @@ export function useSnakesLaddersRoom(token: string | null) {
 
   const leaveRoom = useCallback(() => {
     waitingCodeRef.current = null
+    setMessages([])
     socketRef.current?.emit('snakes-ladders:leave')
     setRoom(null)
   }, [])
 
   return {
+    messages,
+    sendChatMessage,
     room,
     error,
     connecting,
@@ -96,6 +109,7 @@ export function useSnakesLaddersRoom(token: string | null) {
     createRoom,
     joinRoom,
     setReady,
+    updateTurnDuration,
     rollDice,
     answerChallenge,
     voteRematch,

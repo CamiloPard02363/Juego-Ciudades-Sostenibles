@@ -164,6 +164,17 @@ try {
       });
       page.setDefaultTimeout(12000);
       page.on('pageerror', (error) => errors.push(error.message));
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: {
+            writeText: async (text) => {
+              if (window.failClipboard) throw new Error('clipboard denied');
+              window.copiedLobbyText = text;
+            },
+          },
+        });
+      });
       pages.push(page);
       pair.push(page);
       await page.route('**/*', (route) => {
@@ -179,7 +190,7 @@ try {
             email: `${id}@example.test`,
             avatarUrl: null,
           });
-        if (url.pathname.endsWith('/categories')) return json([]);
+        if (url.pathname.endsWith('/subjects')) return json([]);
         if (url.pathname.endsWith('/games'))
           return json({ items: [], total: 0 });
         if (url.pathname.includes('/organizations/')) return json([]);
@@ -188,10 +199,12 @@ try {
         return route.abort();
       });
       await page.goto(base + path(room.code));
-      if (prefix === 'domino')
-        await page
-          .getByRole('button', { name: 'Entendido, continuar' })
-          .click();
+      await page.getByRole('heading', { name: 'Cómo jugar', exact: true }).waitFor();
+      assert.equal(await page.locator('[data-lobby="shared"]').count(), 0);
+      const beforeInstructions = players().map((player) => player.socketId);
+      await page.waitForTimeout(500);
+      assert.deepEqual(players().map((player) => player.socketId), beforeInstructions);
+      await page.getByRole('button', { name: 'Entendido, continuar' }).click();
       await page
         .getByRole('region', { name: 'Confirmación de jugadores' })
         .waitFor();
@@ -201,6 +214,139 @@ try {
     const [host, guest] = pair;
     const readyPanel = (page) =>
       page.getByRole('region', { name: 'Confirmación de jugadores' });
+    const lobby = (page) =>
+      page.getByRole('dialog', { name: 'Sala de espera', exact: true });
+    await lobby(host)
+      .getByRole('heading', { name: room.gameTitle, exact: true })
+      .waitFor();
+    for (const label of [
+      'Chat',
+      'Salir',
+      'Copiar código',
+      'Copiar enlace',
+      'Listo para jugar',
+    ]) {
+      assert.equal(
+        await lobby(host)
+          .getByRole('button', { name: label, exact: true })
+          .count(),
+        1,
+      );
+    }
+    await lobby(host)
+      .getByRole('button', { name: 'Copiar código', exact: true })
+      .click();
+    await lobby(host).getByText('Código copiado', { exact: true }).waitFor();
+    assert.equal(await host.evaluate(() => window.copiedLobbyText), room.code);
+    await lobby(host)
+      .getByRole('button', { name: 'Copiar enlace', exact: true })
+      .click();
+    await lobby(host).getByText('Enlace copiado', { exact: true }).waitFor();
+    const sharedLink = await host.evaluate(() => window.copiedLobbyText);
+    assert.equal(sharedLink, base + path(room.code));
+    await host.evaluate(() => {
+      window.failClipboard = true;
+    });
+    await lobby(host)
+      .getByRole('button', { name: 'Copiar código', exact: true })
+      .click();
+    await lobby(host)
+      .getByText('No se pudo copiar. Inténtalo de nuevo.')
+      .waitFor();
+    await host.evaluate(() => {
+      window.failClipboard = false;
+    });
+    // Salir y volver con el enlace compartido debe recuperar la actividad correcta.
+    await lobby(guest)
+      .getByRole('button', { name: 'Salir', exact: true })
+      .click();
+    await until(() => players().length === 1, 'salida del invitado');
+    await guest.goto(sharedLink);
+    await guest.getByRole('button', { name: 'Entendido, continuar' }).click();
+    await lobby(guest).waitFor();
+    await until(() => players().length === 2, 'entrada desde enlace');
+    await lobby(host)
+      .getByRole('button', { name: 'Chat', exact: true })
+      .click();
+    await host
+      .getByRole('textbox', { name: 'Mensaje', exact: true })
+      .fill(`Hola ${prefix}`);
+    await host
+      .getByRole('button', { name: 'Enviar mensaje', exact: true })
+      .click();
+    await lobby(guest).getByRole('button', { name: 'Chat' }).click();
+    await guest
+      .getByRole('log')
+      .getByText(`Hola ${prefix}`, { exact: true })
+      .waitFor();
+    await guest
+      .getByRole('textbox', { name: 'Mensaje', exact: true })
+      .fill('Recibido');
+    await guest
+      .getByRole('button', { name: 'Enviar mensaje', exact: true })
+      .click();
+    await host
+      .getByRole('log')
+      .getByText('Recibido', { exact: true })
+      .waitFor();
+    await host.keyboard.press('Escape');
+    await guest.keyboard.press('Escape');
+    await host
+      .getByRole('dialog', { name: 'Chat de la sala' })
+      .waitFor({ state: 'hidden' });
+    await lobby(host).waitFor(); // Escape del chat no abandona la sala.
+    if (prefix !== 'dual-quest') {
+      await readyPanel(guest)
+        .getByRole('button', { name: 'Listo para jugar' })
+        .click();
+      await until(
+        () => players().find((p) => p.userId === 'Luis').ready,
+        'voto previo a configuración',
+      );
+      await lobby(host)
+        .getByRole('spinbutton', { name: 'Segundos por turno' })
+        .fill('45');
+      await until(
+        () =>
+          room.turnDurationSeconds === 45 && players().every((p) => !p.ready),
+        'configuración compartida',
+      );
+      await lobby(guest).getByText('45', { exact: true }).waitFor();
+      assert.equal(await lobby(guest).getByRole('spinbutton').count(), 0);
+    } else {
+      await lobby(host)
+        .getByText('Juego simultáneo', { exact: true })
+        .waitFor();
+      assert.equal(await lobby(host).getByRole('spinbutton').count(), 0);
+      assert.match(await lobby(host).innerText(), /🔥.*Ana/);
+      assert.match(await lobby(host).innerText(), /💧.*Luis/);
+    }
+    await host.setViewportSize({ width: 390, height: 844 });
+    await host.screenshot({
+      path: `.scratch/shared-lobby-${prefix}-mobile.png`,
+    });
+    const mobileBounds = await lobby(host).boundingBox();
+    assert.ok(
+      mobileBounds.x >= 0 && mobileBounds.x + mobileBounds.width <= 391,
+    );
+    assert.equal(
+      await lobby(host).evaluate((el) => el.scrollWidth <= el.clientWidth),
+      true,
+    );
+    await readyPanel(host)
+      .getByRole('button', { name: 'Listo para jugar' })
+      .focus();
+    await host.keyboard.press('Tab');
+    assert.equal(
+      await lobby(host)
+        .getByRole('button', { name: 'Chat', exact: true })
+        .evaluate((el) => el === document.activeElement),
+      true,
+    );
+    await host.setViewportSize({ width: 1280, height: 900 });
+    await host.screenshot({
+      path: `.scratch/shared-lobby-${prefix}-desktop.png`,
+    });
     await readyPanel(host)
       .getByRole('button', { name: 'Listo para jugar' })
       .click();
@@ -247,7 +393,7 @@ try {
     await readyPanel(guest).waitFor({ state: 'hidden' });
     assert.deepEqual(errors, [], 'sin errores de render');
     console.log(
-      `PASS ${prefix}: dos navegadores, estados sincronizados, cancelación, reconexión e inicio por unanimidad`,
+      `PASS ${prefix}: lobby compartido, enlaces, chat, permisos, configuración, móvil, teclado, reconexión e inicio por unanimidad`,
     );
     for (const page of pair) await page.close();
   }

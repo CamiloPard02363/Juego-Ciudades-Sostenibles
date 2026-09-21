@@ -1,7 +1,8 @@
-import { LobbyReadyControl } from './LobbyReadyControl'
+import { GameInstructionsGate } from './GameInstructionsGate'
+import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Copy, LogOut, RotateCcw, Trophy, Users } from 'lucide-react'
+import { LogOut, RotateCcw, Trophy } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useDualQuestRoom } from './useDualQuestRoom'
 import { DualQuestBoard } from './DualQuestBoard'
@@ -28,11 +29,15 @@ const KEY_TO_DIRECTION: Record<string, DualQuestDirection> = {
  * una acción puntual por turno.
  */
 export function DualQuestRoomPage() {
+  return <GameInstructionsGate kind="DUAL_QUEST"><DualQuestRoomPageSession /></GameInstructionsGate>
+}
+
+function DualQuestRoomPageSession() {
   const { code: codeFromUrl } = useParams<{ code?: string }>()
   const [searchParams] = useSearchParams()
   const gameIdToCreate = searchParams.get('gameId')
   const navigate = useNavigate()
-  const { token, user } = useAuth()
+  const { token } = useAuth()
   const {
     room,
     error,
@@ -42,6 +47,8 @@ export function DualQuestRoomPage() {
     createRoom,
     joinRoom,
     setReady,
+    messages,
+    sendChatMessage,
     move,
     activateTrigger,
     answerTrigger,
@@ -51,7 +58,6 @@ export function DualQuestRoomPage() {
   } = useDualQuestRoom(token)
 
   const [joinCodeInput, setJoinCodeInput] = useState('')
-  const [copyFeedback, setCopyFeedback] = useState(false)
   const [chosenRole, setChosenRole] = useState<DualQuestRole>('FIRE')
   const startedRef = useRef(false)
   const activeDirectionRef = useRef<DualQuestDirection | null>(null)
@@ -113,14 +119,6 @@ export function DualQuestRoomPage() {
     createRoom(gameIdToCreate, chosenRole)
   }
 
-  function handleCopyCode() {
-    if (!room) return
-    void navigator.clipboard.writeText(room.code).then(() => {
-      setCopyFeedback(true)
-      setTimeout(() => setCopyFeedback(false), 1500)
-    })
-  }
-
   function handleJoinSubmit() {
     const code = joinCodeInput.trim().toUpperCase()
     if (!code) return
@@ -134,6 +132,14 @@ export function DualQuestRoomPage() {
   const activeSwitchTrigger = room && self && !room.pendingQuestion
     ? findActiveTrigger(room, self)
     : null
+
+  if (room?.phase === 'WAITING') return <MultiplayerLobby
+    room={room} roomPath={`/dual-quest/sala/${encodeURIComponent(room.code)}`} maxPlayers={2}
+    isHost={Boolean(self?.isHost)} connecting={connecting} error={error}
+
+
+    onReady={setReady} onExit={handleExit} messages={messages} onSend={sendChatMessage}
+  ></MultiplayerLobby>
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
@@ -214,53 +220,6 @@ export function DualQuestRoomPage() {
           </div>
         )}
 
-        {room && room.phase === 'WAITING' && (
-          <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4">
-            <div className="rounded-[24px] border border-border bg-gradient-to-r from-accent/8 via-surface to-bg p-4 shadow-[var(--shadow)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">Sala activa</p>
-              <h2 className="mt-1 text-[22px] font-bold tracking-tight text-text-h">{room.gameTitle}</h2>
-
-              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface/90 p-3">
-                <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-text">
-                  <span className="font-medium text-text-h">Código de sala:</span>
-                  <code className="rounded-lg border border-accent/30 bg-accent/5 px-2 py-1 text-[13px] font-semibold text-accent">
-                    {room.code}
-                  </code>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="inline-flex w-fit items-center gap-1 rounded-xl border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
-                >
-                  <Copy className="h-3 w-3" strokeWidth={2} />
-                  Copiar código
-                </button>
-                {copyFeedback && <span className="text-[11px] font-medium text-accent">¡Copiado!</span>}
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-border bg-gradient-to-br from-bg to-surface p-4 shadow-[var(--shadow)]">
-              <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-text-h">
-                <Users className="h-4 w-4 text-accent" strokeWidth={2} />
-                Jugadores en la sala ({room.players.length}/2)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {room.players.map((player) => (
-                  <span
-                    key={player.userId}
-                    className="rounded-full border border-accent/20 bg-accent/5 px-3 py-1.5 text-[12.5px] font-medium text-text-h"
-                  >
-                    {player.role === 'FIRE' ? '🔥' : '💧'} {player.displayName}
-                    {player.isHost ? ' (anfitrión)' : ''}
-                    {player.userId === user?.id ? ' (tú)' : ''}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <LobbyReadyControl players={room.players} onReady={setReady} disconnected={connecting} />
-          </div>
-        )}
 
         {room && (room.phase === 'PLAYING' || room.phase === 'FINISHED') && (
           <div className="flex flex-col gap-4">

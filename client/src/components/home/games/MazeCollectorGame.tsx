@@ -1,3 +1,4 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from 'lucide-react'
@@ -207,7 +208,11 @@ function collectorPalette(primaryColor: string): Palette {
   return { 1: primaryColor, 2: '#7dd3fc', 3: '#1f2937', 4: shade(primaryColor, -30) }
 }
 
-export function MazeCollectorGame({ title, primaryColor, layout, items, config, onExit }: MazeCollectorGameProps) {
+export function MazeCollectorGame(props: MazeCollectorGameProps) {
+  return <GameInstructionsGate kind={'MAZE_COLLECTOR'}><MazeCollectorSession {...props} /></GameInstructionsGate>
+}
+
+function MazeCollectorSession({ title, primaryColor, layout, items, config, onExit }: MazeCollectorGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const game = useMazeCollectorGame({ layout, items, config })
   const isCity = config.layout === 'CITY'

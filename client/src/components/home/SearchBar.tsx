@@ -22,6 +22,7 @@ export function SearchBar({ value, onChange, onSearch, placeholder }: SearchBarP
   return (
     <form
       role="search"
+      data-tour="search"
       onSubmit={handleSubmit}
       className="flex w-full max-w-[420px] items-center gap-2 rounded-lg border border-border bg-code-bg px-3.5 py-2.5 transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/10"
     >

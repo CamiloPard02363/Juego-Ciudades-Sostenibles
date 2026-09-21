@@ -1,7 +1,8 @@
-import { LobbyReadyControl } from './LobbyReadyControl'
+import { GameInstructionsGate } from './GameInstructionsGate'
+import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Check, Copy, LogOut, RotateCcw, Trophy, Users } from 'lucide-react'
+import { LogOut, RotateCcw, Trophy } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
@@ -17,6 +18,10 @@ import { Modal } from './Modal'
  * fue una página dedicada, así que sí es una <Route>.
  */
 export function DominoRoomPage() {
+  return <GameInstructionsGate kind="DOMINO"><DominoRoomPageSession /></GameInstructionsGate>
+}
+
+function DominoRoomPageSession() {
   const { code: codeFromUrl } = useParams<{ code?: string }>()
   const [searchParams] = useSearchParams()
   const gameIdToCreate = searchParams.get('gameId')
@@ -32,6 +37,8 @@ export function DominoRoomPage() {
     createRoom,
     joinRoom,
     setReady,
+    messages,
+    sendChatMessage,
     updateTurnDuration,
     playTile,
     drawTile,
@@ -42,9 +49,6 @@ export function DominoRoomPage() {
 
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null)
   const [joinCodeInput, setJoinCodeInput] = useState('')
-  const [copyFeedback, setCopyFeedback] = useState(false)
-  const [turnDurationText, setTurnDurationText] = useState('')
-  const [instructionsAccepted, setInstructionsAccepted] = useState(false)
   const [boardScale, setBoardScale] = useState(1)
   const [draggedTileId, setDraggedTileId] = useState<string | null>(null)
   const boardViewportRef = useRef<HTMLDivElement>(null)
@@ -56,7 +60,7 @@ export function DominoRoomPage() {
   // un código en el path, se une a esa sala. Se hace una sola vez (guard con
   // startedRef) para no reintentar en cada re-render del hook de socket.
   useEffect(() => {
-    if (connecting || startedRef.current || !instructionsAccepted) return
+    if (connecting || startedRef.current) return
     if (codeFromUrl) {
       startedRef.current = true
       joinRoom(codeFromUrl.toUpperCase())
@@ -65,7 +69,7 @@ export function DominoRoomPage() {
       createRoom(gameIdToCreate)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connecting, codeFromUrl, gameIdToCreate, instructionsAccepted])
+  }, [connecting, codeFromUrl, gameIdToCreate])
 
   // En cuanto el servidor confirma el código de una sala recién creada, se
   // refleja en la URL vía react-router (reemplazando, sin agregar historial)
@@ -82,14 +86,6 @@ export function DominoRoomPage() {
     navigate('/')
   }
 
-  function handleCopyCode() {
-    if (!room) return
-    void navigator.clipboard.writeText(room.code).then(() => {
-      setCopyFeedback(true)
-      setTimeout(() => setCopyFeedback(false), 1500)
-    })
-  }
-
   function handleJoinSubmit() {
     const code = joinCodeInput.trim().toUpperCase()
     if (!code) return
@@ -99,7 +95,6 @@ export function DominoRoomPage() {
 
   const self = room?.players.find((p) => p.isSelf)
   const opponent = room?.players.find((p) => !p.isSelf)
-  const isHostSelf = Boolean(self?.isHost)
   const isMyTurn = room?.phase === 'PLAYING' && room.activePlayerUserId === user?.id
   const conceptOf = (id: number): DominoConcept => room!.concepts[id]
 
@@ -141,16 +136,6 @@ export function DominoRoomPage() {
   }, [board.length])
 
   useEffect(() => {
-    if (room?.turnDurationSeconds === undefined) return
-    setTurnDurationText(String(room.turnDurationSeconds))
-  }, [room?.code])
-
-  useEffect(() => {
-    if (isHostSelf || room?.turnDurationSeconds === undefined) return
-    setTurnDurationText(String(room.turnDurationSeconds))
-  }, [room?.turnDurationSeconds, isHostSelf])
-
-  useEffect(() => {
     if (!rematchRejectedMessage) return
     const timeout = setTimeout(() => navigate('/'), 2800)
     return () => clearTimeout(timeout)
@@ -182,10 +167,6 @@ export function DominoRoomPage() {
     navigate('/')
   }
 
-  if (!instructionsAccepted) {
-    return <DominoInstructionsModal onContinue={() => setInstructionsAccepted(true)} />
-  }
-
   if (rematchRejectedMessage) {
     return (
       <Modal onClose={() => navigate('/')} maxWidthClassName="max-w-[420px]">
@@ -207,6 +188,14 @@ export function DominoRoomPage() {
       </Modal>
     )
   }
+
+  if (room?.phase === 'WAITING') return <MultiplayerLobby
+    room={room} roomPath={`/domino/sala/${encodeURIComponent(room.code)}`} maxPlayers={2}
+    isHost={Boolean(self?.isHost)} connecting={connecting} error={error}
+    turnDurationSeconds={room.turnDurationSeconds} onUpdateTurnDuration={updateTurnDuration}
+
+    onReady={setReady} onExit={handleExit} messages={messages} onSend={sendChatMessage}
+  >{dealCountdownMs !== null && <DealCountdownOverlay remainingMs={dealCountdownMs} />}</MultiplayerLobby>
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
@@ -266,116 +255,6 @@ export function DominoRoomPage() {
           <p className="py-10 text-center text-[14px] text-text">Conectando a la sala…</p>
         )}
 
-        {room && room.phase === 'WAITING' && (
-          <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4">
-            <div className="rounded-[24px] border border-border bg-gradient-to-r from-accent/8 via-surface to-bg p-4 shadow-[var(--shadow)]">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Sala activa</p>
-                  <h2 className="mt-1 text-[22px] font-bold tracking-tight text-text-h">{room.gameTitle}</h2>
-                </div>
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
-                  onClick={handleExit}
-                >
-                  <LogOut className="h-4 w-4" strokeWidth={2} />
-                  Salir
-                </button>
-              </div>
-
-              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface/90 p-3">
-                <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-text">
-                  <span className="font-medium text-text-h">Código de sala:</span>
-                  <code className="rounded-lg border border-accent/30 bg-accent/5 px-2 py-1 text-[13px] font-semibold text-accent">
-                    {room.code}
-                  </code>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleCopyCode}
-                    className="inline-flex items-center gap-1 rounded-xl border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
-                  >
-                    <Copy className="h-3 w-3" strokeWidth={2} />
-                    Copiar código
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 rounded-xl border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
-                    onClick={() => {
-                      if (!room) return
-                      const url = new URL(window.location.href)
-                      url.searchParams.set('sala', room.code)
-                      void navigator.clipboard.writeText(url.toString()).then(() => {
-                        setCopyFeedback(true)
-                        setTimeout(() => setCopyFeedback(false), 1500)
-                      })
-                    }}
-                  >
-                    <Copy className="h-3 w-3" strokeWidth={2} />
-                    Copiar enlace
-                  </button>
-                  {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">¡Copiado!</span>}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-border bg-gradient-to-br from-bg to-surface p-4 shadow-[var(--shadow)]">
-              <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-text-h">
-                <Users className="h-4 w-4 text-accent" strokeWidth={2} />
-                Jugadores en la sala ({room.players.length}/2)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {room.players.map((player) => (
-                  <span
-                    key={player.userId}
-                    className="rounded-full border border-accent/20 bg-accent/5 px-3 py-1.5 text-[12.5px] font-medium text-text-h"
-                  >
-                    {player.displayName}
-                    {player.isHost ? ' (anfitrión)' : ''}
-                    {player.userId === user?.id ? ' (tú)' : ''}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {isHostSelf ? (
-              <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
-                <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="domino-turn-duration-input">
-                  Segundos por turno
-                </label>
-                <input
-                  id="domino-turn-duration-input"
-                  type="number"
-                  min={5}
-                  max={120}
-                  value={turnDurationText}
-                  onChange={(event) => {
-                    const raw = event.target.value
-                    setTurnDurationText(raw)
-                    const parsed = Number(raw)
-                    if (raw.trim() !== '' && Number.isInteger(parsed) && parsed >= 5 && parsed <= 120) {
-                      updateTurnDuration(parsed)
-                    }
-                  }}
-                  className="w-full rounded-xl border border-border bg-bg px-[13px] py-2.5 text-[14px] text-text-h outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/10"
-                />
-                <p className="mt-1 text-[11.5px] text-text">
-                  Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
-                <p className="text-[12.5px] text-text">
-                  Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define quien creó la sala).
-                </p>
-              </div>
-            )}
-
-            <LobbyReadyControl players={room.players} onReady={setReady} disconnected={connecting} />
-          </div>
-        )}
 
         {room && room.phase === 'PLAYING' && opponent && (
           <div className="flex flex-col gap-5">
@@ -653,50 +532,5 @@ function HandTileView({
       <div className="h-full w-[3px]" style={{ background: `linear-gradient(${a.color}, ${b.color})` }} />
       <ConceptHalf concept={b} size="lg" />
     </button>
-  )
-}
-
-function DominoInstructionsModal({ onContinue }: { onContinue: () => void }) {
-  const solar = { conceptId: 'example-solar', label: 'Paneles solares', icon: 'sun', color: '#f59e0b' }
-  const green = { conceptId: 'example-green', label: 'Zonas verdes', icon: 'leaf', color: '#22c55e' }
-
-  return (
-    <Modal onClose={onContinue} maxWidthClassName="max-w-[520px]">
-      <div className="space-y-5">
-        <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Nexus Play</p>
-          <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Cómo jugar</h2>
-        </div>
-        <p className="text-[13.5px] leading-relaxed text-text">
-          Conecta una ficha con el mismo concepto en uno de los extremos. Si no puedes jugar, roba una ficha. Gana quien se quede sin fichas primero.
-        </p>
-        <div className="rounded-2xl border border-border bg-code-bg p-4">
-          <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-accent">Ejemplo de conexión</p>
-          <div className="flex items-center justify-center gap-2 overflow-hidden">
-            <div className="flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-accent bg-surface shadow-[var(--shadow)]">
-              <ConceptHalf concept={solar} size="md" />
-              <div className="h-full w-[3px] bg-border" />
-              <ConceptHalf concept={green} size="md" />
-            </div>
-            <span className="text-[18px] font-bold text-accent">+</span>
-            <div className="flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-accent bg-surface shadow-[var(--shadow)]">
-              <ConceptHalf concept={green} size="md" />
-              <div className="h-full w-[3px] bg-border" />
-              <ConceptHalf concept={solar} size="md" />
-            </div>
-          </div>
-          <p className="mt-3 text-center text-[12px] text-text">El concepto del extremo debe coincidir.</p>
-        </div>
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all hover:-translate-y-0.5"
-          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-          onClick={onContinue}
-        >
-          <Check className="h-4 w-4" strokeWidth={2.25} />
-          Entendido, continuar
-        </button>
-      </div>
-    </Modal>
   )
 }

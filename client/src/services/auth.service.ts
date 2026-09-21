@@ -11,6 +11,8 @@ export type RegisterInput = {
   firstName: string
   lastName: string
   middleName?: string
+  /** ISO "YYYY-MM-DD" — decide el Modo Kids (ver utils/kidsMode.ts), nunca opcional en el formulario. */
+  birthDate: string
 }
 
 export type UpdateProfileInput = {
@@ -18,6 +20,8 @@ export type UpdateProfileInput = {
   lastName?: string
   middleName?: string | null
   displayName?: string
+  /** ISO "YYYY-MM-DD". */
+  birthDate?: string
 }
 
 export type AuthUser = {
@@ -29,6 +33,7 @@ export type AuthUser = {
   displayName: string
   role: string
   avatarUrl: string | null
+  birthDate: string | null
   isActive: boolean
   isEmailVerified: boolean
   lastLoginAt: string | null
@@ -61,6 +66,7 @@ export function registerUser(input: RegisterInput): Promise<AuthUser> {
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),
       middleName: input.middleName?.trim() || undefined,
+      birthDate: input.birthDate,
     },
   })
 }
@@ -99,6 +105,8 @@ export type CreateUserInput = {
   lastName: string
   middleName?: string
   role: string
+  /** ISO "YYYY-MM-DD" — opcional; permite segmentar por Modo Kids a un STUDENT dado de alta a mano. */
+  birthDate?: string
 }
 
 export type ListUsersParams = {
@@ -128,6 +136,7 @@ export function createUser(token: string, input: CreateUserInput): Promise<AuthU
       lastName: input.lastName.trim(),
       middleName: input.middleName?.trim() || undefined,
       role: input.role,
+      birthDate: input.birthDate || undefined,
     },
   })
 }
@@ -162,6 +171,19 @@ export function updateProfile(
   })
 }
 
+/**
+ * DELETE /users/me — borra la propia cuenta de forma definitiva (no una
+ * desactivación reversible como `deactivateUser`). Exige la contraseña
+ * actual como confirmación. Responde 204 sin cuerpo.
+ */
+export function deleteMyAccount(token: string, currentPlainPassword: string): Promise<void> {
+  return request<void>('/users/me', {
+    method: 'DELETE',
+    token,
+    body: { currentPlainPassword },
+  })
+}
+
 /** PATCH /users/:id/deactivate — desactiva un usuario. Solo ADMIN global. Responde 204 sin cuerpo. */
 export function deactivateUser(token: string, userId: string): Promise<void> {
   return request<void>(`/users/${userId}/deactivate`, {
@@ -174,6 +196,18 @@ export function deactivateUser(token: string, userId: string): Promise<void> {
 export function reactivateUser(token: string, userId: string): Promise<void> {
   return request<void>(`/users/${userId}/reactivate`, {
     method: 'PATCH',
+    token,
+  })
+}
+
+/**
+ * DELETE /users/:id — borra la cuenta de OTRO usuario de forma definitiva
+ * (a diferencia de `deactivateUser`, que es reversible). Solo ADMIN global.
+ * No borra los juegos que esa persona haya creado. Responde 204 sin cuerpo.
+ */
+export function deleteUser(token: string, userId: string): Promise<void> {
+  return request<void>(`/users/${userId}`, {
+    method: 'DELETE',
     token,
   })
 }

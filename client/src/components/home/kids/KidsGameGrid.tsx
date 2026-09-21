@@ -46,6 +46,7 @@ export function KidsGameGrid({ token, category, onBack, onPlay }: KidsGameGridPr
     <div className="flex flex-col gap-6">
       <button
         type="button"
+        data-tour="worlds-back"
         onClick={onBack}
         className="flex w-fit items-center gap-2 rounded-full border-4 px-4 py-2.5 text-[15px] font-extrabold text-text-h transition-transform hover:-translate-y-0.5 active:translate-y-0"
         style={{ borderColor: color, background: 'var(--surface)' }}

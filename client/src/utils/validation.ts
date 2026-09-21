@@ -31,3 +31,17 @@ export function validateRequiredName(value: string, fieldLabel: string): string 
   if (!value.trim()) return `${fieldLabel} es obligatorio.`
   return null
 }
+
+const MAX_BIRTH_DATE_AGE_YEARS = 120
+
+/** Determina el Modo Kids (ver utils/kidsMode.ts) — por eso exige una fecha real, nunca vacía. */
+export function validateBirthDate(value: string): string | null {
+  if (!value) return 'La fecha de nacimiento es obligatoria.'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Ingresa una fecha de nacimiento válida.'
+  if (date.getTime() > Date.now()) return 'La fecha de nacimiento no puede ser futura.'
+  const minDate = new Date()
+  minDate.setFullYear(minDate.getFullYear() - MAX_BIRTH_DATE_AGE_YEARS)
+  if (date.getTime() < minDate.getTime()) return 'Ingresa una fecha de nacimiento válida.'
+  return null
+}

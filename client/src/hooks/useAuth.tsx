@@ -23,6 +23,7 @@ type AuthContextValue = {
   signUp: (input: RegisterInput) => Promise<void>
   signOut: () => void
   updateProfile: (input: UpdateProfileInput) => Promise<void>
+  deleteAccount: (currentPlainPassword: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -139,6 +140,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(profile)
   }, [])
 
+  const deleteAccount = useCallback(
+    async (currentPlainPassword: string) => {
+      if (!tokenRef.current) throw new Error('No hay una sesión activa.')
+      await authService.deleteMyAccount(tokenRef.current, currentPlainPassword)
+      // La cuenta ya no existe en el servidor: no tiene sentido intentar
+      // revocar el refresh token contra ella (por eso no se reusa signOut,
+      // que llama a authService.logout()) — solo se limpia el estado local.
+      tokenRef.current = null
+      setToken(null)
+      setUser(null)
+      setStatus('anonymous')
+    },
+    [],
+  )
+
   return (
     <AuthContext.Provider
       value={{
@@ -151,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         updateProfile,
+        deleteAccount,
       }}
     >
       {children}

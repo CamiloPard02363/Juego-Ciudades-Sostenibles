@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
+import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
@@ -117,6 +119,60 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
     } finally {
       setCreatingCategory(false)
     }
+  }
+
+  function applyAiDraft(draft: GameDraft) {
+    const config = (draft.config ?? {}) as Record<string, unknown>
+    const content = Array.isArray(draft.content) ? draft.content : []
+
+    if (typeof config.boardSize === 'number') setBoardSize(config.boardSize)
+    if (typeof config.turnDurationSeconds === 'number') setTurnDurationSeconds(config.turnDurationSeconds)
+
+    const findQuestion = (cellNumber: number, triggerType: string): Record<string, unknown> | undefined =>
+      content.find((item) => {
+        const raw = (item ?? {}) as Record<string, unknown>
+        return raw.cellNumber === cellNumber && raw.triggerType === triggerType
+      }) as Record<string, unknown> | undefined
+
+    const toLinkDraft = (from: number, to: number, triggerType: string): LinkDraft => {
+      const question = findQuestion(from, triggerType)
+      return {
+        from,
+        to,
+        prompt: typeof question?.prompt === 'string' ? question.prompt : '',
+        options: Array.isArray(question?.options) ? (question.options as string[]) : ['', ''],
+        correctOptionIndex: typeof question?.correctOptionIndex === 'number' ? question.correctOptionIndex : 0,
+      }
+    }
+
+    const rawLadders = Array.isArray(config.ladders) ? config.ladders : []
+    const rawSnakes = Array.isArray(config.snakes) ? config.snakes : []
+
+    setLadders(
+      rawLadders.map((item) => {
+        const link = (item ?? {}) as Record<string, unknown>
+        return toLinkDraft(Number(link.from), Number(link.to), 'LADDER')
+      }),
+    )
+    setSnakes(
+      rawSnakes.map((item) => {
+        const link = (item ?? {}) as Record<string, unknown>
+        return toLinkDraft(Number(link.from), Number(link.to), 'SNAKE')
+      }),
+    )
+    setCellQuestions(
+      content
+        .filter((item) => ((item ?? {}) as Record<string, unknown>).triggerType === 'CELL')
+        .map((item) => {
+          const raw = item as Record<string, unknown>
+          return {
+            cellNumber: typeof raw.cellNumber === 'number' ? raw.cellNumber : 0,
+            prompt: typeof raw.prompt === 'string' ? raw.prompt : '',
+            options: Array.isArray(raw.options) ? (raw.options as string[]) : ['', ''],
+            correctOptionIndex: typeof raw.correctOptionIndex === 'number' ? raw.correctOptionIndex : 0,
+          }
+        }),
+    )
   }
 
   function updateLink(list: LinkDraft[], setList: (v: LinkDraft[]) => void, index: number, patch: Partial<LinkDraft>) {
@@ -271,6 +327,8 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
           onChange={setDescription}
           onBlur={() => {}}
         />
+
+        <AiGameAssistantPanel gameType="SNAKES_LADDERS" disabled={submitting} onDraftReady={applyAiDraft} />
 
         <ImageUploadField
           label="Portada del juego (opcional)"

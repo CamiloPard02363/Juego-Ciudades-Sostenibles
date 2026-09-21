@@ -5,7 +5,7 @@ import { Building2, X } from 'lucide-react'
 import { TextField } from '../TextField'
 import { useAuth } from '../../hooks/useAuth'
 import { ApiError } from '../../utils/http'
-import { validateRequiredName } from '../../utils/validation'
+import { validateBirthDate, validateRequiredName } from '../../utils/validation'
 import { getEmailDomain, isPublicEmailProviderDomain } from '../../utils/publicEmailProviders'
 import {
   createOrganization,
@@ -26,14 +26,21 @@ const ORG_ROLE_STYLES: Record<string, string> = {
 }
 
 export function ProfileSettings({ onClose }: ProfileSettingsProps) {
-  const { user, token, updateProfile } = useAuth()
+  const { user, token, updateProfile, deleteAccount } = useAuth()
   const navigate = useNavigate()
+
+  const [deleteRequested, setDeleteRequested] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const [firstName, setFirstName] = useState(user?.firstName ?? '')
   const [lastName, setLastName] = useState(user?.lastName ?? '')
   const [middleName, setMiddleName] = useState(user?.middleName ?? '')
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
-  const [errors, setErrors] = useState<{ firstName?: string; lastName?: string }>({})
+  // El backend devuelve un datetime ISO completo; <input type="date"> solo acepta "YYYY-MM-DD".
+  const [birthDate, setBirthDate] = useState(user?.birthDate?.slice(0, 10) ?? '')
+  const [errors, setErrors] = useState<{ firstName?: string; lastName?: string; birthDate?: string }>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -83,6 +90,31 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
     }
   }
 
+  async function handleDeleteAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setDeleteError(null)
+
+    if (!deletePassword) {
+      setDeleteError('Ingresa tu contraseña actual para confirmar.')
+      return
+    }
+
+    setDeleting(true)
+    try {
+      await deleteAccount(deletePassword)
+      // Sin sesión ya no hay perfil que mostrar; el resto de la app
+      // reacciona sola al cambio de `status` en `useAuth`.
+      onClose()
+    } catch (error) {
+      setDeleteError(
+        error instanceof ApiError
+          ? error.message
+          : 'Ocurrió un error inesperado. Intenta de nuevo.',
+      )
+      setDeleting(false)
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSuccessMessage(null)
@@ -91,9 +123,10 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
     const nextErrors = {
       firstName: validateRequiredName(firstName, 'El nombre') ?? undefined,
       lastName: validateRequiredName(lastName, 'El apellido') ?? undefined,
+      birthDate: validateBirthDate(birthDate) ?? undefined,
     }
     setErrors(nextErrors)
-    if (nextErrors.firstName || nextErrors.lastName) return
+    if (nextErrors.firstName || nextErrors.lastName || nextErrors.birthDate) return
 
     setSubmitting(true)
     try {
@@ -102,6 +135,7 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
         lastName: lastName.trim(),
         middleName: middleName.trim() || null,
         displayName: displayName.trim() || undefined,
+        birthDate,
       })
       setSuccessMessage('Perfil actualizado correctamente.')
     } catch (error) {
@@ -246,6 +280,23 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
           onBlur={() => {}}
         />
 
+        <TextField
+          label="Fecha de nacimiento"
+          type="date"
+          value={birthDate}
+          error={errors.birthDate}
+          max={new Date().toISOString().slice(0, 10)}
+          disabled={submitting}
+          onChange={setBirthDate}
+          onBlur={() => {}}
+        />
+        {user.role === 'STUDENT' && (
+          <p className="-mt-2.5 text-[12px] leading-snug text-text">
+            Si corriges la fecha y la persona ya tiene 10 años o más, en su próxima vista deja
+            de ver el Modo Kids automáticamente.
+          </p>
+        )}
+
         {submitError && (
           <p
             className="rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
@@ -273,6 +324,63 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
           {submitting ? 'Guardando…' : 'Guardar cambios'}
         </button>
       </form>
+
+      <div className="mt-8 rounded-xl border border-danger/35 bg-danger/5 p-4">
+        <p className="text-[13.5px] font-semibold text-danger">Eliminar cuenta</p>
+        <p className="mt-0.5 text-[12.5px] leading-snug text-text">
+          Esto borra tu cuenta de forma definitiva, junto con tus juegos, clases y
+          membresías de organización. No se puede deshacer.
+        </p>
+
+        {!deleteRequested ? (
+          <button
+            type="button"
+            className="mt-3 rounded-lg border border-danger/50 px-3.5 py-2 text-[13px] font-medium text-danger hover:bg-danger/10"
+            onClick={() => setDeleteRequested(true)}
+          >
+            Eliminar mi cuenta
+          </button>
+        ) : (
+          <form className="mt-3 flex flex-col gap-3" onSubmit={handleDeleteAccount} noValidate>
+            <TextField
+              label="Confirma tu contraseña"
+              type="password"
+              value={deletePassword}
+              disabled={deleting}
+              onChange={setDeletePassword}
+              onBlur={() => {}}
+            />
+
+            {deleteError && (
+              <p className="text-[12.5px] text-danger" role="alert">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="rounded-lg bg-danger px-3.5 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deleting}
+              >
+                {deleting ? 'Eliminando…' : 'Sí, eliminar definitivamente'}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-medium text-text-h"
+                disabled={deleting}
+                onClick={() => {
+                  setDeleteRequested(false)
+                  setDeletePassword('')
+                  setDeleteError(null)
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </Modal>
   )
 }

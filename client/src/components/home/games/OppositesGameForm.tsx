@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
+import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
@@ -100,6 +102,23 @@ export function OppositesGameForm({
     } finally {
       setCreatingCategory(false)
     }
+  }
+
+  function applyAiDraft(draft: GameDraft) {
+    const items = Array.isArray(draft.content) ? draft.content : []
+    setPairs(
+      items.map((item) => {
+        const raw = (item ?? {}) as Record<string, unknown>
+        return {
+          posTitle: typeof raw.posTitle === 'string' ? raw.posTitle : '',
+          posDescription: typeof raw.posDescription === 'string' ? raw.posDescription : '',
+          posImageUrl: typeof raw.posImageUrl === 'string' ? raw.posImageUrl : null,
+          negTitle: typeof raw.negTitle === 'string' ? raw.negTitle : '',
+          negDescription: typeof raw.negDescription === 'string' ? raw.negDescription : '',
+          negImageUrl: typeof raw.negImageUrl === 'string' ? raw.negImageUrl : null,
+        }
+      }),
+    )
   }
 
   function updatePair<K extends keyof PairDraft>(index: number, field: K, value: PairDraft[K]) {
@@ -218,6 +237,8 @@ export function OppositesGameForm({
           onChange={setDescription}
           onBlur={() => {}}
         />
+
+        <AiGameAssistantPanel gameType="MEMORY_MATCH" mode="OPPOSITES" disabled={submitting} onDraftReady={applyAiDraft} />
 
         <ImageUploadField
           label="Portada del juego (opcional)"

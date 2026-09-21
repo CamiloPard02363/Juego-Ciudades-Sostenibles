@@ -1,10 +1,11 @@
-import { LobbyReadyControl } from './LobbyReadyControl'
+import { GameInstructionsGate } from './GameInstructionsGate'
+import { MultiplayerLobby } from './MultiplayerLobby'
+import { ChatPanel } from './ChatPanel'
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
-import { Copy, Link, LogOut, MessageCircle, Send, Trophy, Users, X, XCircle } from 'lucide-react'
+import { Copy, Link, LogOut, MessageCircle, Trophy, XCircle } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
-import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoChatMessage } from './guessWhoTypes'
+import { MIN_DISCARDS_TO_ACCUSE } from './guessWhoTypes'
 import { Modal } from './Modal'
 import { DealCountdownOverlay, MatchBoard, useCountdown } from './MatchBoard'
 import { TournamentRoom } from './TournamentRoom'
@@ -168,7 +169,11 @@ export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode, onR
  */
 type EntryChoice = 'undecided' | 'joining-input' | 'creating' | 'joining'
 
-function IndividualGuessWhoRoom({
+function IndividualGuessWhoRoom(props: GuessWhoRoomProps) {
+  return <GameInstructionsGate kind="GUESS_WHO"><IndividualGuessWhoSession {...props} /></GameInstructionsGate>
+}
+
+function IndividualGuessWhoSession({
   gameId,
   onExit,
   initialJoinCode,
@@ -240,25 +245,6 @@ function IndividualGuessWhoRoom({
     setDealDeadline(Date.now() + dealCountdownMs)
   }, [dealCountdownMs])
   const dealRemainingMs = useCountdown(dealDeadline)
-  // Segundos por turno para la próxima partida: solo el host lo edita (se
-  // guarda como texto, no número, para poder dejar el campo vacío mientras
-  // se reescribe sin que un input controlado lo fuerce de vuelta a "0"). Se
-  // emite al servidor en cada cambio válido para que el rival lo vea en
-  // vivo vía room:update-turn-duration. Para quien NO es host, se
-  // resincroniza en cada room:state (así ve el valor del host en vivo); para
-  // el host solo al entrar a una sala nueva, para no pisar lo que esté
-  // escribiendo cuando le llegue de vuelta su propio cambio ya confirmado.
-  const isHostSelf = room?.players.find((player) => player.isSelf)?.isHost ?? false
-  const [turnDurationText, setTurnDurationText] = useState('15')
-  useEffect(() => {
-    if (room?.turnDurationSeconds === undefined) return
-    if (isHostSelf) return
-    setTurnDurationText(String(room.turnDurationSeconds))
-  }, [room?.turnDurationSeconds, isHostSelf])
-  useEffect(() => {
-    if (room?.turnDurationSeconds !== undefined) setTurnDurationText(String(room.turnDurationSeconds))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room?.code])
 
   function handleExit() {
     leaveRoom()
@@ -422,6 +408,13 @@ function IndividualGuessWhoRoom({
   const winnerIsSelf = room.winnerUserId === user?.id
   const dealing = dealDeadline !== null && dealRemainingMs > 0
 
+  if (room.phase === 'WAITING') return <MultiplayerLobby
+    room={room} roomPath={`/?sala=${encodeURIComponent(room.code)}`} maxPlayers={2}
+    isHost={Boolean(self?.isHost)} connecting={connecting} error={error}
+    turnDurationSeconds={room.turnDurationSeconds} onUpdateTurnDuration={updateTurnDuration}
+    onReady={setReady} onExit={handleExit} messages={messages} onSend={sendChatMessage}
+  >{dealing && <DealCountdownOverlay remainingMs={dealRemainingMs} />}</MultiplayerLobby>
+
   return (
     <>
       <Modal onClose={handleExit} maxWidthClassName="max-w-[840px]">
@@ -517,63 +510,6 @@ function IndividualGuessWhoRoom({
         </div>
       )}
 
-      {room.phase === 'WAITING' && (
-        <div className="flex flex-col gap-4">
-          <div className="rounded-[24px] border border-border bg-gradient-to-br from-bg to-surface p-4 shadow-[var(--shadow)]">
-            <p className="flex items-center gap-2 text-[13px] font-semibold text-text-h">
-              <Users className="h-4 w-4 text-accent" strokeWidth={2} />
-              Jugadores en la sala ({room.players.length}/2)
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {room.players.map((player) => (
-                <span
-                  key={player.userId}
-                  className="rounded-full border border-accent/20 bg-accent/5 px-3 py-1.5 text-[12.5px] font-medium text-text-h"
-                >
-                  {player.displayName}
-                  {player.isSelf ? ' (tú)' : ''}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {self?.isHost ? (
-            <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
-              <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="turn-duration-input">
-                Segundos por turno
-              </label>
-              <input
-                id="turn-duration-input"
-                type="number"
-                min={5}
-                max={120}
-                className="w-full rounded-xl border border-border bg-bg px-[13px] py-2.5 text-[14px] text-text-h outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/10"
-                value={turnDurationText}
-                onChange={(event) => {
-                  const raw = event.target.value
-                  setTurnDurationText(raw)
-                  const parsed = Number(raw)
-                  if (raw.trim() !== '' && Number.isInteger(parsed) && parsed >= 5 && parsed <= 120) {
-                    updateTurnDuration(parsed)
-                  }
-                }}
-              />
-              <p className="mt-1 text-[11.5px] text-text">
-                Si nadie actúa a tiempo, el turno pasa automático. Entre 5 y 120 segundos.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-[22px] border border-border bg-surface p-4 shadow-[var(--shadow)]">
-              <p className="text-[12.5px] text-text">
-                Segundos por turno: <strong className="text-text-h">{turnDurationText}</strong> (lo define
-                quien creó la sala).
-              </p>
-            </div>
-          )}
-
-          <LobbyReadyControl players={room.players} onReady={setReady} disconnected={connecting} />
-        </div>
-      )}
 
       {room.phase === 'PLAYING' && self && opponent && (
         <MatchBoard
@@ -718,111 +654,3 @@ function RevealedSecretCard({
     </div>
   )
 }
-
-/**
- * Panel de chat de la sala 1v1: flota sobre el modal del juego para que los
- * dos jugadores puedan coordinarse por texto sin llamada ni estar en
- * persona. No guarda historial en el servidor — solo lo que llegó mientras
- * el socket de este cliente estuvo conectado a la sala.
- */
-function ChatPanel({
-  messages,
-  selfUserId,
-  onClose,
-  onSend,
-}: {
-  messages: GuessWhoChatMessage[]
-  selfUserId: string | null
-  onClose: () => void
-  onSend: (text: string) => void
-}) {
-  const [text, setText] = useState('')
-  const listRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
-  }, [messages.length])
-
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    if (!text.trim()) return
-    onSend(text)
-    setText('')
-  }
-
-  return (
-    <div
-      className="fixed right-5 bottom-5 z-[80] flex h-[420px] w-[320px] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow)] animate-[modal-panel-in_0.2s_cubic-bezier(0.16,1,0.3,1)]"
-      role="dialog"
-      aria-label="Chat de la sala"
-    >
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-text-h">
-          <MessageCircle className="h-4 w-4 text-accent" strokeWidth={2} />
-          Chat de la partida
-        </p>
-        <button
-          type="button"
-          className="text-text hover:text-accent"
-          onClick={onClose}
-          aria-label="Cerrar chat"
-        >
-          <X className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </div>
-
-      <div ref={listRef} className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-3">
-        {messages.length === 0 ? (
-          <p className="m-auto text-center text-[12.5px] text-text">
-            Todavía no hay mensajes. Escribe algo para coordinar con tu rival.
-          </p>
-        ) : (
-          messages.map((message, index) => {
-            const isSelf = message.userId === selfUserId
-            return (
-              <div
-                key={`${message.sentAt}-${index}`}
-                className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'}`}
-              >
-                {!isSelf && (
-                  <span className="mb-0.5 px-1 text-[10.5px] font-medium text-text">
-                    {message.displayName}
-                  </span>
-                )}
-                <span
-                  className={`max-w-[85%] rounded-lg px-3 py-1.5 text-[13px] leading-snug break-words ${
-                    isSelf ? 'text-white' : 'border border-border text-text-h'
-                  }`}
-                  style={isSelf ? { background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' } : undefined}
-                >
-                  {message.text}
-                </span>
-              </div>
-            )
-          })
-        )}
-      </div>
-
-      <form className="flex gap-2 border-t border-border p-3" onSubmit={handleSubmit}>
-        <input
-          type="text"
-          className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-[13px] text-text-h outline-none focus:border-accent"
-          placeholder="Escribe un mensaje…"
-          maxLength={500}
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-        />
-        <button
-          type="submit"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-          disabled={!text.trim()}
-          aria-label="Enviar mensaje"
-        >
-          <Send className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </form>
-    </div>
-  )
-}
-

@@ -1,3 +1,4 @@
+import type { GuessWhoChatMessage } from './guessWhoTypes'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import type { DominoRoomStateView } from './dominoRoomTypes'
@@ -11,6 +12,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  */
 export function useDominoRoom(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
+  const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
   const waitingCodeRef = useRef<string | null>(null)
   const [room, setRoom] = useState<DominoRoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -28,6 +30,7 @@ export function useDominoRoom(token: string | null) {
       transports: ['websocket'],
     })
     socketRef.current = socket
+    socket.on('domino:chat-message', (message: GuessWhoChatMessage) => setMessages(current => [...current, message]))
 
     socket.on('connect', () => {
       setConnecting(false)
@@ -80,6 +83,10 @@ export function useDominoRoom(token: string | null) {
     if (socketRef.current?.connected) socketRef.current.emit('domino:join', { code })
   }, [])
 
+  const sendChatMessage = useCallback((text: string) => {
+    if (socketRef.current?.connected && text.trim()) socketRef.current.emit('domino:chat', { text: text.trim() })
+  }, [])
+
   const setReady = useCallback((ready: boolean) => {
     if (socketRef.current?.connected) socketRef.current.emit('domino:ready', { ready })
   }, [])
@@ -106,11 +113,14 @@ export function useDominoRoom(token: string | null) {
 
   const leaveRoom = useCallback(() => {
     waitingCodeRef.current = null
+    setMessages([])
     socketRef.current?.emit('domino:leave')
     setRoom(null)
   }, [])
 
   return {
+    messages,
+    sendChatMessage,
     room,
     error,
     connecting,
