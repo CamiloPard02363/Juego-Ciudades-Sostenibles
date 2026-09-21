@@ -115,7 +115,7 @@ export function AiGameAssistantPanel({
       )}
 
       {files.length > 0 && (
-        <ul className="mb-3 flex flex-col gap-1.5">
+        <ul className="mb-3 flex max-h-[220px] flex-col gap-1.5 overflow-y-auto pr-1">
           {files.map((file, index) => (
             <li
               key={`${file.name}-${index}`}
