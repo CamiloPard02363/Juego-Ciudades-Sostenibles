@@ -63,6 +63,27 @@ interface AuthenticatedSocket extends Socket {
   };
 }
 
+/** El `kind` que le dice al cliente a qué pantalla enrutar tras resolver un código. */
+type RoomKind = 'room' | 'tournament' | 'domino' | 'snakes-ladders' | 'dual-quest';
+
+/**
+ * Las 5 salas (1v1 de "¿Quién Es?", torneo, dominó, escaleras y serpientes,
+ * dúo lógico) comparten esta forma mínima aunque cada `*RoomState`/`*Store`
+ * tenga muchos más campos propios — es lo único que `resolveRoomCode` y la
+ * generación de código único necesitan saber de una sala, sin importar el
+ * tipo de juego. Agregar un juego nuevo con sala en vivo es agregar una
+ * entrada a `roomRegistry` (constructor) en vez de tocar `handleResolveCode`
+ * y el generador de código a mano.
+ */
+interface MinimalRoomStore {
+  get(code: string): { gameId: string; gameTitle: string } | undefined;
+}
+
+interface RoomRegistryEntry {
+  kind: RoomKind;
+  store: MinimalRoomStore;
+}
+
 function generateRoomCode(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -450,6 +471,9 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
   private readonly dealTimers = new Map<string, NodeJS.Timeout>();
 
+  /** Construido una vez en el constructor a partir de los stores inyectados — ver RoomRegistryEntry. */
+  private readonly roomRegistry: RoomRegistryEntry[];
+
   private cancelDealCountdown(key: string) {
     clearTimeout(this.dealTimers.get(key));
     this.dealTimers.delete(key);
@@ -465,7 +489,33 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     @Inject(SNAKES_LADDERS_ROOM_STORE) private readonly snakesLaddersRoomStore: SnakesLaddersRoomStore,
     @Inject(DUAL_QUEST_ROOM_STORE) private readonly dualQuestRoomStore: DualQuestRoomStore,
     private readonly analyticsTracker: AnalyticsTrackerService,
-  ) {}
+  ) {
+    this.roomRegistry = [
+      { kind: 'room', store: this.roomStore },
+      { kind: 'tournament', store: this.tournamentStore },
+      { kind: 'domino', store: this.dominoRoomStore },
+      { kind: 'snakes-ladders', store: this.snakesLaddersRoomStore },
+      { kind: 'dual-quest', store: this.dualQuestRoomStore },
+    ];
+  }
+
+  /**
+   * Genera un código de 6 caracteres único entre TODAS las salas activas
+   * (sin importar el tipo de juego) — antes cada `*:create` generaba su
+   * código chequeando solo su propio store, así que dos tipos de juego
+   * distintos podían terminar con el mismo código vivo al mismo tiempo; con
+   * el alfabeto de 32 símbolos eso es poco probable pero no imposible, y de
+   * pasar, `handleResolveCode` resolvía silenciosamente al primer tipo que
+   * encontrara en su orden de chequeo, mandando al jugador a la sala
+   * equivocada.
+   */
+  private generateUniqueRoomCode(): string {
+    let code = generateRoomCode();
+    while (this.roomRegistry.some((entry) => entry.store.get(code))) {
+      code = generateRoomCode();
+    }
+    return code;
+  }
 
   /**
    * Autentica ANTES de aceptar la conexión, como middleware de Socket.IO
@@ -612,10 +662,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       throw new Error('Juego no encontrado o no es de tipo "¿Quién Es?".');
     }
 
-    let code = generateRoomCode();
-    while (this.roomStore.get(code)) {
-      code = generateRoomCode();
-    }
+    const code = this.generateUniqueRoomCode();
 
     const room: RoomState = {
       code,
@@ -665,31 +712,9 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const code = body.code?.trim().toUpperCase();
     if (!code) throw new Error('Ingresa un código.');
 
-    const room = this.roomStore.get(code);
-    if (room) return { kind: 'room' as const, gameId: room.gameId, gameTitle: room.gameTitle };
-
-    const tournament = this.tournamentStore.get(code);
-    if (tournament) {
-      return { kind: 'tournament' as const, gameId: tournament.gameId, gameTitle: tournament.gameTitle };
-    }
-
-    const dominoRoom = this.dominoRoomStore.get(code);
-    if (dominoRoom) {
-      return { kind: 'domino' as const, gameId: dominoRoom.gameId, gameTitle: dominoRoom.gameTitle };
-    }
-
-    const snakesLaddersRoom = this.snakesLaddersRoomStore.get(code);
-    if (snakesLaddersRoom) {
-      return {
-        kind: 'snakes-ladders' as const,
-        gameId: snakesLaddersRoom.gameId,
-        gameTitle: snakesLaddersRoom.gameTitle,
-      };
-    }
-
-    const dualQuestRoom = this.dualQuestRoomStore.get(code);
-    if (dualQuestRoom) {
-      return { kind: 'dual-quest' as const, gameId: dualQuestRoom.gameId, gameTitle: dualQuestRoom.gameTitle };
+    for (const entry of this.roomRegistry) {
+      const room = entry.store.get(code);
+      if (room) return { kind: entry.kind, gameId: room.gameId, gameTitle: room.gameTitle };
     }
 
     throw new Error('No existe ninguna sala con ese código.');
@@ -1078,10 +1103,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       throw new Error(`El cupo debe ser un entero entre 2 y ${TOURNAMENT_MAX_PARTICIPANTS}.`);
     }
 
-    let code = generateRoomCode();
-    while (this.tournamentStore.get(code)) {
-      code = generateRoomCode();
-    }
+    const code = this.generateUniqueRoomCode();
 
     const tournament: TournamentState = {
       code,
@@ -1512,10 +1534,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       throw new Error('Juego no encontrado o no es de tipo Dominó.');
     }
 
-    let code = generateRoomCode();
-    while (this.dominoRoomStore.get(code)) {
-      code = generateRoomCode();
-    }
+    const code = this.generateUniqueRoomCode();
 
     const room: DominoRoomState = {
       code,
@@ -1914,10 +1933,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       throw new Error('Juego no encontrado o no es de tipo Escaleras y Serpientes.');
     }
 
-    let code = generateRoomCode();
-    while (this.snakesLaddersRoomStore.get(code)) {
-      code = generateRoomCode();
-    }
+    const code = this.generateUniqueRoomCode();
 
     const room: SnakesLaddersRoomState = {
       code,
@@ -2304,10 +2320,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       throw new Error('Juego no encontrado o no es de tipo Dúo Lógico.');
     }
 
-    let code = generateRoomCode();
-    while (this.dualQuestRoomStore.get(code)) {
-      code = generateRoomCode();
-    }
+    const code = this.generateUniqueRoomCode();
 
     const role: DualQuestRole = body.role === 'WATER' ? 'WATER' : 'FIRE';
     const startPosition = role === 'FIRE' ? (game.config.fireStart as DualQuestCellPosition) : (game.config.waterStart as DualQuestCellPosition);

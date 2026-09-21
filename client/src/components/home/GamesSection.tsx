@@ -23,7 +23,7 @@ import { GameCard } from './games/GameCard'
 import { GameDetailModal } from './games/GameDetailModal'
 import { Modal } from './games/Modal'
 import { JoinByCodeModal } from './games/JoinByCodeModal'
-import { resolveRoomCode, type ResolvedRoom } from './games/resolveRoomCode'
+import { resolveRoomCode, LIVE_ROOM_ROUTES, type ResolvedRoom } from './games/resolveRoomCode'
 import { PlayOptionsPopup } from './games/PlayOptionsPopup'
 import type { Difficulty } from './games/PlayOptionsPopup'
 import { MemoryMatchGame } from './games/MemoryMatchGame'
@@ -123,23 +123,18 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   }
 
   /**
-   * Abre la sala/match correcto según lo que resolvió el código: dominó
-   * navega a su página propia (ver DominoRoomPage), y "¿Quién Es?" (1v1 o
-   * torneo) abre el overlay existente con el modo correspondiente. Se usa
-   * tanto desde el botón agnóstico "Unirme con código" como desde el campo
-   * de código propio de cada juego en su detalle.
+   * Abre la sala/match correcto según lo que resolvió el código: los tipos
+   * con página propia (dominó, escaleras, dúo lógico — ver LIVE_ROOM_ROUTES)
+   * navegan ahí, y "¿Quién Es?" (1v1 o torneo) abre el overlay existente con
+   * el modo correspondiente. Se usa tanto desde el botón agnóstico "Unirme
+   * con código" como desde el campo de código propio de cada juego en su
+   * detalle — agregar un juego nuevo con sala en vivo y página propia es
+   * agregar una entrada a LIVE_ROOM_ROUTES, no tocar esta función.
    */
   function handleCodeResolved(resolved: ResolvedRoom, code: string) {
-    if (resolved.kind === 'domino') {
-      navigate(`/domino/sala/${code}`)
-      return
-    }
-    if (resolved.kind === 'snakes-ladders') {
-      navigate(`/escaleras-serpientes/sala/${code}`)
-      return
-    }
-    if (resolved.kind === 'dual-quest') {
-      navigate(`/dual-quest/sala/${code}`)
+    const routeBuilder = LIVE_ROOM_ROUTES[resolved.kind]
+    if (routeBuilder) {
+      navigate(routeBuilder(code))
       return
     }
     setJoinCodeContext({ code, initialMode: resolved.kind === 'tournament' ? 'group' : 'individual' })
