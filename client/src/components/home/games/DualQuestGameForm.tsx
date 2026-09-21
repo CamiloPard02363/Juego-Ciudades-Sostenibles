@@ -4,6 +4,7 @@ import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import { GameFormShell } from './GameFormShell'
 import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { DualQuestBoard } from './DualQuestBoard'
@@ -394,17 +395,14 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
   }
 
   return (
-    <div className="mx-auto max-w-[760px] p-8">
-      <button type="button" className="mb-3 text-[12.5px] font-medium text-accent hover:underline" onClick={onBack}>
-        ← Cambiar tipo de juego
-      </button>
-      <h2 className="mb-1 text-[20px] tracking-tight text-text-h">Dúo Lógico</h2>
-      <p className="mb-6 text-[13px] text-text">
-        Dos roles complementarios (Fuego/Agua) recorren el mismo mapa, cada uno bloqueado por casillas del
-        otro, y dependen entre sí para avanzar. Al final arman juntos un concepto ensamblando lo que cada
-        uno recolectó.
-      </p>
-
+    <GameFormShell
+      backLabel="Cambiar tipo de juego"
+      onBack={onBack}
+      title="Dúo Lógico"
+      description="Dos roles complementarios (Fuego/Agua) recorren el mismo mapa, cada uno bloqueado por casillas del otro, y dependen entre sí para avanzar. Al final arman juntos un concepto ensamblando lo que cada uno recolectó."
+      formMaxWidthClassName="lg:max-w-[760px]"
+      aiPanel={<AiGameAssistantPanel gameType="DUAL_QUEST" disabled={submitting} onDraftReady={applyAiDraft} />}
+    >
       <form className="flex flex-col gap-[16px]" onSubmit={handleSubmit} noValidate>
         <TextField label="Título del juego" type="text" value={title} disabled={submitting} onChange={setTitle} onBlur={() => {}} />
         <TextField
@@ -415,8 +413,6 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
           onChange={setDescription}
           onBlur={() => {}}
         />
-
-        <AiGameAssistantPanel gameType="DUAL_QUEST" disabled={submitting} onDraftReady={applyAiDraft} />
 
         <ImageUploadField
           label="Portada del juego (opcional)"
@@ -716,7 +712,7 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
           </button>
         </div>
       </form>
-    </div>
+    </GameFormShell>
   )
 }
 

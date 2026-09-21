@@ -4,6 +4,7 @@ import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import { GameFormShell } from './GameFormShell'
 import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
@@ -179,19 +180,21 @@ export function SimplePairsGameForm({
   }
 
   return (
-    <div className="mx-auto max-w-[640px] p-8">
-      <button
-        type="button"
-        className="mb-3 text-[12.5px] font-medium text-accent hover:underline"
-        onClick={onBack}
-      >
-        ← Cambiar modo
-      </button>
-      <h2 className="mb-1 text-[20px] tracking-tight text-text-h">Pares</h2>
-      <p className="mb-6 text-[13px] text-text">
-        Cada pareja tiene una imagen y el nombre del concepto que representa.
-      </p>
-
+    <GameFormShell
+      backLabel="Cambiar modo"
+      onBack={onBack}
+      title="Pares"
+      description="Cada pareja tiene una imagen y el nombre del concepto que representa."
+      aiPanel={
+        <AiGameAssistantPanel
+          gameType="MEMORY_MATCH"
+          mode="PAIRS"
+          disabled={submitting}
+          imagesRequired={{ min: 4, max: 40 }}
+          onDraftReady={applyAiDraft}
+        />
+      }
+    >
       <form className="flex flex-col gap-[16px]" onSubmit={handleSubmit} noValidate>
         <TextField
           label="Título del juego"
@@ -208,14 +211,6 @@ export function SimplePairsGameForm({
           disabled={submitting}
           onChange={setDescription}
           onBlur={() => {}}
-        />
-
-        <AiGameAssistantPanel
-          gameType="MEMORY_MATCH"
-          mode="PAIRS"
-          disabled={submitting}
-          imagesRequired={{ min: 4, max: 40 }}
-          onDraftReady={applyAiDraft}
         />
 
         <ImageUploadField
@@ -346,6 +341,6 @@ export function SimplePairsGameForm({
           </button>
         </div>
       </form>
-    </div>
+    </GameFormShell>
   )
 }

@@ -5,6 +5,7 @@ import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { AudioUploadField } from './AudioUploadField'
 import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import { GameFormShell } from './GameFormShell'
 import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
@@ -202,20 +203,20 @@ export function GuessWhoGameForm({
   }
 
   return (
-    <div className="mx-auto max-w-[640px] p-8">
-      <button
-        type="button"
-        className="mb-3 text-[12.5px] font-medium text-accent hover:underline"
-        onClick={onBack}
-      >
-        ← Cambiar tipo de juego
-      </button>
-      <h2 className="mb-1 text-[20px] tracking-tight text-text-h">¿Quién Es?</h2>
-      <p className="mb-6 text-[13px] text-text">
-        Cada tarjeta tiene una imagen, un nombre y un audio opcional. Se juega en una sala en vivo
-        entre 2 personas — abre la sala desde el detalle del juego una vez creado.
-      </p>
-
+    <GameFormShell
+      backLabel="Cambiar tipo de juego"
+      onBack={onBack}
+      title="¿Quién Es?"
+      description="Cada tarjeta tiene una imagen, un nombre y un audio opcional. Se juega en una sala en vivo entre 2 personas — abre la sala desde el detalle del juego una vez creado."
+      aiPanel={
+        <AiGameAssistantPanel
+          gameType="GUESS_WHO"
+          disabled={submitting}
+          imagesRequired={{ min: MIN_CARDS, max: 60 }}
+          onDraftReady={applyAiDraft}
+        />
+      }
+    >
       <form className="flex flex-col gap-[16px]" onSubmit={handleSubmit} noValidate>
         <TextField
           label="Título del juego"
@@ -232,13 +233,6 @@ export function GuessWhoGameForm({
           disabled={submitting}
           onChange={setDescription}
           onBlur={() => {}}
-        />
-
-        <AiGameAssistantPanel
-          gameType="GUESS_WHO"
-          disabled={submitting}
-          imagesRequired={{ min: MIN_CARDS, max: 60 }}
-          onDraftReady={applyAiDraft}
         />
 
         <ImageUploadField
@@ -395,6 +389,6 @@ export function GuessWhoGameForm({
           </button>
         </div>
       </form>
-    </div>
+    </GameFormShell>
   )
 }
