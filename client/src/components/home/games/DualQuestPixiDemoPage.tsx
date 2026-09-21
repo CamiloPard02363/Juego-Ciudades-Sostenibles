@@ -1,3 +1,4 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import { Link } from 'react-router-dom'
 import { DualQuestPixiMount } from './dual-quest-pixi/DualQuestPixiMount'
 import { level1EnergiaRenovable } from './dual-quest-pixi/levels/level1EnergiaRenovable'
@@ -10,6 +11,10 @@ import { level1EnergiaRenovable } from './dual-quest-pixi/levels/level1EnergiaRe
  * multijugador por red, no debe compartir ruta con la que sí lo tiene.
  */
 export function DualQuestPixiDemoPage() {
+  return <GameInstructionsGate kind="DUAL_QUEST_PIXI"><DualQuestPixiDemoPageSession /></GameInstructionsGate>
+}
+
+function DualQuestPixiDemoPageSession() {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">

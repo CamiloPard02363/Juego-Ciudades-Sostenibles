@@ -1,3 +1,4 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
 import { Crown, LogOut, Skull, Trophy, Users } from 'lucide-react'
@@ -34,7 +35,11 @@ const MIN_PARTICIPANTS_LIMIT = 2
  * MatchBoard) y, si se es eliminado, ver el resumen del torneo en vez de la
  * partida de los demás.
  */
-export function TournamentRoom({
+export function TournamentRoom(props: TournamentRoomProps) {
+  return <GameInstructionsGate kind={'GUESS_WHO_GROUP'}><TournamentSession {...props} /></GameInstructionsGate>
+}
+
+function TournamentSession({
   gameId,
   onExit,
   initialJoinCode,

@@ -1,7 +1,8 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Check, LogOut, RotateCcw, Trophy } from 'lucide-react'
+import { LogOut, RotateCcw, Trophy } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
@@ -17,6 +18,10 @@ import { Modal } from './Modal'
  * fue una página dedicada, así que sí es una <Route>.
  */
 export function DominoRoomPage() {
+  return <GameInstructionsGate kind="DOMINO"><DominoRoomPageSession /></GameInstructionsGate>
+}
+
+function DominoRoomPageSession() {
   const { code: codeFromUrl } = useParams<{ code?: string }>()
   const [searchParams] = useSearchParams()
   const gameIdToCreate = searchParams.get('gameId')
@@ -44,7 +49,6 @@ export function DominoRoomPage() {
 
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null)
   const [joinCodeInput, setJoinCodeInput] = useState('')
-  const [instructionsAccepted, setInstructionsAccepted] = useState(false)
   const [boardScale, setBoardScale] = useState(1)
   const [draggedTileId, setDraggedTileId] = useState<string | null>(null)
   const boardViewportRef = useRef<HTMLDivElement>(null)
@@ -56,7 +60,7 @@ export function DominoRoomPage() {
   // un código en el path, se une a esa sala. Se hace una sola vez (guard con
   // startedRef) para no reintentar en cada re-render del hook de socket.
   useEffect(() => {
-    if (connecting || startedRef.current || !instructionsAccepted) return
+    if (connecting || startedRef.current) return
     if (codeFromUrl) {
       startedRef.current = true
       joinRoom(codeFromUrl.toUpperCase())
@@ -65,7 +69,7 @@ export function DominoRoomPage() {
       createRoom(gameIdToCreate)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connecting, codeFromUrl, gameIdToCreate, instructionsAccepted])
+  }, [connecting, codeFromUrl, gameIdToCreate])
 
   // En cuanto el servidor confirma el código de una sala recién creada, se
   // refleja en la URL vía react-router (reemplazando, sin agregar historial)
@@ -161,10 +165,6 @@ export function DominoRoomPage() {
   function handleRematchDecline() {
     voteRematch(false)
     navigate('/')
-  }
-
-  if (!instructionsAccepted) {
-    return <DominoInstructionsModal onContinue={() => setInstructionsAccepted(true)} />
   }
 
   if (rematchRejectedMessage) {
@@ -532,50 +532,5 @@ function HandTileView({
       <div className="h-full w-[3px]" style={{ background: `linear-gradient(${a.color}, ${b.color})` }} />
       <ConceptHalf concept={b} size="lg" />
     </button>
-  )
-}
-
-function DominoInstructionsModal({ onContinue }: { onContinue: () => void }) {
-  const solar = { conceptId: 'example-solar', label: 'Paneles solares', icon: 'sun', color: '#f59e0b' }
-  const green = { conceptId: 'example-green', label: 'Zonas verdes', icon: 'leaf', color: '#22c55e' }
-
-  return (
-    <Modal onClose={onContinue} maxWidthClassName="max-w-[520px]">
-      <div className="space-y-5">
-        <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Nexus Play</p>
-          <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Cómo jugar</h2>
-        </div>
-        <p className="text-[13.5px] leading-relaxed text-text">
-          Conecta una ficha con el mismo concepto en uno de los extremos. Si no puedes jugar, roba una ficha. Gana quien se quede sin fichas primero.
-        </p>
-        <div className="rounded-2xl border border-border bg-code-bg p-4">
-          <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-accent">Ejemplo de conexión</p>
-          <div className="flex items-center justify-center gap-2 overflow-hidden">
-            <div className="flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-accent bg-surface shadow-[var(--shadow)]">
-              <ConceptHalf concept={solar} size="md" />
-              <div className="h-full w-[3px] bg-border" />
-              <ConceptHalf concept={green} size="md" />
-            </div>
-            <span className="text-[18px] font-bold text-accent">+</span>
-            <div className="flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-accent bg-surface shadow-[var(--shadow)]">
-              <ConceptHalf concept={green} size="md" />
-              <div className="h-full w-[3px] bg-border" />
-              <ConceptHalf concept={solar} size="md" />
-            </div>
-          </div>
-          <p className="mt-3 text-center text-[12px] text-text">El concepto del extremo debe coincidir.</p>
-        </div>
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all hover:-translate-y-0.5"
-          style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-          onClick={onContinue}
-        >
-          <Check className="h-4 w-4" strokeWidth={2.25} />
-          Entendido, continuar
-        </button>
-      </div>
-    </Modal>
   )
 }

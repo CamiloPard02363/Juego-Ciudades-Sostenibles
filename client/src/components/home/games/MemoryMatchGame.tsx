@@ -1,3 +1,4 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
 import { useMemoryMatchGame } from './useMemoryMatchGame'
@@ -16,7 +17,11 @@ type MemoryMatchGameProps = {
   onExit: () => void
 }
 
-export function MemoryMatchGame({
+export function MemoryMatchGame(props: MemoryMatchGameProps) {
+  return <GameInstructionsGate kind={props.pairs[0]?.mode === 'OPPOSITES' ? 'OPPOSITES' : 'PAIRS'}><MemoryMatchSession {...props} /></GameInstructionsGate>
+}
+
+function MemoryMatchSession({
   title,
   primaryColor,
   pairs,

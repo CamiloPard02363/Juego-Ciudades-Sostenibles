@@ -1,3 +1,4 @@
+import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -28,6 +29,10 @@ const KEY_TO_DIRECTION: Record<string, DualQuestDirection> = {
  * una acción puntual por turno.
  */
 export function DualQuestRoomPage() {
+  return <GameInstructionsGate kind="DUAL_QUEST"><DualQuestRoomPageSession /></GameInstructionsGate>
+}
+
+function DualQuestRoomPageSession() {
   const { code: codeFromUrl } = useParams<{ code?: string }>()
   const [searchParams] = useSearchParams()
   const gameIdToCreate = searchParams.get('gameId')
