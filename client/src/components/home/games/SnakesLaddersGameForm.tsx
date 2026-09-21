@@ -4,6 +4,7 @@ import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import { GameFormShell } from './GameFormShell'
 import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
@@ -306,17 +307,14 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
   }
 
   return (
-    <div className="mx-auto max-w-[680px] p-8">
-      <button type="button" className="mb-3 text-[12.5px] font-medium text-accent hover:underline" onClick={onBack}>
-        ← Cambiar tipo de juego
-      </button>
-      <h2 className="mb-1 text-[20px] tracking-tight text-text-h">Escaleras y Serpientes</h2>
-      <p className="mb-6 text-[13px] text-text">
-        El avance no depende del azar: cada escalera exige un reto de alta complejidad para subir, y cada
-        serpiente da una oportunidad de recuperación antes de resbalar. Ciudad Sostenible es el tema por
-        defecto, pero puedes cambiar la narrativa por completo con tus propias preguntas.
-      </p>
-
+    <GameFormShell
+      backLabel="Cambiar tipo de juego"
+      onBack={onBack}
+      title="Escaleras y Serpientes"
+      description="El avance no depende del azar: cada escalera exige un reto de alta complejidad para subir, y cada serpiente da una oportunidad de recuperación antes de resbalar. Ciudad Sostenible es el tema por defecto, pero puedes cambiar la narrativa por completo con tus propias preguntas."
+      formMaxWidthClassName="lg:max-w-[680px]"
+      aiPanel={<AiGameAssistantPanel gameType="SNAKES_LADDERS" disabled={submitting} onDraftReady={applyAiDraft} />}
+    >
       <form className="flex flex-col gap-[16px]" onSubmit={handleSubmit} noValidate>
         <TextField label="Título del juego" type="text" value={title} disabled={submitting} onChange={setTitle} onBlur={() => {}} />
         <TextField
@@ -327,8 +325,6 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
           onChange={setDescription}
           onBlur={() => {}}
         />
-
-        <AiGameAssistantPanel gameType="SNAKES_LADDERS" disabled={submitting} onDraftReady={applyAiDraft} />
 
         <ImageUploadField
           label="Portada del juego (opcional)"
@@ -527,7 +523,7 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
           </button>
         </div>
       </form>
-    </div>
+    </GameFormShell>
   )
 }
 

@@ -5,6 +5,7 @@ import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { IconPickerField } from './IconPickerField'
 import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import { GameFormShell } from './GameFormShell'
 import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
@@ -244,21 +245,19 @@ export function DominoGameForm({
   const tileCount = (concepts.length * (concepts.length + 1)) / 2
 
   return (
-    <div className="mx-auto max-w-[640px] p-8">
-      <button
-        type="button"
-        className="mb-3 text-[12.5px] font-medium text-accent hover:underline"
-        onClick={onBack}
-      >
-        ← Cambiar tipo de juego
-      </button>
-      <h2 className="mb-1 text-[20px] tracking-tight text-text-h">Dominó</h2>
-      <p className="mb-6 text-[13px] text-text">
-        Cada mitad de una ficha es un concepto tuyo en vez de un número. Con {concepts.length}{' '}
-        conceptos el set queda en {tileCount} fichas — se juega solo contra el tablero, empatando
-        los extremos abiertos.
-      </p>
-
+    <GameFormShell
+      backLabel="Cambiar tipo de juego"
+      onBack={onBack}
+      title="Dominó"
+      description={
+        <>
+          Cada mitad de una ficha es un concepto tuyo en vez de un número. Con {concepts.length}{' '}
+          conceptos el set queda en {tileCount} fichas — se juega solo contra el tablero, empatando
+          los extremos abiertos.
+        </>
+      }
+      aiPanel={<AiGameAssistantPanel gameType="DOMINO" disabled={submitting} onDraftReady={applyAiDraft} />}
+    >
       <form className="flex flex-col gap-[16px]" onSubmit={handleSubmit} noValidate>
         <TextField
           label="Título del juego"
@@ -276,8 +275,6 @@ export function DominoGameForm({
           onChange={setDescription}
           onBlur={() => {}}
         />
-
-        <AiGameAssistantPanel gameType="DOMINO" disabled={submitting} onDraftReady={applyAiDraft} />
 
         <ImageUploadField
           label="Portada del juego (opcional)"
@@ -458,6 +455,6 @@ export function DominoGameForm({
           </button>
         </div>
       </form>
-    </div>
+    </GameFormShell>
   )
 }

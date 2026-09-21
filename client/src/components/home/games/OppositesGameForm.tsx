@@ -4,6 +4,7 @@ import { TextField } from '../../TextField'
 import { SaveVisibilityModal } from './SaveVisibilityModal'
 import { ImageUploadField } from './ImageUploadField'
 import { AiGameAssistantPanel } from './AiGameAssistantPanel'
+import { GameFormShell } from './GameFormShell'
 import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { useAuth } from '../../../hooks/useAuth'
@@ -207,19 +208,15 @@ export function OppositesGameForm({
   }
 
   return (
-    <div className="mx-auto max-w-[640px] p-8">
-      <button
-        type="button"
-        className="mb-3 text-[12.5px] font-medium text-accent hover:underline"
-        onClick={onBack}
-      >
-        ← Cambiar modo
-      </button>
-      <h2 className="mb-1 text-[20px] tracking-tight text-text-h">Conceptos opuestos</h2>
-      <p className="mb-6 text-[13px] text-text">
-        Cada pareja tiene un aspecto positivo y su contraparte negativa.
-      </p>
-
+    <GameFormShell
+      backLabel="Cambiar modo"
+      onBack={onBack}
+      title="Conceptos opuestos"
+      description="Cada pareja tiene un aspecto positivo y su contraparte negativa."
+      aiPanel={
+        <AiGameAssistantPanel gameType="MEMORY_MATCH" mode="OPPOSITES" disabled={submitting} onDraftReady={applyAiDraft} />
+      }
+    >
       <form className="flex flex-col gap-[16px]" onSubmit={handleSubmit} noValidate>
         <TextField
           label="Título del juego"
@@ -237,8 +234,6 @@ export function OppositesGameForm({
           onChange={setDescription}
           onBlur={() => {}}
         />
-
-        <AiGameAssistantPanel gameType="MEMORY_MATCH" mode="OPPOSITES" disabled={submitting} onDraftReady={applyAiDraft} />
 
         <ImageUploadField
           label="Portada del juego (opcional)"
@@ -399,6 +394,6 @@ export function OppositesGameForm({
           </button>
         </div>
       </form>
-    </div>
+    </GameFormShell>
   )
 }
