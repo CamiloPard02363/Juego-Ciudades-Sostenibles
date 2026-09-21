@@ -50,7 +50,9 @@ export function GameFormShell({
         <p className="mb-6 max-w-[640px] text-[13px] text-text">{description}</p>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-10">
-          <aside className="order-1 lg:order-2 lg:sticky lg:top-8">{aiPanel}</aside>
+          <aside className="order-1 lg:order-2 lg:sticky lg:top-8 lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto">
+            {aiPanel}
+          </aside>
           <div className={`order-2 w-full lg:order-1 ${formMaxWidthClassName}`}>{children}</div>
         </div>
       </div>
