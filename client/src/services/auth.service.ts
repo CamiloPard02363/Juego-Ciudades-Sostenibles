@@ -169,6 +169,19 @@ export function updateProfile(
   })
 }
 
+/**
+ * DELETE /users/me — borra la propia cuenta de forma definitiva (no una
+ * desactivación reversible como `deactivateUser`). Exige la contraseña
+ * actual como confirmación. Responde 204 sin cuerpo.
+ */
+export function deleteMyAccount(token: string, currentPlainPassword: string): Promise<void> {
+  return request<void>('/users/me', {
+    method: 'DELETE',
+    token,
+    body: { currentPlainPassword },
+  })
+}
+
 /** PATCH /users/:id/deactivate — desactiva un usuario. Solo ADMIN global. Responde 204 sin cuerpo. */
 export function deactivateUser(token: string, userId: string): Promise<void> {
   return request<void>(`/users/${userId}/deactivate`, {

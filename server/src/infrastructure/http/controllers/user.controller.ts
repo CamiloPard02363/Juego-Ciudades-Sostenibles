@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -13,6 +14,7 @@ import {
 import { CreateUserUseCase } from '../../../application/use-cases/create-user.use-case.js';
 import { UpdateUserProfileUseCase } from '../../../application/use-cases/update-user-profile.use-case.js';
 import { ChangeUserPasswordUseCase } from '../../../application/use-cases/change-user-password.use-case.js';
+import { DeleteOwnAccountUseCase } from '../../../application/use-cases/delete-own-account.use-case.js';
 import { GetUserByIdUseCase } from '../../../application/use-cases/get-user-by-id.use-case.js';
 import { DeactivateUserUseCase } from '../../../application/use-cases/deactivate-user.use-case.js';
 import { ReactivateUserUseCase } from '../../../application/use-cases/reactivate-user.use-case.js';
@@ -27,6 +29,7 @@ import { Roles } from '../decorators/roles.decorator.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { UpdateUserProfileDto } from '../dtos/update-user-profile.dto.js';
 import { ChangeUserPasswordDto } from '../dtos/change-user-password.dto.js';
+import { DeleteOwnAccountDto } from '../dtos/delete-own-account.dto.js';
 import { ChangeUserRoleDto } from '../dtos/change-user-role.dto.js';
 import { ListUsersQueryDto } from '../dtos/list-users-query.dto.js';
 import { CreateUserDto } from '../dtos/create-user.dto.js';
@@ -39,6 +42,7 @@ export class UserController {
     private readonly getUserByIdUseCase: GetUserByIdUseCase,
     private readonly updateUserProfileUseCase: UpdateUserProfileUseCase,
     private readonly changeUserPasswordUseCase: ChangeUserPasswordUseCase,
+    private readonly deleteOwnAccountUseCase: DeleteOwnAccountUseCase,
     private readonly deactivateUserUseCase: DeactivateUserUseCase,
     private readonly reactivateUserUseCase: ReactivateUserUseCase,
     private readonly verifyUserEmailUseCase: VerifyUserEmailUseCase,
@@ -95,6 +99,12 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   changePassword(@CurrentUserId() userId: string, @Body() dto: ChangeUserPasswordDto) {
     return this.changeUserPasswordUseCase.execute({ userId, ...dto });
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteMyAccount(@CurrentUserId() userId: string, @Body() dto: DeleteOwnAccountDto) {
+    return this.deleteOwnAccountUseCase.execute({ userId, ...dto });
   }
 
   @Post('me/verify-email')
