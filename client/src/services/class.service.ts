@@ -34,10 +34,6 @@ export type TeacherClassDetail = TeacherClass & {
   students: EnrolledStudent[]
 }
 
-export function listMyClasses(token: string): Promise<TeacherClass[]> {
-  return request<TeacherClass[]>('/classes/mine', { token })
-}
-
 /** GET /classes/mine/detail — clases propias con estudiantes matriculados e invite code. */
 export function listMyClassesDetail(token: string): Promise<TeacherClassDetail[]> {
   return request<TeacherClassDetail[]>('/classes/mine/detail', { token })

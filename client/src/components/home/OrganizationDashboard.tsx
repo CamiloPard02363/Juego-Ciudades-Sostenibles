@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Globe2, PlusCircle, Search, UserMinus, UserPlus, Users2 } from 'lucide-react'
@@ -138,10 +138,13 @@ export function OrganizationDashboard() {
     setAllOrganizationsPage(1)
   }, [allOrganizationsActiveFilter])
 
-  useEffect(() => {
+  // Único punto que arma los parámetros de `listAllOrganizations` — se
+  // reutiliza en la carga inicial/paginación y tras crear o (des)activar una
+  // organización, para no desalinear `total`/`page` con el filtro activo.
+  const reloadAllOrganizations = useCallback(() => {
     if (!token || !isGlobalAdmin) return
     setLoadingAllOrganizations(true)
-    listAllOrganizations(token, {
+    return listAllOrganizations(token, {
       page: allOrganizationsPage,
       pageSize: ALL_ORGS_PAGE_SIZE,
       search: debouncedAllOrgsSearch || undefined,
@@ -157,6 +160,10 @@ export function OrganizationDashboard() {
       })
       .finally(() => setLoadingAllOrganizations(false))
   }, [token, isGlobalAdmin, allOrganizationsPage, debouncedAllOrgsSearch, allOrganizationsActiveFilter])
+
+  useEffect(() => {
+    reloadAllOrganizations()
+  }, [reloadAllOrganizations])
 
   useEffect(() => {
     if (selectableOrganizations.length === 0) return
@@ -239,27 +246,12 @@ export function OrganizationDashboard() {
         name: newOrgName.trim(),
         domain: newOrgDomain.trim() || null,
       })
-      // Refresca ambos ejes: para el ADMIN global, `allOrganizations` ahora es
-      // paginado/filtrado — se recarga desde el servidor en vez de anteponer
-      // el objeto a mano, para no desalinear `total`/`page` con el filtro
-      // activo. Para quien la acaba de fundar, además queda como ADMIN de
-      // ella en `organizations` — ese eje solo lo repuebla
+      // Refresca ambos ejes: para el ADMIN global, `allOrganizations` (ahora
+      // paginado/filtrado). Para quien la acaba de fundar, además queda como
+      // ADMIN de ella en `organizations` — ese eje solo lo repuebla
       // `listMyOrganizations`.
       if (isGlobalAdmin) {
-        listAllOrganizations(token, {
-          page: allOrganizationsPage,
-          pageSize: ALL_ORGS_PAGE_SIZE,
-          search: debouncedAllOrgsSearch || undefined,
-          isActive:
-            allOrganizationsActiveFilter === 'all' ? undefined : allOrganizationsActiveFilter === 'active',
-        })
-          .then((result) => {
-            setAllOrganizations(result.items)
-            setAllOrganizationsTotal(result.total)
-          })
-          .catch((err: unknown) => {
-            console.error('No se pudieron recargar todas las organizaciones de la plataforma:', err)
-          })
+        reloadAllOrganizations()
       }
       listMyOrganizations(token)
         .then((items) => setOrganizations(items))
@@ -328,15 +320,16 @@ export function OrganizationDashboard() {
     if (!token || !orgPendingToggle) return
     setTogglingOrgId(orgPendingToggle.id)
     try {
+      const nextIsActive = !orgPendingToggle.isActive
       if (orgPendingToggle.isActive) {
         await deactivateOrganization(token, orgPendingToggle.id)
       } else {
         await reactivateOrganization(token, orgPendingToggle.id)
       }
-      const nextIsActive = !orgPendingToggle.isActive
-      setAllOrganizations((current) =>
-        current.map((org) => (org.id === orgPendingToggle.id ? { ...org, isActive: nextIsActive } : org)),
-      )
+      // Recarga desde el servidor en vez de mutar `isActive` localmente: si
+      // hay un filtro activo/inactivo aplicado, la organización puede dejar
+      // de pertenecer a la página actual, y `total` debe reflejarlo.
+      await reloadAllOrganizations()
       showToast(nextIsActive ? 'Organización reactivada.' : 'Organización desactivada.')
       setOrgPendingToggle(null)
     } catch (err) {
@@ -628,7 +621,7 @@ export function OrganizationDashboard() {
                   type="button"
                   className="rounded-lg border border-border px-3 py-1.5 font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={
-                    allOrganizationsPage >= Math.ceil(allOrganizationsTotal / ALL_ORGS_PAGE_SIZE) ||
+                    allOrganizationsPage >= Math.max(1, Math.ceil(allOrganizationsTotal / ALL_ORGS_PAGE_SIZE)) ||
                     loadingAllOrganizations
                   }
                   onClick={() => setAllOrganizationsPage((current) => current + 1)}

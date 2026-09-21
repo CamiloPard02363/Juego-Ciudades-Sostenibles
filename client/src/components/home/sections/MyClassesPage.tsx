@@ -50,7 +50,7 @@ export function MyClassesPage() {
     if (!token || user?.role !== 'TEACHER') return
     listMyOrganizations(token)
       .then(setMyOrganizations)
-      .catch(() => {})
+      .catch((err: unknown) => console.error('No se pudieron cargar las organizaciones del profesor:', err))
   }, [token, user?.role])
 
   async function handleCreate() {
@@ -58,22 +58,15 @@ export function MyClassesPage() {
     setSavingClass(true)
     setError(null)
     try {
-      const classItem = await createClass(token, {
+      await createClass(token, {
         name: name.trim(),
         description: description.trim() || undefined,
         organizationId: organizationId || undefined,
       })
-      setClasses((current) => [{ ...classItem, organizationId: organizationId || null, inviteCode: '', students: [] }, ...current])
       setName('')
       setDescription('')
       setOrganizationId('')
       setCreating(false)
-      // El objeto devuelto por `createClass` no trae `inviteCode`/`students`
-      // (esos campos solo existen en `ClassDetailDto`) — se recarga el
-      // detalle completo para no mostrar una clase con invite code vacío.
-      listMyClassesDetail(token)
-        .then(setClasses)
-        .catch(() => {})
     } catch (err: unknown) {
       const message = err instanceof ApiError ? err.message : 'No se pudo crear la clase.'
       if (err instanceof ApiError && err.status === 403) {
@@ -81,6 +74,19 @@ export function MyClassesPage() {
       } else {
         setError(message)
       }
+      setSavingClass(false)
+      return
+    }
+    // El objeto devuelto por `createClass` no trae `inviteCode`/`students`
+    // (esos campos solo existen en `ClassDetailDto`) — se recarga el detalle
+    // completo en vez de insertar un item parcial optimista. La clase ya
+    // quedó creada en el backend, así que un fallo aquí no debe leerse como
+    // "no se pudo crear la clase".
+    try {
+      const detail = await listMyClassesDetail(token)
+      setClasses(detail)
+    } catch (err: unknown) {
+      console.error('La clase se creó, pero no se pudo recargar el listado:', err)
     } finally {
       setSavingClass(false)
     }
@@ -255,7 +261,7 @@ function ClassDetail({
     if (!token) return
     listSubjects(token)
       .then(setSubjects)
-      .catch(() => {})
+      .catch((err: unknown) => console.error('No se pudieron cargar las materias:', err))
   }, [token])
 
   function subjectNameFor(categoryId: string): string {
