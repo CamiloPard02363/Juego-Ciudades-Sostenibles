@@ -1,40 +1,56 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Plus, Search, Trash2, Users } from 'lucide-react'
+import { ChevronLeft, Copy, Plus, Search, Trash2, Users } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
+import { useToast } from '../../../hooks/useToast'
 import { ApiError } from '../../../utils/http'
 import {
   createClass,
-  listMyClasses,
+  listMyClassesDetail,
   listClassGames,
   addGameToClass,
   removeGameFromClass,
-  type TeacherClass,
+  type TeacherClassDetail,
 } from '../../../services/class.service'
 import { listGames, type GameSummary } from '../../../services/game.service'
+import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { listSubjects, type SubjectWithGameCount } from '../../../services/subject.service'
 import { iconForCategory } from '../gamesCatalogVisuals'
 import { Modal } from '../games/Modal'
 
 export function MyClassesPage() {
   const { token, user } = useAuth()
+  const { showToast } = useToast()
   const navigate = useNavigate()
   const { classId } = useParams<{ classId?: string }>()
 
-  const [classes, setClasses] = useState<TeacherClass[]>([])
+  const [classes, setClasses] = useState<TeacherClassDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [organizationId, setOrganizationId] = useState('')
   const [savingClass, setSavingClass] = useState(false)
+
+  // Organizaciones propias del profesor, para el selector opcional al crear
+  // clase (issue #106/#108, CA1.7). Si son 0 o 1, el selector no se muestra —
+  // nunca se fuerza una única opción.
+  const [myOrganizations, setMyOrganizations] = useState<OrganizationWithMyRole[]>([])
 
   useEffect(() => {
     if (!token || user?.role !== 'TEACHER') return
-    listMyClasses(token)
+    listMyClassesDetail(token)
       .then(setClasses)
       .catch((err: unknown) => setError(err instanceof ApiError ? err.message : 'No se pudieron cargar tus clases.'))
       .finally(() => setLoading(false))
+  }, [token, user?.role])
+
+  useEffect(() => {
+    if (!token || user?.role !== 'TEACHER') return
+    listMyOrganizations(token)
+      .then(setMyOrganizations)
+      .catch((err: unknown) => console.error('No se pudieron cargar las organizaciones del profesor:', err))
   }, [token, user?.role])
 
   async function handleCreate() {
@@ -42,13 +58,35 @@ export function MyClassesPage() {
     setSavingClass(true)
     setError(null)
     try {
-      const classItem = await createClass(token, { name: name.trim(), description: description.trim() || undefined })
-      setClasses((current) => [classItem, ...current])
+      await createClass(token, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        organizationId: organizationId || undefined,
+      })
       setName('')
       setDescription('')
+      setOrganizationId('')
       setCreating(false)
     } catch (err: unknown) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo crear la clase.')
+      const message = err instanceof ApiError ? err.message : 'No se pudo crear la clase.'
+      if (err instanceof ApiError && err.status === 403) {
+        showToast(message, 'error')
+      } else {
+        setError(message)
+      }
+      setSavingClass(false)
+      return
+    }
+    // El objeto devuelto por `createClass` no trae `inviteCode`/`students`
+    // (esos campos solo existen en `ClassDetailDto`) — se recarga el detalle
+    // completo en vez de insertar un item parcial optimista. La clase ya
+    // quedó creada en el backend, así que un fallo aquí no debe leerse como
+    // "no se pudo crear la clase".
+    try {
+      const detail = await listMyClassesDetail(token)
+      setClasses(detail)
+    } catch (err: unknown) {
+      console.error('La clase se creó, pero no se pudo recargar el listado:', err)
     } finally {
       setSavingClass(false)
     }
@@ -113,6 +151,23 @@ export function MyClassesPage() {
               {savingClass ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
+          {myOrganizations.length > 1 && (
+            <label className="mt-3 flex flex-col gap-1.5 text-[13px] font-medium text-text-h sm:max-w-[320px]">
+              Organización <span className="font-normal text-text">(opcional)</span>
+              <select
+                value={organizationId}
+                onChange={(event) => setOrganizationId(event.target.value)}
+                className="rounded-xl border border-border bg-bg px-3 py-2.5 text-[14px] text-text-h outline-none focus:border-accent focus:ring-2 focus:ring-accent/10"
+              >
+                <option value="">Sin organización</option>
+                {myOrganizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       )}
 
@@ -139,7 +194,7 @@ export function MyClassesPage() {
   )
 }
 
-function ClassCard({ classItem, onOpen }: { classItem: TeacherClass; onOpen: () => void }) {
+function ClassCard({ classItem, onOpen }: { classItem: TeacherClassDetail; onOpen: () => void }) {
   const { token } = useAuth()
   const [gameCount, setGameCount] = useState<number | null>(null)
 
@@ -176,10 +231,11 @@ function ClassDetail({
   onBack,
 }: {
   classId: string
-  classInfo: TeacherClass | null
+  classInfo: TeacherClassDetail | null
   onBack: () => void
 }) {
   const { token } = useAuth()
+  const { showToast } = useToast()
   const [games, setGames] = useState<GameSummary[]>([])
   const [subjects, setSubjects] = useState<SubjectWithGameCount[]>([])
   const [loading, setLoading] = useState(true)
@@ -205,7 +261,7 @@ function ClassDetail({
     if (!token) return
     listSubjects(token)
       .then(setSubjects)
-      .catch(() => {})
+      .catch((err: unknown) => console.error('No se pudieron cargar las materias:', err))
   }, [token])
 
   function subjectNameFor(categoryId: string): string {
@@ -225,6 +281,16 @@ function ClassDetail({
     }
   }
 
+  async function handleCopyInviteCode() {
+    if (!classInfo?.inviteCode) return
+    try {
+      await navigator.clipboard.writeText(classInfo.inviteCode)
+      showToast('Código de invitación copiado.')
+    } catch {
+      showToast('No se pudo copiar el código.', 'error')
+    }
+  }
+
   return (
     <section className="flex flex-col gap-6">
       <div>
@@ -240,6 +306,17 @@ function ClassDetail({
           <div>
             <p className="text-[13px] text-text">Mis Clases / {classInfo?.name ?? 'Clase'}</p>
             <h2 className="mt-1 text-[22px] tracking-tight text-text-h">{classInfo?.name ?? 'Clase'}</h2>
+            {classInfo?.inviteCode && (
+              <button
+                type="button"
+                onClick={handleCopyInviteCode}
+                title="Copiar código de invitación"
+                className="mt-2 flex items-center gap-1.5 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[12.5px] font-medium text-text-h hover:border-accent"
+              >
+                <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+                Código: {classInfo.inviteCode}
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -254,6 +331,41 @@ function ClassDetail({
       </div>
 
       {error && <p className="rounded-lg border border-danger/35 bg-danger/10 px-3 py-2.5 text-sm text-danger" role="alert">{error}</p>}
+
+      <div className="rounded-2xl border border-border p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Users className="h-[18px] w-[18px] text-text" strokeWidth={2} />
+          <h3 className="text-[15px] font-semibold text-text-h">Estudiantes matriculados</h3>
+        </div>
+        {!classInfo || classInfo.students.length === 0 ? (
+          <p className="text-[14px] text-text">Todavía no hay estudiantes matriculados en esta clase.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13.5px]">
+              <thead>
+                <tr className="border-b border-border text-text/70">
+                  <th className="px-3 py-2 font-medium">Nombre</th>
+                  <th className="px-3 py-2 font-medium">Correo</th>
+                  <th className="px-3 py-2 font-medium">Matriculado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classInfo.students.map((student) => (
+                  <tr key={student.userId} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2.5 text-text-h">{student.displayName ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-text">{student.email ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-text">
+                      {new Date(student.enrolledAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <h3 className="text-[15px] font-semibold text-text-h">Juegos asignados</h3>
 
       {loading ? (
         <p className="text-[14px] text-text">Cargando juegos…</p>

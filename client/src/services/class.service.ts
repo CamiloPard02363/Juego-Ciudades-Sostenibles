@@ -12,10 +12,31 @@ export type TeacherClass = {
 export type CreateClassInput = {
   name: string
   description?: string
+  organizationId?: string
 }
 
-export function listMyClasses(token: string): Promise<TeacherClass[]> {
-  return request<TeacherClass[]>('/classes/mine', { token })
+/** Estudiante matriculado en una clase, tal como lo devuelve `GET /classes/mine/detail` (issue #106/#108). */
+export type EnrolledStudent = {
+  userId: string
+  displayName: string | null
+  email: string | null
+  enrolledAt: string
+}
+
+/**
+ * Detalle de clase del profesor con código de invitación y matrícula
+ * (issue #106, `ClassDetailDto`). Reemplaza a `TeacherClass` como fuente de
+ * datos de `MyClassesPage` — no coexisten.
+ */
+export type TeacherClassDetail = TeacherClass & {
+  organizationId: string | null
+  inviteCode: string
+  students: EnrolledStudent[]
+}
+
+/** GET /classes/mine/detail — clases propias con estudiantes matriculados e invite code. */
+export function listMyClassesDetail(token: string): Promise<TeacherClassDetail[]> {
+  return request<TeacherClassDetail[]>('/classes/mine/detail', { token })
 }
 
 export function createClass(token: string, input: CreateClassInput): Promise<TeacherClass> {
