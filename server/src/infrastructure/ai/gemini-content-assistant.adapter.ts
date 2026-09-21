@@ -13,6 +13,13 @@ import type {
 // modelo en su lugar).
 const TEXT_MODEL = 'gemini-3.6-flash';
 
+// El plan gratuito de Google AI Studio limita a pocas llamadas por minuto
+// (5 para este modelo al momento de escribir esto). Configurable por si el
+// proyecto pasa a un plan de pago con más cuota — ver GOOGLE_IA_STUDIO_MAX_RPM
+// en .env.example.
+const DEFAULT_MAX_REQUESTS_PER_MINUTE = 5;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
 /**
  * Único archivo que sabe que el proveedor de IA es Gemini. Si el día de
  * mañana se cambia de proveedor, se escribe una clase nueva que implemente
@@ -22,6 +29,8 @@ const TEXT_MODEL = 'gemini-3.6-flash';
 @Injectable()
 export class GeminiContentAssistant implements AiContentAssistant {
   private client: GoogleGenAI | null = null;
+  /** Timestamps (epoch ms) de las últimas llamadas a Gemini, para el throttle de abajo. */
+  private requestTimestamps: number[] = [];
 
   private getClient(): GoogleGenAI {
     const apiKey = process.env.GOOGLE_IA_STUDIO_API_KEY;
@@ -36,8 +45,36 @@ export class GeminiContentAssistant implements AiContentAssistant {
     return this.client;
   }
 
+  /**
+   * "¿Quién Es?" y "Pares" piden una descripción por cada imagen subida
+   * (mínimo 12) más una llamada final para armar el borrador — sin esto,
+   * `GenerateGameDraftUseCase` las dispara todas en paralelo con
+   * `Promise.all` y se agota la cuota gratuita (5/min) al instante, incluso
+   * en el segundo intento (que vuelve a disparar todo junto). Se espacian
+   * las llamadas para nunca superar `GOOGLE_IA_STUDIO_MAX_RPM` en cualquier
+   * ventana de 60s, en vez de dejar que la API de Google las rechace.
+   */
+  private async throttle(): Promise<void> {
+    const limitRaw = Number(process.env.GOOGLE_IA_STUDIO_MAX_RPM);
+    const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? limitRaw : DEFAULT_MAX_REQUESTS_PER_MINUTE;
+
+    for (;;) {
+      const now = Date.now();
+      this.requestTimestamps = this.requestTimestamps.filter(
+        (timestamp) => now - timestamp < RATE_LIMIT_WINDOW_MS,
+      );
+      if (this.requestTimestamps.length < limit) {
+        this.requestTimestamps.push(now);
+        return;
+      }
+      const waitMs = RATE_LIMIT_WINDOW_MS - (now - this.requestTimestamps[0]) + 250;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+
   async describeImage({ buffer, mimeType }: DescribeImageInput): Promise<string> {
     const client = this.getClient();
+    await this.throttle();
     let response;
     try {
       response = await client.models.generateContent({
@@ -85,6 +122,7 @@ Texto fuente (extraído de los archivos que subió el usuario para el tema "${ga
 ${sourceText.slice(0, 200_000)}
 """${imagesSection}`;
 
+    await this.throttle();
     let response;
     try {
       response = await client.models.generateContent({
