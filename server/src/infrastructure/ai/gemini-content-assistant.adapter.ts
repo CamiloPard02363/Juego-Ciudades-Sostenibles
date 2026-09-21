@@ -35,20 +35,25 @@ export class GeminiContentAssistant implements AiContentAssistant {
 
   async describeImage({ buffer, mimeType }: DescribeImageInput): Promise<string> {
     const client = this.getClient();
-    const response = await client.models.generateContent({
-      model: TEXT_MODEL,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: 'Describe en texto plano toda la información legible y relevante de esta imagen (texto, datos, conceptos). No agregues comentarios ni formato, solo la información extraída.',
-            },
-            { inlineData: { mimeType, data: buffer.toString('base64') } },
-          ],
-        },
-      ],
-    });
+    let response;
+    try {
+      response = await client.models.generateContent({
+        model: TEXT_MODEL,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: 'Describe en texto plano toda la información legible y relevante de esta imagen (texto, datos, conceptos). No agregues comentarios ni formato, solo la información extraída.',
+              },
+              { inlineData: { mimeType, data: buffer.toString('base64') } },
+            ],
+          },
+        ],
+      });
+    } catch (error) {
+      throw this.wrapProviderError(error);
+    }
 
     return response.text?.trim() ?? '';
   }
@@ -77,11 +82,16 @@ Texto fuente (extraído de los archivos que subió el usuario para el tema "${ga
 ${sourceText.slice(0, 200_000)}
 """${imagesSection}`;
 
-    const response = await client.models.generateContent({
-      model: TEXT_MODEL,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { responseMimeType: 'application/json' },
-    });
+    let response;
+    try {
+      response = await client.models.generateContent({
+        model: TEXT_MODEL,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: { responseMimeType: 'application/json' },
+      });
+    } catch (error) {
+      throw this.wrapProviderError(error);
+    }
 
     const raw = response.text?.trim();
     if (!raw) {
@@ -101,5 +111,20 @@ ${sourceText.slice(0, 200_000)}
 
     const { config, content } = parsed as { config?: unknown; content?: unknown };
     return { config: config ?? {}, content };
+  }
+
+  /**
+   * Antes, un error del SDK de Google (key inválida, cuota agotada, red)
+   * quedaba sin capturar y NestJS lo convertía en un 500 genérico sin
+   * mensaje — imposible de diagnosticar desde el cliente o sin acceso a los
+   * logs del servidor. Se envuelve en un error HTTP real (que SÍ maneja
+   * Nest, a diferencia de un throw crudo) con el motivo original del
+   * proveedor, para que se vea tanto en la respuesta como en los logs.
+   */
+  private wrapProviderError(error: unknown): ServiceUnavailableException {
+    const reason = error instanceof Error ? error.message : String(error);
+    return new ServiceUnavailableException(
+      `El asistente de IA no pudo responder (proveedor): ${reason}`,
+    );
   }
 }
