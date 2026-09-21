@@ -2,12 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { InvalidGameContentError } from '../../domain/errors/game.errors.js';
 import type { ContentValidator } from './content-validator.port.js';
 
-/** Una tarjeta del set de "¿Quién Es?": imagen + nombre, con audio opcional. */
+/**
+ * Una tarjeta del set de "¿Quién Es?": imagen + nombre, con audio opcional y
+ * un dato breve opcional (`info`) sobre el tema de esa tarjeta específica —
+ * ej. si es la bandera de un país, un dato curioso de ese país. Se muestra
+ * como una burbuja de información en la esquina de la tarjeta durante la
+ * partida (ver CardInfoBubble en el cliente).
+ */
 export interface GuessWhoCard {
   cardId: string;
   imageUrl: string;
   label: string;
   audioUrl: string | null;
+  info: string | null;
 }
 
 export interface GuessWhoConfig {
@@ -23,6 +30,7 @@ const DEFAULT_CONFIG: GuessWhoConfig = {
 
 const MAX_LABEL_LENGTH = 120;
 const MAX_URL_LENGTH = 2048;
+const MAX_INFO_LENGTH = 500;
 const MIN_CARDS = 12;
 const MAX_CARDS = 60;
 
@@ -87,12 +95,20 @@ export class GuessWhoContentValidator implements ContentValidator {
     if (!isNullableString(card.audioUrl, MAX_URL_LENGTH)) {
       throw new InvalidGameContentError(`la tarjeta en la posición ${index} tiene un audio inválido.`);
     }
+    if (!isNullableString(card.info, MAX_INFO_LENGTH)) {
+      throw new InvalidGameContentError(
+        `la tarjeta en la posición ${index} tiene un dato demasiado largo (máximo ${MAX_INFO_LENGTH} caracteres).`,
+      );
+    }
+
+    const trimmedInfo = typeof card.info === 'string' ? card.info.trim() : null;
 
     return {
       cardId: isNonEmptyString(card.cardId, 60) ? card.cardId : `card-${index}`,
       imageUrl: card.imageUrl,
       label: card.label.trim(),
       audioUrl: card.audioUrl ?? null,
+      info: trimmedInfo || null,
     };
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Clock3, SkipForward, Swords, Volume2 } from 'lucide-react'
 import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoCard, type RoomPlayerView } from './guessWhoTypes'
+import { CardInfoBubble } from './CardInfoBubble'
 
 /**
  * Cuenta el tiempo restante hasta `deadline` (epoch ms) y se refresca cada
@@ -204,7 +205,7 @@ export function AccusationOverlay({
   onCancel,
   onAccuse,
 }: {
-  cards: { cardId: string; imageUrl: string; label: string }[]
+  cards: GuessWhoCard[]
   discardedCardIds: string[]
   onCancel: () => void
   onAccuse: (cardId: string) => void
@@ -224,18 +225,20 @@ export function AccusationOverlay({
         <h3 className="mb-4 text-[16px] font-semibold text-text-h">Elige la tarjeta del rival</h3>
         <div className="grid grid-cols-3 gap-2.5">
           {remaining.map((card, index) => (
-            <button
-              key={card.cardId}
-              type="button"
-              className="overflow-hidden rounded-lg border border-border text-left transition-transform hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]"
-              style={{ animation: `card-pop-in 0.25s ease-out ${index * 0.03}s backwards` }}
-              onClick={() => onAccuse(card.cardId)}
-            >
-              <img src={card.imageUrl} alt="" className="h-16 w-full object-cover" />
-              <p className="truncate bg-surface px-1.5 py-1 text-[10.5px] font-medium text-text-h">
-                {card.label}
-              </p>
-            </button>
+            <div key={card.cardId} className="relative">
+              <button
+                type="button"
+                className="w-full overflow-hidden rounded-lg border border-border text-left transition-transform hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]"
+                style={{ animation: `card-pop-in 0.25s ease-out ${index * 0.03}s backwards` }}
+                onClick={() => onAccuse(card.cardId)}
+              >
+                <img src={card.imageUrl} alt="" className="h-16 w-full object-cover" />
+                <p className="truncate bg-surface px-1.5 py-1 text-[10.5px] font-medium text-text-h">
+                  {card.label}
+                </p>
+              </button>
+              {card.info && <CardInfoBubble info={card.info} label={card.label} />}
+            </div>
           ))}
         </div>
         <button
@@ -312,11 +315,14 @@ export function MatchBoard({
                 más intuitivo y pedagógico: quien juega ve la bandera/tarjeta
                 que su rival debe adivinar, no solo su etiqueta de texto. */}
             {secretCard?.imageUrl && (
-              <img
-                src={secretCard.imageUrl}
-                alt=""
-                className="mt-2 h-20 w-full rounded-lg border border-border object-cover"
-              />
+              <div className="relative mt-2">
+                <img
+                  src={secretCard.imageUrl}
+                  alt=""
+                  className="h-20 w-full rounded-lg border border-border object-cover"
+                />
+                {secretCard.info && <CardInfoBubble info={secretCard.info} label={secretCard.label} />}
+              </div>
             )}
             <p className="mt-2 text-[14px] font-semibold text-text-h">{secretCard?.label ?? '—'}</p>
             <p className="mt-1.5 text-[11.5px] text-text">
@@ -384,40 +390,42 @@ export function MatchBoard({
             const discarded = self.discardedCardIds.includes(card.cardId)
             const locked = !isMyTurn || discarded
             return (
-              <button
-                key={card.cardId}
-                type="button"
-                disabled={locked}
-                className={`group relative overflow-hidden rounded-lg border text-left transition-[transform,border-color] duration-200 ${
-                  discarded
-                    ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out]'
-                    : locked
-                      ? 'cursor-not-allowed border-border'
-                      : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
-                }`}
-                style={{
-                  animation: discarded
-                    ? undefined
-                    : `card-pop-in 0.3s ease-out ${Math.min(index, 12) * 0.03}s backwards`,
-                }}
-                onClick={() => !locked && onDiscard(card.cardId)}
-              >
-                <img src={card.imageUrl} alt="" className="h-20 w-full object-cover" />
-                <p className="truncate bg-surface px-1.5 py-1 text-[11px] font-medium text-text-h">{card.label}</p>
-                {card.audioUrl && (
-                  <button
-                    type="button"
-                    className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      new Audio(card.audioUrl as string).play().catch(() => {})
-                    }}
-                    aria-label={`Reproducir audio de ${card.label}`}
-                  >
-                    <Volume2 className="h-3 w-3" strokeWidth={2.5} />
-                  </button>
-                )}
-              </button>
+              <div key={card.cardId} className="relative">
+                <button
+                  type="button"
+                  disabled={locked}
+                  className={`group relative w-full overflow-hidden rounded-lg border text-left transition-[transform,border-color] duration-200 ${
+                    discarded
+                      ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out]'
+                      : locked
+                        ? 'cursor-not-allowed border-border'
+                        : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
+                  }`}
+                  style={{
+                    animation: discarded
+                      ? undefined
+                      : `card-pop-in 0.3s ease-out ${Math.min(index, 12) * 0.03}s backwards`,
+                  }}
+                  onClick={() => !locked && onDiscard(card.cardId)}
+                >
+                  <img src={card.imageUrl} alt="" className="h-20 w-full object-cover" />
+                  <p className="truncate bg-surface px-1.5 py-1 text-[11px] font-medium text-text-h">{card.label}</p>
+                  {card.audioUrl && (
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        new Audio(card.audioUrl as string).play().catch(() => {})
+                      }}
+                      aria-label={`Reproducir audio de ${card.label}`}
+                    >
+                      <Volume2 className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                  )}
+                </button>
+                {card.info && <CardInfoBubble info={card.info} label={card.label} />}
+              </div>
             )
           })}
         </div>

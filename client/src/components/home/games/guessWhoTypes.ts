@@ -3,6 +3,8 @@ export type GuessWhoCard = {
   imageUrl: string
   label: string
   audioUrl: string | null
+  /** Dato breve opcional sobre el tema de esa tarjeta (ej. dato de un país si es una bandera) — se muestra como burbuja de información en el juego. */
+  info: string | null
 }
 
 /**

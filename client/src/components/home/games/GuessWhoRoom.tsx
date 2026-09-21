@@ -11,6 +11,7 @@ import { DealCountdownOverlay, MatchBoard, useCountdown } from './MatchBoard'
 import { TournamentRoom } from './TournamentRoom'
 import { JoinByCodeModal } from './JoinByCodeModal'
 import { ConfettiBurst } from '../../kids/ConfettiBurst'
+import { CardInfoBubble } from './CardInfoBubble'
 
 type GuessWhoRoomProps = {
   gameId: string
@@ -633,12 +634,12 @@ function RevealedSecretCard({
   isWinner,
 }: {
   ownerLabel: string
-  card: { imageUrl: string; label: string } | undefined
+  card: { imageUrl: string; label: string; info?: string | null } | undefined
   isWinner: boolean
 }) {
   if (!card) return null
   return (
-    <div className="flex w-[112px] flex-col items-center gap-1.5">
+    <div className="relative flex w-[112px] flex-col items-center gap-1.5">
       <div
         className={`relative overflow-hidden rounded-lg border-2 ${isWinner ? 'border-accent' : 'border-border'}`}
       >
@@ -649,6 +650,7 @@ function RevealedSecretCard({
           </span>
         )}
       </div>
+      {card.info && <CardInfoBubble info={card.info} label={card.label} />}
       <p className="text-[11px] font-medium text-text">{ownerLabel}</p>
       <p className="text-[12.5px] font-semibold text-text-h">{card.label}</p>
     </div>
