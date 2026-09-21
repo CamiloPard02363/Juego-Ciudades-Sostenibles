@@ -23,10 +23,13 @@ type CardDraft = {
   imageUrl: string | null
   label: string
   audioUrl: string | null
+  /** Dato breve opcional sobre el tema de la tarjeta (ej. dato de un país si es una bandera). */
+  info: string
 }
 
-const EMPTY_CARD: CardDraft = { imageUrl: null, label: '', audioUrl: null }
+const EMPTY_CARD: CardDraft = { imageUrl: null, label: '', audioUrl: null, info: '' }
 const MIN_CARDS = 12
+const MAX_INFO_LENGTH = 500
 const DEFAULT_MAX_ACCUSATION_COUNT = 6
 
 type GuessWhoGameFormProps = {
@@ -113,6 +116,7 @@ export function GuessWhoGameForm({
           imageUrl: typeof raw.imageUrl === 'string' ? raw.imageUrl : null,
           label: typeof raw.label === 'string' ? raw.label : '',
           audioUrl: typeof raw.audioUrl === 'string' ? raw.audioUrl : null,
+          info: typeof raw.info === 'string' ? raw.info : '',
         }
       }),
     )
@@ -176,6 +180,7 @@ export function GuessWhoGameForm({
           imageUrl: card.imageUrl as string,
           label: card.label.trim(),
           audioUrl: card.audioUrl,
+          info: card.info.trim() || null,
         })),
         config: { maxAccusationCount },
       })
@@ -347,6 +352,27 @@ export function GuessWhoGameForm({
                   disabled={submitting}
                   onChange={(url) => updateCard(index, 'audioUrl', url)}
                 />
+              </div>
+              <div className="mt-3">
+                <label
+                  className="mb-1.5 block text-[13px] font-medium text-text-h"
+                  htmlFor={`card-info-${index}`}
+                >
+                  Dato curioso (opcional)
+                </label>
+                <textarea
+                  id={`card-info-${index}`}
+                  rows={2}
+                  maxLength={MAX_INFO_LENGTH}
+                  className="w-full resize-none rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[13.5px] text-text-h outline-none focus:border-accent"
+                  placeholder="Ej. su capital es Buenos Aires y es el país de habla hispana más grande del mundo."
+                  value={card.info}
+                  disabled={submitting}
+                  onChange={(event) => updateCard(index, 'info', event.target.value)}
+                />
+                <p className="mt-1 text-[11.5px] text-text">
+                  Aparece como una burbuja de información en la tarjeta durante el juego.
+                </p>
               </div>
             </div>
           ))}

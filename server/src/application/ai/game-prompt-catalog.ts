@@ -103,12 +103,17 @@ abajo). Genera EXACTAMENTE una tarjeta por cada imagen disponible, usando cada �
 UNA sola vez (nunca repitas un imageIndex ni dejes uno sin usar). Para cada imagen, escribe un
 "label" corto (máximo 120 caracteres) que identifique con precisión lo que muestra esa imagen
 específica (ej. si es la bandera de un país, el nombre de ese país) — basándote en la descripción
-de esa imagen. No agregues "imageUrl" ni "audioUrl", solo "imageIndex" y "label".`,
+de esa imagen. Además, agrega un "info" (dato breve y curioso, máximo 280 caracteres) sobre el tema
+específico de esa tarjeta — ej. si es la bandera de un país, un dato interesante de ese país
+(capital, población, algo llamativo); si el tema no tiene un dato "de manual" tan obvio, igual
+escribe algo breve y relevante sobre ese elemento puntual. Este dato se muestra como una burbuja de
+información dentro de la tarjeta durante la partida. No agregues "imageUrl" ni "audioUrl", solo
+"imageIndex", "label" e "info".`,
   jsonShapeExample: `{
   "config": { "maxAccusationCount": 6, "turnDurationSeconds": 15 },
   "content": [
-    { "imageIndex": 0, "label": "Argentina" },
-    { "imageIndex": 1, "label": "Brasil" }
+    { "imageIndex": 0, "label": "Argentina", "info": "Su capital es Buenos Aires y es el país de habla hispana más grande del mundo." },
+    { "imageIndex": 1, "label": "Brasil", "info": "Es el único país de Sudamérica cuyo idioma oficial es el portugués." }
   ]
 }`,
   imageRequirement: { min: 12, max: 60 },
