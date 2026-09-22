@@ -104,7 +104,7 @@ export class GameFactoryService {
     );
 
     if (!membership) {
-      throw new NotAnOrganizationMemberError(organizationId);
+      throw new NotAnOrganizationMemberError(organization.name);
     }
   }
 }

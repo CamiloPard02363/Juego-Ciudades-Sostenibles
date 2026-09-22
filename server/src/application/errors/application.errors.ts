@@ -101,8 +101,8 @@ export class OrganizationDomainAlreadyClaimedError extends ApplicationError {
 }
 
 export class NotAnOrganizationMemberError extends ApplicationError {
-  constructor(organizationId: string) {
-    super(`No pertenece a la organización "${organizationId}".`);
+  constructor(organizationName: string) {
+    super(`Debes pertenecer a la institución "${organizationName}" para realizar esta acción.`);
   }
 }
 

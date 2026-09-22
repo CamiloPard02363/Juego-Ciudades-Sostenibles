@@ -70,7 +70,8 @@ export class EnrollStudentUseCase implements UseCase<EnrollStudentInput, ClassDt
       input.userId,
     );
     if (!targetMembership) {
-      throw new NotAnOrganizationMemberError(classEntity.organizationId);
+      const organization = await this.organizationRepository.findById(classEntity.organizationId);
+      throw new NotAnOrganizationMemberError(organization?.name ?? classEntity.organizationId);
     }
 
     const enrollment = ClassEnrollment.create({

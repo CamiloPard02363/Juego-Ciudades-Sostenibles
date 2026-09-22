@@ -78,7 +78,7 @@ export class JoinClassUseCase {
         input.requestingUserId,
       );
       if (!membership) {
-        throw new NotAnOrganizationMemberError(classEntity.organizationId);
+        throw new NotAnOrganizationMemberError(organization?.name ?? classEntity.organizationId);
       }
     }
 
