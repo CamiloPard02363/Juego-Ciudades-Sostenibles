@@ -34,6 +34,8 @@ export interface OrganizationRepository {
   save(organization: Organization): Promise<void>;
   findById(id: string): Promise<Organization | null>;
   findByDomain(domain: EmailDomain): Promise<Organization | null>;
+  /** Resuelve `POST /organizations/join` (issue #133, CA-A2), análogo a `ClassRepository.findByInviteCode`. */
+  findByInviteCode(inviteCode: string): Promise<Organization | null>;
   /**
    * Query sin filtro de pertenencia — solo para ADMIN global de plataforma.
    * Con paginación, `search` (nombre o dominio) e `isActive` (issue #106,

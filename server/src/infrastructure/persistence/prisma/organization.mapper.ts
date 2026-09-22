@@ -16,6 +16,7 @@ export class OrganizationMapper {
       createdByUserId: record.createdByUserId,
       createdAt: record.createdAt,
       isActive: record.isActive,
+      inviteCode: record.inviteCode,
     });
   }
 
@@ -29,6 +30,7 @@ export class OrganizationMapper {
       createdByUserId: props.createdByUserId,
       createdAt: props.createdAt,
       isActive: props.isActive,
+      inviteCode: props.inviteCode,
     };
   }
 }

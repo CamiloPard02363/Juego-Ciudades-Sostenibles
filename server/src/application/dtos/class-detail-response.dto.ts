@@ -17,6 +17,8 @@ export interface ClassDetailDto {
   organizationId: string | null;
   inviteCode: string;
   createdAt: string;
+  /** Soft-delete de la clase (issue #133, Frente E). */
+  isActive: boolean;
   students: EnrolledStudentDto[];
 }
 
@@ -39,6 +41,7 @@ export function toClassDetailDto(
     organizationId: classEntity.organizationId,
     inviteCode: classEntity.inviteCode,
     createdAt: classEntity.createdAt.toISOString(),
+    isActive: classEntity.isActive,
     students: enrollments.map((enrollment) => {
       const user = usersById.get(enrollment.userId);
       return {

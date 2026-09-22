@@ -14,6 +14,13 @@ export interface OrganizationProps {
    * producto confirmada por Manuel.
    */
   isActive: boolean;
+  /**
+   * Código de invitación estático de la organización (issue #133, Frente A),
+   * generado una vez al crear — mismo patrón que `Class.inviteCode`. Permite
+   * a un profesor sin dominio de correo institucional sumar estudiantes por
+   * código en vez de agregarlos uno por uno por correo.
+   */
+  inviteCode: string;
 }
 
 export interface CreateOrganizationProps {
@@ -21,6 +28,7 @@ export interface CreateOrganizationProps {
   name: string;
   domain?: string | null;
   createdByUserId: string;
+  inviteCode: string;
 }
 
 const MIN_NAME_LENGTH = 3;
@@ -48,6 +56,7 @@ export class Organization {
       createdByUserId: props.createdByUserId,
       createdAt: new Date(),
       isActive: true,
+      inviteCode: props.inviteCode,
     });
   }
 
@@ -77,6 +86,10 @@ export class Organization {
 
   get isActive(): boolean {
     return this.props.isActive;
+  }
+
+  get inviteCode(): string {
+    return this.props.inviteCode;
   }
 
   deactivate(): void {

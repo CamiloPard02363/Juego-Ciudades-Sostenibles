@@ -15,6 +15,6 @@ export class ListAllClassesUseCase {
 
   async execute(): Promise<ClassDto[]> {
     const classes = await this.classRepository.findAll();
-    return classes.map(toClassDto);
+    return classes.map((classEntity) => toClassDto(classEntity));
   }
 }

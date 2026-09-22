@@ -8,18 +8,45 @@ ALTER TABLE "classes" ADD COLUMN "invite_code" TEXT;
 
 -- Backfill: genera un código aleatorio de 6 caracteres (mismo alfabeto que
 -- RandomInviteCodeGenerator, sin 0/O/1/I/L) para cada fila existente que
--- todavía no tiene inviteCode. Con pocas filas la probabilidad de colisión es
--- despreciable; si llegara a colisionar, el índice único de más abajo lo
--- haría fallar de forma ruidosa (preferible a un valor silenciosamente
--- duplicado).
-UPDATE "classes"
+-- todavía no tiene inviteCode.
+--
+-- CORRECCIÓN (detectada en revisión de código del PR #134, issue #133): la
+-- subconsulta original no estaba correlacionada con ninguna columna de
+-- "classes", así que PostgreSQL la resolvía como InitPlan y la evaluaba UNA
+-- sola vez para todo el UPDATE — con 2+ filas, TODAS recibían el mismo
+-- código, no una colisión estadística ocasional sino un resultado
+-- determinístico. Pasó desapercibido porque esta migración corrió con 0 o 1
+-- clase existente. Se corrige correlacionando con "c"."id" (vía el WHERE de
+-- la subconsulta) para forzar reevaluación por fila.
+UPDATE "classes" AS c
 SET "invite_code" = (
-  SELECT string_agg(substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', ceil(random() * 32)::int, 1), '')
+  SELECT string_agg(
+    substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 1 + floor(random() * 32)::int, 1),
+    ''
+  )
   FROM generate_series(1, 6)
+  WHERE c."id" IS NOT NULL
 )
 WHERE "invite_code" IS NULL;
 
--- Ahora que todas las filas tienen valor, se puede exigir NOT NULL + UNIQUE.
+-- Guard: si pese a la correlación por fila quedara algún duplicado
+-- (riesgo estadístico residual, ya no el bug determinístico corregido
+-- arriba), falla aquí con mensaje claro en vez de un P3018 genérico.
+DO $$
+DECLARE
+  duplicate_count INT;
+BEGIN
+  SELECT COUNT(*) INTO duplicate_count
+  FROM (
+    SELECT "invite_code" FROM "classes" GROUP BY "invite_code" HAVING COUNT(*) > 1
+  ) AS duplicates;
+
+  IF duplicate_count > 0 THEN
+    RAISE EXCEPTION 'Backfill de classes.invite_code generó % código(s) duplicado(s) — reintentar la migración.', duplicate_count;
+  END IF;
+END $$;
+
+-- Ahora que todas las filas tienen valor único, se puede exigir NOT NULL + UNIQUE.
 ALTER TABLE "classes" ALTER COLUMN "invite_code" SET NOT NULL;
 CREATE UNIQUE INDEX "classes_invite_code_key" ON "classes"("invite_code");
 

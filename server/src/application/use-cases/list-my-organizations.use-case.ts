@@ -8,6 +8,7 @@ import {
   type OrganizationWithMyRoleDto,
 } from '../dtos/organization-response.dto.js';
 import type { UseCase } from '../ports/use-case.port.js';
+import { RequesterAdminResolver } from '../services/requester-admin-resolver.service.js';
 
 export interface ListMyOrganizationsInput {
   requestingUserId: string;
@@ -21,6 +22,7 @@ export class ListMyOrganizationsUseCase
   constructor(
     @Inject(ORGANIZATION_REPOSITORY)
     private readonly organizationRepository: OrganizationRepository,
+    private readonly requesterAdminResolver: RequesterAdminResolver,
   ) {}
 
   async execute(input: ListMyOrganizationsInput): Promise<OrganizationWithMyRoleDto[]> {
@@ -39,9 +41,19 @@ export class ListMyOrganizationsUseCase
       memberships.map((membership) => [membership.organizationId, membership]),
     );
 
+    // Issue #133, CA-A3: el inviteCode solo se expone si el usuario es
+    // OrganizationRole.ADMIN de esa organización específica o ADMIN global —
+    // resuelto una sola vez acá en vez de por organización porque el eje de
+    // plataforma es el mismo para todas las filas.
+    const isPlatformAdmin = await this.requesterAdminResolver.resolve(
+      input.requestingUserId,
+    );
+
     return organizations.flatMap((organization) => {
       const membership = membershipByOrgId.get(organization.id);
-      return membership ? [toOrganizationWithMyRoleDto(organization, membership)] : [];
+      return membership
+        ? [toOrganizationWithMyRoleDto(organization, membership, { isPlatformAdmin })]
+        : [];
     });
   }
 }

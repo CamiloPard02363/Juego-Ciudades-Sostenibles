@@ -6,8 +6,11 @@ import { ForbiddenActionError } from '../../../domain/errors/authorization.error
 import { PublicEmailProviderDomainError } from '../../../domain/errors/organization.errors.js';
 import {
   ApplicationError,
+  CannotChangeOwnOrganizationRoleError,
   CategoryNotFoundError,
   CategorySlugAlreadyTakenError,
+  ClassHasNoOrganizationError,
+  ClassInactiveError,
   EmailAlreadyRegisteredError,
   GameImportJobNotFoundError,
   GameNotFoundError,
@@ -16,7 +19,9 @@ import {
   InvalidImageError,
   NotAnOrganizationMemberError,
   OrganizationDomainAlreadyClaimedError,
+  OrganizationNotFoundByInviteCodeError,
   OrganizationNotFoundError,
+  TargetUserNotMemberOfOrganizationError,
   UserAlreadyMemberOfOrganizationError,
   UserInactiveError,
   UserNotFoundError,
@@ -40,6 +45,11 @@ const STATUS_BY_ERROR = new Map<Function, HttpStatus>([
   [NotAnOrganizationMemberError, HttpStatus.FORBIDDEN],
   [PublicEmailProviderDomainError, HttpStatus.BAD_REQUEST],
   [UserAlreadyMemberOfOrganizationError, HttpStatus.CONFLICT],
+  [ClassInactiveError, HttpStatus.FORBIDDEN],
+  [ClassHasNoOrganizationError, HttpStatus.BAD_REQUEST],
+  [OrganizationNotFoundByInviteCodeError, HttpStatus.NOT_FOUND],
+  [CannotChangeOwnOrganizationRoleError, HttpStatus.FORBIDDEN],
+  [TargetUserNotMemberOfOrganizationError, HttpStatus.NOT_FOUND],
 ]);
 
 @Catch(DomainError, ApplicationError)

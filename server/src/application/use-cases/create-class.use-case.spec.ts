@@ -40,6 +40,7 @@ function setup(options: { hasMembership: boolean; personalOrgId?: string }) {
     save: vi.fn(),
     findById: vi.fn(),
     findByDomain: vi.fn(),
+    findByInviteCode: vi.fn(),
     findAll: vi.fn(),
     findAllByUserId: vi.fn(async () => []),
     saveMembership: vi.fn(),
@@ -68,6 +69,7 @@ function setup(options: { hasMembership: boolean; personalOrgId?: string }) {
   const teacherPersonalOrganization = new TeacherPersonalOrganizationService(
     organizationRepository,
     idGenerator,
+    inviteCodeGenerator,
   );
   vi.spyOn(teacherPersonalOrganization, 'ensurePersonalOrganization').mockResolvedValue(
     options.personalOrgId ?? 'personal-org-1',

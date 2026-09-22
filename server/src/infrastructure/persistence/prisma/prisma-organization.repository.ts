@@ -102,6 +102,13 @@ export class PrismaOrganizationRepository implements OrganizationRepository {
     return record ? OrganizationMapper.toDomain(record) : null;
   }
 
+  async findByInviteCode(inviteCode: string): Promise<Organization | null> {
+    const record = await this.prisma.organizationModel.findUnique({
+      where: { inviteCode },
+    });
+    return record ? OrganizationMapper.toDomain(record) : null;
+  }
+
   async findAll(filter: FindAllOrganizationsFilter): Promise<PaginatedOrganizations> {
     const where = {
       ...(filter.isActive !== undefined ? { isActive: filter.isActive } : {}),

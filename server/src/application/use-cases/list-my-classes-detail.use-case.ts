@@ -17,13 +17,20 @@ export class ListMyClassesDetailUseCase {
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
   ) {}
 
-  async execute(teacherUserId: string): Promise<ClassDetailDto[]> {
+  /**
+   * `includeInactive` (issue #133, CA-E4): por default solo trae clases
+   * activas; el profesor puede pedir también las desactivadas.
+   */
+  async execute(teacherUserId: string, includeInactive = false): Promise<ClassDetailDto[]> {
     const teacher = await this.userRepository.findById(teacherUserId);
     if (!teacher || teacher.role.getName() !== 'TEACHER') {
       throw new ForbiddenException('Solo un profesor puede consultar el detalle de sus clases.');
     }
 
-    const classes = await this.classRepository.findAllByTeacherUserId(teacherUserId);
+    const classes = await this.classRepository.findAllByTeacherUserId(
+      teacherUserId,
+      includeInactive,
+    );
     if (classes.length === 0) return [];
 
     const enrollments = await this.classRepository.findEnrollmentsByClassIds(

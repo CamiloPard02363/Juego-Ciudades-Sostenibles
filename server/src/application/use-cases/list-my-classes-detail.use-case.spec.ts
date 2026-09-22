@@ -16,6 +16,7 @@ function classEntity(id: string) {
     organizationId: 'org-1',
     inviteCode: `CODE-${id}`,
     createdAt: new Date(),
+    isActive: true,
   });
 }
 

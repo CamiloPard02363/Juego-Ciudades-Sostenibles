@@ -6,7 +6,11 @@ import {
   type OrganizationRepository,
 } from '../../domain/ports/organization.repository.port.js';
 import { ID_GENERATOR, type IdGenerator } from '../../domain/ports/id-generator.port.js';
-import { ClassNotFoundError } from '../errors/application.errors.js';
+import {
+  ClassInactiveError,
+  ClassNotFoundError,
+  NotAnOrganizationMemberError,
+} from '../errors/application.errors.js';
 import { toClassDto, type ClassDto } from '../dtos/class-response.dto.js';
 
 export interface JoinClassInput {
@@ -46,6 +50,11 @@ export class JoinClassUseCase {
       throw new ClassNotFoundError(normalizedCode);
     }
 
+    // Clase desactivada (issue #133, CA-E5): no admite nuevas matrículas.
+    if (!classEntity.isActive) {
+      throw new ClassInactiveError();
+    }
+
     // Organización desactivada: no admite nuevas matrículas (issue #106,
     // CA2.3). Clases sin organización (profesor particular) no aplican.
     if (classEntity.organizationId) {
@@ -56,6 +65,20 @@ export class JoinClassUseCase {
         throw new ForbiddenException(
           'La organización de esta clase está desactivada y no admite nuevas matrículas.',
         );
+      }
+
+      // Issue #133, Frente B (CA-B1): el estudiante debe pertenecer a la
+      // organización dueña de la clase ANTES de crear el enrollment. Se
+      // resuelve acá, no antes del chequeo de organización desactivada,
+      // porque ambos errores son válidos y este es el orden que documenta
+      // el issue ("después del chequeo de isActive de organización, antes
+      // de crear el enrollment").
+      const membership = await this.organizationRepository.findMembership(
+        classEntity.organizationId,
+        input.requestingUserId,
+      );
+      if (!membership) {
+        throw new NotAnOrganizationMemberError(organization?.name ?? classEntity.organizationId);
       }
     }
 

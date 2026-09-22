@@ -19,6 +19,9 @@ import { AddOrganizationMemberUseCase } from '../../../application/use-cases/add
 import { RemoveOrganizationMemberUseCase } from '../../../application/use-cases/remove-organization-member.use-case.js';
 import { DeactivateOrganizationUseCase } from '../../../application/use-cases/deactivate-organization.use-case.js';
 import { ReactivateOrganizationUseCase } from '../../../application/use-cases/reactivate-organization.use-case.js';
+import { JoinOrganizationUseCase } from '../../../application/use-cases/join-organization.use-case.js';
+import { ListOrganizationStudentsUseCase } from '../../../application/use-cases/list-organization-students.use-case.js';
+import { ChangeOrganizationMemberRoleUseCase } from '../../../application/use-cases/change-organization-member-role.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { RolesGuard } from '../guards/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
@@ -26,6 +29,8 @@ import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { CreateOrganizationDto } from '../dtos/create-organization.dto.js';
 import { AddOrganizationMemberDto } from '../dtos/add-organization-member.dto.js';
 import { ListOrganizationsQueryDto } from '../dtos/list-organizations-query.dto.js';
+import { JoinOrganizationDto } from '../dtos/join-organization.dto.js';
+import { ChangeOrganizationMemberRoleDto } from '../dtos/change-organization-member-role.dto.js';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
@@ -39,6 +44,9 @@ export class OrganizationController {
     private readonly removeOrganizationMemberUseCase: RemoveOrganizationMemberUseCase,
     private readonly deactivateOrganizationUseCase: DeactivateOrganizationUseCase,
     private readonly reactivateOrganizationUseCase: ReactivateOrganizationUseCase,
+    private readonly joinOrganizationUseCase: JoinOrganizationUseCase,
+    private readonly listOrganizationStudentsUseCase: ListOrganizationStudentsUseCase,
+    private readonly changeOrganizationMemberRoleUseCase: ChangeOrganizationMemberRoleUseCase,
   ) {}
 
   @Post()
@@ -71,6 +79,19 @@ export class OrganizationController {
       isActive: query.isActive,
       page: query.page,
       pageSize: query.pageSize,
+    });
+  }
+
+  /**
+   * Matrícula por código de invitación de la organización (issue #133,
+   * Frente A, CA-A2), análogo a `POST /classes/join`.
+   */
+  @Post('join')
+  @HttpCode(HttpStatus.OK)
+  join(@CurrentUserId() requestingUserId: string, @Body() dto: JoinOrganizationDto) {
+    return this.joinOrganizationUseCase.execute({
+      inviteCode: dto.inviteCode,
+      requestingUserId,
     });
   }
 
@@ -116,6 +137,40 @@ export class OrganizationController {
       organizationId,
       userId,
       requestingUserId,
+    });
+  }
+
+  /**
+   * Lista los miembros `orgRole = STUDENT` de la organización (issue #133,
+   * Frente C, CA-C1) — insumo para que un profesor matricule directo sin
+   * código vía `POST /classes/:classId/enrollments`.
+   */
+  @Get(':organizationId/students')
+  listStudents(
+    @CurrentUserId() requestingUserId: string,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.listOrganizationStudentsUseCase.execute({ organizationId, requestingUserId });
+  }
+
+  /**
+   * Cambia el `OrganizationRole` de un miembro ya existente (issue #133,
+   * Frente F, CA-F1). Reservado a `OrganizationRole.ADMIN` de esa
+   * organización o ADMIN global — resuelto dentro del use-case (mismo OR de
+   * ejes que `removeMember`). Nadie puede cambiar su propio rol (CA-F2).
+   */
+  @Patch(':organizationId/members/:userId/role')
+  changeMemberRole(
+    @CurrentUserId() requestingUserId: string,
+    @Param('organizationId') organizationId: string,
+    @Param('userId') userId: string,
+    @Body() dto: ChangeOrganizationMemberRoleDto,
+  ) {
+    return this.changeOrganizationMemberRoleUseCase.execute({
+      organizationId,
+      userId,
+      requestingUserId,
+      orgRole: dto.orgRole,
     });
   }
 

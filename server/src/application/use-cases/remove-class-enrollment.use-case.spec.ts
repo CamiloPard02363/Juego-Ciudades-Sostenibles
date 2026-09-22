@@ -18,6 +18,7 @@ function createClass(overrides: { organizationId?: string | null; teacherUserId?
       overrides.organizationId === undefined ? 'org-1' : overrides.organizationId,
     inviteCode: 'ABC123',
     createdAt: new Date(),
+    isActive: true,
   });
 }
 
@@ -58,6 +59,7 @@ function setup(options: {
     save: vi.fn(),
     findById: vi.fn(),
     findByDomain: vi.fn(),
+    findByInviteCode: vi.fn(),
     findAll: vi.fn(),
     findAllByUserId: vi.fn(),
     saveMembership: vi.fn(),
