@@ -8,7 +8,14 @@ export interface ClassRepository {
   save(classEntity: ClassEntity): Promise<void>;
   findById(id: string): Promise<ClassEntity | null>;
   findByInviteCode(inviteCode: string): Promise<ClassEntity | null>;
-  findAllByTeacherUserId(teacherUserId: string): Promise<ClassEntity[]>;
+  /**
+   * `includeInactive` (issue #133, CA-E4): por default solo trae clases
+   * activas; el profesor puede pedir también las desactivadas explícitamente.
+   */
+  findAllByTeacherUserId(
+    teacherUserId: string,
+    includeInactive?: boolean,
+  ): Promise<ClassEntity[]>;
   /** Query sin filtro de pertenencia — solo para ADMIN global de plataforma (issue #101). */
   findAll(): Promise<ClassEntity[]>;
   addGame(classGame: ClassGame): Promise<void>;
@@ -30,7 +37,11 @@ export interface ClassRepository {
   unenroll(classId: string, userId: string): Promise<void>;
   findEnrollment(classId: string, userId: string): Promise<ClassEnrollment | null>;
   findClassIdsEnrolledByUserId(userId: string): Promise<string[]>;
-  findAllClassesEnrolledByUserId(userId: string): Promise<ClassEntity[]>;
+  /** `includeInactive` (issue #133, CA-E4): por default solo trae clases activas. */
+  findAllClassesEnrolledByUserId(
+    userId: string,
+    includeInactive?: boolean,
+  ): Promise<ClassEntity[]>;
   /**
    * Matrículas de varias clases a la vez (issue #106, CA1.2): evita N
    * consultas al armar la vista consolidada "mis clases + estudiantes" de un

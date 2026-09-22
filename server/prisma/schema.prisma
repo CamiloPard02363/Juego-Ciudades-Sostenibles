@@ -70,6 +70,10 @@ model OrganizationModel {
   /// Desactivada = no admite nuevas matrículas/auto-join, conserva historial
   /// (issue #106, CA2.3). Campo propio, no derivado.
   isActive        Boolean   @default(true) @map("is_active")
+  /// Código de invitación estático de la organización (issue #133, Frente A),
+  /// generado una vez al crear. Único a nivel global para que
+  /// POST /organizations/join lo resuelva sin ambigüedad.
+  inviteCode      String    @unique @map("invite_code")
 
   memberships OrganizationMembershipModel[]
   classes     ClassModel[]
@@ -109,6 +113,9 @@ model ClassModel {
   /// ambigüedad.
   inviteCode     String             @unique @map("invite_code")
   createdAt      DateTime           @default(now()) @map("created_at")
+  /// Soft-delete (issue #133, Frente E): desactivada = no admite nuevas
+  /// matrículas, pero las ClassEnrollment existentes no se tocan.
+  isActive       Boolean            @default(true) @map("is_active")
 
   games       ClassGameModel[]
   enrollments ClassEnrollmentModel[]

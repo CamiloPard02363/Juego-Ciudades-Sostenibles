@@ -14,6 +14,13 @@ export interface OrganizationWithMyRoleDto extends OrganizationResponseDto {
   /** Rol del usuario autenticado dentro de esta organización. */
   myOrgRole: string;
   joinedAt: Date;
+  /**
+   * Solo se llena cuando el usuario autenticado es `OrganizationRole.ADMIN`
+   * de esta organización (o ADMIN global) — issue #133, CA-A3. Un
+   * STUDENT/TEACHER miembro no debe poder ver el código de invitación de la
+   * organización a la que pertenece.
+   */
+  inviteCode?: string;
 }
 
 export interface OrganizationMemberDto {
@@ -42,11 +49,15 @@ export function toOrganizationResponseDto(
 export function toOrganizationWithMyRoleDto(
   organization: Organization,
   membership: OrganizationMembership,
+  options?: { isPlatformAdmin?: boolean },
 ): OrganizationWithMyRoleDto {
+  const canSeeInviteCode = membership.isAdmin() || (options?.isPlatformAdmin ?? false);
+
   return {
     ...toOrganizationResponseDto(organization),
     myOrgRole: membership.orgRole.getName(),
     joinedAt: membership.joinedAt,
+    ...(canSeeInviteCode ? { inviteCode: organization.inviteCode } : {}),
   };
 }
 

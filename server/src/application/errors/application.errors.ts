@@ -123,3 +123,56 @@ export class InvalidImageError extends ApplicationError {
     super(reason);
   }
 }
+
+/**
+ * Issue #133, Frente E (CA-E5): la clase está desactivada y no admite nuevas
+ * matrículas, ni por código de invitación (`POST /classes/join`) ni por
+ * matrícula directa del profesor (`POST /classes/:classId/enrollments`).
+ */
+export class ClassInactiveError extends ApplicationError {
+  constructor() {
+    super('Esta clase está inactiva y no admite nuevas matrículas.');
+  }
+}
+
+/**
+ * Issue #133, Frente C (CA-C2): la clase no tiene `organizationId`, así que
+ * no aplica el concepto de "estudiantes de mi organización" para matricular
+ * directo sin código de invitación.
+ */
+export class ClassHasNoOrganizationError extends ApplicationError {
+  constructor(classId: string) {
+    super(`La clase "${classId}" no está asociada a ninguna organización.`);
+  }
+}
+
+/**
+ * Issue #133, Frente A (CA-A2): el `inviteCode` de organización no coincide
+ * con ninguna organización — análogo a `ClassNotFoundError` para
+ * `POST /classes/join`.
+ */
+export class OrganizationNotFoundByInviteCodeError extends ApplicationError {
+  constructor(inviteCode: string) {
+    super(`No se encontró una organización con el código de invitación "${inviteCode}".`);
+  }
+}
+
+/**
+ * Issue #133, Frente F (CA-F2): nadie puede cambiar su propio rol dentro de
+ * una organización, ni siquiera un ADMIN sobre sí mismo.
+ */
+export class CannotChangeOwnOrganizationRoleError extends ApplicationError {
+  constructor() {
+    super('No puedes cambiar tu propio rol dentro de la organización.');
+  }
+}
+
+/**
+ * Issue #133, Frente F (CA-F1): el usuario objetivo del cambio de rol no es
+ * miembro de la organización indicada.
+ */
+export class TargetUserNotMemberOfOrganizationError extends ApplicationError {
+  constructor(organizationId: string) {
+    super(`El usuario no es miembro de la organización "${organizationId}".`);
+  }
+}

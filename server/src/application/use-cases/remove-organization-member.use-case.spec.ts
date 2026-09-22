@@ -17,6 +17,7 @@ function org(id = 'org-1') {
     createdByUserId: 'creator-1',
     createdAt: new Date(),
     isActive: true,
+    inviteCode: 'ORGABC',
   });
 }
 
@@ -40,6 +41,7 @@ function setup(options: {
     save: vi.fn(),
     findById: vi.fn(async () => options.organization),
     findByDomain: vi.fn(),
+    findByInviteCode: vi.fn(),
     findAll: vi.fn(),
     findAllByUserId: vi.fn(),
     saveMembership: vi.fn(),

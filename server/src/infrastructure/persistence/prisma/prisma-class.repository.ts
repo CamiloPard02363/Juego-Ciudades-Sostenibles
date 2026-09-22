@@ -30,9 +30,12 @@ export class PrismaClassRepository implements ClassRepository {
     return record ? ClassMapper.toDomain(record) : null;
   }
 
-  async findAllByTeacherUserId(teacherUserId: string): Promise<ClassEntity[]> {
+  async findAllByTeacherUserId(
+    teacherUserId: string,
+    includeInactive = false,
+  ): Promise<ClassEntity[]> {
     const records = await this.prisma.classModel.findMany({
-      where: { teacherUserId },
+      where: { teacherUserId, ...(includeInactive ? {} : { isActive: true }) },
       orderBy: { createdAt: 'desc' },
     });
     return records.map(ClassMapper.toDomain);
@@ -109,9 +112,15 @@ export class PrismaClassRepository implements ClassRepository {
     return records.map((r) => r.classId);
   }
 
-  async findAllClassesEnrolledByUserId(userId: string): Promise<ClassEntity[]> {
+  async findAllClassesEnrolledByUserId(
+    userId: string,
+    includeInactive = false,
+  ): Promise<ClassEntity[]> {
     const records = await this.prisma.classModel.findMany({
-      where: { enrollments: { some: { userId } } },
+      where: {
+        enrollments: { some: { userId } },
+        ...(includeInactive ? {} : { isActive: true }),
+      },
       orderBy: { createdAt: 'desc' },
     });
     return records.map(ClassMapper.toDomain);

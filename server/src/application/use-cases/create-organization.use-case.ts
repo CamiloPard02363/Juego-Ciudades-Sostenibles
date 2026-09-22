@@ -8,6 +8,10 @@ import {
   type OrganizationRepository,
 } from '../../domain/ports/organization.repository.port.js';
 import { ID_GENERATOR, type IdGenerator } from '../../domain/ports/id-generator.port.js';
+import {
+  INVITE_CODE_GENERATOR,
+  type InviteCodeGenerator,
+} from '../../domain/ports/invite-code-generator.port.js';
 import { OrganizationDomainAlreadyClaimedError } from '../errors/application.errors.js';
 import {
   toOrganizationResponseDto,
@@ -34,6 +38,7 @@ export class CreateOrganizationUseCase
     @Inject(ORGANIZATION_REPOSITORY)
     private readonly organizationRepository: OrganizationRepository,
     @Inject(ID_GENERATOR) private readonly idGenerator: IdGenerator,
+    @Inject(INVITE_CODE_GENERATOR) private readonly inviteCodeGenerator: InviteCodeGenerator,
   ) {}
 
   async execute(input: CreateOrganizationInput): Promise<OrganizationResponseDto> {
@@ -56,6 +61,7 @@ export class CreateOrganizationUseCase
       name: input.name,
       domain: input.domain ?? null,
       createdByUserId: input.createdByUserId,
+      inviteCode: await this.generateUniqueInviteCode(),
     });
 
     const ownerMembership = OrganizationMembership.create({
@@ -67,5 +73,22 @@ export class CreateOrganizationUseCase
     await this.organizationRepository.createWithOwner(organization, ownerMembership);
 
     return toOrganizationResponseDto(organization);
+  }
+
+  /**
+   * El índice único de `organizations.invite_code` es la garantía real ante
+   * una colisión concurrente; este bucle solo evita el caso común (mismo
+   * criterio que `CreateClassUseCase.generateUniqueInviteCode`).
+   */
+  private async generateUniqueInviteCode(): Promise<string> {
+    let code = this.inviteCodeGenerator.generate();
+    let existing = await this.organizationRepository.findByInviteCode(code);
+
+    while (existing) {
+      code = this.inviteCodeGenerator.generate();
+      existing = await this.organizationRepository.findByInviteCode(code);
+    }
+
+    return code;
   }
 }

@@ -4,3 +4,4 @@ export class InvalidClassNameError extends Error {
     this.name = 'InvalidClassNameError';
   }
 }
+

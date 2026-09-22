@@ -10,6 +10,13 @@ export interface ClassProps {
   /** Código de invitación estático generado una vez al crear la clase (no rota). */
   inviteCode: string;
   createdAt: Date;
+  /**
+   * Soft-delete de la clase (issue #133, Frente E). Desactivada = no admite
+   * nuevas matrículas (join directo o por código), pero las `ClassEnrollment`
+   * existentes NO se tocan — decisión de producto confirmada por Manuel.
+   * Mismo patrón que `Organization.isActive`.
+   */
+  isActive: boolean;
 }
 
 export interface CreateClassProps {
@@ -41,6 +48,7 @@ export class ClassEntity {
       organizationId: props.organizationId ?? null,
       inviteCode: props.inviteCode,
       createdAt: new Date(),
+      isActive: true,
     });
   }
 
@@ -68,6 +76,17 @@ export class ClassEntity {
   }
   get createdAt(): Date {
     return this.props.createdAt;
+  }
+  get isActive(): boolean {
+    return this.props.isActive;
+  }
+
+  deactivate(): void {
+    this.props.isActive = false;
+  }
+
+  reactivate(): void {
+    this.props.isActive = true;
   }
 
   toPersistence(): ClassProps {

@@ -7,6 +7,10 @@ import {
   type OrganizationRepository,
 } from '../../domain/ports/organization.repository.port.js';
 import { ID_GENERATOR, type IdGenerator } from '../../domain/ports/id-generator.port.js';
+import {
+  INVITE_CODE_GENERATOR,
+  type InviteCodeGenerator,
+} from '../../domain/ports/invite-code-generator.port.js';
 import type { User } from '../../domain/entities/user.entity.js';
 
 /**
@@ -31,6 +35,7 @@ export class TeacherPersonalOrganizationService {
     @Inject(ORGANIZATION_REPOSITORY)
     private readonly organizationRepository: OrganizationRepository,
     @Inject(ID_GENERATOR) private readonly idGenerator: IdGenerator,
+    @Inject(INVITE_CODE_GENERATOR) private readonly inviteCodeGenerator: InviteCodeGenerator,
   ) {}
 
   /**
@@ -50,6 +55,7 @@ export class TeacherPersonalOrganizationService {
       name: `Organización de ${teacher.displayName}`,
       domain: null,
       createdByUserId: teacher.id,
+      inviteCode: await this.generateUniqueInviteCode(),
     });
 
     const ownerMembership = OrganizationMembership.create({
@@ -81,5 +87,18 @@ export class TeacherPersonalOrganizationService {
       );
       return null;
     }
+  }
+
+  /** Mismo criterio que `CreateOrganizationUseCase.generateUniqueInviteCode`. */
+  private async generateUniqueInviteCode(): Promise<string> {
+    let code = this.inviteCodeGenerator.generate();
+    let existing = await this.organizationRepository.findByInviteCode(code);
+
+    while (existing) {
+      code = this.inviteCodeGenerator.generate();
+      existing = await this.organizationRepository.findByInviteCode(code);
+    }
+
+    return code;
   }
 }

@@ -34,6 +34,7 @@ export class ClassMapper {
       organizationId: record.organizationId,
       inviteCode: record.inviteCode,
       createdAt: record.createdAt,
+      isActive: record.isActive,
     });
   }
 
@@ -48,6 +49,7 @@ export class ClassMapper {
       organizationId: props.organizationId,
       inviteCode: props.inviteCode,
       createdAt: props.createdAt,
+      isActive: props.isActive,
     };
   }
 }

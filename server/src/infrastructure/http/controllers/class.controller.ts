@@ -6,7 +6,9 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CreateClassUseCase } from '../../../application/use-cases/create-class.use-case.js';
@@ -19,6 +21,9 @@ import { ListClassGamesUseCase } from '../../../application/use-cases/list-class
 import { JoinClassUseCase } from '../../../application/use-cases/join-class.use-case.js';
 import { ListMyEnrollmentsUseCase } from '../../../application/use-cases/list-my-enrollments.use-case.js';
 import { RemoveClassEnrollmentUseCase } from '../../../application/use-cases/remove-class-enrollment.use-case.js';
+import { EnrollStudentUseCase } from '../../../application/use-cases/enroll-student.use-case.js';
+import { DeactivateClassUseCase } from '../../../application/use-cases/deactivate-class.use-case.js';
+import { ReactivateClassUseCase } from '../../../application/use-cases/reactivate-class.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { RolesGuard } from '../guards/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
@@ -26,6 +31,8 @@ import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { CreateClassDto } from '../dtos/create-class.dto.js';
 import { AddGameToClassDto } from '../dtos/add-game-to-class.dto.js';
 import { JoinClassDto } from '../dtos/join-class.dto.js';
+import { EnrollStudentDto } from '../dtos/enroll-student.dto.js';
+import { ListClassesQueryDto } from '../dtos/list-classes-query.dto.js';
 
 @Controller('classes')
 @UseGuards(JwtAuthGuard)
@@ -41,11 +48,14 @@ export class ClassController {
     private readonly joinClassUseCase: JoinClassUseCase,
     private readonly listMyEnrollmentsUseCase: ListMyEnrollmentsUseCase,
     private readonly removeClassEnrollmentUseCase: RemoveClassEnrollmentUseCase,
+    private readonly enrollStudentUseCase: EnrollStudentUseCase,
+    private readonly deactivateClassUseCase: DeactivateClassUseCase,
+    private readonly reactivateClassUseCase: ReactivateClassUseCase,
   ) {}
 
   @Get('mine')
-  listMine(@CurrentUserId() teacherUserId: string) {
-    return this.listMyClassesUseCase.execute(teacherUserId);
+  listMine(@CurrentUserId() teacherUserId: string, @Query() query: ListClassesQueryDto) {
+    return this.listMyClassesUseCase.execute(teacherUserId, query.includeInactive);
   }
 
   /**
@@ -56,14 +66,14 @@ export class ClassController {
    * rompe a los consumidores existentes de `GET /classes/mine`.
    */
   @Get('mine/detail')
-  listMineDetail(@CurrentUserId() teacherUserId: string) {
-    return this.listMyClassesDetailUseCase.execute(teacherUserId);
+  listMineDetail(@CurrentUserId() teacherUserId: string, @Query() query: ListClassesQueryDto) {
+    return this.listMyClassesDetailUseCase.execute(teacherUserId, query.includeInactive);
   }
 
   /** Clases donde el usuario autenticado está matriculado como estudiante. */
   @Get('enrolled')
-  listEnrolled(@CurrentUserId() requestingUserId: string) {
-    return this.listMyEnrollmentsUseCase.execute(requestingUserId);
+  listEnrolled(@CurrentUserId() requestingUserId: string, @Query() query: ListClassesQueryDto) {
+    return this.listMyEnrollmentsUseCase.execute(requestingUserId, query.includeInactive);
   }
 
   /**
@@ -125,5 +135,38 @@ export class ClassController {
     @Param('studentId') studentUserId: string,
   ) {
     return this.removeClassEnrollmentUseCase.execute({ classId, studentUserId, requestingUserId });
+  }
+
+  /**
+   * Matrícula directa por el profesor, sin código de invitación (issue #133,
+   * Frente C, CA-C2) — pensada para usarse junto a
+   * `GET /organizations/:organizationId/students`.
+   */
+  @Post(':classId/enrollments')
+  @HttpCode(HttpStatus.CREATED)
+  enrollStudent(
+    @CurrentUserId() requestingUserId: string,
+    @Param('classId') classId: string,
+    @Body() dto: EnrollStudentDto,
+  ) {
+    return this.enrollStudentUseCase.execute({
+      classId,
+      userId: dto.userId,
+      requestingUserId,
+    });
+  }
+
+  /** Soft-delete de la clase (issue #133, Frente E, CA-E2). */
+  @Patch(':id/deactivate')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deactivate(@CurrentUserId() requestingUserId: string, @Param('id') classId: string) {
+    return this.deactivateClassUseCase.execute({ classId, requestingUserId });
+  }
+
+  /** Restaura la clase a la vista de "activas" (issue #133, Frente E, CA-E2). */
+  @Patch(':id/reactivate')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  reactivate(@CurrentUserId() requestingUserId: string, @Param('id') classId: string) {
+    return this.reactivateClassUseCase.execute({ classId, requestingUserId });
   }
 }
