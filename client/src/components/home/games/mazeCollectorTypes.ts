@@ -50,6 +50,15 @@ export type MazeLayoutDef = {
   itemSlots: CellPosition[]
   /** Celdas puramente decorativas (árboles/parques) — no afectan colisión ni movimiento. */
   decorations: CellPosition[]
+  /**
+   * Fila "puerta de teletransporte": si existe, cruzar la columna 0 hacia la
+   * izquierda (o la última columna hacia la derecha) en ESA fila envuelve al
+   * otro extremo del mapa, como los túneles clásicos. Solo la recibe un
+   * layout si tiene al menos una calle abierta de punta a punta — los 4
+   * layouts actuales (Clásico, Cruz, Espiral, Ciudad) sí la tienen; queda
+   * `null` como respaldo por si algún layout futuro no la tuviera.
+   */
+  tunnelRow: number | null
 }
 
 const COLS = 15
@@ -225,7 +234,38 @@ function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: num
   return { playerStart, enemySpawns, itemSlots, decorations }
 }
 
+/**
+ * Busca una fila con calle abierta de punta a punta (columnas 1..cols-2
+ * todas transitables) y le abre la pared del borde en ambos extremos — esa
+ * fila pasa a ser la "puerta de teletransporte" (ver `tunnelRow`). Si hay
+ * varias candidatas, se queda con la más cercana al centro vertical; si no
+ * hay ninguna, el layout simplemente no tiene túnel.
+ */
+function carveTunnel(grid: number[][], cols: number, rows: number): number | null {
+  const candidates: number[] = []
+  for (let row = 1; row < rows - 1; row++) {
+    let fullyOpen = true
+    for (let col = 1; col < cols - 1; col++) {
+      if (grid[row][col] !== 0) {
+        fullyOpen = false
+        break
+      }
+    }
+    if (fullyOpen) candidates.push(row)
+  }
+  if (candidates.length === 0) return null
+
+  const center = rows / 2
+  const chosen = candidates.reduce((best, row) =>
+    Math.abs(row - center) < Math.abs(best - center) ? row : best,
+  )
+  grid[chosen][0] = 0
+  grid[chosen][cols - 1] = 0
+  return chosen
+}
+
 function buildLayout(grid: number[][], cols: number, rows: number, includeDecorations = false): MazeLayoutDef {
+  const tunnelRow = carveTunnel(grid, cols, rows)
   const { playerStart, enemySpawns, itemSlots, decorations } = deriveSlots(
     grid,
     cols,
@@ -233,7 +273,7 @@ function buildLayout(grid: number[][], cols: number, rows: number, includeDecora
     MAX_MAZE_ITEMS,
     includeDecorations,
   )
-  return { cols, rows, grid, playerStart, enemySpawns, itemSlots, decorations }
+  return { cols, rows, grid, playerStart, enemySpawns, itemSlots, decorations, tunnelRow }
 }
 
 /** CITY es deliberadamente más grande — es una ciudad, no un laberinto de bolsillo. */
