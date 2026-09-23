@@ -8,6 +8,8 @@ import type { Direction } from './useMazeCollectorGame'
 import { EcoTruckSprite } from './EcoTruckSprite'
 import { PollutionGhostSprite } from './PollutionGhostSprite'
 import { BonusSprite, PetSprite, PowerPelletSprite, TrashBagSprite } from './mazeCollectibleSprites'
+import { SostenibleCityBackground } from './SostenibleCityBackground'
+import { CITY_MAP_CELL_SIZE } from './sostenibleCityMap'
 import { ConfettiBurst } from '../../kids/ConfettiBurst'
 
 type MazeCollectorGameProps = {
@@ -19,7 +21,8 @@ type MazeCollectorGameProps = {
   onExit: () => void
 }
 
-const CELL_SIZE = 32
+/** Tamaño de celda para los 3 layouts abstractos (Clásico/Cruz/Espiral) — Ciudad usa CITY_MAP_CELL_SIZE, el nativo del SVG real. */
+const ABSTRACT_CELL_SIZE = 32
 
 /** Aclara (percent > 0) u oscurece (percent < 0) un color hex. */
 function shade(hex: string, percent: number): string {
@@ -34,26 +37,16 @@ function shade(hex: string, percent: number): string {
 
 type BuildingPalette = { base: string; light: string; dark: string }
 
-/** Paleta de edificios variada — cada manzana comparte un color (ver cityBuildingPalette). */
-const BUILDING_PALETTES: string[] = ['#b45309', '#1d4ed8', '#059669', '#7c3aed', '#dc2626', '#0891b2']
-
 function buildingPalette(base: string): BuildingPalette {
   return { base, light: shade(base, 25), dark: shade(base, -35) }
 }
 
-/** Hash determinista (mismo bloque = mismo color siempre). */
+/** Hash determinista (misma celda = misma animación siempre, sin parpadeo entre frames). */
 function hashCell(row: number, col: number): number {
   return Math.abs(row * 31 + col * 17)
 }
 
-const CITY_STREET_SPACING = 4
-
-function cityBuildingPalette(row: number, col: number): BuildingPalette {
-  const blockRow = Math.floor((row - 1) / CITY_STREET_SPACING)
-  const blockCol = Math.floor((col - 1) / CITY_STREET_SPACING)
-  return buildingPalette(BUILDING_PALETTES[hashCell(blockRow, blockCol) % BUILDING_PALETTES.length])
-}
-
+/** Layouts abstractos (Clásico/Cruz/Espiral): pared con el color temático del juego, sin mosaico de ciudad — esa ambientación ahora la da el SVG real de Ciudad. */
 function wallPalette(primaryColor: string): BuildingPalette {
   return buildingPalette(primaryColor)
 }
@@ -69,10 +62,10 @@ export function MazeCollectorGame(props: MazeCollectorGameProps) {
 function MazeCollectorSession({ title, primaryColor, layout, items, config, onExit }: MazeCollectorGameProps) {
   const game = useMazeCollectorGame({ layout, items, config })
   const isCity = config.layout === 'CITY'
+  const cellSize = isCity ? CITY_MAP_CELL_SIZE : ABSTRACT_CELL_SIZE
 
-  const width = layout.cols * CELL_SIZE
-  const height = layout.rows * CELL_SIZE
-  const decoratedCells = new Set(layout.decorations.map((d) => `${d.row}:${d.col}`))
+  const width = layout.cols * cellSize
+  const height = layout.rows * cellSize
   const wallColors = wallPalette(primaryColor)
 
   const CollectorIcon = iconForConcept(config.collectorIcon)
@@ -80,7 +73,7 @@ function MazeCollectorSession({ title, primaryColor, layout, items, config, onEx
   const energyWarning = energized && game.energizedRemainingMs < 2000
 
   function pixelPos(cell: { row: number; col: number }) {
-    return { left: cell.col * CELL_SIZE, top: cell.row * CELL_SIZE }
+    return { left: cell.col * cellSize, top: cell.row * cellSize }
   }
 
   return (
@@ -135,81 +128,75 @@ function MazeCollectorSession({ title, primaryColor, layout, items, config, onEx
             className="relative mx-auto overflow-hidden rounded-xl border-2 shadow-[0_12px_24px_-8px_rgba(0,0,0,0.4)]"
             style={{ width, height, borderColor: primaryColor, maxWidth: '100%' }}
           >
-            {/* Capa 1: laberinto estático (grid CSS, sin costo por frame). */}
-            <div
-              className="absolute inset-0 grid"
-              style={{
-                gridTemplateColumns: `repeat(${layout.cols}, ${CELL_SIZE}px)`,
-                gridTemplateRows: `repeat(${layout.rows}, ${CELL_SIZE}px)`,
-              }}
-            >
-              {layout.grid.map((rowCells, row) =>
-                rowCells.map((cell, col) => {
-                  const key = `${row}:${col}`
-                  if (cell === 1) {
-                    const palette = isCity ? cityBuildingPalette(row, col) : wallColors
-                    return (
-                      <div
-                        key={key}
-                        style={{
-                          background: `linear-gradient(160deg, ${palette.light}, ${palette.base} 55%, ${palette.dark})`,
-                          border: `1px solid ${palette.dark}`,
-                        }}
-                      >
+            {/* Capa 1: laberinto estático (sin costo por frame). Ciudad usa el SVG
+                real que ilustró el profesor como fondo — nada de mosaico CSS
+                generado; los demás layouts (abstractos, sin arte propio) siguen
+                con el grid de paredes/calles por color. */}
+            {isCity ? (
+              <SostenibleCityBackground />
+            ) : (
+              <div
+                className="absolute inset-0 grid"
+                style={{
+                  gridTemplateColumns: `repeat(${layout.cols}, ${cellSize}px)`,
+                  gridTemplateRows: `repeat(${layout.rows}, ${cellSize}px)`,
+                }}
+              >
+                {layout.grid.map((rowCells, row) =>
+                  rowCells.map((cell, col) => {
+                    const key = `${row}:${col}`
+                    if (cell === 1) {
+                      return (
                         <div
-                          className="h-full w-full animate-[maze-window-glow_3s_ease-in-out_infinite]"
+                          key={key}
                           style={{
-                            animationDelay: `${(hashCell(row, col) % 20) * 0.15}s`,
-                            background:
-                              'repeating-linear-gradient(0deg, transparent 0 6px, rgba(254,240,138,0.5) 6px 8px)',
-                            mixBlendMode: 'overlay',
+                            background: `linear-gradient(160deg, ${wallColors.light}, ${wallColors.base} 55%, ${wallColors.dark})`,
+                            border: `1px solid ${wallColors.dark}`,
                           }}
+                        >
+                          <div
+                            className="h-full w-full animate-[maze-window-glow_3s_ease-in-out_infinite]"
+                            style={{
+                              animationDelay: `${(hashCell(row, col) % 20) * 0.15}s`,
+                              background:
+                                'repeating-linear-gradient(0deg, transparent 0 6px, rgba(254,240,138,0.5) 6px 8px)',
+                              mixBlendMode: 'overlay',
+                            }}
+                          />
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={key} className="relative bg-[#4b5563]">
+                        <span
+                          className="absolute left-1/2 top-1/2 block h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#facc15] animate-[maze-road-dot-pulse_1.6s_ease-in-out_infinite]"
+                          style={{ animationDelay: `${(hashCell(row, col) % 12) * 0.12}s` }}
                         />
                       </div>
                     )
-                  }
-                  if (isCity && decoratedCells.has(key)) {
-                    return (
-                      <div key={key} className="relative flex items-center justify-center bg-[#166534]">
-                        <div
-                          className="animate-[maze-tree-sway_2.4s_ease-in-out_infinite]"
-                          style={{ animationDelay: `${(hashCell(row, col) % 10) * 0.2}s`, fontSize: CELL_SIZE * 0.6 }}
-                        >
-                          🌳
-                        </div>
-                      </div>
-                    )
-                  }
-                  return (
-                    <div key={key} className="relative bg-[#4b5563]">
-                      <span
-                        className="absolute left-1/2 top-1/2 block h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#facc15] animate-[maze-road-dot-pulse_1.6s_ease-in-out_infinite]"
-                        style={{ animationDelay: `${(hashCell(row, col) % 12) * 0.12}s` }}
-                      />
-                    </div>
-                  )
-                }),
-              )}
-            </div>
+                  }),
+                )}
+              </div>
+            )}
 
             {/* Capa 2: coleccionables — solo los que quedan, cada uno en su celda lógica (no interpolan, no se mueven). */}
             {game.pickups.map((pickup) => {
               const { left, top } = pixelPos(pickup.pos)
               return (
-                <div key={pickup.id} className="absolute flex items-center justify-center" style={{ left, top, width: CELL_SIZE, height: CELL_SIZE }}>
-                  {pickup.kind === 'PET' ? <PetSprite size={CELL_SIZE * 0.5} /> : <PowerPelletSprite size={CELL_SIZE * 0.6} />}
+                <div key={pickup.id} className="absolute flex items-center justify-center" style={{ left, top, width: cellSize, height: cellSize }}>
+                  {pickup.kind === 'PET' ? <PetSprite size={cellSize * 0.5} /> : <PowerPelletSprite size={cellSize * 0.6} />}
                 </div>
               )
             })}
             {game.bags.map((bag) => {
               const { left, top } = pixelPos(bag.pos)
               return (
-                <div key={bag.id} className="absolute flex items-center justify-center" style={{ left, top, width: CELL_SIZE, height: CELL_SIZE }}>
-                  <TrashBagSprite size={CELL_SIZE * 0.65} />
+                <div key={bag.id} className="absolute flex items-center justify-center" style={{ left, top, width: cellSize, height: cellSize }}>
+                  <TrashBagSprite size={cellSize * 0.65} />
                 </div>
               )
             })}
-            {game.bonus && <BonusMarker bonus={game.bonus} pixelPos={pixelPos} />}
+            {game.bonus && <BonusMarker bonus={game.bonus} cellSize={cellSize} pixelPos={pixelPos} />}
 
             {/* Capa 3: entidades vivas — posición interpolada por el motor cada frame. */}
             {game.ghosts.map((ghost) => (
@@ -217,24 +204,24 @@ function MazeCollectorSession({ title, primaryColor, layout, items, config, onEx
                 key={ghost.id}
                 className="absolute"
                 style={{
-                  width: CELL_SIZE,
-                  height: CELL_SIZE,
-                  transform: `translate3d(${ghost.col * CELL_SIZE}px, ${ghost.row * CELL_SIZE}px, 0)`,
+                  width: cellSize,
+                  height: cellSize,
+                  transform: `translate3d(${ghost.col * cellSize}px, ${ghost.row * cellSize}px, 0)`,
                 }}
               >
-                <PollutionGhostSprite personality={ghost.personality} mode={ghost.mode} size={CELL_SIZE} warning={energyWarning} />
+                <PollutionGhostSprite personality={ghost.personality} mode={ghost.mode} size={cellSize} warning={energyWarning} />
               </div>
             ))}
 
             <div
               className="absolute"
               style={{
-                width: CELL_SIZE,
-                height: CELL_SIZE,
-                transform: `translate3d(${game.player.col * CELL_SIZE}px, ${game.player.row * CELL_SIZE}px, 0)`,
+                width: cellSize,
+                height: cellSize,
+                transform: `translate3d(${game.player.col * cellSize}px, ${game.player.row * cellSize}px, 0)`,
               }}
             >
-              <EcoTruckSprite facing={game.player.facing} size={CELL_SIZE} energized={energized} />
+              <EcoTruckSprite facing={game.player.facing} size={cellSize} energized={energized} />
             </div>
           </div>
 
@@ -294,19 +281,21 @@ function MazeCollectorSession({ title, primaryColor, layout, items, config, onEx
 
 function BonusMarker({
   bonus,
+  cellSize,
   pixelPos,
 }: {
   bonus: { pos: CellPosition; item: MazeCollectorItem }
+  cellSize: number
   pixelPos: (cell: CellPosition) => { left: number; top: number }
 }) {
   const { left, top } = pixelPos(bonus.pos)
   return (
     <div
       className="absolute flex flex-col items-center justify-center"
-      style={{ left, top, width: CELL_SIZE, height: CELL_SIZE }}
+      style={{ left, top, width: cellSize, height: cellSize }}
       title={bonus.item.label}
     >
-      <BonusSprite size={CELL_SIZE * 0.75} />
+      <BonusSprite size={cellSize * 0.75} />
     </div>
   )
 }

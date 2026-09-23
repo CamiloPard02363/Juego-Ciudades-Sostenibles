@@ -44,13 +44,13 @@ function step(pos: CellPosition, direction: Direction): CellPosition {
 }
 
 /**
- * Si `cell` se salió del mapa por una columna en `tunnelRow`, la envuelve al
- * otro extremo — igual que los túneles clásicos. `tunnelRow: null` (layout
- * sin túnel, ej. Espiral) deja `cell` intacta, así que col=-1/col=cols
- * quedan fuera de rango y `isOpen` los rechaza normalmente.
+ * Si `cell` se salió del mapa por una columna en alguna de `tunnelRows`, la
+ * envuelve al otro extremo — igual que los túneles clásicos. Un array vacío
+ * (layout sin túnel) deja `cell` intacta, así que col=-1/col=cols quedan
+ * fuera de rango y `isOpen` los rechaza normalmente.
  */
-function wrapColumn(cell: CellPosition, cols: number, tunnelRow: number | null): CellPosition {
-  if (tunnelRow === null || cell.row !== tunnelRow) return cell
+function wrapColumn(cell: CellPosition, cols: number, tunnelRows: readonly number[]): CellPosition {
+  if (!tunnelRows.includes(cell.row)) return cell
   if (cell.col < 0) return { row: cell.row, col: cols - 1 }
   if (cell.col >= cols) return { row: cell.row, col: 0 }
   return cell
@@ -58,22 +58,27 @@ function wrapColumn(cell: CellPosition, cols: number, tunnelRow: number | null):
 
 /** Igual que `wrapColumn`, pero tomando el layout completo — la forma que usa el hook. */
 export function applyTeleport(layout: MazeLayoutDef, cell: CellPosition): CellPosition {
-  return wrapColumn(cell, layout.cols, layout.tunnelRow)
+  return wrapColumn(cell, layout.cols, layout.tunnelRows)
 }
 
 /** Un paso en `direction` desde `pos`, ya envuelto por el túnel si corresponde. */
-export function stepWithTeleport(pos: CellPosition, direction: Direction, cols: number, tunnelRow: number | null): CellPosition {
-  return wrapColumn(step(pos, direction), cols, tunnelRow)
+export function stepWithTeleport(
+  pos: CellPosition,
+  direction: Direction,
+  cols: number,
+  tunnelRows: readonly number[],
+): CellPosition {
+  return wrapColumn(step(pos, direction), cols, tunnelRows)
 }
 
 /** Direcciones abiertas desde `pos`, en el orden fijo de ALL_DIRECTIONS (determinismo para tests). */
 export function openDirections(
   grid: number[][],
   pos: CellPosition,
-  tunnelRow: number | null = null,
+  tunnelRows: readonly number[] = [],
 ): Direction[] {
   return ALL_DIRECTIONS.filter((direction) => {
-    const next = wrapColumn(step(pos, direction), grid[0].length, tunnelRow)
+    const next = wrapColumn(step(pos, direction), grid[0].length, tunnelRows)
     return isOpen(grid, next.row, next.col)
   })
 }
@@ -166,10 +171,10 @@ export function chooseGhostDirection(
   personality: GhostPersonality,
   frightened: boolean,
   random: () => number = Math.random,
-  tunnelRow: number | null = null,
+  tunnelRows: readonly number[] = [],
 ): Direction {
   const reverse = OPPOSITE[facing]
-  const candidates = openDirections(grid, pos, tunnelRow)
+  const candidates = openDirections(grid, pos, tunnelRows)
   const nonReverse = candidates.filter((direction) => direction !== reverse)
   const options = nonReverse.length > 0 ? nonReverse : candidates
 
@@ -182,7 +187,7 @@ export function chooseGhostDirection(
   let best = options[0]
   let bestDistance = Infinity
   for (const direction of options) {
-    const next = stepWithTeleport(pos, direction, grid[0].length, tunnelRow)
+    const next = stepWithTeleport(pos, direction, grid[0].length, tunnelRows)
     const distance = manhattan(next, target)
     if (distance < bestDistance) {
       bestDistance = distance
