@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Check } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Modal } from './Modal'
-import { iconForConcept } from './dominoTypes'
 import { gameInstructions, type InstructionKind } from './gameInstructions'
-
-const exampleIcons = { sun: iconForConcept('sun'), leaf: iconForConcept('leaf') }
 
 /** El juego no se monta hasta continuar: no hay relojes, controles ni salas activos detrás. */
 export function GameInstructionsGate({ kind, children }: { kind: InstructionKind; children: ReactNode }) {
@@ -25,15 +23,15 @@ export function GameInstructionsGate({ kind, children }: { kind: InstructionKind
           <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-accent">{content.exampleTitle}</p>
           <div className="flex items-center justify-center gap-2 overflow-hidden">
             <div className="flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-accent bg-surface shadow-[var(--shadow)]">
-              <ExampleHalf label={content.labels[0]} icon="sun" color="#f59e0b" />
+              <ExampleHalf label={content.labels[0]} Icon={content.icons[0]} color="#f59e0b" />
               <div className="h-full w-[3px] bg-border" />
-              <ExampleHalf label={content.labels[1]} icon="leaf" color="#22c55e" />
+              <ExampleHalf label={content.labels[1]} Icon={content.icons[1]} color="#22c55e" />
             </div>
             <span className="text-[18px] font-bold text-accent">+</span>
             <div className="flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-accent bg-surface shadow-[var(--shadow)]">
-              <ExampleHalf label={content.labels[2]} icon="leaf" color="#22c55e" />
+              <ExampleHalf label={content.labels[2]} Icon={content.icons[2]} color="#22c55e" />
               <div className="h-full w-[3px] bg-border" />
-              <ExampleHalf label={content.labels[3]} icon="sun" color="#f59e0b" />
+              <ExampleHalf label={content.labels[3]} Icon={content.icons[3]} color="#f59e0b" />
             </div>
           </div>
           <p className="mt-3 text-center text-[12px] text-text">{content.caption}</p>
@@ -49,9 +47,8 @@ export function GameInstructionsGate({ kind, children }: { kind: InstructionKind
   )
 }
 
-/** Misma ilustración, iconos y estilos de ConceptHalf (tamaño md) del instructivo original. */
-function ExampleHalf({ label, icon, color }: { label: string; icon: keyof typeof exampleIcons; color: string }) {
-  const Icon = exampleIcons[icon]
+/** Conserva el tamaño y los estilos del ejemplo original; solo varían icono y acción. */
+function ExampleHalf({ label, Icon, color }: { label: string; Icon: LucideIcon; color: string }) {
   return <div className="flex flex-1 flex-col items-center justify-center px-1.5 py-2.5 gap-1"
     style={{ background: `color-mix(in srgb, ${color} 10%, transparent)` }}>
     <Icon className="h-6 w-6" style={{ color }} strokeWidth={2} />
