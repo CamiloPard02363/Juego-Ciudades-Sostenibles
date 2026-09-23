@@ -6,6 +6,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './hooks/useAuth.tsx'
 import { ToastProvider } from './hooks/useToast.tsx'
+import { ThemeProvider } from './hooks/useTheme.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 
 createRoot(document.getElementById('root')!).render(
@@ -14,7 +15,9 @@ createRoot(document.getElementById('root')!).render(
       <ErrorBoundary>
         <ToastProvider>
           <AuthProvider>
-            <App />
+            <ThemeProvider>
+              <App />
+            </ThemeProvider>
           </AuthProvider>
         </ToastProvider>
         <Analytics />
