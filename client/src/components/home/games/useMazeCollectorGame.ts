@@ -206,7 +206,7 @@ function createInitialState(layout: MazeLayoutDef, items: MazeCollectorItem[], c
 
 function tryDirectionFrom(layout: MazeLayoutDef, pos: CellPosition, direction: Direction | null): CellPosition | null {
   if (!direction) return null
-  const next = stepWithTeleport(pos, direction, layout.cols, layout.tunnelRow)
+  const next = stepWithTeleport(pos, direction, layout.cols, layout.tunnelRows)
   return isOpen(layout.grid, next.row, next.col) ? next : null
 }
 
@@ -325,10 +325,10 @@ function tickGhost(ghost: InternalGhost, state: InternalState, layout: MazeLayou
       ghost.personality,
       frightened,
       Math.random,
-      layout.tunnelRow,
+      layout.tunnelRows,
     )
     ghost.facing = direction
-    ghost.nextPos = stepWithTeleport(ghost.pos, direction, layout.cols, layout.tunnelRow)
+    ghost.nextPos = stepWithTeleport(ghost.pos, direction, layout.cols, layout.tunnelRows)
   }
 }
 

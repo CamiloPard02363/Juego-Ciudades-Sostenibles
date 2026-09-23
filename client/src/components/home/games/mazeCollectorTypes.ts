@@ -1,4 +1,5 @@
 import { DOMINO_ICON_LABELS, iconForConcept } from './dominoTypes'
+import { buildSostenibleCityLayout } from './sostenibleCityMap'
 
 export { DOMINO_ICON_LABELS as MAZE_ICON_LABELS, iconForConcept }
 
@@ -48,17 +49,15 @@ export type MazeLayoutDef = {
   enemySpawns: CellPosition[]
   /** Celdas candidatas para colocar objetos coleccionables, en orden fijo. */
   itemSlots: CellPosition[]
-  /** Celdas puramente decorativas (árboles/parques) — no afectan colisión ni movimiento. */
-  decorations: CellPosition[]
   /**
-   * Fila "puerta de teletransporte": si existe, cruzar la columna 0 hacia la
-   * izquierda (o la última columna hacia la derecha) en ESA fila envuelve al
-   * otro extremo del mapa, como los túneles clásicos. Solo la recibe un
-   * layout si tiene al menos una calle abierta de punta a punta — los 4
-   * layouts actuales (Clásico, Cruz, Espiral, Ciudad) sí la tienen; queda
-   * `null` como respaldo por si algún layout futuro no la tuviera.
+   * Filas "puerta de teletransporte": cruzar la columna 0 hacia la
+   * izquierda (o la última columna hacia la derecha) en cualquiera de estas
+   * filas envuelve al otro extremo del mapa, como los túneles clásicos. Un
+   * layout puede tener varias (el mapa de Ciudad Sostenible tiene 5, una
+   * por avenida) o ninguna si no tiene ninguna calle abierta de punta a
+   * punta.
    */
-  tunnelRow: number | null
+  tunnelRows: number[]
 }
 
 const COLS = 15
@@ -122,28 +121,6 @@ function buildCombMaze(cols: number, rows: number, orientation: 'vertical' | 'ho
   return grid
 }
 
-/**
- * Cuadrícula de calles tipo ciudad: una calle cada `STREET_SPACING` filas y
- * columnas, dejando manzanas sólidas (edificios) entre ellas. Al ser una
- * rejilla completa, cualquier calle conecta con cualquier otra por al menos
- * dos rutas distintas — el "múltiples caminos" que no dan los peines ni la
- * cruz. Grid grande a propósito: es la ambientación de una ciudad, no un
- * laberinto abstracto.
- */
-function buildCityMaze(cols: number, rows: number): number[][] {
-  const STREET_SPACING = 4
-  const grid = Array.from({ length: rows }, () => Array(cols).fill(1))
-
-  for (let r = 1; r < rows - 1; r++) {
-    for (let c = 1; c < cols - 1; c++) {
-      if (r % STREET_SPACING === 0 || c % STREET_SPACING === 0) grid[r][c] = 0
-    }
-  }
-
-  addBorder(grid)
-  return grid
-}
-
 /** Una franja horizontal y una vertical, cruzadas por el centro; el resto son paredes sólidas. */
 function buildCrossMaze(cols: number, rows: number): number[][] {
   const grid = Array.from({ length: rows }, () => Array(cols).fill(1))
@@ -191,7 +168,7 @@ function closestOpenCell(grid: number[][], targetRow: number, targetCol: number,
 }
 
 /** Reparte, de forma fija y determinista, dónde nace el jugador, dónde nacen los enemigos y qué celdas pueden llevar un objeto. */
-function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: number, includeDecorations: boolean) {
+function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: number) {
   const used: CellPosition[] = []
 
   const playerStart = closestOpenCell(grid, Math.floor(rows / 2), Math.floor(cols / 2), used)
@@ -217,32 +194,17 @@ function deriveSlots(grid: number[][], cols: number, rows: number, maxItems: num
     used.push(remaining[i])
   }
 
-  // El resto de celdas libres son candidatas a decoración (árboles/parques):
-  // solo tiene sentido en el layout CITY — en los demás (Cruz, Espiral,
-  // Clásico) no hay ambientación de ciudad, así que no se les fuerza césped.
-  const decorations: CellPosition[] = []
-  if (includeDecorations) {
-    const decorationCandidates = openCells(grid).filter(
-      (cell) => !used.some((u) => u.row === cell.row && u.col === cell.col),
-    )
-    const decorationStride = Math.max(1, Math.floor(decorationCandidates.length / 24))
-    for (let i = 0; i < decorationCandidates.length; i += decorationStride) {
-      decorations.push(decorationCandidates[i])
-    }
-  }
-
-  return { playerStart, enemySpawns, itemSlots, decorations }
+  return { playerStart, enemySpawns, itemSlots }
 }
 
 /**
- * Busca una fila con calle abierta de punta a punta (columnas 1..cols-2
- * todas transitables) y le abre la pared del borde en ambos extremos — esa
- * fila pasa a ser la "puerta de teletransporte" (ver `tunnelRow`). Si hay
- * varias candidatas, se queda con la más cercana al centro vertical; si no
- * hay ninguna, el layout simplemente no tiene túnel.
+ * Busca TODAS las filas con calle abierta de punta a punta (columnas
+ * 1..cols-2 transitables) y les abre la pared del borde en ambos extremos
+ * — cada una pasa a ser una "puerta de teletransporte" (ver `tunnelRows`).
+ * Si no hay ninguna, el layout simplemente no tiene túnel.
  */
-function carveTunnel(grid: number[][], cols: number, rows: number): number | null {
-  const candidates: number[] = []
+function carveTunnels(grid: number[][], cols: number, rows: number): number[] {
+  const tunnelRows: number[] = []
   for (let row = 1; row < rows - 1; row++) {
     let fullyOpen = true
     for (let col = 1; col < cols - 1; col++) {
@@ -251,44 +213,32 @@ function carveTunnel(grid: number[][], cols: number, rows: number): number | nul
         break
       }
     }
-    if (fullyOpen) candidates.push(row)
+    if (fullyOpen) {
+      grid[row][0] = 0
+      grid[row][cols - 1] = 0
+      tunnelRows.push(row)
+    }
   }
-  if (candidates.length === 0) return null
-
-  const center = rows / 2
-  const chosen = candidates.reduce((best, row) =>
-    Math.abs(row - center) < Math.abs(best - center) ? row : best,
-  )
-  grid[chosen][0] = 0
-  grid[chosen][cols - 1] = 0
-  return chosen
+  return tunnelRows
 }
 
-function buildLayout(grid: number[][], cols: number, rows: number, includeDecorations = false): MazeLayoutDef {
-  const tunnelRow = carveTunnel(grid, cols, rows)
-  const { playerStart, enemySpawns, itemSlots, decorations } = deriveSlots(
-    grid,
-    cols,
-    rows,
-    MAX_MAZE_ITEMS,
-    includeDecorations,
-  )
-  return { cols, rows, grid, playerStart, enemySpawns, itemSlots, decorations, tunnelRow }
+function buildLayout(grid: number[][], cols: number, rows: number): MazeLayoutDef {
+  const tunnelRows = carveTunnels(grid, cols, rows)
+  const { playerStart, enemySpawns, itemSlots } = deriveSlots(grid, cols, rows, MAX_MAZE_ITEMS)
+  return { cols, rows, grid, playerStart, enemySpawns, itemSlots, tunnelRows }
 }
-
-/** CITY es deliberadamente más grande — es una ciudad, no un laberinto de bolsillo. */
-const CITY_COLS = 25
-const CITY_ROWS = 17
 
 /**
  * Cuatro laberintos fijos (no editables por quien crea el juego — son datos
  * del motor, la temática la aportan los íconos/colores/nombres del contenido
  * y de `config`). Verificados por conectividad: cada celda libre es
- * alcanzable desde cualquier otra.
+ * alcanzable desde cualquier otra. CITY es el mapa real de "Ciudad
+ * Sostenible" que ilustró el profesor (ver sostenibleCityMap.ts) — ya no es
+ * una cuadrícula de calles genérica, así que no pasa por `buildLayout`.
  */
 export const MAZE_LAYOUTS: Record<MazeLayout, MazeLayoutDef> = {
   CLASSIC: buildLayout(buildCombMaze(COLS, ROWS, 'vertical'), COLS, ROWS),
   SPIRAL: buildLayout(buildCombMaze(COLS, ROWS, 'horizontal'), COLS, ROWS),
   CROSS: buildLayout(buildCrossMaze(COLS, ROWS), COLS, ROWS),
-  CITY: buildLayout(buildCityMaze(CITY_COLS, CITY_ROWS), CITY_COLS, CITY_ROWS, true),
+  CITY: buildSostenibleCityLayout(),
 }

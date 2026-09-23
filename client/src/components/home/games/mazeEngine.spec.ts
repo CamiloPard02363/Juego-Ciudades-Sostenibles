@@ -53,8 +53,7 @@ function crossLayout(): MazeLayoutDef {
       { row: 5, col: 5 },
     ],
     itemSlots: [],
-    decorations: [],
-    tunnelRow: null,
+    tunnelRows: [],
   }
 }
 
@@ -225,18 +224,18 @@ describe('buildLevelBoard', () => {
 })
 
 describe('túnel de teletransporte', () => {
-  const layout = { ...crossLayout(), tunnelRow: 3 }
+  const layout = { ...crossLayout(), tunnelRows: [3] }
 
-  it('sin fila de túnel (null), salirse del mapa no envuelve', () => {
-    const noTunnel = { ...layout, tunnelRow: null }
+  it('sin filas de túnel, salirse del mapa no envuelve', () => {
+    const noTunnel = { ...layout, tunnelRows: [] }
     expect(applyTeleport(noTunnel, { row: 3, col: -1 })).toEqual({ row: 3, col: -1 })
   })
 
-  it('salir por la izquierda en la fila de túnel envuelve al extremo derecho', () => {
+  it('salir por la izquierda en una fila de túnel envuelve al extremo derecho', () => {
     expect(applyTeleport(layout, { row: 3, col: -1 })).toEqual({ row: 3, col: 6 })
   })
 
-  it('salir por la derecha en la fila de túnel envuelve al extremo izquierdo', () => {
+  it('salir por la derecha en una fila de túnel envuelve al extremo izquierdo', () => {
     expect(applyTeleport(layout, { row: 3, col: 7 })).toEqual({ row: 3, col: 0 })
   })
 
@@ -244,22 +243,28 @@ describe('túnel de teletransporte', () => {
     expect(applyTeleport(layout, { row: 1, col: -1 })).toEqual({ row: 1, col: -1 })
   })
 
+  it('un layout puede tener varias filas de túnel a la vez (ej. varias avenidas)', () => {
+    const multiTunnel = { ...layout, tunnelRows: [1, 3, 5] }
+    expect(applyTeleport(multiTunnel, { row: 1, col: -1 })).toEqual({ row: 1, col: 6 })
+    expect(applyTeleport(multiTunnel, { row: 5, col: 7 })).toEqual({ row: 5, col: 0 })
+  })
+
   it('stepWithTeleport combina el paso y el envoltorio en una sola llamada', () => {
-    expect(stepWithTeleport({ row: 3, col: 0 }, 'LEFT', 7, 3)).toEqual({ row: 3, col: 6 })
-    expect(stepWithTeleport({ row: 3, col: 0 }, 'UP', 7, 3)).toEqual({ row: 2, col: 0 })
+    expect(stepWithTeleport({ row: 3, col: 0 }, 'LEFT', 7, [3])).toEqual({ row: 3, col: 6 })
+    expect(stepWithTeleport({ row: 3, col: 0 }, 'UP', 7, [3])).toEqual({ row: 2, col: 0 })
   })
 
   it('openDirections reconoce el túnel como una salida válida en los extremos', () => {
     // Grid dedicado con la fila de túnel abierta HASTA el borde (así se ve
-    // de verdad una vez que carveTunnel la talla) — la cruz de arriba no
+    // de verdad una vez que carveTunnels la talla) — la cruz de arriba no
     // sirve para esto porque sus columnas de borde son pared.
     const tunnelGrid = [
       [1, 1, 1, 1, 1],
       [0, 0, 0, 0, 0],
       [1, 1, 1, 1, 1],
     ]
-    expect(openDirections(tunnelGrid, { row: 1, col: 0 }, 1)).toContain('LEFT')
-    expect(openDirections(tunnelGrid, { row: 1, col: 4 }, 1)).toContain('RIGHT')
+    expect(openDirections(tunnelGrid, { row: 1, col: 0 }, [1])).toContain('LEFT')
+    expect(openDirections(tunnelGrid, { row: 1, col: 4 }, [1])).toContain('RIGHT')
   })
 })
 
