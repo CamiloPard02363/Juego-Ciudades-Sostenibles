@@ -29,6 +29,7 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.LOBBY_TEST_URL || 'http://127.0.0.1:5174';
 const api = 'http://127.0.0.1:3107';
+const instructionExamples = new Map();
 const modes = [
   ['room', 'GUESS_WHO', ROOM_STORE, (code) => `/?sala=${code}`],
   ['tournament', 'GUESS_WHO', TOURNAMENT_STORE, (code) => `/?sala=${code}`],
@@ -165,6 +166,7 @@ try {
       page.setDefaultTimeout(12000);
       page.on('pageerror', (error) => errors.push(error.message));
       await page.addInitScript(() => {
+        localStorage.setItem('nexusplay-theme', 'dark');
         Object.defineProperty(navigator, 'clipboard', {
           configurable: true,
           value: {
@@ -200,6 +202,12 @@ try {
       });
       await page.goto(base + path(room.code));
       await page.getByRole('heading', { name: 'Cómo jugar', exact: true }).waitFor();
+      if (id === 'Ana') {
+        const signature = await page.locator('[data-game-instructions] svg').evaluateAll(elements => JSON.stringify(elements.slice(0, 4).map(el => el.innerHTML)));
+        assert.ok(![...instructionExamples.values()].includes(signature), 'Iconos propios para cada mecánica');
+        instructionExamples.set(prefix, signature);
+        await page.screenshot({ path: `.scratch/instructions-${prefix}-desktop.png` });
+      }
       assert.equal(await page.locator('[data-lobby="shared"]').count(), 0);
       const beforeInstructions = players().map((player) => player.socketId);
       await page.waitForTimeout(500);

@@ -432,6 +432,141 @@ code {
   }
 }
 
+/* ==================== Camión Eco-V (Recolector de laberinto) ====================
+ * El motor (useMazeCollectorGame.ts) mueve al camión/nubes con
+ * transform:translate3d por JS cada frame — estas @keyframes solo animan un
+ * elemento HIJO del que ya se está moviendo, nunca la posición en sí, para
+ * no pelear con esa transformación (ver EcoTruckSprite/PollutionGhostSprite). */
+
+/* Vaivén sutil de "vehículo andando" — nunca se detiene, ni parado en 'ready'. */
+@keyframes maze-truck-drive {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-1.5px) rotate(1.5deg);
+  }
+}
+
+/* Las nubes flotan, no ruedan — un bob vertical lento en vez del vaivén del camión. */
+@keyframes maze-ghost-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* Parpadeo blanco/azul de una nube asustada cuando el estado energizado está por acabar — el aviso visual de "corre". */
+@keyframes maze-ghost-frightened-flash {
+  0%,
+  49% {
+    filter: brightness(1) hue-rotate(0deg);
+  }
+  50%,
+  100% {
+    filter: brightness(1.6) hue-rotate(25deg);
+  }
+}
+
+@keyframes maze-pellet-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 3px currentColor);
+  }
+  50% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+}
+
+@keyframes maze-pet-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(-4deg);
+  }
+}
+
+/* Jitter incómodo — comunica "trampa" sin necesitar texto. */
+@keyframes maze-bag-jitter {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-1px) rotate(-3deg);
+  }
+  75% {
+    transform: translateX(1px) rotate(3deg);
+  }
+}
+
+@keyframes maze-bonus-spark {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 4px #fef08a);
+  }
+  50% {
+    transform: scale(1.12) rotate(6deg);
+    filter: drop-shadow(0 0 10px #fef08a);
+  }
+}
+
+@keyframes maze-window-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes maze-tree-sway {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes maze-road-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+}
+
+@keyframes maze-levelup-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) translateY(10px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 @keyframes waiting-dot-bounce {
   0%,
   80%,

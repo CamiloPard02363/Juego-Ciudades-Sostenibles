@@ -25,6 +25,7 @@ async function main() {
   const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
   mkdirSync('.scratch', { recursive: true })
   let structure
+  const visualExamples = new Map()
   try {
     for (const [kind, close] of [['PAIRS', 'button'], ['OPPOSITES', 'escape'], ['MAZE_COLLECTOR', 'backdrop'], ['DUAL_QUEST_PIXI', 'button'], ['DEMO', 'button']]) {
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' })
@@ -57,11 +58,18 @@ async function main() {
       assert.equal(await intro.getAttribute('data-game-instructions'), kind === 'DEMO' ? 'DUAL_QUEST_PIXI' : kind)
       assert.equal(await page.locator('canvas').count(), 0)
       assert.equal(await page.getByText(/Zona 1 de/).count(), 0)
+      assert.equal(await page.getByRole('heading', { name: /nubes de contaminación/ }).count(), 0)
       await page.waitForTimeout(1200)
       assert.equal(await intro.isVisible(), true, 'El instructivo espera confirmación, sin cierre automático')
-      const current = await intro.evaluate(el => [el.parentElement.className, ...Array.from(el.querySelectorAll('*'), e => `${e.tagName}:${e.getAttribute('class')}:${e.getAttribute('style')}:${e.getAttribute('d')}`)])
-      if (structure) assert.deepEqual(current, structure, 'Misma estructura, estilos e iconos en todas las modalidades')
+      const current = await intro.evaluate(el => [el.parentElement.className, ...Array.from(el.querySelectorAll('*')).filter(e => !e.closest('svg')).map(e => `${e.tagName}:${e.getAttribute('class')}:${e.getAttribute('style')}`)])
+      if (structure) assert.deepEqual(current, structure, 'Misma estructura y estilos en todas las modalidades')
       else structure = current
+      const icons = await intro.locator('svg').evaluateAll(elements => elements.slice(0, 4).map(el => ({ drawing: el.innerHTML, size: el.getAttribute('class').split(' ').filter(c => !c.startsWith('lucide')).join(' '), style: el.getAttribute('style'), hidden: el.getAttribute('aria-hidden') })))
+      assert.equal(icons.length, 4)
+      assert.ok(icons.every(icon => icon.size === 'h-6 w-6' && icon.hidden === 'true'))
+      const signature = JSON.stringify(icons.map(icon => icon.drawing))
+      if (kind === 'DEMO') assert.equal(signature, visualExamples.get('DUAL_QUEST_PIXI'))
+      else { assert.ok(![...visualExamples.values()].includes(signature), 'Cada mecánica tiene sus propios iconos'); visualExamples.set(kind, signature) }
       assert.equal(await intro.locator('button').count(), 1)
       await page.screenshot({ path: `.scratch/instructions-${kind}-desktop.png` })
       await page.setViewportSize({ width: 390, height: 844 })
@@ -74,6 +82,7 @@ async function main() {
       else { await intro.getByRole('button').focus(); await page.keyboard.press('Enter') }
       await intro.waitFor({ state: 'detached' })
       if (kind === 'PAIRS' || kind === 'OPPOSITES') await page.getByText(/Zona 1 de/).waitFor()
+      else if (kind === 'MAZE_COLLECTOR') await page.getByRole('heading', { name: /nubes de contaminación/ }).waitFor()
       else await page.locator('canvas').waitFor().catch(async error => { console.error(await page.locator('body').innerText(), errors); throw error })
       assert.deepEqual(errors, [])
       console.log(`PASS ${kind}: entrada real, espera previa, misma estética, móvil, continuación por ${close} y juego activo`)
