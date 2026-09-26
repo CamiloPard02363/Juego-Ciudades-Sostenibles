@@ -36,6 +36,11 @@ export function GameDetailModal({
   const accentColor = color ?? game.theme.primaryColor
   const isGuessWho = game.gameType === 'GUESS_WHO'
   const opensLiveRoom = LIVE_ROOM_GAME_TYPES.includes(game.gameType)
+  // Tras la prueba de zona, ¿Quién Es? rotula sus dos entradas como "crear" y
+  // "unirse a una ya creada"; el resto de juegos con sala en vivo conserva
+  // "Abrir sala" y su pregunta original.
+  const playLabel = isGuessWho ? 'Crear una partida' : opensLiveRoom ? 'Abrir sala' : 'Jugar'
+  const joinHeading = isGuessWho ? 'Únete a una partida ya creada' : '¿Ya tienes un código de sala de este juego?'
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
   const config = game.config as { maxAccusationCount?: number; turnDurationSeconds?: number }
@@ -271,7 +276,7 @@ export function GameDetailModal({
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
               onClick={onPlay}
             >
-              {opensLiveRoom ? 'Abrir sala' : 'Jugar'}
+              {playLabel}
             </button>
             <button
               type="button"
@@ -283,10 +288,10 @@ export function GameDetailModal({
           </div>
 
           {/* Apartado propio de este juego para unirse con un código ya
-              existente (en vez de crear una sala nueva con "Abrir sala"). */}
+              existente (en vez de crear una sala nueva con el botón principal). */}
           {opensLiveRoom && (
             <div className="rounded-lg border border-border p-3">
-              <p className="mb-2 text-[12px] font-medium text-text-h">¿Ya tienes un código de sala de este juego?</p>
+              <p className="mb-2 text-[12px] font-medium text-text-h">{joinHeading}</p>
               <div className="flex gap-2">
                 <input
                   type="text"

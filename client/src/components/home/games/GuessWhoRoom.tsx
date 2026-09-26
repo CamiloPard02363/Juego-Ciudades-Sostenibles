@@ -9,7 +9,6 @@ import { MIN_DISCARDS_TO_ACCUSE } from './guessWhoTypes'
 import { Modal } from './Modal'
 import { DealCountdownOverlay, MatchBoard, useCountdown } from './MatchBoard'
 import { TournamentRoom } from './TournamentRoom'
-import { JoinByCodeModal } from './JoinByCodeModal'
 import { ConfettiBurst } from '../../kids/ConfettiBurst'
 import { CardInfoBubble } from './CardInfoBubble'
 
@@ -24,9 +23,9 @@ type GuessWhoRoomProps = {
   initialJoinCode?: string
   initialMode?: 'individual' | 'group'
   /**
-   * El modo ya se decidió un nivel arriba (se viene de "Crear sala nueva"),
-   * así que este componente debe saltar directo a crear en vez de volver a
-   * preguntar crear/unirse.
+   * El modo ya se decidió un nivel arriba (se viene de la elección de formato
+   * 1 contra 1 / Grupo), así que este componente debe saltar directo a crear
+   * en vez de volver a preguntar crear/unirse.
    */
   skipEntryChoice?: boolean
   /**
@@ -38,20 +37,19 @@ type GuessWhoRoomProps = {
 }
 
 /**
- * Punto de entrada de "¿Quién Es?": primero se decide "crear sala nueva" o
- * "ingresar a una sala" (con código, agnóstico a individual/grupo — lo
- * resuelve el propio código vía room:resolve-code). Solo al crear se
- * pregunta el modo (Individual o Grupo), porque al unirse el modo ya lo
- * define la sala a la que se entra. Esto evita la doble pregunta que había
- * antes (elegir modo y luego, otra vez, crear/unirse dentro de cada modo).
+ * Punto de entrada de "¿Quién Es?" al pulsar "Crear una partida" en el detalle
+ * del juego: pregunta directamente el formato (1 contra 1 o Grupo). Unirse con
+ * un código no se pregunta acá — el detalle del juego ya tiene su apartado
+ * "Únete a una partida ya creada" (y el home su botón "Unirme con código"), y
+ * ambos llegan con `initialJoinCode`/`initialMode` ya resueltos, así que se
+ * saltan esta pantalla. Antes había una pantalla intermedia ("Tu sala": crear
+ * sala nueva / ingresar a una sala) que repetía justo esa misma elección.
  */
-type EntryStep = 'undecided' | 'joining-by-code' | 'choosing-mode-to-create'
 type GameMode = 'individual' | 'group'
 
 export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode, onRoomCodeChange }: GuessWhoRoomProps) {
-  const [step, setStep] = useState<EntryStep>('undecided')
   const [mode, setMode] = useState<GameMode | null>(initialMode ?? null)
-  const [joinCode, setJoinCode] = useState<string | undefined>(initialJoinCode)
+  const [joinCode] = useState<string | undefined>(initialJoinCode)
 
   if (mode && joinCode) {
     return mode === 'group' ? (
@@ -74,79 +72,29 @@ export function GuessWhoRoom({ gameId, onExit, initialJoinCode, initialMode, onR
     )
   }
 
-  if (step === 'joining-by-code') {
-    return (
-      <JoinByCodeModal
-        onClose={onExit}
-        onResolved={(resolved, code) => {
-          setMode(resolved.kind === 'tournament' ? 'group' : 'individual')
-          setJoinCode(code)
-        }}
-      />
-    )
-  }
-
-  if (step === 'choosing-mode-to-create') {
-    return (
-      <Modal onClose={onExit} maxWidthClassName="max-w-[440px]">
-        <div className="space-y-5">
-          <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">¿Quién Es?</p>
-            <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Elige tu formato</h2>
-          </div>
-          <p className="text-[13px] text-text">¿Quieres jugar individual (1 contra 1) o en grupo?</p>
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              className="rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_28px_-14px_var(--accent)]"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={() => setMode('individual')}
-            >
-              1 contra 1
-            </button>
-            <button
-              type="button"
-              className="rounded-2xl border border-border bg-surface px-4 py-3 text-[14.5px] font-semibold text-text-h transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/5"
-              onClick={() => setMode('group')}
-            >
-              Grupo (torneo eliminatorio)
-            </button>
-          </div>
-          <button
-            type="button"
-            className="w-full rounded-xl border border-border px-4 py-2.5 text-[14px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
-            onClick={() => setStep('undecided')}
-          >
-            Atrás
-          </button>
-        </div>
-      </Modal>
-    )
-  }
-
   return (
     <Modal onClose={onExit} maxWidthClassName="max-w-[440px]">
       <div className="space-y-5">
         <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
           <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">¿Quién Es?</p>
-          <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Tu sala</h2>
+          <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Elige tu formato</h2>
         </div>
-        <p className="text-[13px] text-text">¿Vas a crear una sala nueva o a ingresar a una existente?</p>
-        <div className="grid grid-cols-2 gap-3">
+        <p className="text-[13px] text-text">¿Quieres jugar individual (1 contra 1) o en grupo?</p>
+        <div className="flex flex-col gap-3">
           <button
             type="button"
             className="rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_28px_-14px_var(--accent)]"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            onClick={() => setStep('choosing-mode-to-create')}
+            onClick={() => setMode('individual')}
           >
-            Crear sala nueva
+            1 contra 1
           </button>
           <button
             type="button"
             className="rounded-2xl border border-border bg-surface px-4 py-3 text-[14.5px] font-semibold text-text-h transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/5"
-            onClick={() => setStep('joining-by-code')}
+            onClick={() => setMode('group')}
           >
-            Ingresar a una sala
+            Grupo (torneo eliminatorio)
           </button>
         </div>
         <button
