@@ -13,6 +13,12 @@ export type OrganizationWithMyRole = Organization & {
   /** Rol del usuario autenticado dentro de esta organización (ADMIN/TEACHER/STUDENT). */
   myOrgRole: string
   joinedAt: string
+  /**
+   * Solo presente cuando el usuario autenticado es ADMIN de esta
+   * organización (o ADMIN global) — issue #133/#136. Un STUDENT/TEACHER
+   * miembro no ve el código de invitación de su propia organización.
+   */
+  inviteCode?: string
 }
 
 export type OrganizationMember = {
@@ -153,4 +159,48 @@ export function reactivateOrganization(token: string, id: string): Promise<void>
     method: 'PATCH',
     token,
   })
+}
+
+/**
+ * POST /organizations/join — matrícula por código de invitación de la
+ * organización (issue #133/#136, Frente A). Análogo a `joinClass`. El
+ * backend devuelve 404 si el código no existe y 403 si la organización está
+ * desactivada; ambos casos se propagan tal cual vía `ApiError.message`.
+ */
+export function joinOrganization(token: string, inviteCode: string): Promise<OrganizationWithMyRole> {
+  return request<OrganizationWithMyRole>('/organizations/join', {
+    method: 'POST',
+    token,
+    body: { inviteCode },
+  })
+}
+
+/**
+ * GET /organizations/:organizationId/students — miembros `orgRole = STUDENT`
+ * de la organización (issue #133/#136, Frente C). Insumo para que un
+ * profesor matricule directo sin código.
+ */
+export function listOrganizationStudents(
+  token: string,
+  organizationId: string,
+): Promise<OrganizationMember[]> {
+  return request<OrganizationMember[]>(`/organizations/${organizationId}/students`, { token })
+}
+
+/**
+ * PATCH /organizations/:organizationId/members/:userId/role — cambia el
+ * `orgRole` de un miembro ya existente (issue #133/#136, Frente E). Solo
+ * ADMIN de esa organización o ADMIN global; nadie puede cambiar su propio
+ * rol (validado también en la UI, ver `OrganizationDashboard`).
+ */
+export function changeOrganizationMemberRole(
+  token: string,
+  organizationId: string,
+  userId: string,
+  orgRole: OrganizationRoleValue,
+): Promise<OrganizationMember> {
+  return request<OrganizationMember>(
+    `/organizations/${organizationId}/members/${userId}/role`,
+    { method: 'PATCH', token, body: { orgRole } },
+  )
 }

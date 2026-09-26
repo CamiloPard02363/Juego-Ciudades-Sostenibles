@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Globe2, PlusCircle, Search, UserMinus, UserPlus, Users2 } from 'lucide-react'
+import { Copy, Globe2, PlusCircle, Search, UserMinus, UserPlus, Users2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
 import {
   addOrganizationMember,
+  changeOrganizationMemberRole,
   createOrganization,
   deactivateOrganization,
   listAllOrganizations,
@@ -103,6 +104,11 @@ export function OrganizationDashboard() {
   const [addingMember, setAddingMember] = useState(false)
   const [addMemberError, setAddMemberError] = useState<string | null>(null)
   const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null)
+
+  // Cambio de rol de un miembro (issue #133/#136, Frente E). Sin
+  // confirmación aparte: el propio `<select>` dispara el PATCH, mismo
+  // criterio que el selector de rol global en `AdminUsersSection`.
+  const [changingRoleUserId, setChangingRoleUserId] = useState<string | null>(null)
 
   const adminOrganizations = organizations.filter((org) => org.myOrgRole === 'ADMIN')
 
@@ -316,6 +322,31 @@ export function OrganizationDashboard() {
     }
   }
 
+  async function handleChangeMemberRole(member: OrganizationMember, nextRole: OrganizationRoleValue) {
+    if (!token || !activeOrgId || nextRole === member.orgRole) return
+    setChangingRoleUserId(member.userId)
+    try {
+      await changeOrganizationMemberRole(token, activeOrgId, member.userId, nextRole)
+      setMembers((current) =>
+        current.map((m) => (m.userId === member.userId ? { ...m, orgRole: nextRole } : m)),
+      )
+      showToast(`Rol de ${member.displayName ?? member.email ?? 'miembro'} actualizado a ${nextRole}.`)
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'No se pudo cambiar el rol del miembro.', 'error')
+    } finally {
+      setChangingRoleUserId(null)
+    }
+  }
+
+  async function handleCopyInviteCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code)
+      showToast('Código de invitación copiado.')
+    } catch {
+      showToast('No se pudo copiar el código.', 'error')
+    }
+  }
+
   async function handleConfirmToggleOrganization() {
     if (!token || !orgPendingToggle) return
     setTogglingOrgId(orgPendingToggle.id)
@@ -393,6 +424,13 @@ export function OrganizationDashboard() {
   const activeOrg =
     selectableOrganizations.find((org) => org.id === activeOrgId) ?? selectableOrganizations[0]
 
+  // El invite code solo llega en `OrganizationWithMyRole.inviteCode` (issue
+  // #133/#136, Frente A) — el backend solo lo expone a quien es ADMIN de esa
+  // organización o ADMIN global vía `listMyOrganizations`. Un ADMIN global
+  // viendo una organización de la que no es miembro (eje `allOrganizations`,
+  // sin `inviteCode` en su DTO) simplemente no tiene código que mostrar aquí.
+  const activeOrgInviteCode = organizations.find((org) => org.id === activeOrg.id)?.inviteCode
+
   return (
     <section className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -411,6 +449,17 @@ export function OrganizationDashboard() {
               ? `Viendo "${activeOrg.name}" como ADMIN global de la plataforma.`
               : `Administra los miembros y los juegos institucionales de ${activeOrg.name}.`}
           </p>
+          {activeOrgInviteCode && (
+            <button
+              type="button"
+              onClick={() => handleCopyInviteCode(activeOrgInviteCode)}
+              title="Copiar código de invitación"
+              className="mt-2 flex items-center gap-1.5 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[12.5px] font-medium text-text-h hover:border-accent"
+            >
+              <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+              Código: {activeOrgInviteCode}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -493,32 +542,59 @@ export function OrganizationDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {members.map((member) => (
-                  <tr key={member.userId} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2.5 text-text-h">{member.displayName ?? '—'}</td>
-                    <td className="px-3 py-2.5 text-text">{member.email ?? '—'}</td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[12px] font-medium ${
-                          MEMBER_ROLE_STYLES[member.orgRole] ?? 'bg-code-bg text-text-h'
-                        }`}
-                      >
-                        {member.orgRole}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-medium text-text-h hover:border-danger hover:bg-danger/10 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={removingMemberId === member.userId}
-                        onClick={() => setMemberPendingRemoval(member)}
-                      >
-                        <UserMinus className="h-3.5 w-3.5" strokeWidth={2} />
-                        Remover
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {members.map((member) => {
+                  // El propio usuario autenticado no ve el control de
+                  // cambio de rol sobre su propia fila (issue #133/#136,
+                  // Frente E) — el backend rechaza con 403, pero la UI
+                  // previene el intento, mismo criterio que
+                  // `AdminUsersSection` con `disabled={isSelf}`.
+                  const isSelf = member.userId === user?.id
+                  return (
+                    <tr key={member.userId} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2.5 text-text-h">{member.displayName ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-text">{member.email ?? '—'}</td>
+                      <td className="px-3 py-2.5">
+                        {isSelf ? (
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-[12px] font-medium ${
+                              MEMBER_ROLE_STYLES[member.orgRole] ?? 'bg-code-bg text-text-h'
+                            }`}
+                          >
+                            {member.orgRole}
+                          </span>
+                        ) : (
+                          <select
+                            aria-label={`Rol de ${member.displayName ?? member.email ?? 'miembro'}`}
+                            value={member.orgRole}
+                            disabled={changingRoleUserId === member.userId}
+                            onChange={(event) =>
+                              handleChangeMemberRole(member, event.target.value as OrganizationRoleValue)
+                            }
+                            className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[12px] text-text-h outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {ORG_ROLE_OPTIONS.map((role) => (
+                              <option key={role} value={role}>
+                                {role}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-medium text-text-h hover:border-danger hover:bg-danger/10 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={isSelf || removingMemberId === member.userId}
+                          title={isSelf ? 'No puedes removerte a ti mismo.' : undefined}
+                          onClick={() => setMemberPendingRemoval(member)}
+                        >
+                          <UserMinus className="h-3.5 w-3.5" strokeWidth={2} />
+                          Remover
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

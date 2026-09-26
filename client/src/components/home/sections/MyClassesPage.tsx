@@ -10,6 +10,8 @@ import {
   listClassGames,
   addGameToClass,
   removeGameFromClass,
+  deactivateClass,
+  reactivateClass,
   type TeacherClassDetail,
 } from '../../../services/class.service'
 import { listGames, type GameSummary } from '../../../services/game.service'
@@ -32,18 +34,37 @@ export function MyClassesPage() {
   const [description, setDescription] = useState('')
   const [organizationId, setOrganizationId] = useState('')
   const [savingClass, setSavingClass] = useState(false)
+  // Separación visual de clases activas/inactivas (issue #133/#136, Frente
+  // D, CA-D4) — no se mezclan en la misma grilla. `includeInactive` siempre
+  // pide ambas al backend y el filtro real ocurre en cliente: evita un
+  // segundo round-trip solo por cambiar de pestaña.
+  const [tab, setTab] = useState<'active' | 'inactive'>('active')
+  const [togglingClassId, setTogglingClassId] = useState<string | null>(null)
+  // Confirmación simple antes de (des)activar (issue #133/#136, CA-D4): es
+  // reversible, mismo criterio de "confirmación sin fricción extra" que
+  // `OrganizationDashboard` usa para (des)activar una organización.
+  const [classPendingToggle, setClassPendingToggle] = useState<TeacherClassDetail | null>(null)
 
   // Organizaciones propias del profesor, para el selector opcional al crear
   // clase (issue #106/#108, CA1.7). Si son 0 o 1, el selector no se muestra —
   // nunca se fuerza una única opción.
   const [myOrganizations, setMyOrganizations] = useState<OrganizationWithMyRole[]>([])
 
-  useEffect(() => {
+  function reloadClasses() {
     if (!token || user?.role !== 'TEACHER') return
-    listMyClassesDetail(token)
+    // Workaround del bug conocido de query params booleanos (issue #135):
+    // solo se envía `includeInactive=true` cuando aplica, nunca `=false`
+    // explícito — mismo patrón que `OrganizationDashboard` usa para
+    // `isActive` de organizaciones.
+    return listMyClassesDetail(token, true)
       .then(setClasses)
       .catch((err: unknown) => setError(err instanceof ApiError ? err.message : 'No se pudieron cargar tus clases.'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    reloadClasses()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, user?.role])
 
   useEffect(() => {
@@ -83,12 +104,33 @@ export function MyClassesPage() {
     // quedó creada en el backend, así que un fallo aquí no debe leerse como
     // "no se pudo crear la clase".
     try {
-      const detail = await listMyClassesDetail(token)
-      setClasses(detail)
+      await reloadClasses()
     } catch (err: unknown) {
       console.error('La clase se creó, pero no se pudo recargar el listado:', err)
     } finally {
       setSavingClass(false)
+    }
+  }
+
+  async function handleConfirmToggleClassActive() {
+    if (!token || !classPendingToggle) return
+    const classItem = classPendingToggle
+    setTogglingClassId(classItem.id)
+    try {
+      if (classItem.isActive) {
+        await deactivateClass(token, classItem.id)
+      } else {
+        await reactivateClass(token, classItem.id)
+      }
+      setClasses((current) =>
+        current.map((c) => (c.id === classItem.id ? { ...c, isActive: !classItem.isActive } : c)),
+      )
+      showToast(classItem.isActive ? 'Clase desactivada.' : 'Clase reactivada.')
+      setClassPendingToggle(null)
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'No se pudo actualizar el estado de la clase.', 'error')
+    } finally {
+      setTogglingClassId(null)
     }
   }
 
@@ -173,6 +215,30 @@ export function MyClassesPage() {
 
       {error && <p className="rounded-lg border border-danger/35 bg-danger/10 px-3 py-2.5 text-sm text-danger" role="alert">{error}</p>}
 
+      {!loading && classes.length > 0 && (
+        <div className="flex gap-2 border-b border-border">
+          {(
+            [
+              { key: 'active' as const, label: 'Clases activas', count: classes.filter((c) => c.isActive).length },
+              { key: 'inactive' as const, label: 'Clases inactivas', count: classes.filter((c) => !c.isActive).length },
+            ]
+          ).map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setTab(option.key)}
+              className={`border-b-2 px-3 py-2 text-[13.5px] font-medium transition-colors ${
+                tab === option.key
+                  ? 'border-accent text-text-h'
+                  : 'border-transparent text-text hover:text-text-h'
+              }`}
+            >
+              {option.label} ({option.count})
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p className="text-[14px] text-text">Cargando clases…</p>
       ) : classes.length === 0 ? (
@@ -184,17 +250,77 @@ export function MyClassesPage() {
           <p className="mt-1 max-w-[360px] text-[13px] text-text">Cuando crees o recibas una clase, aparecerá en este espacio.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {classes.map((classItem) => (
-            <ClassCard key={classItem.id} classItem={classItem} onOpen={() => navigate(`/mis-clases/${classItem.id}`)} />
-          ))}
-        </div>
+        (() => {
+          const visibleClasses = classes.filter((c) => (tab === 'active' ? c.isActive : !c.isActive))
+          return visibleClasses.length === 0 ? (
+            <p className="text-[13.5px] text-text">
+              {tab === 'active' ? 'No tienes clases activas.' : 'No tienes clases inactivas.'}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleClasses.map((classItem) => (
+                <ClassCard
+                  key={classItem.id}
+                  classItem={classItem}
+                  toggling={togglingClassId === classItem.id}
+                  onOpen={() => navigate(`/mis-clases/${classItem.id}`)}
+                  onToggleActive={() => setClassPendingToggle(classItem)}
+                />
+              ))}
+            </div>
+          )
+        })()
+      )}
+
+      {classPendingToggle && (
+        <Modal onClose={() => setClassPendingToggle(null)}>
+          <h3 className="mb-2 text-[17px] font-semibold text-text-h">
+            {classPendingToggle.isActive ? 'Desactivar clase' : 'Reactivar clase'}
+          </h3>
+          <p className="mb-5 text-[13.5px] text-text">
+            {classPendingToggle.isActive
+              ? `¿Seguro que quieres desactivar "${classPendingToggle.name}"? Puedes reactivarla cuando quieras.`
+              : `¿Seguro que quieres reactivar "${classPendingToggle.name}"?`}
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-medium text-text-h"
+              onClick={() => setClassPendingToggle(null)}
+              disabled={togglingClassId === classPendingToggle.id}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="rounded-lg bg-danger px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleConfirmToggleClassActive}
+              disabled={togglingClassId === classPendingToggle.id}
+            >
+              {togglingClassId === classPendingToggle.id
+                ? 'Procesando…'
+                : classPendingToggle.isActive
+                  ? 'Desactivar'
+                  : 'Reactivar'}
+            </button>
+          </div>
+        </Modal>
       )}
     </section>
   )
 }
 
-function ClassCard({ classItem, onOpen }: { classItem: TeacherClassDetail; onOpen: () => void }) {
+function ClassCard({
+  classItem,
+  toggling,
+  onOpen,
+  onToggleActive,
+}: {
+  classItem: TeacherClassDetail
+  toggling: boolean
+  onOpen: () => void
+  onToggleActive: () => void
+}) {
   const { token } = useAuth()
   const [gameCount, setGameCount] = useState<number | null>(null)
 
@@ -206,22 +332,28 @@ function ClassCard({ classItem, onOpen }: { classItem: TeacherClassDetail; onOpe
   }, [token, classItem.id])
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="rounded-2xl border border-border bg-surface p-5 text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-0.5"
-    >
-      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
-        <Users className="h-5 w-5" strokeWidth={2} />
-      </div>
-      <h3 className="truncate text-[16px] font-semibold text-text-h">{classItem.name}</h3>
-      <p className="mt-2 min-h-[40px] text-[13px] leading-relaxed text-text">
-        {classItem.description || 'Sin descripción todavía.'}
-      </p>
-      <span className="mt-2 inline-block rounded-full bg-bg px-2.5 py-1 text-[11.5px] font-medium text-text">
-        {gameCount === null ? '…' : `${gameCount} ${gameCount === 1 ? 'juego asignado' : 'juegos asignados'}`}
-      </span>
-    </button>
+    <div className="rounded-2xl border border-border bg-surface p-5 shadow-[var(--shadow)] transition-transform hover:-translate-y-0.5">
+      <button type="button" onClick={onOpen} className="block w-full text-left">
+        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
+          <Users className="h-5 w-5" strokeWidth={2} />
+        </div>
+        <h3 className="truncate text-[16px] font-semibold text-text-h">{classItem.name}</h3>
+        <p className="mt-2 min-h-[40px] text-[13px] leading-relaxed text-text">
+          {classItem.description || 'Sin descripción todavía.'}
+        </p>
+        <span className="mt-2 inline-block rounded-full bg-bg px-2.5 py-1 text-[11.5px] font-medium text-text">
+          {gameCount === null ? '…' : `${gameCount} ${gameCount === 1 ? 'juego asignado' : 'juegos asignados'}`}
+        </span>
+      </button>
+      <button
+        type="button"
+        disabled={toggling}
+        onClick={onToggleActive}
+        className="mt-4 w-full rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {toggling ? 'Procesando…' : classItem.isActive ? 'Desactivar' : 'Reactivar'}
+      </button>
+    </div>
   )
 }
 
