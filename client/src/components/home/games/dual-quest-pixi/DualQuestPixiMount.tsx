@@ -65,7 +65,7 @@ export function DualQuestPixiMount({ level }: DualQuestPixiMountProps) {
   }
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950" style={{ aspectRatio: '16 / 9' }}>
+    <div className="relative h-full w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
       <div ref={hostRef} className="absolute inset-0" />
 
       <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-slate-900/80 px-3 py-1 font-mono text-xs text-white">

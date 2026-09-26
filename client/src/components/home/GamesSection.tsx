@@ -24,14 +24,7 @@ import { GameDetailModal } from './games/GameDetailModal'
 import { Modal } from './games/Modal'
 import { JoinByCodeModal } from './games/JoinByCodeModal'
 import { resolveRoomCode, LIVE_ROOM_ROUTES, type ResolvedRoom } from './games/resolveRoomCode'
-import { PlayOptionsPopup } from './games/PlayOptionsPopup'
-import type { Difficulty } from './games/PlayOptionsPopup'
-import { MemoryMatchGame } from './games/MemoryMatchGame'
-import { MazeCollectorGame } from './games/MazeCollectorGame'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
-import type { MemoryMatchPair, MemoryMatchConfig } from './games/memoryMatchTypes'
-import { MAZE_LAYOUTS, DEFAULT_MAZE_CONFIG } from './games/mazeCollectorTypes'
-import type { MazeCollectorConfig, MazeCollectorItem } from './games/mazeCollectorTypes'
 
 export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
 
@@ -55,20 +48,6 @@ type GamesSectionProps = {
    * adulto por debajo.
    */
   browsingHidden?: boolean
-}
-
-type PlaySession = {
-  game: GameDetail
-  pairCount: number
-  difficulty: Difficulty
-  showPreview: boolean
-}
-
-const DEFAULT_MEMORY_CONFIG: MemoryMatchConfig = {
-  mode: 'OPPOSITES',
-  perZone: 8,
-  timePerZoneSeconds: 90,
-  previewSeconds: 5,
 }
 
 function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameCount[] {
@@ -95,41 +74,16 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   // el modal. `selectedGame` guarda el detalle ya cargado del slug actual.
   const [selectedGame, setSelectedGame] = useState<GameDetail | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
-  const [showPlayOptions, setShowPlayOptions] = useState(false)
-  const [playSession, setPlaySession] = useState<PlaySession | null>(null)
-  const [mazeSession, setMazeSession] = useState<GameDetail | null>(null)
   const [guessWhoRoomGameId, setGuessWhoRoomGameId] = useState<string | null>(null)
-  const [joinCodeContext, setJoinCodeContext] = useState<{
-    code: string
-    initialMode: 'individual' | 'group'
-  } | null>(null)
 
   /**
-   * Refleja el código de sala activo en la URL (para compartir/ver de un
-   * vistazo en qué sala se está) SIN pasar por react-router: la sala vive
-   * fuera del árbol de <Route> (es un overlay condicional, igual que antes
-   * de esta migración), así que tocar la URL con `navigate` arriesgaría un
-   * remount de esta sección por un cambio de ruta no relacionado. El socket
-   * y su ciclo de vida no se enteran de este cambio en absoluto.
-   */
-  function handleRoomCodeChange(code: string | null) {
-    const url = new URL(window.location.href)
-    if (code) {
-      url.searchParams.set('sala', code)
-    } else {
-      url.searchParams.delete('sala')
-    }
-    window.history.replaceState(null, '', url)
-  }
-
-  /**
-   * Abre la sala/match correcto según lo que resolvió el código: los tipos
-   * con página propia (dominó, escaleras, dúo lógico — ver LIVE_ROOM_ROUTES)
-   * navegan ahí, y "¿Quién Es?" (1v1 o torneo) abre el overlay existente con
-   * el modo correspondiente. Se usa tanto desde el botón agnóstico "Unirme
-   * con código" como desde el campo de código propio de cada juego en su
-   * detalle — agregar un juego nuevo con sala en vivo y página propia es
-   * agregar una entrada a LIVE_ROOM_ROUTES, no tocar esta función.
+   * A qué ruta navegar según lo que resolvió el código: todo tipo de sala en
+   * vivo tiene ya página propia (ver LIVE_ROOM_ROUTES en resolveRoomCode.ts,
+   * incluye "¿Quién Es?" 1v1/torneo desde la migración del issue #146). Se
+   * usa tanto desde el botón agnóstico "Unirme con código" como desde el
+   * campo de código propio de cada juego en su detalle — agregar un juego
+   * nuevo con sala en vivo es agregar una entrada a LIVE_ROOM_ROUTES, no
+   * tocar esta función.
    */
   function handleCodeResolved(resolved: ResolvedRoom, code: string) {
     const routeBuilder = LIVE_ROOM_ROUTES[resolved.kind]
@@ -137,14 +91,12 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       navigate(routeBuilder(code))
       return
     }
-    setJoinCodeContext({ code, initialMode: resolved.kind === 'tournament' ? 'group' : 'individual' })
-    setGuessWhoRoomGameId(resolved.gameId)
   }
 
   useEffect(() => {
     if (!token) return
     const sharedCode = new URLSearchParams(window.location.search).get('sala')?.trim().toUpperCase()
-    if (!sharedCode || guessWhoRoomGameId) return
+    if (!sharedCode) return
 
     resolveRoomCode(token, sharedCode)
       .then((resolved) => handleCodeResolved(resolved, sharedCode))
@@ -391,12 +343,13 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       navigate(`/domino/sala?gameId=${selectedGame.id}`)
       return
     }
-    // El recolector es un solo jugador contra la IA, sin sala en vivo — la
+    // El recolector es un solo jugador contra la IA, sin sala en vivo —
+    // vista dedicada con ruta propia (ver MazeCollectorPlayPage.tsx). La
     // configuración (vidas, velocidad, laberinto) ya quedó fija al crear el
     // juego, así que no hace falta el popup de opciones de Memory Match.
     if (selectedGame.gameType === 'MAZE_COLLECTOR') {
-      setMazeSession(selectedGame)
       closeGame()
+      navigate(`/jugar/laberinto/${selectedGame.slug}`)
       return
     }
     // Mismo criterio que Dominó: sala en tiempo real con página propia, no
@@ -421,7 +374,11 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       navigate(`/dual-quest-pixi/${selectedGame.slug}`)
       return
     }
-    setShowPlayOptions(true)
+    // Memory Match (Parejas/Opuestos): vista dedicada con ruta propia (ver
+    // MemoryMatchPlayPage.tsx), que monta ahí mismo el popup de opciones
+    // antes de arrancar — ya no se abre acá como overlay.
+    closeGame()
+    navigate(`/jugar/memoria/${selectedGame.slug}`)
   }
 
   /**
@@ -432,7 +389,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
   function renderGameOverlays() {
     return (
       <>
-        {selectedGame && !showPlayOptions && (
+        {selectedGame && (
           <GameDetailModal
             game={selectedGame}
             color={colorForGame(selectedGame)}
@@ -453,61 +410,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
         )}
 
         {guessWhoRoomGameId && (
-          <GuessWhoRoom
-            gameId={guessWhoRoomGameId}
-            onExit={() => {
-              setGuessWhoRoomGameId(null)
-              setJoinCodeContext(null)
-              handleRoomCodeChange(null)
-            }}
-            initialJoinCode={joinCodeContext?.code}
-            initialMode={joinCodeContext?.initialMode}
-            onRoomCodeChange={handleRoomCodeChange}
-          />
-        )}
-
-        {selectedGame && showPlayOptions && (
-          <PlayOptionsPopup
-            game={selectedGame}
-            onClose={() => setShowPlayOptions(false)}
-            onStart={(options) => {
-              setPlaySession({ game: selectedGame, ...options })
-              setShowPlayOptions(false)
-              closeGame()
-            }}
-          />
-        )}
-
-        {playSession && (
-          <MemoryMatchGame
-            title={playSession.game.title}
-            primaryColor={colorForGame(playSession.game)}
-            pairs={playSession.game.content as MemoryMatchPair[]}
-            pairCount={playSession.pairCount}
-            difficulty={playSession.difficulty}
-            showPreview={playSession.showPreview}
-            perZone={(playSession.game.config as Partial<MemoryMatchConfig>).perZone ?? DEFAULT_MEMORY_CONFIG.perZone}
-            timePerZoneSeconds={
-              (playSession.game.config as Partial<MemoryMatchConfig>).timePerZoneSeconds ??
-              DEFAULT_MEMORY_CONFIG.timePerZoneSeconds
-            }
-            previewSeconds={
-              (playSession.game.config as Partial<MemoryMatchConfig>).previewSeconds ??
-              DEFAULT_MEMORY_CONFIG.previewSeconds
-            }
-            onExit={() => setPlaySession(null)}
-          />
-        )}
-
-        {mazeSession && (
-          <MazeCollectorGame
-            title={mazeSession.title}
-            primaryColor={colorForGame(mazeSession)}
-            layout={MAZE_LAYOUTS[(mazeSession.config as Partial<MazeCollectorConfig>).layout ?? DEFAULT_MAZE_CONFIG.layout]}
-            items={mazeSession.content as MazeCollectorItem[]}
-            config={{ ...DEFAULT_MAZE_CONFIG, ...(mazeSession.config as Partial<MazeCollectorConfig>) }}
-            onExit={() => setMazeSession(null)}
-          />
+          <GuessWhoRoom gameId={guessWhoRoomGameId} onExit={() => setGuessWhoRoomGameId(null)} />
         )}
       </>
     )

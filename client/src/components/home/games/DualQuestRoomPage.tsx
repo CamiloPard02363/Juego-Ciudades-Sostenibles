@@ -143,7 +143,7 @@ function DualQuestRoomPageSession() {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
-      <div className="mx-auto flex min-h-full max-w-[720px] flex-col p-5 sm:p-8">
+      <div className="mx-auto flex min-h-full w-full max-w-[1200px] flex-col p-5 sm:p-8">
         <header className="mb-5 flex items-center justify-between gap-3">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wide text-accent">

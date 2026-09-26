@@ -78,7 +78,7 @@ function MazeCollectorSession({ title, primaryColor, layout, items, config, onEx
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
-      <div className="mx-auto flex min-h-full max-w-[900px] flex-col items-center p-5 sm:p-8">
+      <div className="mx-auto flex min-h-full w-full max-w-[1400px] flex-col items-center p-5 sm:p-8">
         <header className="relative mb-4 w-full text-center">
           <button
             type="button"

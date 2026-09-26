@@ -11,14 +11,14 @@ export type ResolvedRoom = {
 }
 
 /**
- * A qué ruta navegar para cada `kind` que puede devolver el servidor —
- * 'room' y 'tournament' (¿Quién Es? 1v1 / torneo) no están acá porque abren
- * un overlay existente en vez de navegar a una página propia (ver
- * `handleCodeResolved` en GamesSection.tsx). Un juego nuevo con sala en
- * vivo y página propia solo necesita una entrada acá — el resto del flujo
- * (JoinByCodeModal, resolveRoomCode) ya es agnóstico al tipo de juego.
+ * A qué ruta navegar para cada `kind` que puede devolver el servidor. Un
+ * juego nuevo con sala en vivo y página propia solo necesita una entrada
+ * acá — el resto del flujo (JoinByCodeModal, resolveRoomCode) ya es
+ * agnóstico al tipo de juego.
  */
 export const LIVE_ROOM_ROUTES: Partial<Record<ResolvedRoomKind, (code: string) => string>> = {
+  room: (code) => `/quien-es/sala/${code}`,
+  tournament: (code) => `/quien-es/torneo/${code}`,
   domino: (code) => `/domino/sala/${code}`,
   'snakes-ladders': (code) => `/escaleras-serpientes/sala/${code}`,
   'dual-quest': (code) => `/dual-quest/sala/${code}`,

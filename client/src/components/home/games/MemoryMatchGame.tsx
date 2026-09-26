@@ -50,7 +50,7 @@ function MemoryMatchSession({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
-      <div className="mx-auto flex min-h-full max-w-[820px] flex-col p-5 sm:p-8">
+      <div className="mx-auto flex min-h-full w-full max-w-[1200px] flex-col p-5 sm:p-8">
         <header className="relative mb-5 text-center">
           <button
             type="button"

@@ -16,20 +16,22 @@ export function DualQuestPixiDemoPage() {
 
 function DualQuestPixiDemoPageSession() {
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-slate-950">
+      <div className="flex shrink-0 items-center justify-between gap-3 p-4">
         <div>
-          <h1 className="text-xl font-bold">Dúo Lógico · Motor PixiJS (demo local)</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-bold text-white">Dúo Lógico · Motor PixiJS (demo local)</h1>
+          <p className="text-sm text-slate-400">
             Lumen: A/D moverse, W saltar o nadar, S bucear. Gota: flechas izquierda/derecha, arriba saltar o nadar,
             abajo bucear.
           </p>
         </div>
-        <Link to="/" className="text-sm text-emerald-600 hover:underline">
-          Volver al inicio
+        <Link to="/" className="shrink-0 text-sm text-emerald-400 hover:underline">
+          ← Salir
         </Link>
       </div>
-      <DualQuestPixiMount level={level1EnergiaRenovable} />
-    </main>
+      <div className="relative min-h-0 flex-1 px-4 pb-4">
+        <DualQuestPixiMount level={level1EnergiaRenovable} />
+      </div>
+    </div>
   )
 }
