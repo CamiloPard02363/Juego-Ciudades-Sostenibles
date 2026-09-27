@@ -5,6 +5,7 @@ export function ThemeToggle() {
 
   return (
     <div
+      data-tour="theme-toggle"
       className="flex items-center gap-0.5 rounded-full border border-border bg-surface p-0.5"
       role="group"
       aria-label="Tema"

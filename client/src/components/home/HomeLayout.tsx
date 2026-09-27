@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { Sidebar } from './Sidebar'
 import { SearchBar } from './SearchBar'
 import { ProfileMenu } from './ProfileMenu'
+import { ThemeToggle } from '../ThemeToggle'
 import { ProfileSettings } from './ProfileSettings'
 import { trackEvent } from '../../services/analytics.service'
 import { HomeSearchContext } from './homeSearchContext'
@@ -69,6 +70,7 @@ export function HomeLayout() {
           <SearchBar value={searchInput} onChange={setSearchInput} onSearch={handleSearch} />
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <WelcomeTour key={`${user.id}:${user.role}`} user={user} canAccessOrganization={canAccessOrganization || canManageUsers} />
+            <ThemeToggle />
             <ProfileMenu
               user={user}
               onOpenSettings={() => setSettingsOpen(true)}
