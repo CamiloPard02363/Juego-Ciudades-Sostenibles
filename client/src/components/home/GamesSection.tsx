@@ -51,6 +51,8 @@ type GamesSectionProps = {
   browsingHidden?: boolean
   /** Solo aplica con mode='game-type': filtra el catálogo por ese GameType (issue #156). */
   gameTypeFilter?: string
+  /** Solo aplica con mode='game-type': nombre visible del tipo para el encabezado (ej. "Fuego y Agua"). */
+  gameTypeDisplayName?: string
 }
 
 function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameCount[] {
@@ -63,6 +65,7 @@ export function GamesSection({
   searchNonce,
   browsingHidden = false,
   gameTypeFilter,
+  gameTypeDisplayName,
 }: GamesSectionProps) {
   const navigate = useNavigate()
   const { slug: slugFromUrl } = useParams<{ slug?: string }>()
@@ -862,25 +865,35 @@ export function GamesSection({
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="mb-1 text-[22px] tracking-tight text-text-h">
-              {mode === 'community' ? 'Juegos de la comunidad' : isTeacher ? 'Mis actividades' : 'Mis juegos privados'}
+              {mode === 'community'
+                ? 'Juegos de la comunidad'
+                : mode === 'game-type'
+                  ? (gameTypeDisplayName ?? 'Juegos de este tipo')
+                  : isTeacher
+                    ? 'Mis actividades'
+                    : 'Mis juegos privados'}
             </h2>
             <p className="text-[14px] text-text">
               {mode === 'community'
                 ? 'Juegos que otros usuarios crearon y decidieron publicar.'
-                : isTeacher
-                  ? 'Crea, organiza y administra tus actividades.'
-                  : 'Solo tú los ves. Comparte el código de la sala para que otros se unan.'}
+                : mode === 'game-type'
+                  ? 'Juegos publicados con esta mecánica.'
+                  : isTeacher
+                    ? 'Crea, organiza y administra tus actividades.'
+                    : 'Solo tú los ves. Comparte el código de la sala para que otros se unan.'}
             </p>
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
-            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            onClick={() => navigate('/juegos/crear')}
-          >
-            <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
-            {isTeacher ? 'Crear actividad' : 'Crear juego'}
-          </button>
+          {mode !== 'game-type' && (
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              onClick={() => navigate('/juegos/crear')}
+            >
+              <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+              {isTeacher ? 'Crear actividad' : 'Crear juego'}
+            </button>
+          )}
         </div>
       )}
 
@@ -927,17 +940,21 @@ export function GamesSection({
                 ? `Sin resultados para "${searchQuery}".`
                 : mode === 'community'
                   ? 'Aún nadie ha publicado juegos en la comunidad.'
-                  : mode === 'my-games' && isTeacher
-                      ? 'Aún no has creado actividades'
-                      : mode === 'my-games'
-                        ? 'Aún no tienes juegos privados.'
-                    : 'Aún no hay juegos disponibles.'}
+                  : mode === 'game-type'
+                    ? 'Aún no hay juegos publicados con esta mecánica.'
+                    : mode === 'my-games' && isTeacher
+                        ? 'Aún no has creado actividades'
+                        : mode === 'my-games'
+                          ? 'Aún no tienes juegos privados.'
+                      : 'Aún no hay juegos disponibles.'}
             </p>
             <p className="mt-1 max-w-[320px] text-[13px] text-text">
               {searchQuery
                 ? 'Prueba con otro término de búsqueda.'
-                  : mode === 'my-games' && isTeacher
-                    ? 'Crea tu primera actividad para comenzar a jugar con tus estudiantes.'
+                  : mode === 'game-type'
+                    ? 'Vuelve más adelante o elige otra mecánica.'
+                    : mode === 'my-games' && isTeacher
+                      ? 'Crea tu primera actividad para comenzar a jugar con tus estudiantes.'
                 : 'Sé la primera persona en crear uno.'}
             </p>
               {!searchQuery && mode === 'my-games' && isTeacher && (
