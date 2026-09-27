@@ -66,7 +66,13 @@ export function GamesSection({
 }: GamesSectionProps) {
   const navigate = useNavigate()
   const { slug: slugFromUrl } = useParams<{ slug?: string }>()
-  const basePath = BASE_PATH_BY_MODE[mode]
+  // En modo 'game-type' la lista vive en /tipos-de-juego/:gameType, así que
+  // el detalle debe anidarse ahí (/tipos-de-juego/:gameType/:slug) para no
+  // perder el filtro de tipo al navegar de vuelta o al recargar (issue #156).
+  const basePath =
+    mode === 'game-type' && gameTypeFilter
+      ? `${BASE_PATH_BY_MODE[mode]}/${gameTypeFilter}`
+      : BASE_PATH_BY_MODE[mode]
   const { token, user } = useAuth()
   const isTeacher = user?.role?.toUpperCase() === 'TEACHER'
   const [games, setGames] = useState<GameSummary[]>([])
