@@ -3,13 +3,20 @@ import { createPortal } from 'react-dom'
 import { Compass, Gamepad2, Plus, UserRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../services/auth.service'
-import { getWelcomeSteps, hasSeenWelcome, markWelcomeSeen, welcomeStorageKey } from './welcomeTourSteps'
-import type { WelcomeOptions } from './welcomeTourSteps'
+import { getWelcomeSteps, hasSeenWelcome, initialWelcomePhase, markWelcomeSeen, phaseAfterGreeting, welcomeStorageKey } from './welcomeTourSteps'
+import type { WelcomeOptions, WelcomePhase } from './welcomeTourSteps'
+import { Modal } from './games/Modal'
 import { isKidsMode } from '../../utils/kidsMode'
 
 const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRound }
 
 /**
+ * Toda carga o login que cae en el inicio abre primero un saludo (modal
+ * "¡Hola, {nombre}!"), sin importar si la cuenta es nueva o antigua: se cierra
+ * con "Ir al inicio" o Escape, o lleva al recorrido con "Iniciar recorrido".
+ * Tras cerrarlo, quien nunca hizo la guía sigue pasando por su invitación
+ * obligatoria de abajo.
+ *
  * La primera vez que una cuenta entra, el botón "Guía" se vuelve obligatorio:
  * el resto de la pantalla se ve desenfocada y bloqueada (el overlay absorbe
  * los clics) hasta que la persona hace clic en el botón — no hay "Ahora no"
@@ -22,7 +29,9 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   const navigate = useNavigate()
   const isKids = isKidsMode(user)
   const storageKey = welcomeStorageKey(user.id, user.role)
-  const [phase, setPhase] = useState<'invite' | 'tour' | 'closed'>(() => hasSeenWelcome(storageKey) ? 'closed' : 'invite')
+  // No interrumpir enlaces a juegos, salas ni otras secciones.
+  const atHome = location.pathname === '/' && !location.search
+  const [phase, setPhase] = useState<WelcomePhase>(() => initialWelcomePhase(atHome, hasSeenWelcome(storageKey)))
   const [index, setIndex] = useState(0)
   const [previousRoute, setPreviousRoute] = useState(location.key)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -30,8 +39,6 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   // Fijar los pasos al abrir evita desplazarlos si los permisos terminan de cargar durante la guía.
   const [steps, setSteps] = useState(() => getWelcomeSteps(user.role, isKids, { canAccessOrganization, canGoBackToWorlds }))
   const step = steps[index]
-  // No interrumpir enlaces a juegos, salas ni otras secciones.
-  const atHome = location.pathname === '/' && !location.search
   const visible = atHome && phase !== 'closed'
   // Momento obligatorio: solo antes de que la persona inicie el recorrido.
   const forcedInvite = visible && phase === 'invite'
@@ -39,7 +46,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   // Reiniciar solo al cambiar de ruta evita reabrir pasos al volver con el navegador.
   if (previousRoute !== location.key) {
     setPreviousRoute(location.key)
-    if (!atHome && phase === 'tour') setPhase('closed')
+    if (!atHome && (phase === 'tour' || phase === 'greeting')) setPhase('closed')
   }
 
   const close = useCallback((restoreFocus = true) => {
@@ -76,6 +83,10 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
       target?.removeEventListener('click', onUseTarget)
     }
   }, [visible, phase, step.target, index, close])
+
+  function dismissGreeting() {
+    setPhase(phaseAfterGreeting(hasSeenWelcome(storageKey)))
+  }
 
   function start() {
     markWelcomeSeen(storageKey)
@@ -134,6 +145,37 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
         </div>
       )}
     </div>
+
+    {visible && phase === 'greeting' && createPortal(
+      <Modal onClose={dismissGreeting} maxWidthClassName="max-w-[440px]" ariaLabel="Bienvenida a NexusPlay">
+        <div className="space-y-5 text-left">
+          <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">NexusPlay</p>
+            <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">¡Hola, {user.firstName}!</h2>
+          </div>
+          <p className="text-[13px] text-text">
+            Te damos la bienvenida a NexusPlay. Haz un recorrido rápido por la plataforma o ve directo a jugar.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              className="rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_28px_-14px_var(--accent)]"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              onClick={start}
+            >
+              Iniciar recorrido
+            </button>
+            <button
+              type="button"
+              className="rounded-2xl border border-border bg-surface px-4 py-3 text-[14.5px] font-semibold text-text-h transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/5"
+              onClick={dismissGreeting}
+            >
+              Ir al inicio
+            </button>
+          </div>
+        </div>
+      </Modal>, document.body,
+    )}
 
     {visible && phase === 'tour' && createPortal(
       <section aria-label="Recorrido de NexusPlay" className="welcome-tour-card fixed right-3 bottom-3 z-[45] w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-3xl border border-border bg-surface p-5 text-left text-text shadow-[var(--shadow)] sm:right-6 sm:bottom-6">
