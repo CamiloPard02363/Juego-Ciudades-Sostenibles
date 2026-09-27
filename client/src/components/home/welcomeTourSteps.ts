@@ -75,6 +75,34 @@ export function getWelcomeSteps(role: string, isKids: boolean, options: WelcomeO
   return steps
 }
 
+/**
+ * Fases de la bienvenida: "greeting" es la tarjeta de bienvenida que sale en
+ * TODA carga o login (sin importar si la cuenta ya vio la guía antes), "invite"
+ * la invitación obligatoria de la flecha a "Guía" (primera vez de una cuenta) y
+ * "tour" el recorrido paso a paso.
+ */
+export type WelcomePhase = 'greeting' | 'invite' | 'tour' | 'closed'
+
+/**
+ * El saludo solo abre si se entra directo al inicio: un enlace a una sala, un
+ * juego u otra sección no se interrumpe (y tampoco se aplaza para cuando se
+ * vuelva al inicio, que sería el saludo "en cada regreso", no "en cada
+ * ingreso"). Fuera del inicio queda solo la invitación de la primera vez.
+ */
+export function initialWelcomePhase(startsAtHome: boolean, seen: boolean): WelcomePhase {
+  if (startsAtHome) return 'greeting'
+  return seen ? 'closed' : 'invite'
+}
+
+/**
+ * Al cerrar la tarjeta sin abrir el recorrido, quien ya hizo la guía vuelve al
+ * inicio y quien nunca la hizo sigue viendo su invitación obligatoria de
+ * siempre. (Sin tratamiento especial para cuentas nuevas por ahora.)
+ */
+export function phaseAfterGreeting(seen: boolean): WelcomePhase {
+  return seen ? 'closed' : 'invite'
+}
+
 const seenInMemory = new Set<string>()
 export function welcomeStorageKey(userId: string, role: string) {
   return `nexusplay-welcome-v1:${encodeURIComponent(userId)}:${role}`
