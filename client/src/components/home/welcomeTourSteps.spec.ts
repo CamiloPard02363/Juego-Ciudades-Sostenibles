@@ -18,7 +18,7 @@ describe('phaseAfterGreeting', () => {
     expect(phaseAfterGreeting(true)).toBe('closed')
   })
 
-  it('quien nunca la hizo pasa directo al recorrido, sin la invitación de la flecha', () => {
-    expect(phaseAfterGreeting(false)).toBe('tour')
+  it('quien nunca la hizo sigue viendo la invitación obligatoria de siempre', () => {
+    expect(phaseAfterGreeting(false)).toBe('invite')
   })
 })

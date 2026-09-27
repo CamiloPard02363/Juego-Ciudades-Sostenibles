@@ -5,18 +5,16 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../services/auth.service'
 import { getWelcomeSteps, hasSeenWelcome, initialWelcomePhase, markWelcomeSeen, phaseAfterGreeting, welcomeStorageKey } from './welcomeTourSteps'
 import type { WelcomeOptions, WelcomePhase } from './welcomeTourSteps'
-import { Modal } from './games/Modal'
+import { WelcomeCard } from './WelcomeCard'
 import { isKidsMode } from '../../utils/kidsMode'
 
 const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRound }
 
 /**
- * Toda carga o login (F5 incluido) que cae en el inicio abre primero un
- * saludo (modal "¡Hola, {nombre}!"), sin importar si la cuenta es nueva o
- * antigua. Quien ya hizo la guía lo cierra con "Ir al inicio" o Escape, o abre
- * el recorrido con "Iniciar recorrido". Para quien nunca la hizo el saludo es
- * todo su paso de bienvenida: un solo botón, y cerrarlo de cualquier forma
- * abre el recorrido (no hay flecha aparte hacia "Guía").
+ * Toda carga o login (F5 incluido) que cae en el inicio abre primero la
+ * tarjeta de bienvenida (`WelcomeCard`), sin importar si la cuenta es nueva o
+ * antigua: se cierra con "¡Empezar a jugar!", la X, Escape o un clic fuera, o
+ * abre el recorrido paso a paso con "Ver guía rápida".
  *
  * La primera vez que una cuenta entra, el botón "Guía" se vuelve obligatorio:
  * el resto de la pantalla se ve desenfocada y bloqueada (el overlay absorbe
@@ -33,8 +31,6 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   // No interrumpir enlaces a juegos, salas ni otras secciones.
   const atHome = location.pathname === '/' && !location.search
   const [phase, setPhase] = useState<WelcomePhase>(() => initialWelcomePhase(atHome, hasSeenWelcome(storageKey)))
-  // Fijo al montar: `start()` marca la guía como vista y no debe cambiar el saludo a mitad de cierre.
-  const [firstTime] = useState(() => !hasSeenWelcome(storageKey))
   const [index, setIndex] = useState(0)
   const [previousRoute, setPreviousRoute] = useState(location.key)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -88,9 +84,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   }, [visible, phase, step.target, index, close])
 
   function dismissGreeting() {
-    const next = phaseAfterGreeting(!firstTime)
-    if (next === 'tour') start()
-    else setPhase(next)
+    setPhase(phaseAfterGreeting(hasSeenWelcome(storageKey)))
   }
 
   function start() {
@@ -152,38 +146,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
     </div>
 
     {visible && phase === 'greeting' && createPortal(
-      <Modal onClose={dismissGreeting} maxWidthClassName="max-w-[440px]" ariaLabel="Bienvenida a NexusPlay">
-        <div className="space-y-5 text-left">
-          <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">NexusPlay</p>
-            <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">¡Hola, {user.firstName}!</h2>
-          </div>
-          <p className="text-[13px] text-text">
-            {firstTime
-              ? 'Te damos la bienvenida a NexusPlay. Te mostramos cómo funciona en un recorrido rápido.'
-              : 'Te damos la bienvenida a NexusPlay. Haz un recorrido rápido por la plataforma o ve directo a jugar.'}
-          </p>
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              className="rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_28px_-14px_var(--accent)]"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-              onClick={start}
-            >
-              Iniciar recorrido
-            </button>
-            {!firstTime && (
-              <button
-                type="button"
-                className="rounded-2xl border border-border bg-surface px-4 py-3 text-[14.5px] font-semibold text-text-h transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/5"
-                onClick={dismissGreeting}
-              >
-                Ir al inicio
-              </button>
-            )}
-          </div>
-        </div>
-      </Modal>, document.body,
+      <WelcomeCard onClose={dismissGreeting} onQuickGuide={start} />, document.body,
     )}
 
     {visible && phase === 'tour' && createPortal(
