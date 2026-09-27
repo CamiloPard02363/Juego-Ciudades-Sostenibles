@@ -44,12 +44,6 @@ type WelcomeCardProps = {
  * "¡Empezar a jugar!" (cierra) y "Ver guía rápida" (abre el recorrido). El
  * resto de la pantalla queda desenfocada y oscurecida detrás.
  *
- * En pantallas de 740px o más se escala entero un 15 % (`zoom`: tarjeta,
- * dibujos y letras crecen juntos, sin desproporciones); en móvil conserva su
- * tamaño para no desbordar. 1.15 es lo máximo que cabe sin scroll en una
- * ventana de ~667px de alto (un portátil típico); si la ventana es amplia y
- * alta (≥830×800, un monitor grande) sube a 1.3 para no verse chica.
- *
  * Colores y tipografía salen de los tokens del tema (acento, superficie,
  * texto), así que en oscuro/kids se adapta sola; los dibujos son WebP con
  * fondo transparente para no dejar recuadros claros sobre esos fondos.
@@ -73,7 +67,7 @@ export function WelcomeCard({ onClose, onQuickGuide }: WelcomeCardProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm min-[740px]:p-2 animate-[modal-backdrop-in_0.2s_ease-out]"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out]"
       onClick={onClose}
       role="presentation"
     >
@@ -83,7 +77,7 @@ export function WelcomeCard({ onClose, onQuickGuide }: WelcomeCardProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-card-title"
-        className="relative my-auto w-full max-w-[612px] outline-none min-[740px]:[zoom:1.15] [@media(min-width:830px)_and_(min-height:800px)]:[zoom:1.3] rounded-[22px] border-[4px] border-transparent px-5 pt-[36px] pb-[8px] text-center shadow-[0_24px_70px_-18px_rgba(0,0,0,0.55),inset_0_0_0_1px_rgba(255,255,255,0.5)] animate-[modal-panel-in_0.25s_cubic-bezier(0.16,1,0.3,1)]"
+        className="relative my-auto w-full max-w-[612px] outline-none rounded-[22px] border-[4px] border-transparent px-5 pt-[36px] pb-[8px] text-center shadow-[0_24px_70px_-18px_rgba(0,0,0,0.55),inset_0_0_0_1px_rgba(255,255,255,0.5)] animate-[modal-panel-in_0.25s_cubic-bezier(0.16,1,0.3,1)]"
         style={{
           // Dos fondos: el relleno lavanda recortado al padding y, debajo, el
           // degradado rosa → violeta (al 65 %, como en el diseño) que asoma
