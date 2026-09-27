@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Ghost, Layers, Puzzle, UserRoundSearch, Dices, Flame, Settings, type LucideIcon } from 'lucide-react'
+import {
+  Ghost,
+  Layers,
+  Puzzle,
+  UserRoundSearch,
+  Dices,
+  Flame,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  type LucideIcon,
+} from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { listGameTypeSettings, type GameTypeSetting } from '../../../services/game.service'
 import { useHomeSearch } from '../homeSearchContext'
@@ -20,9 +31,19 @@ const ICON_BY_GAME_TYPE: Record<string, LucideIcon> = {
 }
 
 /**
- * Grilla del catálogo de tipos de juego (issue #156). El backend ya filtra
- * los tipos ARCHIVED para no-ADMIN (quedan ausentes, no solo marcados); acá
- * solo se pinta lo que llega. El engranaje (gestión) solo se muestra a ADMIN.
+ * 2 filas x 3 columnas: cabe sin scroll en una pantalla de laptop estándar.
+ * Con 6 por página, el catálogo actual (5 tipos para no-admin, 7 para admin)
+ * cabe casi siempre en una sola página — el paginado por flecha existe para
+ * cuando la plataforma agregue más mecánicas sin volver a depender de scroll.
+ */
+const PAGE_SIZE = 6
+
+/**
+ * Catálogo de tipos de juego (issue #156). Muchas quejas de usuarios por el
+ * scroll largo en listados de home llevaron a paginar esta vista en vez de
+ * apilar todo verticalmente: se pide una página a la vez al backend
+ * (GET /game-types?page&pageSize) y se avanza con una flecha animada, en vez
+ * de traer y renderizar el catálogo completo de una sola vez.
  */
 export function GameTypesCatalogPage() {
   const navigate = useNavigate()
@@ -30,10 +51,14 @@ export function GameTypesCatalogPage() {
   const { onSectionViewed } = useHomeSearch()
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
 
-  const [settings, setSettings] = useState<GameTypeSetting[]>([])
+  const [page, setPage] = useState(1)
+  const [items, setItems] = useState<GameTypeSetting[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingSetting, setEditingSetting] = useState<GameTypeSetting | null>(null)
+  /** Dirección de la transición de deslizamiento ('next' | 'prev'), para animar la entrada de la página nueva. */
+  const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next')
 
   useEffect(() => {
     onSectionViewed('game-types-catalog')
@@ -44,26 +69,36 @@ export function GameTypesCatalogPage() {
     if (!token) return
     setLoading(true)
     setError(null)
-    listGameTypeSettings(token)
-      .then(setSettings)
+    listGameTypeSettings(token, { page, pageSize: PAGE_SIZE })
+      .then((result) => {
+        setItems(result.items)
+        setTotal(result.total)
+      })
       .catch((err: unknown) => {
         setError(err instanceof ApiError ? err.message : 'No se pudieron cargar los tipos de juego.')
       })
       .finally(() => setLoading(false))
-  }, [token])
+  }, [token, page])
 
   useEffect(() => {
     reload()
   }, [reload])
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const hasPrev = page > 1
+  const hasNext = page < totalPages
+
+  function goToPage(next: number) {
+    setSlideDirection(next > page ? 'next' : 'prev')
+    setPage(next)
+  }
 
   function handleCardClick(setting: GameTypeSetting) {
     navigate(`/tipos-de-juego/${encodeURIComponent(setting.gameType)}`)
   }
 
   function handleSettingSaved(updated: GameTypeSetting) {
-    setSettings((prev) =>
-      prev.map((s) => (s.gameType === updated.gameType ? updated : s)),
-    )
+    setItems((prev) => prev.map((s) => (s.gameType === updated.gameType ? updated : s)))
     setEditingSetting(null)
   }
 
@@ -72,64 +107,113 @@ export function GameTypesCatalogPage() {
       <h1 className="mb-1 text-[22px] tracking-tight text-text-h">Tipos de juego</h1>
       <p className="mb-7 text-[14px] text-text">Explora los juegos disponibles por mecánica.</p>
 
-      {loading && <p className="text-[13px] text-text">Cargando…</p>}
+      {loading && items.length === 0 && <p className="text-[13px] text-text">Cargando…</p>}
       {error && <p className="text-[13px] text-red-600">{error}</p>}
 
-      {!loading && !error && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {settings.map((setting) => {
-            const Icon = ICON_BY_GAME_TYPE[setting.gameType] ?? Layers
-            return (
-              <div
-                key={setting.gameType}
-                role="button"
-                tabIndex={0}
-                className={`group relative flex flex-col gap-3 rounded-2xl border border-border p-5 text-left shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1 hover:border-accent hover:shadow-[0_16px_32px_-16px_var(--accent)] focus-visible:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
-                  setting.isArchived ? 'opacity-70' : ''
-                }`}
-                onClick={() => handleCardClick(setting)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCardClick(setting)
-                }}
-              >
-                {isAdmin && (
-                  <button
-                    type="button"
-                    aria-label={`Gestionar ${setting.displayName}`}
-                    className="absolute right-3 top-3 rounded-full p-1.5 text-text transition-colors hover:bg-border hover:text-text-h"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setEditingSetting(setting)
+      {!error && items.length > 0 && (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-label="Página anterior"
+            disabled={!hasPrev}
+            onClick={() => goToPage(page - 1)}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border transition-all duration-200 ${
+              hasPrev
+                ? 'text-text-h hover:-translate-x-0.5 hover:border-accent hover:text-accent hover:shadow-[0_8px_20px_-10px_var(--accent)]'
+                : 'cursor-not-allowed opacity-30'
+            }`}
+          >
+            <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
+          </button>
+
+          <div className="overflow-hidden">
+            <div
+              key={page}
+              className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${
+                slideDirection === 'next'
+                  ? 'animate-[slide-in-right_0.25s_ease-out]'
+                  : 'animate-[slide-in-left_0.25s_ease-out]'
+              }`}
+            >
+              {items.map((setting) => {
+                const Icon = ICON_BY_GAME_TYPE[setting.gameType] ?? Layers
+                return (
+                  <div
+                    key={setting.gameType}
+                    role="button"
+                    tabIndex={0}
+                    className={`group relative flex flex-col gap-3 rounded-2xl border border-border p-5 text-left shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1 hover:border-accent hover:shadow-[0_16px_32px_-16px_var(--accent)] focus-visible:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+                      setting.isArchived ? 'opacity-70' : ''
+                    }`}
+                    onClick={() => handleCardClick(setting)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCardClick(setting)
                     }}
                   >
-                    <Settings className="h-4 w-4" />
-                  </button>
-                )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        aria-label={`Gestionar ${setting.displayName}`}
+                        className="absolute right-3 top-3 rounded-full p-1.5 text-text transition-colors hover:bg-border hover:text-text-h"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingSetting(setting)
+                        }}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </button>
+                    )}
 
-                <span
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_20px_-10px_var(--accent)] transition-transform duration-200 group-hover:scale-105"
-                  style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-                  aria-hidden="true"
-                >
-                  <Icon className="h-5 w-5" strokeWidth={2} />
-                </span>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[15px] font-semibold text-text-h">{setting.displayName}</span>
-                  {setting.isArchived && (
-                    <span className="rounded-full bg-border px-2 py-0.5 text-[10.5px] font-medium text-text">
-                      Archivado
+                    <span
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_20px_-10px_var(--accent)] transition-transform duration-200 group-hover:scale-105"
+                      style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                      aria-hidden="true"
+                    >
+                      <Icon className="h-5 w-5" strokeWidth={2} />
                     </span>
-                  )}
-                </div>
 
-                {setting.description && (
-                  <p className="text-[12.5px] leading-snug text-text">{setting.description}</p>
-                )}
-              </div>
-            )
-          })}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[15px] font-semibold text-text-h">{setting.displayName}</span>
+                      {setting.isArchived && (
+                        <span className="rounded-full bg-border px-2 py-0.5 text-[10.5px] font-medium text-text">
+                          Archivado
+                        </span>
+                      )}
+                    </div>
+
+                    {setting.description && (
+                      <p className="text-[12.5px] leading-snug text-text">{setting.description}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            aria-label="Página siguiente"
+            disabled={!hasNext}
+            onClick={() => goToPage(page + 1)}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border transition-all duration-200 ${
+              hasNext
+                ? 'animate-[pulse-attention_2s_ease-in-out_infinite] text-text-h hover:translate-x-0.5 hover:border-accent hover:text-accent hover:shadow-[0_8px_20px_-10px_var(--accent)]'
+                : 'cursor-not-allowed opacity-30'
+            }`}
+          >
+            <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
+          </button>
         </div>
+      )}
+
+      {!loading && !error && items.length === 0 && (
+        <p className="text-[13px] text-text">No hay tipos de juego disponibles todavía.</p>
+      )}
+
+      {totalPages > 1 && items.length > 0 && (
+        <p className="mt-4 text-center text-[12px] text-text">
+          Página {page} de {totalPages}
+        </p>
       )}
 
       {editingSetting && (

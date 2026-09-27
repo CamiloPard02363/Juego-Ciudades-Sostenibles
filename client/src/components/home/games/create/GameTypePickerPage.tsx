@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../../hooks/useAuth'
-import { listGameTypeSettings } from '../../../../services/game.service'
+import { listAllGameTypeSettings } from '../../../../services/game.service'
 import { GameTypePicker } from '../GameTypePicker'
 import type { GameTypeChoice } from '../GameTypePicker'
 
@@ -21,7 +21,7 @@ export function GameTypePickerPage() {
 
   useEffect(() => {
     if (!token) return
-    listGameTypeSettings(token)
+    listAllGameTypeSettings(token)
       .then((settings) => {
         setArchivedGameTypes(new Set(settings.filter((s) => s.isArchived).map((s) => s.gameType)))
       })

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { GamesSection } from '../GamesSection'
 import { useHomeSearch } from '../homeSearchContext'
 import { useAuth } from '../../../hooks/useAuth'
-import { listGameTypeSettings } from '../../../services/game.service'
+import { listAllGameTypeSettings } from '../../../services/game.service'
 
 /**
  * Componente delgado (issue #156): lee `:gameType` de la URL y monta
@@ -30,7 +30,7 @@ export function GameTypeGamesPage() {
 
   useEffect(() => {
     if (!token || !gameType) return
-    listGameTypeSettings(token)
+    listAllGameTypeSettings(token)
       .then((settings) => {
         const match = settings.find((s) => s.gameType === gameType)
         setDisplayName(match?.displayName)

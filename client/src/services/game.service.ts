@@ -281,13 +281,40 @@ export type GameTypeSetting = {
   isArchived: boolean
 }
 
+export type GameTypeSettingsPage = {
+  items: GameTypeSetting[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 /**
  * GET /game-types — para no-ADMIN, el backend ya filtra los tipos ARCHIVED
  * (quedan completamente ausentes, no solo marcados). Un ADMIN recibe también
- * los archivados con `isArchived: true`.
+ * los archivados con `isArchived: true`. Paginado (issue #156) para la vista
+ * de catálogo con flecha en vez de scroll; sin `page`/`pageSize`, el backend
+ * devuelve todo en una sola página.
  */
-export function listGameTypeSettings(token: string): Promise<GameTypeSetting[]> {
-  return request<GameTypeSetting[]>('/game-types', { token })
+export function listGameTypeSettings(
+  token: string,
+  filters?: { page?: number; pageSize?: number },
+): Promise<GameTypeSettingsPage> {
+  const params = new URLSearchParams()
+  if (filters?.page) params.set('page', String(filters.page))
+  if (filters?.pageSize) params.set('pageSize', String(filters.pageSize))
+  const query = params.toString()
+  return request<GameTypeSettingsPage>(`/game-types${query ? `?${query}` : ''}`, { token })
+}
+
+/**
+ * Catálogo completo de tipos de juego, sin paginar — para consumidores que
+ * necesitan resolver todos los tipos por `gameType` (picker de creación,
+ * encabezado de la vista filtrada por tipo). `pageSize` grande porque el
+ * catálogo (`VALID_GAME_TYPES`) solo crece con cambios de código, nunca con
+ * datos de usuario.
+ */
+export function listAllGameTypeSettings(token: string): Promise<GameTypeSetting[]> {
+  return listGameTypeSettings(token, { pageSize: 100 }).then((result) => result.items)
 }
 
 /** PATCH /game-types/:gameType/archive — solo ADMIN. */

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { ListGameTypeSettingsUseCase } from '../../../application/use-cases/list-game-type-settings.use-case.js';
 import { ArchiveGameTypeUseCase } from '../../../application/use-cases/archive-game-type.use-case.js';
 import { UnarchiveGameTypeUseCase } from '../../../application/use-cases/unarchive-game-type.use-case.js';
@@ -8,6 +8,7 @@ import { RolesGuard } from '../guards/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
 import { CurrentUserId } from '../decorators/current-user-id.decorator.js';
 import { UpdateGameTypeSettingDto } from '../dtos/update-game-type-setting.dto.js';
+import { ListGameTypeSettingsQueryDto } from '../dtos/list-game-type-settings-query.dto.js';
 
 /**
  * Gobernanza de tipos de juego (issue #156). `GET` es para cualquier
@@ -26,8 +27,12 @@ export class GameTypeSettingController {
   ) {}
 
   @Get()
-  list(@CurrentUserId() requestingUserId: string) {
-    return this.listGameTypeSettingsUseCase.execute({ requestingUserId });
+  list(@CurrentUserId() requestingUserId: string, @Query() query: ListGameTypeSettingsQueryDto) {
+    return this.listGameTypeSettingsUseCase.execute({
+      requestingUserId,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 
   @Patch(':gameType/archive')
