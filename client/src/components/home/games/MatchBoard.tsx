@@ -271,8 +271,8 @@ type MatchBoardProps = {
  * Tablero de una partida 1v1 de "¿Quién Es?" en curso (fase PLAYING):
  * banner de turno, tarjeta secreta propia, grilla de descarte, botón de
  * pasar turno y bloque de acusación. Compartido entre la sala 1v1 suelta
- * (GuessWhoRoom) y cada match de una ronda de torneo (TournamentRoom) — es
- * la misma mecánica de juego, solo cambia de dónde vienen los eventos.
+ * (GuessWhoRoomPage) y cada match de una ronda de torneo (TournamentRoomPage)
+ * — es la misma mecánica de juego, solo cambia de dónde vienen los eventos.
  */
 export function MatchBoard({
   cards,

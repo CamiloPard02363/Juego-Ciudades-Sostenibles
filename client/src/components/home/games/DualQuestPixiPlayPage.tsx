@@ -60,33 +60,35 @@ function DualQuestPixiPlaySession() {
   }, [slug, token])
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-slate-950">
+      <div className="flex shrink-0 items-center justify-between gap-3 p-4">
         <div>
-          <h1 className="text-xl font-bold">{state.status === 'ready' ? state.game.title : 'Dúo Lógico'}</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-bold text-white">{state.status === 'ready' ? state.game.title : 'Dúo Lógico'}</h1>
+          <p className="text-sm text-slate-400">
             Lumen: A/D moverse, W saltar o nadar, S bucear. Gota: flechas izquierda/derecha, arriba saltar o nadar,
             abajo bucear.
           </p>
         </div>
-        <Link to="/comunidad" className="text-sm text-emerald-600 hover:underline">
-          Volver a la comunidad
+        <Link to="/" className="shrink-0 text-sm text-emerald-400 hover:underline">
+          ← Salir
         </Link>
       </div>
 
-      {state.status === 'loading' && (
-        <div className="flex aspect-[16/10.2] w-full items-center justify-center rounded-xl border border-slate-800 bg-slate-950 text-white">
-          Cargando nivel…
-        </div>
-      )}
+      <div className="relative min-h-0 flex-1 px-4 pb-4">
+        {state.status === 'loading' && (
+          <div className="flex h-full w-full items-center justify-center rounded-xl border border-slate-800 bg-slate-950 text-white">
+            Cargando nivel…
+          </div>
+        )}
 
-      {state.status === 'error' && (
-        <div className="flex aspect-[16/10.2] w-full flex-col items-center justify-center gap-2 rounded-xl border border-red-800 bg-slate-950 p-6 text-center text-white">
-          <p className="text-red-300">{state.message}</p>
-        </div>
-      )}
+        {state.status === 'error' && (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-xl border border-red-800 bg-slate-950 p-6 text-center text-white">
+            <p className="text-red-300">{state.message}</p>
+          </div>
+        )}
 
-      {state.status === 'ready' && <DualQuestPixiMount level={state.level} />}
-    </main>
+        {state.status === 'ready' && <DualQuestPixiMount level={state.level} />}
+      </div>
+    </div>
   )
 }

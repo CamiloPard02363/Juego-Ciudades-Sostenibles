@@ -24,6 +24,10 @@ import { DualQuestGameFormPage } from './components/home/games/create/DualQuestG
 import { DominoRoomPage } from './components/home/games/DominoRoomPage'
 import { SnakesLaddersRoomPage } from './components/home/games/SnakesLaddersRoomPage'
 import { DualQuestRoomPage } from './components/home/games/DualQuestRoomPage'
+import { MemoryMatchPlayPage } from './components/home/games/MemoryMatchPlayPage'
+import { MazeCollectorPlayPage } from './components/home/games/MazeCollectorPlayPage'
+import { GuessWhoRoomPage } from './components/home/games/GuessWhoRoomPage'
+import { TournamentRoomPage } from './components/home/games/TournamentRoomPage'
 import { useAuth } from './hooks/useAuth'
 
 // PixiJS + Matter.js solo se descargan si alguien entra a esta ruta —
@@ -84,6 +88,10 @@ function App() {
       <Route path="/domino/sala/:code?" element={<DominoRoomPage />} />
       <Route path="/escaleras-serpientes/sala/:code?" element={<SnakesLaddersRoomPage />} />
       <Route path="/dual-quest/sala/:code?" element={<DualQuestRoomPage />} />
+      <Route path="/jugar/memoria/:slug" element={<MemoryMatchPlayPage />} />
+      <Route path="/jugar/laberinto/:slug" element={<MazeCollectorPlayPage />} />
+      <Route path="/quien-es/sala/:code?" element={<GuessWhoRoomPage />} />
+      <Route path="/quien-es/torneo/:code?" element={<TournamentRoomPage />} />
       <Route
         path="/dual-quest/pixi-demo"
         element={
