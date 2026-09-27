@@ -31,10 +31,8 @@ const CARD_TINT = 'light-dark(#e7e3fc, color-mix(in srgb, var(--accent) 14%, var
 const TITLE_COLOR =
   'light-dark(#814dbf, color-mix(in srgb, color-mix(in srgb, var(--accent) 85%, var(--accent-2)) 70%, var(--text)))'
 
-// Por debajo de este ancho la tarjeta pasa a 2×2 columnas y es normal que haga scroll: no se reduce.
-const DESKTOP_MIN_WIDTH = 650
-// Si para caber habría que reducirla más que esto, deja de ser legible: se conserva el tamaño y se hace scroll.
-const MIN_FIT = 0.7
+// Piso de la reducción: ventanas absurdamente bajas (< ~180px) no pueden mostrarla entera; hasta ahí siempre cabe.
+const MIN_FIT = 0.3
 // Margen del overlay (p-4) arriba y abajo.
 const OVERLAY_PADDING = 32
 
@@ -51,9 +49,10 @@ type WelcomeCardProps = {
  * "¡Empezar a jugar!" (cierra) y "Ver guía rápida" (abre el recorrido). El
  * resto de la pantalla queda desenfocada y oscurecida detrás.
  *
- * Si la ventana es más baja que la tarjeta (~589px), se reduce hasta caber
- * entera y sin scroll (nunca por debajo de 0.7, ni en móvil); a partir de ahí
- * el tamaño es el de siempre.
+ * Nunca tiene scroll: si la ventana es más baja que la tarjeta (~589px en
+ * escritorio, bastante más en el diseño 2×2 de móvil o ventanas angostas), se
+ * reduce en proporción hasta caber entera y centrada; si cabe, el tamaño es el
+ * de siempre (612px de ancho máximo).
  *
  * Colores y tipografía salen de los tokens del tema (acento, superficie,
  * texto), así que en oscuro/kids se adapta sola; los dibujos son WebP con
@@ -77,7 +76,7 @@ export function WelcomeCard({ onClose, onQuickGuide }: WelcomeCardProps) {
     function update() {
       // `offsetHeight` es el alto de layout: no lo alteran ni la escala ni la animación de entrada.
       const wanted = (window.innerHeight - OVERLAY_PADDING) / (box as HTMLDivElement).offsetHeight
-      const next = window.innerWidth >= DESKTOP_MIN_WIDTH && wanted < 1 && wanted >= MIN_FIT ? wanted : 1
+      const next = wanted < 1 ? Math.max(wanted, MIN_FIT) : 1
       setFit((previous) => (Math.abs(previous - next) > 0.004 ? next : previous))
     }
     // Se ejecuta al observar por primera vez (antes de pintar) y cuando cambia el alto de la tarjeta (fuentes, imágenes).
@@ -100,15 +99,15 @@ export function WelcomeCard({ onClose, onQuickGuide }: WelcomeCardProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out] ${fit < 1 ? 'overflow-hidden' : 'overflow-y-auto'}`}
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/55 p-4 backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out]"
       onClick={onClose}
       role="presentation"
     >
       {/* La escala va en este contenedor y no en la tarjeta: la animación de entrada de la tarjeta también usa `transform` y la pisaría.
-          Al reducirse (fit < 1) no lleva `my-auto`: así el centrado es simétrico y la tarjeta queda en el medio. */}
+          Sin `my-auto` ni scroll en el overlay: el centrado (items-center) es simétrico aunque el alto natural sea mayor que la ventana. */}
       <div
         ref={fitBoxRef}
-        className={`w-full max-w-[612px] ${fit < 1 ? '' : 'my-auto'}`}
+        className="w-full max-w-[612px]"
         style={fit < 1 ? { transform: `scale(${fit})` } : undefined}
       >
         <section
