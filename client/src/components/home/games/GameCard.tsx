@@ -1,4 +1,4 @@
-import { Gamepad2 } from 'lucide-react'
+import { Archive, Gamepad2 } from 'lucide-react'
 import type { GameSummary } from '../../../services/game.service'
 
 type GameCardProps = {
@@ -10,16 +10,32 @@ type GameCardProps = {
    * elegido quien creó el juego (`game.theme.primaryColor`).
    */
   color?: string
+  /**
+   * Solo lo pasa GamesSection cuando el requester es ADMIN (issue #156): un
+   * ADMIN sigue viendo juegos de tipos archivados en todos lados, pero sin
+   * esta marca no tendría forma de saberlo con solo mirar la tarjeta. Nunca
+   * se muestra a no-ADMIN.
+   */
+  isTypeArchived?: boolean
 }
 
-export function GameCard({ game, onClick, color }: GameCardProps) {
+export function GameCard({ game, onClick, color, isTypeArchived = false }: GameCardProps) {
   const accentColor = color ?? game.theme.primaryColor
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-1"
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-1"
     >
+      {isTypeArchived && (
+        <span
+          className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)]"
+          title="Este tipo de juego está archivado: solo lo ven los administradores y no admite juegos nuevos."
+        >
+          <Archive className="h-3 w-3" strokeWidth={2.5} />
+          Tipo archivado
+        </span>
+      )}
       <div
         className="flex h-28 items-center justify-center text-3xl transition-[filter] group-hover:brightness-110"
         style={{

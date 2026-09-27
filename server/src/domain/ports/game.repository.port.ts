@@ -11,6 +11,10 @@ export interface FindAllGamesFilter {
   categoryId?: string;
   /** Filtra juegos institucionales de una organización concreta. */
   organizationId?: string;
+  /** Filtra por tipo de juego exacto (ej. vista de catálogo por GameType, issue #156). */
+  gameType?: string;
+  /** Excluye tipos de juego archivados (issue #156) — visibilidad transversal para no-ADMIN. */
+  excludeGameTypes?: string[];
   search?: string;
   page: number;
   pageSize: number;

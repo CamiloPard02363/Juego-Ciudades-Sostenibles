@@ -146,6 +146,10 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
     if (filter.excludeCreatorUserId) query.creatorUserId = { $ne: filter.excludeCreatorUserId };
     if (filter.categoryId) query.categoryId = filter.categoryId;
     if (filter.organizationId) query.organizationId = filter.organizationId;
+    if (filter.gameType) query.gameType = filter.gameType;
+    if (filter.excludeGameTypes && filter.excludeGameTypes.length > 0) {
+      query.gameType = { $nin: filter.excludeGameTypes };
+    }
     if (filter.search) {
       const safePattern = escapeRegex(filter.search);
       query.$or = [

@@ -6,6 +6,10 @@ import {
   GAME_REPOSITORY,
   type GameRepository,
 } from '../../domain/ports/game.repository.port.js';
+import {
+  GAME_TYPE_SETTING_REPOSITORY,
+  type GameTypeSettingRepository,
+} from '../../domain/ports/game-type-setting.repository.port.js';
 import { ID_GENERATOR, type IdGenerator } from '../../domain/ports/id-generator.port.js';
 import {
   ORGANIZATION_REPOSITORY,
@@ -16,6 +20,7 @@ import {
   NotAnOrganizationMemberError,
   OrganizationNotFoundError,
 } from '../errors/application.errors.js';
+import { GameTypeArchivedError } from '../../domain/errors/game.errors.js';
 import { ContentValidatorRegistry } from '../content-validators/content-validator.registry.js';
 
 export interface BuildGameInput {
@@ -44,6 +49,8 @@ export interface BuildGameInput {
 export class GameFactoryService {
   constructor(
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
+    @Inject(GAME_TYPE_SETTING_REPOSITORY)
+    private readonly gameTypeSettingRepository: GameTypeSettingRepository,
     @Inject(ID_GENERATOR) private readonly idGenerator: IdGenerator,
     @Inject(ORGANIZATION_REPOSITORY)
     private readonly organizationRepository: OrganizationRepository,
@@ -56,6 +63,18 @@ export class GameFactoryService {
     }
 
     const gameType = GameType.create(input.gameType);
+
+    // Bloqueo transversal (issue #156): aplica a TODOS los usuarios sin
+    // excepción, incluido ADMIN — no hay bypass de rol para crear un tipo
+    // archivado. Cubre tanto CreateGameUseCase como ImportGamesBatchUseCase,
+    // porque ambos construyen el Game a través de este factory.
+    const gameTypeSetting = await this.gameTypeSettingRepository.findByGameType(
+      gameType.getName(),
+    );
+    if (gameTypeSetting?.isArchived()) {
+      throw new GameTypeArchivedError(gameType.getName());
+    }
+
     const validator = this.contentValidators.resolve(gameType.getName());
 
     const config = validator.validateConfig(input.config);

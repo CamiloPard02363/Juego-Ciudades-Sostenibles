@@ -7,6 +7,7 @@ import {
   listGames,
   getGameBySlug,
   deleteGame,
+  listAllGameTypeSettings,
   type GameSummary,
   type GameDetail,
 } from '../../services/game.service'
@@ -26,13 +27,14 @@ import { JoinByCodeModal } from './games/JoinByCodeModal'
 import { resolveRoomCode, LIVE_ROOM_ROUTES, type ResolvedRoom } from './games/resolveRoomCode'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
 
-export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
+export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games' | 'game-type'
 
 const BASE_PATH_BY_MODE: Record<GamesSectionMode, string> = {
   all: '/',
   categories: '/materias',
   community: '/comunidad',
   'my-games': '/mis-juegos',
+  'game-type': '/tipos-de-juego',
 }
 
 type GamesSectionProps = {
@@ -48,21 +50,44 @@ type GamesSectionProps = {
    * adulto por debajo.
    */
   browsingHidden?: boolean
+  /** Solo aplica con mode='game-type': filtra el catálogo por ese GameType (issue #156). */
+  gameTypeFilter?: string
+  /** Solo aplica con mode='game-type': nombre visible del tipo para el encabezado (ej. "Fuego y Agua"). */
+  gameTypeDisplayName?: string
 }
 
 function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameCount[] {
   return [...categories].sort((a, b) => b.gameCount - a.gameCount)
 }
 
-export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = false }: GamesSectionProps) {
+export function GamesSection({
+  mode,
+  searchQuery,
+  searchNonce,
+  browsingHidden = false,
+  gameTypeFilter,
+  gameTypeDisplayName,
+}: GamesSectionProps) {
   const navigate = useNavigate()
   const { slug: slugFromUrl } = useParams<{ slug?: string }>()
-  const basePath = BASE_PATH_BY_MODE[mode]
+  // En modo 'game-type' la lista vive en /tipos-de-juego/:gameType, así que
+  // el detalle debe anidarse ahí (/tipos-de-juego/:gameType/:slug) para no
+  // perder el filtro de tipo al navegar de vuelta o al recargar (issue #156).
+  const basePath =
+    mode === 'game-type' && gameTypeFilter
+      ? `${BASE_PATH_BY_MODE[mode]}/${gameTypeFilter}`
+      : BASE_PATH_BY_MODE[mode]
   const { token, user } = useAuth()
   const isTeacher = user?.role?.toUpperCase() === 'TEACHER'
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
   const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Solo ADMIN sigue viendo juegos de tipos archivados (issue #156) en todos
+  // los listados; sin esta marca no habría forma de saber, con solo mirar la
+  // tarjeta, que ese juego pertenece a un tipo que el resto de usuarios ya no
+  // puede ver. Se resuelve una sola vez por montaje, no por juego.
+  const [archivedGameTypes, setArchivedGameTypes] = useState<Set<string>>(new Set())
 
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
@@ -144,6 +169,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       onlyMine: mode === 'my-games' || undefined,
       status: mode === 'my-games' ? 'DRAFT' : undefined,
       community: mode === 'community' || undefined,
+      gameType: mode === 'game-type' ? gameTypeFilter ?? undefined : undefined,
       pageSize: 40,
     })
       .then((result) => setGames(result.items))
@@ -152,7 +178,16 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       })
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, mode, searchQuery, activeCategoryId, searchNonce, shouldLoadGames, browsingHidden])
+  }, [
+    token,
+    mode,
+    searchQuery,
+    activeCategoryId,
+    searchNonce,
+    shouldLoadGames,
+    browsingHidden,
+    gameTypeFilter,
+  ])
 
   useEffect(() => {
     reload()
@@ -183,6 +218,21 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       .then((items) => setCategories(sortByGameCount(items)))
       .catch(() => {})
   }, [token])
+
+  // Solo ADMIN necesita saber qué tipos están archivados (issue #156): el
+  // backend ya excluye esos juegos para no-admin, así que para el resto de
+  // roles esta llamada no aportaría nada.
+  useEffect(() => {
+    if (!token || !isAdmin) {
+      setArchivedGameTypes(new Set())
+      return
+    }
+    listAllGameTypeSettings(token)
+      .then((settings) => {
+        setArchivedGameTypes(new Set(settings.filter((s) => s.isArchived).map((s) => s.gameType)))
+      })
+      .catch(() => {})
+  }, [token, isAdmin])
 
   /**
    * Color de un juego por psicología del color según su materia (ver
@@ -393,6 +443,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
           <GameDetailModal
             game={selectedGame}
             color={colorForGame(selectedGame)}
+            isTypeArchived={archivedGameTypes.has(selectedGame.gameType)}
             canDelete={Boolean(user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId))}
             deleting={deleting}
             onClose={closeGame}
@@ -711,7 +762,13 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                         ) : (
                           <div className="grid max-h-[35vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
                             {rootUnclassifiedGames.map((game) => (
-                              <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                              <GameCard
+                                key={game.id}
+                                game={game}
+                                color={colorForGame(game)}
+                                onClick={() => openGame(game)}
+                                isTypeArchived={archivedGameTypes.has(game.gameType)}
+                              />
                             ))}
                           </div>
                         )}
@@ -742,7 +799,13 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                 ) : (
                   <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
                     {games.map((game) => (
-                      <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                      <GameCard
+                        key={game.id}
+                        game={game}
+                        color={colorForGame(game)}
+                        onClick={() => openGame(game)}
+                        isTypeArchived={archivedGameTypes.has(game.gameType)}
+                      />
                     ))}
                   </div>
                 )}
@@ -837,25 +900,35 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="mb-1 text-[22px] tracking-tight text-text-h">
-              {mode === 'community' ? 'Juegos de la comunidad' : isTeacher ? 'Mis actividades' : 'Mis juegos privados'}
+              {mode === 'community'
+                ? 'Juegos de la comunidad'
+                : mode === 'game-type'
+                  ? (gameTypeDisplayName ?? 'Juegos de este tipo')
+                  : isTeacher
+                    ? 'Mis actividades'
+                    : 'Mis juegos privados'}
             </h2>
             <p className="text-[14px] text-text">
               {mode === 'community'
                 ? 'Juegos que otros usuarios crearon y decidieron publicar.'
-                : isTeacher
-                  ? 'Crea, organiza y administra tus actividades.'
-                  : 'Solo tú los ves. Comparte el código de la sala para que otros se unan.'}
+                : mode === 'game-type'
+                  ? 'Juegos publicados con esta mecánica.'
+                  : isTeacher
+                    ? 'Crea, organiza y administra tus actividades.'
+                    : 'Solo tú los ves. Comparte el código de la sala para que otros se unan.'}
             </p>
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
-            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            onClick={() => navigate('/juegos/crear')}
-          >
-            <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
-            {isTeacher ? 'Crear actividad' : 'Crear juego'}
-          </button>
+          {mode !== 'game-type' && (
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              onClick={() => navigate('/juegos/crear')}
+            >
+              <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+              {isTeacher ? 'Crear actividad' : 'Crear juego'}
+            </button>
+          )}
         </div>
       )}
 
@@ -902,17 +975,21 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                 ? `Sin resultados para "${searchQuery}".`
                 : mode === 'community'
                   ? 'Aún nadie ha publicado juegos en la comunidad.'
-                  : mode === 'my-games' && isTeacher
-                      ? 'Aún no has creado actividades'
-                      : mode === 'my-games'
-                        ? 'Aún no tienes juegos privados.'
-                    : 'Aún no hay juegos disponibles.'}
+                  : mode === 'game-type'
+                    ? 'Aún no hay juegos publicados con esta mecánica.'
+                    : mode === 'my-games' && isTeacher
+                        ? 'Aún no has creado actividades'
+                        : mode === 'my-games'
+                          ? 'Aún no tienes juegos privados.'
+                      : 'Aún no hay juegos disponibles.'}
             </p>
             <p className="mt-1 max-w-[320px] text-[13px] text-text">
               {searchQuery
                 ? 'Prueba con otro término de búsqueda.'
-                  : mode === 'my-games' && isTeacher
-                    ? 'Crea tu primera actividad para comenzar a jugar con tus estudiantes.'
+                  : mode === 'game-type'
+                    ? 'Vuelve más adelante o elige otra mecánica.'
+                    : mode === 'my-games' && isTeacher
+                      ? 'Crea tu primera actividad para comenzar a jugar con tus estudiantes.'
                 : 'Sé la primera persona en crear uno.'}
             </p>
               {!searchQuery && mode === 'my-games' && isTeacher && (
@@ -935,7 +1012,12 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
                 className="animate-[fade-in-up_0.35s_ease-out_backwards]"
                 style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
               >
-                <GameCard game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                <GameCard
+                  game={game}
+                  color={colorForGame(game)}
+                  onClick={() => openGame(game)}
+                  isTypeArchived={archivedGameTypes.has(game.gameType)}
+                />
               </div>
             ))}
           </div>

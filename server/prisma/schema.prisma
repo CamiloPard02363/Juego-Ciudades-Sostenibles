@@ -188,6 +188,30 @@ model SubjectModel {
   @@map("subjects")
 }
 
+enum GameTypeStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Gobernanza transversal por `GameType` (issue #156): archivar un tipo es
+/// una capa de visibilidad EN TIEMPO DE LECTURA que cruza `gameType` contra
+/// esta tabla — nunca se itera ni se modifica el `GameStatus` individual de
+/// las instancias de `Game` (que viven en Mongo). Al desarchivar, todo
+/// reaparece automáticamente sin ningún script de migración de datos.
+model GameTypeSettingModel {
+  id               String         @id @default(uuid())
+  gameType         String         @unique @map("game_type")
+  status           GameTypeStatus @default(ACTIVE)
+  displayName      String         @map("display_name")
+  description      String?
+  archivedAt       DateTime?      @map("archived_at")
+  archivedByUserId String?        @map("archived_by_user_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@map("game_type_settings")
+}
+
 model RefreshTokenModel {
   id        String    @id @default(uuid())
   userId    String    @map("user_id")

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BookOpen, Building2, ChevronLeft, Gamepad2, Lock, Palette, Plus, Users, Users2, Zap } from 'lucide-react'
+import { BookOpen, Building2, ChevronLeft, Gamepad2, LayoutGrid, Lock, Palette, Plus, Users, Users2, Zap } from 'lucide-react'
 import { ThemeToggle } from '../ThemeToggle'
 
 type SidebarProps = {
@@ -108,6 +108,14 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           active={location.pathname.startsWith('/materias')}
           onClick={() => navigate('/materias')}
           icon={<BookOpen className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+        />
+        <SidebarItem
+          tourTarget="nav-game-types"
+          label="Tipos de juego"
+          collapsed={collapsed}
+          active={location.pathname.startsWith('/tipos-de-juego')}
+          onClick={() => navigate('/tipos-de-juego')}
+          icon={<LayoutGrid className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
         {userRole.toUpperCase() === 'TEACHER' && (
           <SidebarItem

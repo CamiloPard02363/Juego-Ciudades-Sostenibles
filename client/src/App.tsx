@@ -5,6 +5,8 @@ import { RegisterPage } from './components/RegisterPage'
 import { HomeLayout } from './components/home/HomeLayout'
 import { HomePage } from './components/home/sections/HomePage'
 import { CategoriesPage } from './components/home/sections/CategoriesPage'
+import { GameTypesCatalogPage } from './components/home/games/GameTypesCatalogPage'
+import { GameTypeGamesPage } from './components/home/games/GameTypeGamesPage'
 import { CommunityPage } from './components/home/sections/CommunityPage'
 import { MyGamesPage } from './components/home/sections/MyGamesPage'
 import { ThemesPage } from './components/home/sections/ThemesPage'
@@ -113,6 +115,9 @@ function App() {
         <Route path=":slug" element={<HomePage />} />
         <Route path="materias" element={<CategoriesPage />} />
         <Route path="materias/:slug" element={<CategoriesPage />} />
+        <Route path="tipos-de-juego" element={<GameTypesCatalogPage />} />
+        <Route path="tipos-de-juego/:gameType" element={<GameTypeGamesPage />} />
+        <Route path="tipos-de-juego/:gameType/:slug" element={<GameTypeGamesPage />} />
         <Route path="mis-clases" element={<MyClassesPage />} />
         <Route path="mis-clases/:classId" element={<MyClassesPage />} />
         <Route path="comunidad" element={<CommunityPage />} />

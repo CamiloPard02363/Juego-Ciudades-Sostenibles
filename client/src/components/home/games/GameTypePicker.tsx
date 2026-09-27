@@ -2,9 +2,25 @@ import { Ghost, Layers, Puzzle, UserRoundSearch, Dices, Flame } from 'lucide-rea
 
 export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS' | 'DUAL_QUEST'
 
+/** Tipo de juego real (`GameType`) que corresponde a cada opción del picker. */
+const GAME_TYPE_BY_CHOICE: Record<GameTypeChoice, string> = {
+  CARDS: 'MEMORY_MATCH',
+  GUESS_WHO: 'GUESS_WHO',
+  DOMINO: 'DOMINO',
+  MAZE_COLLECTOR: 'MAZE_COLLECTOR',
+  SNAKES_LADDERS: 'SNAKES_LADDERS',
+  DUAL_QUEST: 'DUAL_QUEST',
+}
+
 type GameTypePickerProps = {
   onClose: () => void
   onSelect: (choice: GameTypeChoice) => void
+  /**
+   * Tipos de juego archivados (issue #156): sus opciones quedan deshabilitadas
+   * visualmente y sin `onClick`, sin excepción para ADMIN — archivar un tipo
+   * bloquea su creación para todos.
+   */
+  archivedGameTypes?: Set<string>
 }
 
 const TYPE_OPTIONS: Array<{
@@ -56,32 +72,48 @@ const TYPE_OPTIONS: Array<{
 ]
 
 /** Primer paso al crear un juego: elegir la mecánica base. */
-export function GameTypePicker({ onClose, onSelect }: GameTypePickerProps) {
+export function GameTypePicker({ onClose, onSelect, archivedGameTypes }: GameTypePickerProps) {
   return (
     <div className="mx-auto max-w-[520px] p-8">
       <h2 className="mb-1 text-[20px] tracking-tight text-text-h">Nueva partida</h2>
       <p className="mb-6 text-[13px] text-text">Elige qué tipo de juego quieres crear.</p>
 
       <div className="flex flex-col gap-3">
-        {TYPE_OPTIONS.map(({ choice, title, description, icon: Icon }) => (
-          <button
-            key={choice}
-            type="button"
-            className="flex items-start gap-3.5 rounded-xl border border-border p-4 text-left transition-colors hover:border-accent hover:bg-accent/5"
-            onClick={() => onSelect(choice)}
-          >
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white"
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+        {TYPE_OPTIONS.map(({ choice, title, description, icon: Icon }) => {
+          const isArchived = archivedGameTypes?.has(GAME_TYPE_BY_CHOICE[choice]) ?? false
+
+          return (
+            <button
+              key={choice}
+              type="button"
+              disabled={isArchived}
+              className={
+                isArchived
+                  ? 'flex items-start gap-3.5 rounded-xl border border-border p-4 text-left opacity-50 cursor-not-allowed'
+                  : 'flex items-start gap-3.5 rounded-xl border border-border p-4 text-left transition-colors hover:border-accent hover:bg-accent/5'
+              }
+              onClick={isArchived ? undefined : () => onSelect(choice)}
             >
-              <Icon className="h-5 w-5" strokeWidth={2} />
-            </span>
-            <span>
-              <span className="block text-[14.5px] font-semibold text-text-h">{title}</span>
-              <span className="mt-0.5 block text-[12.5px] leading-snug text-text">{description}</span>
-            </span>
-          </button>
-        ))}
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white"
+                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              >
+                <Icon className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <span>
+                <span className="flex items-center gap-2">
+                  <span className="block text-[14.5px] font-semibold text-text-h">{title}</span>
+                  {isArchived && (
+                    <span className="rounded-full bg-border px-2 py-0.5 text-[10.5px] font-medium text-text">
+                      Archivado temporalmente
+                    </span>
+                  )}
+                </span>
+                <span className="mt-0.5 block text-[12.5px] leading-snug text-text">{description}</span>
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       <button

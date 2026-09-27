@@ -44,6 +44,8 @@ export type ListGamesParams = {
   /** Sección "Comunidad": juegos publicados por otros usuarios, con el nombre del creador. */
   community?: boolean
   categoryId?: string
+  /** Filtra por tipo de juego exacto (vista de catálogo de tipos, issue #156). */
+  gameType?: string
 }
 
 /** GET /games — catálogo paginado; sin filtro solo trae juegos publicados. */
@@ -56,6 +58,7 @@ export function listGames(token: string, params: ListGamesParams = {}): Promise<
   if (params.onlyMine) query.set('onlyMine', 'true')
   if (params.community) query.set('community', 'true')
   if (params.categoryId) query.set('categoryId', params.categoryId)
+  if (params.gameType) query.set('gameType', params.gameType)
 
   const queryString = query.toString()
   return request<PaginatedGames>(`/games${queryString ? `?${queryString}` : ''}`, { token })
@@ -267,5 +270,85 @@ export function donateGame(
     method: 'PATCH',
     token,
     body: { organizationId },
+  })
+}
+
+export type GameTypeSetting = {
+  gameType: string
+  displayName: string
+  description: string | null
+  status: 'ACTIVE' | 'ARCHIVED'
+  isArchived: boolean
+}
+
+export type GameTypeSettingsPage = {
+  items: GameTypeSetting[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+/**
+ * GET /game-types — para no-ADMIN, el backend ya filtra los tipos ARCHIVED
+ * (quedan completamente ausentes, no solo marcados). Un ADMIN recibe también
+ * los archivados con `isArchived: true`. Paginado (issue #156) para la vista
+ * de catálogo con flecha en vez de scroll; sin `page`/`pageSize`, el backend
+ * devuelve todo en una sola página.
+ */
+export function listGameTypeSettings(
+  token: string,
+  filters?: {
+    page?: number
+    pageSize?: number
+    statusFilter?: 'ACTIVE' | 'ARCHIVED' | 'ALL'
+    search?: string
+  },
+): Promise<GameTypeSettingsPage> {
+  const params = new URLSearchParams()
+  if (filters?.page) params.set('page', String(filters.page))
+  if (filters?.pageSize) params.set('pageSize', String(filters.pageSize))
+  if (filters?.statusFilter) params.set('statusFilter', filters.statusFilter)
+  if (filters?.search) params.set('search', filters.search)
+  const query = params.toString()
+  return request<GameTypeSettingsPage>(`/game-types${query ? `?${query}` : ''}`, { token })
+}
+
+/**
+ * Catálogo completo de tipos de juego, sin paginar — para consumidores que
+ * necesitan resolver todos los tipos por `gameType` (picker de creación,
+ * encabezado de la vista filtrada por tipo). `pageSize` grande porque el
+ * catálogo (`VALID_GAME_TYPES`) solo crece con cambios de código, nunca con
+ * datos de usuario.
+ */
+export function listAllGameTypeSettings(token: string): Promise<GameTypeSetting[]> {
+  return listGameTypeSettings(token, { pageSize: 100 }).then((result) => result.items)
+}
+
+/** PATCH /game-types/:gameType/archive — solo ADMIN. */
+export function archiveGameType(token: string, gameType: string): Promise<GameTypeSetting> {
+  return request<GameTypeSetting>(`/game-types/${encodeURIComponent(gameType)}/archive`, {
+    method: 'PATCH',
+    token,
+  })
+}
+
+/** PATCH /game-types/:gameType/unarchive — solo ADMIN. */
+export function unarchiveGameType(token: string, gameType: string): Promise<GameTypeSetting> {
+  return request<GameTypeSetting>(`/game-types/${encodeURIComponent(gameType)}/unarchive`, {
+    method: 'PATCH',
+    token,
+  })
+}
+
+/** PATCH /game-types/:gameType — renombra/describe un tipo de juego. Solo ADMIN. */
+export function updateGameTypeSetting(
+  token: string,
+  gameType: string,
+  input: { displayName: string; description?: string },
+): Promise<GameTypeSetting> {
+  return request<GameTypeSetting>(`/game-types/${encodeURIComponent(gameType)}`, {
+    method: 'PATCH',
+    token,
+    body: input,
   })
 }

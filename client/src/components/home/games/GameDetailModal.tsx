@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Trash2 } from 'lucide-react'
+import { Archive, Settings, Trash2 } from 'lucide-react'
 import { donateGame, updateGame, type GameDetail } from '../../../services/game.service'
 import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { useAuth } from '../../../hooks/useAuth'
@@ -19,6 +19,13 @@ type GameDetailModalProps = {
   onUpdated: (game: GameDetail) => void
   /** Color por psicología del color según la materia (ver `colorForGame` en GamesSection); si no llega, usa el del creador. */
   color?: string
+  /**
+   * Solo lo pasa GamesSection cuando el requester es ADMIN (issue #156): un
+   * ADMIN sigue viendo el detalle de juegos de tipos archivados, pero sin
+   * esta nota no tendría forma de saber por qué nadie más puede crear un
+   * juego nuevo de ese mismo tipo. Nunca se pasa a no-ADMIN.
+   */
+  isTypeArchived?: boolean
 }
 
 export function GameDetailModal({
@@ -31,6 +38,7 @@ export function GameDetailModal({
   onDelete,
   onUpdated,
   color,
+  isTypeArchived = false,
 }: GameDetailModalProps) {
   const { token, user } = useAuth()
   const accentColor = color ?? game.theme.primaryColor
@@ -159,6 +167,12 @@ export function GameDetailModal({
 
       <div className="mb-6 flex items-start justify-between gap-3">
         <div>
+          {isTypeArchived && (
+            <p className="mb-2 flex items-center gap-1.5 rounded-lg border border-border bg-code-bg px-2.5 py-1.5 text-[12px] font-medium text-text">
+              <Archive className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+              Este tipo de juego está archivado: solo tú (como administrador) lo ves, y nadie puede crear juegos nuevos de este tipo hasta que lo reactives.
+            </p>
+          )}
           <h2 className="mb-2 text-[22px] tracking-tight text-text-h">{game.title}</h2>
           <p className="text-[14px] leading-relaxed text-text">{game.description}</p>
         </div>
