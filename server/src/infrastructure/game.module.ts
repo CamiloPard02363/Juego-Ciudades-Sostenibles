@@ -3,10 +3,13 @@ import { UserModule } from './user.module.js';
 import { OrganizationCoreModule } from './organization-core.module.js';
 import { ClassCoreModule } from './class-core.module.js';
 import { GAME_REPOSITORY } from '../domain/ports/game.repository.port.js';
+import { GAME_TYPE_SETTING_REPOSITORY } from '../domain/ports/game-type-setting.repository.port.js';
 import { GAME_IMPORT_JOB_REPOSITORY } from '../domain/ports/game-import-job.repository.port.js';
 import { TRANSACTION_RUNNER } from '../domain/ports/transaction-runner.port.js';
 import { MongoService } from './persistence/mongo/mongo.service.js';
 import { MongoGameRepository } from './persistence/mongo/mongo-game.repository.js';
+import { PrismaGameTypeSettingRepository } from './persistence/prisma/game-type-setting.repository.js';
+import { PrismaService } from './persistence/prisma/prisma.service.js';
 import { MongoGameImportJobRepository } from './persistence/mongo/mongo-game-import-job.repository.js';
 import { MongoSessionFactory } from './persistence/mongo/mongo-session.factory.js';
 import { MemoryMatchContentValidator } from '../application/content-validators/memory-match.content-validator.js';
@@ -32,6 +35,10 @@ import { UnpublishGameUseCase } from '../application/use-cases/unpublish-game.us
 import { DeleteGameUseCase } from '../application/use-cases/delete-game.use-case.js';
 import { DonateGameToOrganizationUseCase } from '../application/use-cases/donate-game-to-organization.use-case.js';
 import { ImportGamesBatchUseCase } from '../application/use-cases/import-games-batch.use-case.js';
+import { ListGameTypeSettingsUseCase } from '../application/use-cases/list-game-type-settings.use-case.js';
+import { ArchiveGameTypeUseCase } from '../application/use-cases/archive-game-type.use-case.js';
+import { UnarchiveGameTypeUseCase } from '../application/use-cases/unarchive-game-type.use-case.js';
+import { UpdateGameTypeSettingUseCase } from '../application/use-cases/update-game-type-setting.use-case.js';
 import { GenerateGameDraftUseCase } from '../application/use-cases/generate-game-draft.use-case.js';
 import { AI_CONTENT_ASSISTANT } from '../domain/ports/ai-content-assistant.port.js';
 import { IMAGE_STORAGE } from '../domain/ports/image-storage.port.js';
@@ -41,13 +48,21 @@ import { FileTextExtractor } from './ai/file-text-extractor.js';
 import { GameController } from './http/controllers/game.controller.js';
 import { GameImportController } from './http/controllers/game-import.controller.js';
 import { GameAiDraftController } from './http/controllers/game-ai-draft.controller.js';
+import { GameTypeSettingController } from './http/controllers/game-type-setting.controller.js';
 
 @Module({
   imports: [UserModule, OrganizationCoreModule, ClassCoreModule],
-  controllers: [GameController, GameImportController, GameAiDraftController],
+  controllers: [
+    GameController,
+    GameImportController,
+    GameAiDraftController,
+    GameTypeSettingController,
+  ],
   providers: [
     MongoService,
+    PrismaService,
     { provide: GAME_REPOSITORY, useClass: MongoGameRepository },
+    { provide: GAME_TYPE_SETTING_REPOSITORY, useClass: PrismaGameTypeSettingRepository },
     { provide: GAME_IMPORT_JOB_REPOSITORY, useClass: MongoGameImportJobRepository },
     { provide: TRANSACTION_RUNNER, useClass: MongoSessionFactory },
     MemoryMatchContentValidator,
@@ -73,6 +88,10 @@ import { GameAiDraftController } from './http/controllers/game-ai-draft.controll
     DeleteGameUseCase,
     DonateGameToOrganizationUseCase,
     ImportGamesBatchUseCase,
+    ListGameTypeSettingsUseCase,
+    ArchiveGameTypeUseCase,
+    UnarchiveGameTypeUseCase,
+    UpdateGameTypeSettingUseCase,
     { provide: AI_CONTENT_ASSISTANT, useClass: GeminiContentAssistant },
     { provide: IMAGE_STORAGE, useClass: CloudinaryImageStorage },
     FileTextExtractor,

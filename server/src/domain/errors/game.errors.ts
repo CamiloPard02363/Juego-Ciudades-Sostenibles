@@ -34,3 +34,31 @@ export class GameVersionConflictError extends DomainError {
     super(`El juego "${gameId}" fue modificado por otra operación; recarga e intenta de nuevo.`);
   }
 }
+
+export class InvalidGameTypeStatusError extends DomainError {
+  constructor(value: string) {
+    super(`El estado de tipo de juego "${value}" no es válido.`);
+  }
+}
+
+/**
+ * Bloqueo transversal de creación (issue #156): mientras el `GameType` esté
+ * ARCHIVED, nadie puede crear juegos nuevos de ese tipo, sin excepción de rol.
+ */
+export class GameTypeArchivedError extends DomainError {
+  constructor(gameType: string) {
+    super(`El tipo de juego "${gameType}" está archivado y no admite nuevas creaciones.`);
+  }
+}
+
+export class GameTypeAlreadyArchivedError extends DomainError {
+  constructor(gameType: string) {
+    super(`El tipo de juego "${gameType}" ya está archivado.`);
+  }
+}
+
+export class GameTypeNotArchivedError extends DomainError {
+  constructor(gameType: string) {
+    super(`El tipo de juego "${gameType}" no está archivado.`);
+  }
+}

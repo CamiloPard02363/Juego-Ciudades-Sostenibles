@@ -15,6 +15,7 @@
     "seed-snakes-ladders-demo.ts",
     "seed-dual-quest-demo.ts",
     "seed-dual-quest-pixi-demo.ts",
+    "seed-game-type-settings.ts",
     "../src/generated/prisma/**/*.ts"
   ]
 }

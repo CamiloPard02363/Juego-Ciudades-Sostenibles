@@ -26,13 +26,14 @@ import { JoinByCodeModal } from './games/JoinByCodeModal'
 import { resolveRoomCode, LIVE_ROOM_ROUTES, type ResolvedRoom } from './games/resolveRoomCode'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
 
-export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games'
+export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games' | 'game-type'
 
 const BASE_PATH_BY_MODE: Record<GamesSectionMode, string> = {
   all: '/',
   categories: '/materias',
   community: '/comunidad',
   'my-games': '/mis-juegos',
+  'game-type': '/tipos-de-juego',
 }
 
 type GamesSectionProps = {
@@ -48,13 +49,21 @@ type GamesSectionProps = {
    * adulto por debajo.
    */
   browsingHidden?: boolean
+  /** Solo aplica con mode='game-type': filtra el catálogo por ese GameType (issue #156). */
+  gameTypeFilter?: string
 }
 
 function sortByGameCount(categories: CategoryWithGameCount[]): CategoryWithGameCount[] {
   return [...categories].sort((a, b) => b.gameCount - a.gameCount)
 }
 
-export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = false }: GamesSectionProps) {
+export function GamesSection({
+  mode,
+  searchQuery,
+  searchNonce,
+  browsingHidden = false,
+  gameTypeFilter,
+}: GamesSectionProps) {
   const navigate = useNavigate()
   const { slug: slugFromUrl } = useParams<{ slug?: string }>()
   const basePath = BASE_PATH_BY_MODE[mode]
@@ -144,6 +153,7 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       onlyMine: mode === 'my-games' || undefined,
       status: mode === 'my-games' ? 'DRAFT' : undefined,
       community: mode === 'community' || undefined,
+      gameType: mode === 'game-type' ? gameTypeFilter ?? undefined : undefined,
       pageSize: 40,
     })
       .then((result) => setGames(result.items))
@@ -152,7 +162,16 @@ export function GamesSection({ mode, searchQuery, searchNonce, browsingHidden = 
       })
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, mode, searchQuery, activeCategoryId, searchNonce, shouldLoadGames, browsingHidden])
+  }, [
+    token,
+    mode,
+    searchQuery,
+    activeCategoryId,
+    searchNonce,
+    shouldLoadGames,
+    browsingHidden,
+    gameTypeFilter,
+  ])
 
   useEffect(() => {
     reload()

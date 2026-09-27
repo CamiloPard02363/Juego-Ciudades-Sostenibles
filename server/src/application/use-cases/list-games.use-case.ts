@@ -4,6 +4,10 @@ import {
   type GameRepository,
 } from '../../domain/ports/game.repository.port.js';
 import {
+  GAME_TYPE_SETTING_REPOSITORY,
+  type GameTypeSettingRepository,
+} from '../../domain/ports/game-type-setting.repository.port.js';
+import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../../domain/ports/user.repository.port.js';
@@ -24,6 +28,8 @@ export interface ListGamesInput {
   includeCreatorNames?: boolean;
   search?: string;
   categoryId?: string;
+  /** Filtra por tipo de juego exacto (vista de catálogo de tipos, issue #156). */
+  gameType?: string;
   page?: number;
   pageSize?: number;
 }
@@ -39,6 +45,8 @@ export interface ListGamesOutput {
 export class ListGamesUseCase implements UseCase<ListGamesInput, ListGamesOutput> {
   constructor(
     @Inject(GAME_REPOSITORY) private readonly gameRepository: GameRepository,
+    @Inject(GAME_TYPE_SETTING_REPOSITORY)
+    private readonly gameTypeSettingRepository: GameTypeSettingRepository,
     @Inject(USER_REPOSITORY) private readonly userRepository: UserRepository,
     private readonly requesterAdminResolver: RequesterAdminResolver,
   ) {}
@@ -48,19 +56,36 @@ export class ListGamesUseCase implements UseCase<ListGamesInput, ListGamesOutput
     // solo lo puede pedir el dueño de esos juegos o un admin viendo todo.
     const requestedNonPublicStatus = input.status && input.status !== 'PUBLISHED';
 
+    const isAdmin = await this.requesterAdminResolver.resolve(input.requestingUserId);
+
     let canSeeNonPublic = Boolean(input.onlyMine);
     if (requestedNonPublicStatus && !canSeeNonPublic) {
-      canSeeNonPublic = await this.requesterAdminResolver.resolve(input.requestingUserId);
+      canSeeNonPublic = isAdmin;
     }
 
     const status =
       requestedNonPublicStatus && !canSeeNonPublic ? 'PUBLISHED' : input.status ?? 'PUBLISHED';
+
+    // Visibilidad transversal por GameType (issue #156): los tipos ARCHIVED
+    // quedan ocultos para cualquier no-ADMIN sin importar el GameStatus
+    // individual de cada instancia — incluso en "mis juegos"/"comunidad".
+    // Nunca se toca el status de los Game existentes, solo se excluyen de
+    // este query de lectura.
+    const archivedGameTypes = isAdmin
+      ? []
+      : await this.gameTypeSettingRepository.findArchivedGameTypes();
+
+    if (input.gameType && archivedGameTypes.includes(input.gameType as never)) {
+      return { items: [], total: 0, page: input.page ?? 1, pageSize: input.pageSize ?? 20 };
+    }
 
     const result = await this.gameRepository.findAll({
       status,
       creatorUserId: input.onlyMine ? input.requestingUserId : undefined,
       excludeCreatorUserId: input.excludeMine ? input.requestingUserId : undefined,
       categoryId: input.categoryId,
+      gameType: input.gameType,
+      excludeGameTypes: archivedGameTypes.length > 0 ? archivedGameTypes : undefined,
       search: input.search,
       page: input.page ?? 1,
       pageSize: input.pageSize ?? 20,
