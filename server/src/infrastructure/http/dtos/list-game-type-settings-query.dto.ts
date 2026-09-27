@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 /**
  * Paginado y filtro del catálogo de tipos de juego (issue #156, vista con
@@ -21,4 +21,8 @@ export class ListGameTypeSettingsQueryDto {
   @IsOptional()
   @IsIn(['ACTIVE', 'ARCHIVED', 'ALL'])
   statusFilter?: 'ACTIVE' | 'ARCHIVED' | 'ALL';
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

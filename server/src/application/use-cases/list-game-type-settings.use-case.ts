@@ -19,6 +19,8 @@ export interface ListGameTypeSettingsInput {
    * adicional sobre lo que ya es visible para el requester.
    */
   statusFilter?: 'ACTIVE' | 'ARCHIVED' | 'ALL';
+  /** Búsqueda por nombre/descripción visible (issue #156, barra de búsqueda del catálogo). */
+  search?: string;
 }
 
 export interface ListGameTypeSettingsOutput {
@@ -83,10 +85,19 @@ export class ListGameTypeSettingsUseCase
     // sin ser ADMIN simplemente no cambia nada (nunca se le revela un tipo
     // archivado por esta vía).
     const statusFilter = input.statusFilter ?? 'ALL';
-    const visible =
+    const byStatus =
       statusFilter === 'ALL'
         ? visibleByRole
         : visibleByRole.filter((dto) => dto.status === statusFilter);
+
+    const search = input.search?.trim().toLowerCase();
+    const visible = search
+      ? byStatus.filter(
+          (dto) =>
+            dto.displayName.toLowerCase().includes(search) ||
+            (dto.description?.toLowerCase().includes(search) ?? false),
+        )
+      : byStatus;
 
     const page = input.page ?? 1;
     const pageSize = input.pageSize ?? visible.length;

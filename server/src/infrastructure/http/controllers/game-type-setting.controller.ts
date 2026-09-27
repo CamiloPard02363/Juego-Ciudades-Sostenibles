@@ -33,6 +33,7 @@ export class GameTypeSettingController {
       page: query.page,
       pageSize: query.pageSize,
       statusFilter: query.statusFilter,
+      search: query.search,
     });
   }
 

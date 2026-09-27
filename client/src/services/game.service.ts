@@ -297,12 +297,18 @@ export type GameTypeSettingsPage = {
  */
 export function listGameTypeSettings(
   token: string,
-  filters?: { page?: number; pageSize?: number; statusFilter?: 'ACTIVE' | 'ARCHIVED' | 'ALL' },
+  filters?: {
+    page?: number
+    pageSize?: number
+    statusFilter?: 'ACTIVE' | 'ARCHIVED' | 'ALL'
+    search?: string
+  },
 ): Promise<GameTypeSettingsPage> {
   const params = new URLSearchParams()
   if (filters?.page) params.set('page', String(filters.page))
   if (filters?.pageSize) params.set('pageSize', String(filters.pageSize))
   if (filters?.statusFilter) params.set('statusFilter', filters.statusFilter)
+  if (filters?.search) params.set('search', filters.search)
   const query = params.toString()
   return request<GameTypeSettingsPage>(`/game-types${query ? `?${query}` : ''}`, { token })
 }
