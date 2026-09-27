@@ -32,6 +32,7 @@ export class GameTypeSettingController {
       requestingUserId,
       page: query.page,
       pageSize: query.pageSize,
+      statusFilter: query.statusFilter,
     });
   }
 

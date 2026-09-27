@@ -12,6 +12,13 @@ export interface ListGameTypeSettingsInput {
   requestingUserId: string;
   page?: number;
   pageSize?: number;
+  /**
+   * Filtro de estado para el ADMIN (issue #156: filtro Activos/Archivados/
+   * Todos en /tipos-de-juego). Un no-ADMIN nunca ve ARCHIVED sin importar
+   * este valor — el filtro de rol se aplica primero y este es un recorte
+   * adicional sobre lo que ya es visible para el requester.
+   */
+  statusFilter?: 'ACTIVE' | 'ARCHIVED' | 'ALL';
 }
 
 export interface ListGameTypeSettingsOutput {
@@ -69,7 +76,17 @@ export class ListGameTypeSettingsUseCase
       };
     }).sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-    const visible = isAdmin ? dtos : dtos.filter((dto) => !dto.isArchived);
+    const visibleByRole = isAdmin ? dtos : dtos.filter((dto) => !dto.isArchived);
+
+    // El filtro de estado solo tiene efecto real para ADMIN: un no-ADMIN ya
+    // no tiene ARCHIVED en `visibleByRole`, así que pedir 'ARCHIVED' o 'ALL'
+    // sin ser ADMIN simplemente no cambia nada (nunca se le revela un tipo
+    // archivado por esta vía).
+    const statusFilter = input.statusFilter ?? 'ALL';
+    const visible =
+      statusFilter === 'ALL'
+        ? visibleByRole
+        : visibleByRole.filter((dto) => dto.status === statusFilter);
 
     const page = input.page ?? 1;
     const pageSize = input.pageSize ?? visible.length;

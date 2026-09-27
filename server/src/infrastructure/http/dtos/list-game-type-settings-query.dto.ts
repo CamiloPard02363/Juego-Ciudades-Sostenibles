@@ -1,7 +1,10 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
 
-/** Paginado del catálogo de tipos de juego (issue #156, vista con flecha en vez de scroll). */
+/**
+ * Paginado y filtro del catálogo de tipos de juego (issue #156, vista con
+ * flecha en vez de scroll + filtro Activos/Archivados/Todos para ADMIN).
+ */
 export class ListGameTypeSettingsQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -14,4 +17,8 @@ export class ListGameTypeSettingsQueryDto {
   @IsInt()
   @Min(1)
   pageSize?: number;
+
+  @IsOptional()
+  @IsIn(['ACTIVE', 'ARCHIVED', 'ALL'])
+  statusFilter?: 'ACTIVE' | 'ARCHIVED' | 'ALL';
 }

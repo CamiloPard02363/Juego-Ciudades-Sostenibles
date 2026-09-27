@@ -7,6 +7,7 @@ import {
   listGames,
   getGameBySlug,
   deleteGame,
+  listAllGameTypeSettings,
   type GameSummary,
   type GameDetail,
 } from '../../services/game.service'
@@ -78,9 +79,15 @@ export function GamesSection({
       : BASE_PATH_BY_MODE[mode]
   const { token, user } = useAuth()
   const isTeacher = user?.role?.toUpperCase() === 'TEACHER'
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
   const [games, setGames] = useState<GameSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Solo ADMIN sigue viendo juegos de tipos archivados (issue #156) en todos
+  // los listados; sin esta marca no habría forma de saber, con solo mirar la
+  // tarjeta, que ese juego pertenece a un tipo que el resto de usuarios ya no
+  // puede ver. Se resuelve una sola vez por montaje, no por juego.
+  const [archivedGameTypes, setArchivedGameTypes] = useState<Set<string>>(new Set())
 
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
@@ -211,6 +218,21 @@ export function GamesSection({
       .then((items) => setCategories(sortByGameCount(items)))
       .catch(() => {})
   }, [token])
+
+  // Solo ADMIN necesita saber qué tipos están archivados (issue #156): el
+  // backend ya excluye esos juegos para no-admin, así que para el resto de
+  // roles esta llamada no aportaría nada.
+  useEffect(() => {
+    if (!token || !isAdmin) {
+      setArchivedGameTypes(new Set())
+      return
+    }
+    listAllGameTypeSettings(token)
+      .then((settings) => {
+        setArchivedGameTypes(new Set(settings.filter((s) => s.isArchived).map((s) => s.gameType)))
+      })
+      .catch(() => {})
+  }, [token, isAdmin])
 
   /**
    * Color de un juego por psicología del color según su materia (ver
@@ -421,6 +443,7 @@ export function GamesSection({
           <GameDetailModal
             game={selectedGame}
             color={colorForGame(selectedGame)}
+            isTypeArchived={archivedGameTypes.has(selectedGame.gameType)}
             canDelete={Boolean(user && (user.role === 'ADMIN' || user.id === selectedGame.creatorUserId))}
             deleting={deleting}
             onClose={closeGame}
@@ -739,7 +762,13 @@ export function GamesSection({
                         ) : (
                           <div className="grid max-h-[35vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
                             {rootUnclassifiedGames.map((game) => (
-                              <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                              <GameCard
+                                key={game.id}
+                                game={game}
+                                color={colorForGame(game)}
+                                onClick={() => openGame(game)}
+                                isTypeArchived={archivedGameTypes.has(game.gameType)}
+                              />
                             ))}
                           </div>
                         )}
@@ -770,7 +799,13 @@ export function GamesSection({
                 ) : (
                   <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
                     {games.map((game) => (
-                      <GameCard key={game.id} game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                      <GameCard
+                        key={game.id}
+                        game={game}
+                        color={colorForGame(game)}
+                        onClick={() => openGame(game)}
+                        isTypeArchived={archivedGameTypes.has(game.gameType)}
+                      />
                     ))}
                   </div>
                 )}
@@ -977,7 +1012,12 @@ export function GamesSection({
                 className="animate-[fade-in-up_0.35s_ease-out_backwards]"
                 style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
               >
-                <GameCard game={game} color={colorForGame(game)} onClick={() => openGame(game)} />
+                <GameCard
+                  game={game}
+                  color={colorForGame(game)}
+                  onClick={() => openGame(game)}
+                  isTypeArchived={archivedGameTypes.has(game.gameType)}
+                />
               </div>
             ))}
           </div>

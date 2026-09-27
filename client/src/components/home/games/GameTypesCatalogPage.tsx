@@ -59,6 +59,12 @@ export function GameTypesCatalogPage() {
   const [editingSetting, setEditingSetting] = useState<GameTypeSetting | null>(null)
   /** Dirección de la transición de deslizamiento ('next' | 'prev'), para animar la entrada de la página nueva. */
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next')
+  /**
+   * Solo tiene efecto real para ADMIN (issue #156): un no-ADMIN nunca ve
+   * ARCHIVED sin importar este filtro, así que el selector ni se muestra
+   * para ese rol.
+   */
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'ARCHIVED' | 'ALL'>('ALL')
 
   useEffect(() => {
     onSectionViewed('game-types-catalog')
@@ -69,7 +75,7 @@ export function GameTypesCatalogPage() {
     if (!token) return
     setLoading(true)
     setError(null)
-    listGameTypeSettings(token, { page, pageSize: PAGE_SIZE })
+    listGameTypeSettings(token, { page, pageSize: PAGE_SIZE, statusFilter })
       .then((result) => {
         setItems(result.items)
         setTotal(result.total)
@@ -78,7 +84,12 @@ export function GameTypesCatalogPage() {
         setError(err instanceof ApiError ? err.message : 'No se pudieron cargar los tipos de juego.')
       })
       .finally(() => setLoading(false))
-  }, [token, page])
+  }, [token, page, statusFilter])
+
+  function handleStatusFilterChange(next: 'ACTIVE' | 'ARCHIVED' | 'ALL') {
+    setStatusFilter(next)
+    setPage(1)
+  }
 
   useEffect(() => {
     reload()
@@ -103,9 +114,38 @@ export function GameTypesCatalogPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
-      <h1 className="mb-1 text-[22px] tracking-tight text-text-h">Tipos de juego</h1>
-      <p className="mb-7 text-[14px] text-text">Explora los juegos disponibles por mecánica.</p>
+    <div className="mx-auto -mt-6 max-w-[1100px] px-4 sm:-mt-8">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="mb-1 text-[22px] tracking-tight text-text-h">Tipos de juego</h1>
+          <p className="text-[14px] text-text">Explora los juegos disponibles por mecánica.</p>
+        </div>
+
+        {isAdmin && (
+          <div className="flex gap-1 rounded-lg border border-border p-1" role="group" aria-label="Filtrar por estado">
+            {(
+              [
+                { value: 'ALL', label: 'Todos' },
+                { value: 'ACTIVE', label: 'Activos' },
+                { value: 'ARCHIVED', label: 'Archivados' },
+              ] as const
+            ).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => handleStatusFilterChange(value)}
+                className={`rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+                  statusFilter === value
+                    ? 'bg-accent text-white'
+                    : 'text-text hover:bg-code-bg hover:text-text-h'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {loading && items.length === 0 && <p className="text-[13px] text-text">Cargando…</p>}
       {error && <p className="text-[13px] text-red-600">{error}</p>}
@@ -207,7 +247,13 @@ export function GameTypesCatalogPage() {
       )}
 
       {!loading && !error && items.length === 0 && (
-        <p className="text-[13px] text-text">No hay tipos de juego disponibles todavía.</p>
+        <p className="text-[13px] text-text">
+          {statusFilter === 'ARCHIVED'
+            ? 'No hay tipos de juego archivados.'
+            : statusFilter === 'ACTIVE'
+              ? 'No hay tipos de juego activos.'
+              : 'No hay tipos de juego disponibles todavía.'}
+        </p>
       )}
 
       {totalPages > 1 && items.length > 0 && (
