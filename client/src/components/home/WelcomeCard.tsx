@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X, Zap } from 'lucide-react'
 import studyArt from '../../assets/welcome/study.webp'
 import competeArt from '../../assets/welcome/compete.webp'
@@ -31,6 +31,13 @@ const CARD_TINT = 'light-dark(#e7e3fc, color-mix(in srgb, var(--accent) 14%, var
 const TITLE_COLOR =
   'light-dark(#814dbf, color-mix(in srgb, color-mix(in srgb, var(--accent) 85%, var(--accent-2)) 70%, var(--text)))'
 
+// Por debajo de este ancho la tarjeta pasa a 2×2 columnas y es normal que haga scroll: no se reduce.
+const DESKTOP_MIN_WIDTH = 650
+// Si para caber habría que reducirla más que esto, deja de ser legible: se conserva el tamaño y se hace scroll.
+const MIN_FIT = 0.7
+// Margen del overlay (p-4) arriba y abajo.
+const OVERLAY_PADDING = 32
+
 type WelcomeCardProps = {
   /** "¡Empezar a jugar!", la X, Escape y el clic fuera: todo lleva al inicio. */
   onClose: () => void
@@ -44,17 +51,43 @@ type WelcomeCardProps = {
  * "¡Empezar a jugar!" (cierra) y "Ver guía rápida" (abre el recorrido). El
  * resto de la pantalla queda desenfocada y oscurecida detrás.
  *
+ * Si la ventana es más baja que la tarjeta (~589px), se reduce hasta caber
+ * entera y sin scroll (nunca por debajo de 0.7, ni en móvil); a partir de ahí
+ * el tamaño es el de siempre.
+ *
  * Colores y tipografía salen de los tokens del tema (acento, superficie,
  * texto), así que en oscuro/kids se adapta sola; los dibujos son WebP con
  * fondo transparente para no dejar recuadros claros sobre esos fondos.
  */
 export function WelcomeCard({ onClose, onQuickGuide }: WelcomeCardProps) {
   const dialogRef = useRef<HTMLElement>(null)
+  const fitBoxRef = useRef<HTMLDivElement>(null)
+  // Factor (0.7–1) que hace caber la tarjeta en el alto de la ventana.
+  const [fit, setFit] = useState(1)
 
   useEffect(() => {
     // Enfocar el diálogo (no un botón) deja el foco dentro sin dibujar un anillo sobre "Empezar a jugar".
     // Solo al abrir: `onClose` cambia en cada render del padre y no debe quitarle el foco a quien navega con Tab.
     dialogRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  useEffect(() => {
+    const box = fitBoxRef.current
+    if (!box) return
+    function update() {
+      // `offsetHeight` es el alto de layout: no lo alteran ni la escala ni la animación de entrada.
+      const wanted = (window.innerHeight - OVERLAY_PADDING) / (box as HTMLDivElement).offsetHeight
+      const next = window.innerWidth >= DESKTOP_MIN_WIDTH && wanted < 1 && wanted >= MIN_FIT ? wanted : 1
+      setFit((previous) => (Math.abs(previous - next) > 0.004 ? next : previous))
+    }
+    // Se ejecuta al observar por primera vez (antes de pintar) y cuando cambia el alto de la tarjeta (fuentes, imágenes).
+    const observer = new ResizeObserver(update)
+    observer.observe(box)
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+    }
   }, [])
 
   useEffect(() => {
@@ -67,101 +100,109 @@ export function WelcomeCard({ onClose, onQuickGuide }: WelcomeCardProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out]"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out] ${fit < 1 ? 'overflow-hidden' : 'overflow-y-auto'}`}
       onClick={onClose}
       role="presentation"
     >
-      <section
-        ref={dialogRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="welcome-card-title"
-        className="relative my-auto w-full max-w-[612px] outline-none rounded-[22px] border-[4px] border-transparent px-5 pt-[36px] pb-[8px] text-center shadow-[0_24px_70px_-18px_rgba(0,0,0,0.55),inset_0_0_0_1px_rgba(255,255,255,0.5)] animate-[modal-panel-in_0.25s_cubic-bezier(0.16,1,0.3,1)]"
-        style={{
-          // Dos fondos: el relleno lavanda recortado al padding y, debajo, el
-          // degradado rosa → violeta (al 65 %, como en el diseño) que asoma
-          // solo en el borde de 4px.
-          background: `linear-gradient(${CARD_TINT}, ${CARD_TINT}) padding-box, linear-gradient(90deg, color-mix(in srgb, var(--accent-2) 65%, transparent), color-mix(in srgb, var(--accent) 65%, transparent)) border-box`,
-        }}
-        onClick={(event) => event.stopPropagation()}
+      {/* La escala va en este contenedor y no en la tarjeta: la animación de entrada de la tarjeta también usa `transform` y la pisaría.
+          Al reducirse (fit < 1) no lleva `my-auto`: así el centrado es simétrico y la tarjeta queda en el medio. */}
+      <div
+        ref={fitBoxRef}
+        className={`w-full max-w-[612px] ${fit < 1 ? '' : 'my-auto'}`}
+        style={fit < 1 ? { transform: `scale(${fit})` } : undefined}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Cerrar bienvenida"
-          className="absolute top-[11px] right-[14px] rounded-full p-1.5 text-text transition-colors hover:bg-accent/10 hover:text-text-h focus-visible:outline-2 focus-visible:outline-accent"
+        <section
+          ref={dialogRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="welcome-card-title"
+          className="relative outline-none rounded-[22px] border-[4px] border-transparent px-5 pt-[36px] pb-[8px] text-center shadow-[0_24px_70px_-18px_rgba(0,0,0,0.55),inset_0_0_0_1px_rgba(255,255,255,0.5)] animate-[modal-panel-in_0.25s_cubic-bezier(0.16,1,0.3,1)]"
+          style={{
+            // Dos fondos: el relleno lavanda recortado al padding y, debajo, el
+            // degradado rosa → violeta (al 65 %, como en el diseño) que asoma
+            // solo en el borde de 4px.
+            background: `linear-gradient(${CARD_TINT}, ${CARD_TINT}) padding-box, linear-gradient(90deg, color-mix(in srgb, var(--accent-2) 65%, transparent), color-mix(in srgb, var(--accent) 65%, transparent)) border-box`,
+          }}
+          onClick={(event) => event.stopPropagation()}
         >
-          <X className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden="true" />
-        </button>
-
-        <div className="flex items-center justify-center gap-3">
-          <span
-            className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[13px] text-white"
-            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            aria-hidden="true"
-          >
-            <Zap className="h-[22px] w-[22px]" fill="currentColor" strokeWidth={0} />
-          </span>
-          <span className="text-[28px] font-medium tracking-tight text-text-h">NexusPlay</span>
-        </div>
-
-        {/* `font-sans`: la app pone Space Grotesk a los h2/h3; el diseño usa Manrope. */}
-        <h2
-          id="welcome-card-title"
-          className="mt-[17.5px] font-sans text-[30.5px] leading-tight font-bold tracking-tight"
-          style={{ color: TITLE_COLOR }}
-        >
-          ¡Bienvenido a NexusPlay!
-        </h2>
-        <p className="mx-auto mt-[7px] max-w-[440px] text-[14.5px] leading-[21px] text-text-h">
-          Tu espacio para aprender jugando y crear tu propio camino de <strong>conocimiento</strong>. ¡Elige cómo quieres
-          empezar hoy!
-        </p>
-
-        <ul className="mt-[21px] grid grid-cols-2 gap-y-6 min-[650px]:grid-cols-4">
-          {HIGHLIGHTS.map((item) => (
-            <li key={item.title} className="flex flex-col items-center">
-              <span className="flex h-[107px] items-center justify-center">
-                <img src={item.art} alt="" width={item.width} height={item.height} loading="eager" draggable={false} />
-              </span>
-              <h3 className="mt-[11.3px] font-sans text-[14px] leading-[18px] font-bold tracking-tight text-text-h">
-                <img
-                  src={item.icon}
-                  alt=""
-                  width={item.iconSize[0]}
-                  height={item.iconSize[1]}
-                  className="mr-1 inline-block align-[-4px]"
-                  draggable={false}
-                />
-                {item.title}
-              </h3>
-              <p className="mx-auto mt-[5px] max-w-[122px] text-[12px] leading-[16.2px] font-medium text-text-h">{item.text}</p>
-            </li>
-          ))}
-        </ul>
-
-        <p className="mt-[21.3px] text-[15px] leading-tight font-bold text-text-h">¿Listo para subir de nivel?</p>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-[15px] rounded-[14px] px-6 py-3 text-[13.7px] leading-[18px] font-semibold text-white shadow-[-6px_10px_20px_-8px_color-mix(in_srgb,var(--accent-2)_70%,transparent),6px_10px_20px_-8px_color-mix(in_srgb,var(--accent)_70%,transparent)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          style={{ background: 'linear-gradient(90deg, var(--accent-2), var(--accent))' }}
-        >
-          ¡Empezar a jugar!
-        </button>
-
-        <div className="mt-[6px]">
           <button
             type="button"
-            onClick={onQuickGuide}
-            className="rounded-lg px-3 py-1 text-[14.3px] font-medium text-text-h/75 transition-colors hover:text-text-h focus-visible:outline-2 focus-visible:outline-accent"
+            onClick={onClose}
+            aria-label="Cerrar bienvenida"
+            className="absolute top-[11px] right-[14px] rounded-full p-1.5 text-text transition-colors hover:bg-accent/10 hover:text-text-h focus-visible:outline-2 focus-visible:outline-accent"
           >
-            Ver guía rápida
+            <X className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden="true" />
           </button>
-        </div>
-      </section>
+
+          <div className="flex items-center justify-center gap-3">
+            <span
+              className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[13px] text-white"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              aria-hidden="true"
+            >
+              <Zap className="h-[22px] w-[22px]" fill="currentColor" strokeWidth={0} />
+            </span>
+            <span className="text-[28px] font-medium tracking-tight text-text-h">NexusPlay</span>
+          </div>
+
+          {/* `font-sans`: la app pone Space Grotesk a los h2/h3; el diseño usa Manrope. */}
+          <h2
+            id="welcome-card-title"
+            className="mt-[17.5px] font-sans text-[30.5px] leading-tight font-bold tracking-tight"
+            style={{ color: TITLE_COLOR }}
+          >
+            ¡Bienvenido a NexusPlay!
+          </h2>
+          <p className="mx-auto mt-[7px] max-w-[440px] text-[14.5px] leading-[21px] text-text-h">
+            Tu espacio para aprender jugando y crear tu propio camino de <strong>conocimiento</strong>. ¡Elige cómo quieres
+            empezar hoy!
+          </p>
+
+          <ul className="mt-[21px] grid grid-cols-2 gap-y-6 min-[650px]:grid-cols-4">
+            {HIGHLIGHTS.map((item) => (
+              <li key={item.title} className="flex flex-col items-center">
+                <span className="flex h-[107px] items-center justify-center">
+                  <img src={item.art} alt="" width={item.width} height={item.height} loading="eager" draggable={false} />
+                </span>
+                <h3 className="mt-[11.3px] font-sans text-[14px] leading-[18px] font-bold tracking-tight text-text-h">
+                  <img
+                    src={item.icon}
+                    alt=""
+                    width={item.iconSize[0]}
+                    height={item.iconSize[1]}
+                    className="mr-1 inline-block align-[-4px]"
+                    draggable={false}
+                  />
+                  {item.title}
+                </h3>
+                <p className="mx-auto mt-[5px] max-w-[122px] text-[12px] leading-[16.2px] font-medium text-text-h">{item.text}</p>
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-[21.3px] text-[15px] leading-tight font-bold text-text-h">¿Listo para subir de nivel?</p>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-[15px] rounded-[14px] px-6 py-3 text-[13.7px] leading-[18px] font-semibold text-white shadow-[-6px_10px_20px_-8px_color-mix(in_srgb,var(--accent-2)_70%,transparent),6px_10px_20px_-8px_color-mix(in_srgb,var(--accent)_70%,transparent)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            style={{ background: 'linear-gradient(90deg, var(--accent-2), var(--accent))' }}
+          >
+            ¡Empezar a jugar!
+          </button>
+
+          <div className="mt-[6px]">
+            <button
+              type="button"
+              onClick={onQuickGuide}
+              className="rounded-lg px-3 py-1 text-[14.3px] font-medium text-text-h/75 transition-colors hover:text-text-h focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              Ver guía rápida
+            </button>
+          </div>
+        </section>
+      </div>
     </div>
   )
 }
