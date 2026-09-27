@@ -78,7 +78,8 @@ export function getWelcomeSteps(role: string, isKids: boolean, options: WelcomeO
 /**
  * Fases de la bienvenida: "greeting" es el saludo que sale en TODA carga o
  * login (sin importar si la cuenta ya vio la guía antes), "invite" la
- * invitación obligatoria de la primera vez y "tour" el recorrido paso a paso.
+ * invitación de la flecha a "Guía" (solo para quien nunca hizo la guía y entra
+ * por un enlace fuera del inicio) y "tour" el recorrido paso a paso.
  */
 export type WelcomePhase = 'greeting' | 'invite' | 'tour' | 'closed'
 
@@ -93,9 +94,13 @@ export function initialWelcomePhase(startsAtHome: boolean, seen: boolean): Welco
   return seen ? 'closed' : 'invite'
 }
 
-/** Al cerrar el saludo sin iniciar el recorrido, quien nunca lo hizo sigue viendo la invitación obligatoria. */
+/**
+ * Tras el saludo, quien nunca hizo la guía pasa directo al recorrido (el
+ * saludo ES su paso de bienvenida, sin la invitación de la flecha a "Guía");
+ * quien ya la hizo vuelve al inicio.
+ */
 export function phaseAfterGreeting(seen: boolean): WelcomePhase {
-  return seen ? 'closed' : 'invite'
+  return seen ? 'closed' : 'tour'
 }
 
 const seenInMemory = new Set<string>()

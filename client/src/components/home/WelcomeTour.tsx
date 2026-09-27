@@ -11,11 +11,12 @@ import { isKidsMode } from '../../utils/kidsMode'
 const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRound }
 
 /**
- * Toda carga o login que cae en el inicio abre primero un saludo (modal
- * "¡Hola, {nombre}!"), sin importar si la cuenta es nueva o antigua: se cierra
- * con "Ir al inicio" o Escape, o lleva al recorrido con "Iniciar recorrido".
- * Tras cerrarlo, quien nunca hizo la guía sigue pasando por su invitación
- * obligatoria de abajo.
+ * Toda carga o login (F5 incluido) que cae en el inicio abre primero un
+ * saludo (modal "¡Hola, {nombre}!"), sin importar si la cuenta es nueva o
+ * antigua. Quien ya hizo la guía lo cierra con "Ir al inicio" o Escape, o abre
+ * el recorrido con "Iniciar recorrido". Para quien nunca la hizo el saludo es
+ * todo su paso de bienvenida: un solo botón, y cerrarlo de cualquier forma
+ * abre el recorrido (no hay flecha aparte hacia "Guía").
  *
  * La primera vez que una cuenta entra, el botón "Guía" se vuelve obligatorio:
  * el resto de la pantalla se ve desenfocada y bloqueada (el overlay absorbe
@@ -32,6 +33,8 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   // No interrumpir enlaces a juegos, salas ni otras secciones.
   const atHome = location.pathname === '/' && !location.search
   const [phase, setPhase] = useState<WelcomePhase>(() => initialWelcomePhase(atHome, hasSeenWelcome(storageKey)))
+  // Fijo al montar: `start()` marca la guía como vista y no debe cambiar el saludo a mitad de cierre.
+  const [firstTime] = useState(() => !hasSeenWelcome(storageKey))
   const [index, setIndex] = useState(0)
   const [previousRoute, setPreviousRoute] = useState(location.key)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -85,7 +88,9 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   }, [visible, phase, step.target, index, close])
 
   function dismissGreeting() {
-    setPhase(phaseAfterGreeting(hasSeenWelcome(storageKey)))
+    const next = phaseAfterGreeting(!firstTime)
+    if (next === 'tour') start()
+    else setPhase(next)
   }
 
   function start() {
@@ -154,7 +159,9 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
             <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">¡Hola, {user.firstName}!</h2>
           </div>
           <p className="text-[13px] text-text">
-            Te damos la bienvenida a NexusPlay. Haz un recorrido rápido por la plataforma o ve directo a jugar.
+            {firstTime
+              ? 'Te damos la bienvenida a NexusPlay. Te mostramos cómo funciona en un recorrido rápido.'
+              : 'Te damos la bienvenida a NexusPlay. Haz un recorrido rápido por la plataforma o ve directo a jugar.'}
           </p>
           <div className="flex flex-col gap-3">
             <button
@@ -165,13 +172,15 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
             >
               Iniciar recorrido
             </button>
-            <button
-              type="button"
-              className="rounded-2xl border border-border bg-surface px-4 py-3 text-[14.5px] font-semibold text-text-h transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/5"
-              onClick={dismissGreeting}
-            >
-              Ir al inicio
-            </button>
+            {!firstTime && (
+              <button
+                type="button"
+                className="rounded-2xl border border-border bg-surface px-4 py-3 text-[14.5px] font-semibold text-text-h transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent/5"
+                onClick={dismissGreeting}
+              >
+                Ir al inicio
+              </button>
+            )}
           </div>
         </div>
       </Modal>, document.body,
