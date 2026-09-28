@@ -3,6 +3,7 @@ import { useTheme } from '../../hooks/useTheme'
 import type { Theme } from '../../hooks/useTheme'
 import previewLight from '../../assets/themes/preview-light.webp'
 import previewDark from '../../assets/themes/preview-dark.webp'
+import previewKids from '../../assets/themes/preview-kids.webp'
 
 type ThemeOption = {
   value: Theme
@@ -41,6 +42,7 @@ const THEME_OPTIONS: ThemeOption[] = [
     label: 'Kids',
     description: 'Colores vivos, bordes redondeados y una mascota — el mismo look que ven los más pequeños, por si te gusta más.',
     icon: Sparkles,
+    previewImage: previewKids,
     preview: { bg: '#fff8e7', surface: '#ffffff', accent: '#ff7a1a', accent2: '#06b6d4', text: '#3a2a6d' },
   },
 ]
