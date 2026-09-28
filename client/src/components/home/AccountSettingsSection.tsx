@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2 } from 'lucide-react'
+import { Building2, X } from 'lucide-react'
 import { TextField } from '../TextField'
 import { useAuth } from '../../hooks/useAuth'
 import { ApiError } from '../../utils/http'
@@ -12,6 +12,7 @@ import {
   listMyOrganizations,
   type OrganizationWithMyRole,
 } from '../../services/organization.service'
+import { Modal } from './games/Modal'
 
 type AccountSettingsSectionProps = {
   /** Cierra todo el panel de configuración (tras eliminar la cuenta, o para ir al panel de organización). */
@@ -229,7 +230,7 @@ export function AccountSettingsSection({ onClose }: AccountSettingsSectionProps)
         </div>
       )}
 
-      <form className="flex flex-col gap-[18px]" onSubmit={handleSubmit} noValidate>
+      <form className="flex flex-col gap-3.5" onSubmit={handleSubmit} noValidate>
         <div className="grid grid-cols-2 gap-[14px]">
           <TextField
             label="Nombre"
@@ -314,23 +315,47 @@ export function AccountSettingsSection({ onClose }: AccountSettingsSectionProps)
         </button>
       </form>
 
-      <div className="mt-8 rounded-xl border border-danger/35 bg-danger/5 p-4">
-        <p className="text-[13.5px] font-semibold text-danger">Eliminar cuenta</p>
-        <p className="mt-0.5 text-[12.5px] leading-snug text-text">
-          Esto borra tu cuenta de forma definitiva, junto con tus juegos, clases y
-          membresías de organización. No se puede deshacer.
-        </p>
+      {/* Un enlace, no un bloque siempre desplegado: la confirmación (con
+          descripción completa y contraseña) vive en su propio modal chico,
+          para no sumarle alto permanente a esta pantalla — ver #177. */}
+      <button
+        type="button"
+        className="mt-6 text-[12.5px] font-medium text-danger hover:underline"
+        onClick={() => setDeleteRequested(true)}
+      >
+        Eliminar cuenta…
+      </button>
 
-        {!deleteRequested ? (
-          <button
-            type="button"
-            className="mt-3 rounded-lg border border-danger/50 px-3.5 py-2 text-[13px] font-medium text-danger hover:bg-danger/10"
-            onClick={() => setDeleteRequested(true)}
-          >
-            Eliminar mi cuenta
-          </button>
-        ) : (
-          <form className="mt-3 flex flex-col gap-3" onSubmit={handleDeleteAccount} noValidate>
+      {deleteRequested && (
+        <Modal
+          onClose={() => {
+            setDeleteRequested(false)
+            setDeletePassword('')
+            setDeleteError(null)
+          }}
+          maxWidthClassName="max-w-[420px]"
+          ariaLabel="Eliminar cuenta"
+        >
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <p className="text-[16px] font-semibold text-danger">Eliminar cuenta</p>
+            <button
+              type="button"
+              aria-label="Cerrar"
+              className="shrink-0 rounded-lg p-1.5 text-text transition-colors hover:bg-code-bg hover:text-text-h"
+              onClick={() => {
+                setDeleteRequested(false)
+                setDeletePassword('')
+                setDeleteError(null)
+              }}
+            >
+              <X className="h-5 w-5" strokeWidth={2} />
+            </button>
+          </div>
+          <p className="mb-4 text-[12.5px] leading-snug text-text">
+            Esto borra tu cuenta de forma definitiva, junto con tus juegos, clases y
+            membresías de organización. No se puede deshacer.
+          </p>
+          <form className="flex flex-col gap-3" onSubmit={handleDeleteAccount} noValidate>
             <TextField
               label="Confirma tu contraseña"
               type="password"
@@ -368,8 +393,8 @@ export function AccountSettingsSection({ onClose }: AccountSettingsSectionProps)
               </button>
             </div>
           </form>
-        )}
-      </div>
+        </Modal>
+      )}
     </div>
   )
 }
