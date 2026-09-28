@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { initialWelcomePhase, phaseAfterGreeting } from './welcomeTourSteps'
 
 describe('initialWelcomePhase', () => {
-  it('saluda al entrar al inicio, sea la cuenta nueva o antigua, si aún no ha saludado hoy', () => {
+  it('saluda al entrar al inicio, sea la cuenta nueva o antigua, si aún no ha saludado en esta sesión', () => {
     expect(initialWelcomePhase(true, false, false)).toBe('greeting')
     expect(initialWelcomePhase(true, true, false)).toBe('greeting')
   })
 
-  it('no repite el saludo si ya saludó hoy (recarga o navegación interna, mismo día)', () => {
+  it('no repite el saludo si ya saludó en esta sesión (navegación interna, no recarga)', () => {
     expect(initialWelcomePhase(true, true, true)).toBe('closed')
     expect(initialWelcomePhase(true, false, true)).toBe('invite')
   })

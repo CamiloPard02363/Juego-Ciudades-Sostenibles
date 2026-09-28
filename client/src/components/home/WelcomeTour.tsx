@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Compass, Gamepad2, Plus, UserRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../services/auth.service'
-import { getWelcomeSteps, hasGreetedToday, hasSeenWelcome, initialWelcomePhase, markGreetedToday, markWelcomeSeen, welcomeStorageKey } from './welcomeTourSteps'
+import { getWelcomeSteps, hasGreetedThisSession, hasSeenWelcome, initialWelcomePhase, markGreetedThisSession, markWelcomeSeen, welcomeStorageKey } from './welcomeTourSteps'
 import type { WelcomeOptions, WelcomePhase } from './welcomeTourSteps'
 import { WelcomeCard } from './WelcomeCard'
 import { isKidsMode } from '../../utils/kidsMode'
@@ -11,13 +11,13 @@ import { isKidsMode } from '../../utils/kidsMode'
 const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRound }
 
 /**
- * La primera carga o login del día que cae en el inicio abre la tarjeta de
- * bienvenida (`WelcomeCard`), sin importar si la cuenta es nueva o antigua:
- * se cierra con "¡Empezar a jugar!", la X, Escape o un clic fuera, o abre el
- * recorrido paso a paso con "Ver guía rápida". Una vez que salió ese día, no
- * vuelve a salir por más recargas o navegación dentro de la app que haya —
- * recién al día calendario siguiente vuelve a mostrarse (ver `hasGreetedToday`
- * en welcomeTourSteps).
+ * Toda carga o login (F5 incluido) que cae en el inicio abre primero la
+ * tarjeta de bienvenida (`WelcomeCard`), sin importar si la cuenta es nueva o
+ * antigua: se cierra con "¡Empezar a jugar!", la X, Escape o un clic fuera, o
+ * abre el recorrido paso a paso con "Ver guía rápida". Una vez cerrada, no
+ * vuelve a salir por simple navegación dentro de la app (salir de un juego,
+ * terminar una partida y volver al lobby): solo una recarga real de la
+ * página la trae de vuelta (ver `hasGreetedThisSession` en welcomeTourSteps).
  *
  * Cerrar la tarjeta de bienvenida (por cualquiera de esas vías, incluido
  * "¡Empezar a jugar!") siempre deja a la persona en el home, libre: nunca
@@ -39,7 +39,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   const storageKey = welcomeStorageKey(user.id, user.role)
   // No interrumpir enlaces a juegos, salas ni otras secciones.
   const atHome = location.pathname === '/' && !location.search
-  const [phase, setPhase] = useState<WelcomePhase>(() => initialWelcomePhase(atHome, hasSeenWelcome(storageKey), hasGreetedToday(storageKey)))
+  const [phase, setPhase] = useState<WelcomePhase>(() => initialWelcomePhase(atHome, hasSeenWelcome(storageKey), hasGreetedThisSession(storageKey)))
   const [index, setIndex] = useState(0)
   const [previousRoute, setPreviousRoute] = useState(location.key)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -97,12 +97,12 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
     // directo al home: el aviso obligatorio de "Guía" no se encadena aquí,
     // solo vuelve a aparecer si la cuenta regresa al inicio sin haber hecho
     // el recorrido (ver `initialWelcomePhase`).
-    markGreetedToday(storageKey)
+    markGreetedThisSession(storageKey)
     setPhase('closed')
   }
 
   function start() {
-    markGreetedToday(storageKey)
+    markGreetedThisSession(storageKey)
     markWelcomeSeen(storageKey)
     setSteps(getWelcomeSteps(user.role, isKids, { canAccessOrganization, canGoBackToWorlds }))
     setIndex(0)

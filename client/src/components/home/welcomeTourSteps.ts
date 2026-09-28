@@ -89,9 +89,11 @@ export type WelcomePhase = 'greeting' | 'invite' | 'tour' | 'closed'
  * vuelva al inicio, que sería el saludo "en cada regreso", no "en cada
  * ingreso"). Fuera del inicio queda solo la invitación de la primera vez.
  *
- * `alreadyGreeted` viene de `hasGreetedToday` (más abajo): una vez que salió
- * hoy, no vuelve a salir por más recargas o navegación interna que haya ese
- * mismo día — recién al día siguiente vuelve a mostrarse.
+ * `alreadyGreeted` viene de un estado solo en memoria (ver `hasGreetedThisSession`
+ * más abajo): sigue en pie mientras se navega dentro de la app (salir de un
+ * juego, terminar una partida y volver al lobby no debe reabrir la tarjeta),
+ * pero se pierde al recargar la página o abrir una pestaña nueva — ahí sí
+ * vuelve a salir, sin importar si la cuenta ya la vio antes.
  */
 export function initialWelcomePhase(startsAtHome: boolean, seen: boolean, alreadyGreeted: boolean): WelcomePhase {
   if (startsAtHome) return alreadyGreeted ? phaseAfterGreeting(seen) : 'greeting'
@@ -120,23 +122,16 @@ export function markWelcomeSeen(key: string) {
   try { localStorage.setItem(key, 'seen') } catch { /* La guía funciona sin almacenamiento. */ }
 }
 
-const greetedTodayInMemory = new Map<string, string>()
-/** Fecha calendario local en formato AAAA-MM-DD, para comparar "mismo día". */
-function today() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
 /**
- * Marca guardada (persistente, no de sesión) de la última fecha en la que se
- * mostró la bienvenida a esta cuenta: así sale una sola vez por día
- * calendario, sin importar cuántas veces se recargue la página o se navegue
- * de vuelta al inicio ese mismo día, pero vuelve a salir al día siguiente.
+ * Marca de solo memoria (nunca `localStorage`) para que la tarjeta de
+ * bienvenida no se repita por navegar dentro de la misma sesión del
+ * navegador, pero sí vuelva a salir en cada recarga real de la página o
+ * pestaña nueva, que reinicia todo el estado de JS.
  */
-export function hasGreetedToday(key: string) {
-  try { return (localStorage.getItem(`${key}:date`) ?? greetedTodayInMemory.get(key)) === today() }
-  catch { return greetedTodayInMemory.get(key) === today() }
+const greetedThisSession = new Set<string>()
+export function hasGreetedThisSession(key: string) {
+  return greetedThisSession.has(key)
 }
-export function markGreetedToday(key: string) {
-  greetedTodayInMemory.set(key, today())
-  try { localStorage.setItem(`${key}:date`, today()) } catch { /* La bienvenida funciona sin almacenamiento. */ }
+export function markGreetedThisSession(key: string) {
+  greetedThisSession.add(key)
 }
