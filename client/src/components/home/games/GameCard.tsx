@@ -17,9 +17,10 @@ type GameCardProps = {
    * se muestra a no-ADMIN.
    */
   isTypeArchived?: boolean
+  edition?: string
 }
 
-export function GameCard({ game, onClick, color, isTypeArchived = false }: GameCardProps) {
+export function GameCard({ game, onClick, color, isTypeArchived = false, edition }: GameCardProps) {
   const accentColor = color ?? game.theme.primaryColor
   return (
     <button
@@ -62,7 +63,14 @@ export function GameCard({ game, onClick, color, isTypeArchived = false }: GameC
         )}
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-4">
-        <h3 className="text-[15px] font-semibold text-text-h">{game.title}</h3>
+        {edition ? (
+          <div className="space-y-1">
+            <h3 className="text-[22px] font-bold leading-tight text-text-h [overflow-wrap:anywhere]">{game.title}</h3>
+            <p className="text-[14px] font-medium text-text">{edition}</p>
+          </div>
+        ) : (
+          <h3 className="text-[15px] font-semibold text-text-h">{game.title}</h3>
+        )}
         <p className="text-[13px] leading-snug text-text [overflow-wrap:anywhere]">{game.description}</p>
         {game.creatorDisplayName && (
           <p className="mt-auto pt-1 text-[11.5px] font-medium text-text/70">

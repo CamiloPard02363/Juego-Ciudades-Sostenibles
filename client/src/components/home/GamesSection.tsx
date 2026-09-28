@@ -1014,6 +1014,7 @@ export function GamesSection({
               >
                 <GameCard
                   game={game}
+                  edition={mode === 'all' && game.gameType === 'GUESS_WHO' && game.slug === 'quien-es-de-banderas' ? 'Banderas' : undefined}
                   color={colorForGame(game)}
                   onClick={() => openGame(game)}
                   isTypeArchived={archivedGameTypes.has(game.gameType)}
