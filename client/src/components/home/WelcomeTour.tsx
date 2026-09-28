@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Compass, Gamepad2, Plus, UserRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../services/auth.service'
-import { getWelcomeSteps, hasGreetedThisSession, hasSeenWelcome, initialWelcomePhase, markGreetedThisSession, markWelcomeSeen, phaseAfterGreeting, welcomeStorageKey } from './welcomeTourSteps'
+import { getWelcomeSteps, hasGreetedThisSession, hasSeenWelcome, initialWelcomePhase, markGreetedThisSession, markWelcomeSeen, welcomeStorageKey } from './welcomeTourSteps'
 import type { WelcomeOptions, WelcomePhase } from './welcomeTourSteps'
 import { WelcomeCard } from './WelcomeCard'
 import { isKidsMode } from '../../utils/kidsMode'
@@ -19,12 +19,18 @@ const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRou
  * terminar una partida y volver al lobby): solo una recarga real de la
  * página la trae de vuelta (ver `hasGreetedThisSession` en welcomeTourSteps).
  *
- * La primera vez que una cuenta entra, el botón "Guía" se vuelve obligatorio:
- * el resto de la pantalla se ve desenfocada y bloqueada (el overlay absorbe
- * los clics) hasta que la persona hace clic en el botón — no hay "Ahora no"
- * ni Escape para saltárselo, así todo el mundo pasa por el recorrido al
- * menos una vez. Una vez iniciado el recorrido en sí (paso a paso) sigue
- * siendo cerrable con la X o Escape, como antes.
+ * Cerrar la tarjeta de bienvenida (por cualquiera de esas vías, incluido
+ * "¡Empezar a jugar!") siempre deja a la persona en el home, libre: nunca
+ * encadena al aviso de "Guía" de abajo en el mismo gesto — para eso está el
+ * botón "Ver guía rápida", que sí la abre directamente.
+ *
+ * Aparte de eso, la primera vez que una cuenta entra al inicio sin haber
+ * hecho nunca el recorrido, el botón "Guía" se vuelve obligatorio: el resto
+ * de la pantalla se ve desenfocada y bloqueada (el overlay absorbe los
+ * clics) hasta que la persona hace clic en el botón — no hay "Ahora no" ni
+ * Escape para saltárselo, así todo el mundo pasa por el recorrido al menos
+ * una vez. Una vez iniciado el recorrido en sí (paso a paso) sigue siendo
+ * cerrable con la X o Escape, como antes.
  */
 export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: { user: AuthUser } & WelcomeOptions) {
   const location = useLocation()
@@ -87,8 +93,12 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   }, [visible, phase, step.target, index, close])
 
   function dismissGreeting() {
+    // Cerrar la tarjeta (por cualquier vía, incluido "¡Empezar a jugar!") va
+    // directo al home: el aviso obligatorio de "Guía" no se encadena aquí,
+    // solo vuelve a aparecer si la cuenta regresa al inicio sin haber hecho
+    // el recorrido (ver `initialWelcomePhase`).
     markGreetedThisSession(storageKey)
-    setPhase(phaseAfterGreeting(hasSeenWelcome(storageKey)))
+    setPhase('closed')
   }
 
   function start() {
