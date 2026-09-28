@@ -65,9 +65,9 @@ async function main(): Promise<void> {
 
     const document = {
       slug: SLUG,
-      title: 'Nexus Play: Ecosistemas Sostenibles',
+      title: 'Dominexo',
       description:
-        'Dominó temático de sostenibilidad urbana: conecta paneles solares, zonas verdes, reciclaje y más, empatando los extremos abiertos como en el dominó tradicional.',
+        'Conéctate con un amigo y relacionen conceptos, imágenes o significados para completar juntos la cadena de fichas.',
       gameType: 'DOMINO',
       theme: { primaryColor: '#22c55e', coverImageUrl: null },
       categoryId: String(category?._id),
