@@ -13,6 +13,7 @@ export function SettingsButton({ onClick }: SettingsButtonProps) {
   return (
     <button
       type="button"
+      data-tour="settings"
       onClick={onClick}
       aria-label="Configuración"
       title="Configuración"

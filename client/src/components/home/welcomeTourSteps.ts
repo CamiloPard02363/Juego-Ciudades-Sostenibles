@@ -60,7 +60,6 @@ export function getWelcomeSteps(role: string, isKids: boolean, options: WelcomeO
     { title: role === 'TEACHER' ? 'Encuentra tus actividades' : 'Tus juegos privados', text: role === 'TEACHER' ? 'En Mis actividades encuentras tus creaciones para consultarlas y seguir trabajando en ellas.' : 'En Mis juegos privados encuentras tus juegos que no están publicados para la comunidad.', target: 'nav-own-games', icon: 'create', action: role === 'TEACHER' ? 'Ver mis actividades' : 'Ver mis juegos privados' },
   )
   if (role === 'ADMIN') steps.push(
-    { title: 'Prueba la apariencia', text: 'Temas te permite probar los modos visuales en este dispositivo, sin cambiar la apariencia de otros usuarios.', target: 'nav-themes', icon: 'explore', action: 'Explorar temas' },
     { title: 'Gestiona los usuarios', text: 'En Usuarios puedes consultar y administrar las cuentas de NexusPlay.', target: 'nav-users', icon: 'profile', action: 'Ver usuarios' },
   )
   if (role === 'ADMIN' || options.canAccessOrganization) steps.push({
@@ -70,6 +69,7 @@ export function getWelcomeSteps(role: string, isKids: boolean, options: WelcomeO
     { title: 'Encuentra un juego', text: 'Escribe en Buscar juegos y pulsa Enter o la lupa. Borra el texto para volver a ver el listado completo.', target: 'search', icon: 'explore', action: 'Probar la búsqueda' },
     { title: 'Más espacio para jugar', text: 'Usa esta flecha para contraer o expandir el menú. Sus opciones siguen disponibles como iconos.', target: 'menu-toggle', icon: 'explore', action: 'Cambiar tamaño del menú' },
     { title: 'Claro u oscuro, tú eliges', text: 'El sol activa el tema claro y la luna el oscuro. La elección se recuerda en este dispositivo.', target: 'theme-toggle', icon: 'explore', action: 'Elegir apariencia' },
+    { title: 'Tu configuración, a la mano', text: 'La tuerca junto a tu nombre abre tu configuración: tus datos de perfil y los temas de la página, en un solo lugar.', target: 'settings', icon: 'profile', action: 'Abrir configuración' },
     profile,
   )
   return steps

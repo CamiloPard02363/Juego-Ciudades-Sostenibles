@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, X } from 'lucide-react'
+import { Building2 } from 'lucide-react'
 import { TextField } from '../TextField'
 import { useAuth } from '../../hooks/useAuth'
 import { ApiError } from '../../utils/http'
@@ -12,9 +12,9 @@ import {
   listMyOrganizations,
   type OrganizationWithMyRole,
 } from '../../services/organization.service'
-import { Modal } from './games/Modal'
 
-type ProfileSettingsProps = {
+type AccountSettingsSectionProps = {
+  /** Cierra todo el panel de configuración (tras eliminar la cuenta, o para ir al panel de organización). */
   onClose: () => void
 }
 
@@ -25,7 +25,11 @@ const ORG_ROLE_STYLES: Record<string, string> = {
   STUDENT: 'bg-code-bg text-text-h',
 }
 
-export function ProfileSettings({ onClose }: ProfileSettingsProps) {
+/**
+ * Datos de la cuenta para modificar: una de las dos pestañas de `SettingsPanel`
+ * (la otra es `ThemesSection`). Antes vivía sola dentro de `ProfileSettings`.
+ */
+export function AccountSettingsSection({ onClose }: AccountSettingsSectionProps) {
   const { user, token, updateProfile, deleteAccount } = useAuth()
   const navigate = useNavigate()
 
@@ -150,22 +154,7 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
   }
 
   return (
-    <Modal onClose={onClose} maxWidthClassName="max-w-[520px]">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Configuración</h2>
-          <p className="text-[14px] text-text">Actualiza los datos de tu perfil en NexusPlay.</p>
-        </div>
-        <button
-          type="button"
-          aria-label="Cerrar"
-          className="shrink-0 rounded-lg p-1.5 text-text transition-colors hover:bg-code-bg hover:text-text-h"
-          onClick={onClose}
-        >
-          <X className="h-5 w-5" strokeWidth={2} />
-        </button>
-      </div>
-
+    <div>
       {/* Badge de rol global (STUDENT/TEACHER/ADMIN de plataforma), separado
           de los badges de rol de organización de abajo — no se mezclan
           porque son ejes ortogonales (ver organization-role.vo.ts). */}
@@ -381,6 +370,6 @@ export function ProfileSettings({ onClose }: ProfileSettingsProps) {
           </form>
         )}
       </div>
-    </Modal>
+    </div>
   )
 }
