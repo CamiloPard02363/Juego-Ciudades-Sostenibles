@@ -1017,6 +1017,7 @@ export function GamesSection({
                   edition={mode !== 'all' ? undefined
                     : game.gameType === 'GUESS_WHO' && game.slug === 'quien-es-de-banderas' ? 'Banderas'
                     : game.gameType === 'MEMORY_MATCH' && game.slug === 'herbario-urbano' ? 'Sostenibilidad'
+                    : game.gameType === 'DOMINO' && game.slug === 'nexus-play-ecosistemas-sostenibles' ? 'Sostenibilidad'
                     : undefined}
                   color={colorForGame(game)}
                   onClick={() => openGame(game)}
