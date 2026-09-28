@@ -28,7 +28,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const section = SECTIONS.find((item) => item.value === view)
 
   return (
-    <Modal onClose={onClose} maxWidthClassName="max-w-[560px]" maxHeightClassName="max-h-[92vh]" accentBorder>
+    <Modal
+      onClose={onClose}
+      // "Temas" necesita más ancho: con 3 tarjetas conviene un recuadro más
+      // amplio que el del menú o el formulario de perfil.
+      maxWidthClassName={view === 'themes' ? 'max-w-[760px]' : 'max-w-[560px]'}
+      maxHeightClassName="max-h-[92vh]"
+      accentBorder
+    >
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           {section && (

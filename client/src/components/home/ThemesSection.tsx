@@ -70,10 +70,8 @@ export function ThemesSection() {
         dispositivo.
       </p>
 
-      {/* Solo 2 columnas, no 3: esta sección vive dentro de un panel angosto
-          (560px), no de una página completa — una tercera columna no gana
-          espacio real y deja las tarjetas apretadas. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* El panel de esta pantalla es más ancho que el resto (ver SettingsPanel), así que 3 columnas ya caben cómodas. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {THEME_OPTIONS.map((option) => {
           const Icon = option.icon
           const active = theme === option.value
