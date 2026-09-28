@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Compass, Gamepad2, Plus, UserRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../../services/auth.service'
-import { getWelcomeSteps, hasSeenWelcome, initialWelcomePhase, markWelcomeSeen, phaseAfterGreeting, welcomeStorageKey } from './welcomeTourSteps'
+import { getWelcomeSteps, hasGreetedThisSession, hasSeenWelcome, initialWelcomePhase, markGreetedThisSession, markWelcomeSeen, phaseAfterGreeting, welcomeStorageKey } from './welcomeTourSteps'
 import type { WelcomeOptions, WelcomePhase } from './welcomeTourSteps'
 import { WelcomeCard } from './WelcomeCard'
 import { isKidsMode } from '../../utils/kidsMode'
@@ -14,7 +14,10 @@ const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRou
  * Toda carga o login (F5 incluido) que cae en el inicio abre primero la
  * tarjeta de bienvenida (`WelcomeCard`), sin importar si la cuenta es nueva o
  * antigua: se cierra con "¡Empezar a jugar!", la X, Escape o un clic fuera, o
- * abre el recorrido paso a paso con "Ver guía rápida".
+ * abre el recorrido paso a paso con "Ver guía rápida". Una vez cerrada, no
+ * vuelve a salir por simple navegación dentro de la app (salir de un juego,
+ * terminar una partida y volver al lobby): solo una recarga real de la
+ * página la trae de vuelta (ver `hasGreetedThisSession` en welcomeTourSteps).
  *
  * La primera vez que una cuenta entra, el botón "Guía" se vuelve obligatorio:
  * el resto de la pantalla se ve desenfocada y bloqueada (el overlay absorbe
@@ -30,7 +33,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   const storageKey = welcomeStorageKey(user.id, user.role)
   // No interrumpir enlaces a juegos, salas ni otras secciones.
   const atHome = location.pathname === '/' && !location.search
-  const [phase, setPhase] = useState<WelcomePhase>(() => initialWelcomePhase(atHome, hasSeenWelcome(storageKey)))
+  const [phase, setPhase] = useState<WelcomePhase>(() => initialWelcomePhase(atHome, hasSeenWelcome(storageKey), hasGreetedThisSession(storageKey)))
   const [index, setIndex] = useState(0)
   const [previousRoute, setPreviousRoute] = useState(location.key)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -84,10 +87,12 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
   }, [visible, phase, step.target, index, close])
 
   function dismissGreeting() {
+    markGreetedThisSession(storageKey)
     setPhase(phaseAfterGreeting(hasSeenWelcome(storageKey)))
   }
 
   function start() {
+    markGreetedThisSession(storageKey)
     markWelcomeSeen(storageKey)
     setSteps(getWelcomeSteps(user.role, isKids, { canAccessOrganization, canGoBackToWorlds }))
     setIndex(0)

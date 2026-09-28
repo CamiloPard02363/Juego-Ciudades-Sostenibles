@@ -88,9 +88,15 @@ export type WelcomePhase = 'greeting' | 'invite' | 'tour' | 'closed'
  * juego u otra sección no se interrumpe (y tampoco se aplaza para cuando se
  * vuelva al inicio, que sería el saludo "en cada regreso", no "en cada
  * ingreso"). Fuera del inicio queda solo la invitación de la primera vez.
+ *
+ * `alreadyGreeted` viene de un estado solo en memoria (ver `hasGreetedThisSession`
+ * más abajo): sigue en pie mientras se navega dentro de la app (salir de un
+ * juego, terminar una partida y volver al lobby no debe reabrir la tarjeta),
+ * pero se pierde al recargar la página o abrir una pestaña nueva — ahí sí
+ * vuelve a salir, sin importar si la cuenta ya la vio antes.
  */
-export function initialWelcomePhase(startsAtHome: boolean, seen: boolean): WelcomePhase {
-  if (startsAtHome) return 'greeting'
+export function initialWelcomePhase(startsAtHome: boolean, seen: boolean, alreadyGreeted: boolean): WelcomePhase {
+  if (startsAtHome) return alreadyGreeted ? phaseAfterGreeting(seen) : 'greeting'
   return seen ? 'closed' : 'invite'
 }
 
@@ -114,4 +120,18 @@ export function hasSeenWelcome(key: string) {
 export function markWelcomeSeen(key: string) {
   seenInMemory.add(key)
   try { localStorage.setItem(key, 'seen') } catch { /* La guía funciona sin almacenamiento. */ }
+}
+
+/**
+ * Marca de solo memoria (nunca `localStorage`) para que la tarjeta de
+ * bienvenida no se repita por navegar dentro de la misma sesión del
+ * navegador, pero sí vuelva a salir en cada recarga real de la página o
+ * pestaña nueva, que reinicia todo el estado de JS.
+ */
+const greetedThisSession = new Set<string>()
+export function hasGreetedThisSession(key: string) {
+  return greetedThisSession.has(key)
+}
+export function markGreetedThisSession(key: string) {
+  greetedThisSession.add(key)
 }
