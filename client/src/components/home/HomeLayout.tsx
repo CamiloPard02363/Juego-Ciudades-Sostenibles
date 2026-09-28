@@ -6,7 +6,7 @@ import { SearchBar } from './SearchBar'
 import { ProfileMenu } from './ProfileMenu'
 import { SettingsButton } from './SettingsButton'
 import { ThemeToggle } from '../ThemeToggle'
-import { ProfileSettings } from './ProfileSettings'
+import { SettingsPanel } from './SettingsPanel'
 import { trackEvent } from '../../services/analytics.service'
 import { HomeSearchContext } from './homeSearchContext'
 import { KidsMascot } from '../kids/KidsMascot'
@@ -86,7 +86,7 @@ export function HomeLayout() {
         </main>
       </div>
 
-      {settingsOpen && <ProfileSettings onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       <KidsMascot />
     </div>
   )

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BookOpen, Building2, ChevronLeft, Gamepad2, LayoutGrid, Lock, Palette, Plus, Users, Users2, Zap } from 'lucide-react'
+import { BookOpen, Building2, ChevronLeft, Gamepad2, LayoutGrid, Lock, Plus, Users, Users2, Zap } from 'lucide-react'
 type SidebarProps = {
   userRole: string
   canManageUsers: boolean
@@ -141,16 +141,6 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           onClick={() => navigate('/mis-juegos')}
           icon={<Lock className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
         />
-        {userRole === 'ADMIN' && (
-          <SidebarItem
-            tourTarget="nav-themes"
-            label="Temas"
-            collapsed={collapsed}
-            active={location.pathname === '/temas'}
-            onClick={() => navigate('/temas')}
-            icon={<Palette className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
-          />
-        )}
         {(canManageUsers || canAccessOrganization) && (
           <>
             {!collapsed && (
