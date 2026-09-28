@@ -9,7 +9,6 @@ import { ThemeToggle } from '../ThemeToggle'
 import { SettingsPanel } from './SettingsPanel'
 import { trackEvent } from '../../services/analytics.service'
 import { HomeSearchContext } from './homeSearchContext'
-import { KidsMascot } from '../kids/KidsMascot'
 import { listMyOrganizations } from '../../services/organization.service'
 import { KidsHomeShell } from './kids/KidsHomeShell'
 import { WelcomeTour } from './WelcomeTour'
@@ -87,7 +86,6 @@ export function HomeLayout() {
       </div>
 
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
-      <KidsMascot />
     </div>
   )
 

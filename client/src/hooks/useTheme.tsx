@@ -33,8 +33,8 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
  * pero el estado local del OTRO componente no se enteraba — quedaba
  * mostrando el tema viejo como "activo" hasta el próximo montaje/refresh.
  * Ahora hay un único estado compartido acá, y todos los consumidores
- * (ThemeToggle, ThemesSection, ConfettiBurst, KidsMascot) leen la misma
- * fuente de verdad.
+ * (ThemeToggle, ThemesSection, ConfettiBurst) leen la misma fuente de
+ * verdad.
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   // El Modo Kids ya no es una elección manual: todo STUDENT menor de 10 años

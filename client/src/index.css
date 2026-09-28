@@ -725,28 +725,6 @@ code {
   }
 }
 
-/* Mascota flotante del modo niños (KidsMascot.tsx): flota suavemente y
- * balancea sus rayos, para sentirse "viva" sin llamar demasiado la atención. */
-@keyframes kids-mascot-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
-@keyframes kids-mascot-sway {
-  0%,
-  100% {
-    transform: rotate(-4deg);
-  }
-  50% {
-    transform: rotate(4deg);
-  }
-}
-
 /* Guía animado del Modo Kids (KidsGuideCharacter.tsx): se muestra grande en
  * la ventana de bienvenida, así que su "vida" tiene que notarse más que la
  * mascota flotante de fondo — respira con un vaivén suave, saluda con el
