@@ -13,7 +13,7 @@ import type { GameSummary } from '../../../services/game.service'
 import { HomeSearchContext } from '../homeSearchContext'
 import { ProfileMenu } from '../ProfileMenu'
 import { SettingsButton } from '../SettingsButton'
-import { ProfileSettings } from '../ProfileSettings'
+import { SettingsPanel } from '../SettingsPanel'
 import { KidsMascot } from '../../kids/KidsMascot'
 import { KidsWorldGrid } from './KidsWorldGrid'
 import { KidsGameGrid } from './KidsGameGrid'
@@ -121,7 +121,7 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
         </HomeSearchContext.Provider>
       </main>
 
-      {settingsOpen && <ProfileSettings onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       <KidsMascot />
     </div>
   )

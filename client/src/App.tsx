@@ -9,7 +9,6 @@ import { GameTypesCatalogPage } from './components/home/games/GameTypesCatalogPa
 import { GameTypeGamesPage } from './components/home/games/GameTypeGamesPage'
 import { CommunityPage } from './components/home/sections/CommunityPage'
 import { MyGamesPage } from './components/home/sections/MyGamesPage'
-import { ThemesPage } from './components/home/sections/ThemesPage'
 import { AdminUsersPage } from './components/home/sections/AdminUsersPage'
 import { OrganizationDashboardPage } from './components/home/sections/OrganizationDashboardPage'
 import { MyClassesPage } from './components/home/sections/MyClassesPage'
@@ -124,10 +123,6 @@ function App() {
         <Route path="comunidad/:slug" element={<CommunityPage />} />
         <Route path="mis-juegos" element={<MyGamesPage />} />
         <Route path="mis-juegos/:slug" element={<MyGamesPage />} />
-        <Route
-          path="temas"
-          element={user.role === 'ADMIN' ? <ThemesPage /> : <Navigate to="/" replace />}
-        />
         <Route path="usuarios" element={<AdminUsersPage />} />
         <Route path="organizacion" element={<OrganizationDashboardPage />} />
       </Route>
