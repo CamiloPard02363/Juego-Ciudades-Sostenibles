@@ -7,10 +7,6 @@ export type Theme = 'light' | 'dark' | 'kids'
 
 const STORAGE_KEY = 'nexusplay-theme'
 
-function getSystemTheme(): Theme {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
-
 function readStoredTheme(): Theme | null {
   const stored = localStorage.getItem(STORAGE_KEY)
   return stored === 'light' || stored === 'dark' || stored === 'kids' ? stored : null
@@ -48,7 +44,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // `ThemeProvider` solo se monta dentro del árbol de <AuthProvider> (ver
   // main.tsx).
   const { user } = useAuth()
-  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme() ?? getSystemTheme())
+  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme() ?? 'light')
   const effectiveTheme: Theme = isKidsMode(user) ? 'kids' : theme
 
   useEffect(() => {
