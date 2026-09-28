@@ -28,7 +28,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const section = SECTIONS.find((item) => item.value === view)
 
   return (
-    <Modal onClose={onClose} maxWidthClassName="max-w-[560px]" maxHeightClassName="max-h-[92vh]">
+    <Modal onClose={onClose} maxWidthClassName="max-w-[560px]" maxHeightClassName="max-h-[92vh]" accentBorder>
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           {section && (
@@ -69,19 +69,23 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 key={item.value}
                 type="button"
                 onClick={() => setView(item.value)}
-                className="flex w-full items-center gap-3 rounded-xl border border-border p-3.5 text-left transition-colors hover:border-accent/40 hover:bg-accent/10"
+                className="group flex w-full items-center gap-3.5 rounded-2xl border-[2.5px] border-transparent p-4 text-left transition-transform hover:-translate-y-0.5"
+                style={{
+                  background:
+                    'linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(120deg, var(--accent-2), var(--accent)) border-box',
+                }}
               >
                 <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-accent"
-                  style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)' }}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white"
+                  style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', boxShadow: '0 8px 18px -8px var(--accent)' }}
                 >
-                  <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+                  <Icon className="h-5 w-5" strokeWidth={2} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-semibold text-text-h">{item.label}</span>
-                  <span className="block truncate text-[12px] text-text">{item.description}</span>
+                  <span className="block truncate text-[15px] font-semibold text-text-h">{item.label}</span>
+                  <span className="block truncate text-[12.5px] text-text">{item.description}</span>
                 </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-text" strokeWidth={2} />
+                <ChevronRight className="h-4 w-4 shrink-0 text-text transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
               </button>
             )
           })}

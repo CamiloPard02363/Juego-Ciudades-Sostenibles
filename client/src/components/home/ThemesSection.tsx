@@ -83,12 +83,17 @@ export function ThemesSection() {
               type="button"
               onClick={() => setTheme(option.value)}
               aria-pressed={active}
-              className={`group flex flex-col overflow-hidden rounded-2xl border text-left transition-transform hover:-translate-y-0.5 ${
-                active ? 'border-transparent' : 'border-border'
-              }`}
-              style={active ? { boxShadow: `0 0 0 2px ${option.preview.accent}` } : undefined}
+              // Borde con degradado de los dos acentos de ESTE tema (mismo truco
+              // que WelcomeCard: fondo recortado al padding + degradado al
+              // borde) en vez del borde plano gris de antes — cada tarjeta luce
+              // sus propios colores siempre, no solo cuando está activa.
+              className="group flex flex-col overflow-hidden rounded-2xl border-[3px] border-transparent text-left transition-transform hover:-translate-y-0.5"
+              style={{
+                background: `linear-gradient(${option.preview.surface}, ${option.preview.surface}) padding-box, linear-gradient(120deg, ${option.preview.accent2}, ${option.preview.accent}) border-box`,
+                boxShadow: active ? `0 12px 28px -12px ${option.preview.accent}` : undefined,
+              }}
             >
-              <div className="relative h-24" style={{ background: option.preview.bg }}>
+              <div className="relative h-32" style={{ background: option.preview.bg }}>
                 {option.previewImage ? (
                   <img
                     src={option.previewImage}
@@ -119,11 +124,11 @@ export function ThemesSection() {
                 )}
                 {active && (
                   <span
-                    className="absolute top-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-full text-white"
+                    className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full text-white shadow-[0_4px_10px_-3px_rgba(0,0,0,0.4)]"
                     style={{ background: option.preview.accent }}
                     aria-hidden="true"
                   >
-                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    <Check className="h-4 w-4" strokeWidth={3} />
                   </span>
                 )}
               </div>
