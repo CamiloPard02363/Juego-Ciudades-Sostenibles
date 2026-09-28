@@ -25,7 +25,7 @@ export function GameCard({ game, onClick, color, isTypeArchived = false }: GameC
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-1"
+      className="group relative flex h-full min-w-0 w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-1"
     >
       {isTypeArchived && (
         <span
@@ -37,7 +37,7 @@ export function GameCard({ game, onClick, color, isTypeArchived = false }: GameC
         </span>
       )}
       <div
-        className="flex h-28 items-center justify-center text-3xl transition-[filter] group-hover:brightness-110"
+        className="flex h-28 shrink-0 items-center justify-center text-3xl transition-[filter] group-hover:brightness-110"
         style={{
           background: `linear-gradient(135deg, ${accentColor}55, ${accentColor}15)`,
         }}
@@ -63,7 +63,7 @@ export function GameCard({ game, onClick, color, isTypeArchived = false }: GameC
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-4">
         <h3 className="text-[15px] font-semibold text-text-h">{game.title}</h3>
-        <p className="line-clamp-2 text-[13px] leading-snug text-text">{game.description}</p>
+        <p className="text-[13px] leading-snug text-text [overflow-wrap:anywhere]">{game.description}</p>
         {game.creatorDisplayName && (
           <p className="mt-auto pt-1 text-[11.5px] font-medium text-text/70">
             Por {game.creatorDisplayName}
