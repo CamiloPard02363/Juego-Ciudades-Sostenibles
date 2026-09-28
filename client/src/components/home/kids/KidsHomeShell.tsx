@@ -12,6 +12,7 @@ import { listMyOrganizations, type OrganizationWithMyRole } from '../../../servi
 import type { GameSummary } from '../../../services/game.service'
 import { HomeSearchContext } from '../homeSearchContext'
 import { ProfileMenu } from '../ProfileMenu'
+import { SettingsButton } from '../SettingsButton'
 import { ProfileSettings } from '../ProfileSettings'
 import { KidsMascot } from '../../kids/KidsMascot'
 import { KidsWorldGrid } from './KidsWorldGrid'
@@ -91,7 +92,8 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <WelcomeTour key={`${user.id}:${user.role}`} user={user} canGoBackToWorlds={selectedCategory !== null} />
-          <ProfileMenu user={user} onOpenSettings={() => setSettingsOpen(true)} onSignOut={onSignOut} />
+          <SettingsButton onClick={() => setSettingsOpen(true)} />
+          <ProfileMenu user={user} onSignOut={onSignOut} />
         </div>
       </header>
 

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, LogOut, Settings } from 'lucide-react'
+import { ChevronDown, LogOut } from 'lucide-react'
 import type { AuthUser } from '../../services/auth.service'
 
 type ProfileMenuProps = {
   user: AuthUser
-  onOpenSettings: () => void
   onSignOut: () => void
 }
 
@@ -14,7 +13,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrador',
 }
 
-export function ProfileMenu({ user, onOpenSettings, onSignOut }: ProfileMenuProps) {
+export function ProfileMenu({ user, onSignOut }: ProfileMenuProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -85,43 +84,18 @@ export function ProfileMenu({ user, onOpenSettings, onSignOut }: ProfileMenuProp
             </p>
             <p className="truncate text-[12px] text-text">{user.email}</p>
           </div>
-          <div className="p-1.5">
-            <button
-              type="button"
-              role="menuitem"
-              className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-accent/10"
-              onClick={() => {
-                setOpen(false)
-                onOpenSettings()
-              }}
-            >
-              <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-accent"
-                style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)' }}
-              >
-                <Settings className="h-[18px] w-[18px]" strokeWidth={2} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-semibold text-text-h">Configuración</span>
-                <span className="block truncate text-[12px] text-text">Cuenta, tema y preferencias</span>
-              </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-text transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-            </button>
-          </div>
-          <div className="border-t border-border p-1.5">
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-danger hover:bg-danger/10"
-              onClick={() => {
-                setOpen(false)
-                onSignOut()
-              }}
-            >
-              <LogOut className="h-4 w-4" strokeWidth={2} />
-              Cerrar sesión
-            </button>
-          </div>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[14px] text-danger hover:bg-danger/10"
+            onClick={() => {
+              setOpen(false)
+              onSignOut()
+            }}
+          >
+            <LogOut className="h-4 w-4" strokeWidth={2} />
+            Cerrar sesión
+          </button>
         </div>
       )}
     </div>
