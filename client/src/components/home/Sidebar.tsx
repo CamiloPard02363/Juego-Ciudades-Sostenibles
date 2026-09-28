@@ -2,8 +2,6 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { BookOpen, Building2, ChevronLeft, Gamepad2, LayoutGrid, Lock, Palette, Plus, Users, Users2, Zap } from 'lucide-react'
-import { ThemeToggle } from '../ThemeToggle'
-
 type SidebarProps = {
   userRole: string
   canManageUsers: boolean
@@ -183,16 +181,6 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
           </>
         )}
       </nav>
-
-      <div
-        data-tour="theme-toggle"
-        className={`mt-2 flex items-center border-t border-border px-1.5 pt-4 ${
-          collapsed ? 'flex-col gap-2' : 'justify-between'
-        }`}
-      >
-        {!collapsed && <span className="text-[12px] font-medium text-text">Tema</span>}
-        <ThemeToggle />
-      </div>
     </aside>
   )
 }
