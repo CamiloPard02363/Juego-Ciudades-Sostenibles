@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { Sidebar } from './Sidebar'
 import { SearchBar } from './SearchBar'
 import { ProfileMenu } from './ProfileMenu'
+import { SettingsButton } from './SettingsButton'
 import { ThemeToggle } from '../ThemeToggle'
 import { ProfileSettings } from './ProfileSettings'
 import { trackEvent } from '../../services/analytics.service'
@@ -71,11 +72,8 @@ export function HomeLayout() {
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <WelcomeTour key={`${user.id}:${user.role}`} user={user} canAccessOrganization={canAccessOrganization || canManageUsers} />
             <ThemeToggle />
-            <ProfileMenu
-              user={user}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onSignOut={signOut}
-            />
+            <SettingsButton onClick={() => setSettingsOpen(true)} />
+            <ProfileMenu user={user} onSignOut={signOut} />
           </div>
         </header>
 

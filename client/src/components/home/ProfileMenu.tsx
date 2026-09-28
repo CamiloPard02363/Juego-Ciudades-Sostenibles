@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, LogOut, Settings } from 'lucide-react'
+import { ChevronDown, LogOut } from 'lucide-react'
 import type { AuthUser } from '../../services/auth.service'
 
 type ProfileMenuProps = {
   user: AuthUser
-  onOpenSettings: () => void
   onSignOut: () => void
 }
 
@@ -14,7 +13,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrador',
 }
 
-export function ProfileMenu({ user, onOpenSettings, onSignOut }: ProfileMenuProps) {
+export function ProfileMenu({ user, onSignOut }: ProfileMenuProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -85,18 +84,6 @@ export function ProfileMenu({ user, onOpenSettings, onSignOut }: ProfileMenuProp
             </p>
             <p className="truncate text-[12px] text-text">{user.email}</p>
           </div>
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[14px] text-text-h hover:bg-code-bg"
-            onClick={() => {
-              setOpen(false)
-              onOpenSettings()
-            }}
-          >
-            <Settings className="h-4 w-4 text-text" strokeWidth={2} />
-            Configuración
-          </button>
           <button
             type="button"
             role="menuitem"
