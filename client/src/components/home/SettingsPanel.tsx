@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Palette, User, X } from 'lucide-react'
+import { ChevronDown, Palette, User, X } from 'lucide-react'
 import { AccountSettingsSection } from './AccountSettingsSection'
 import { ThemesSection } from './ThemesSection'
 import { Modal } from './games/Modal'
@@ -16,14 +16,20 @@ const TABS: { value: SettingsTab; label: string; description: string; icon: type
 ]
 
 /**
- * Panel que abre el botón de tuerca (`SettingsButton`): dos pestañas dentro
- * del mismo recuadro — "Configuración del perfil" (antes `ProfileSettings`
- * a secas) y "Temas" (antes la sección de la barra lateral, solo para
- * ADMIN — ver Sidebar.tsx). Reemplaza a `ProfileSettings` como componente
- * que se monta desde `HomeLayout`/`KidsHomeShell`.
+ * Panel que abre el botón de tuerca (`SettingsButton`): un acordeón de dos
+ * secciones dentro del mismo recuadro — "Configuración del perfil" (antes
+ * `ProfileSettings` a secas) y "Temas" (antes la sección de la barra
+ * lateral). Solo una está abierta a la vez: al entrar, ambas aparecen
+ * cerradas (solo el título) y el contenido de cada una solo se monta
+ * cuando se abre, para no cargar el formulario de perfil si solo se quiere
+ * cambiar el tema, o viceversa.
  */
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
-  const [tab, setTab] = useState<SettingsTab>('profile')
+  const [openTab, setOpenTab] = useState<SettingsTab | null>(null)
+
+  function toggle(tab: SettingsTab) {
+    setOpenTab((current) => (current === tab ? null : tab))
+  }
 
   return (
     <Modal onClose={onClose} maxWidthClassName="max-w-[560px]">
@@ -42,42 +48,50 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         </button>
       </div>
 
-      <div role="tablist" aria-label="Secciones de configuración" className="mb-6 grid grid-cols-2 gap-2.5">
+      <div className="flex flex-col gap-3">
         {TABS.map((item) => {
           const Icon = item.icon
-          const active = tab === item.value
+          const open = openTab === item.value
           return (
-            <button
+            <div
               key={item.value}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(item.value)}
-              className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors ${
-                active ? 'border-transparent bg-accent/10' : 'border-border hover:bg-code-bg'
-              }`}
-              style={active ? { boxShadow: '0 0 0 1.5px var(--accent)' } : undefined}
+              className={`overflow-hidden rounded-xl border transition-colors ${open ? 'border-accent/40' : 'border-border'}`}
             >
-              <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${active ? 'text-white' : 'text-accent'}`}
-                style={{
-                  background: active
-                    ? 'linear-gradient(135deg, var(--accent), var(--accent-2))'
-                    : 'color-mix(in srgb, var(--accent) 15%, transparent)',
-                }}
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => toggle(item.value)}
+                className={`flex w-full items-center gap-3 p-3.5 text-left transition-colors ${open ? 'bg-accent/10' : 'hover:bg-code-bg'}`}
               >
-                <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-[13.5px] font-semibold text-text-h">{item.label}</span>
-                <span className="block truncate text-[12px] text-text">{item.description}</span>
-              </span>
-            </button>
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${open ? 'text-white' : 'text-accent'}`}
+                  style={{
+                    background: open
+                      ? 'linear-gradient(135deg, var(--accent), var(--accent-2))'
+                      : 'color-mix(in srgb, var(--accent) 15%, transparent)',
+                  }}
+                >
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-semibold text-text-h">{item.label}</span>
+                  <span className="block truncate text-[12px] text-text">{item.description}</span>
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-text transition-transform ${open ? 'rotate-180' : ''}`}
+                  strokeWidth={2}
+                />
+              </button>
+
+              {open && (
+                <div className="border-t border-border p-4">
+                  {item.value === 'profile' ? <AccountSettingsSection onClose={onClose} /> : <ThemesSection />}
+                </div>
+              )}
+            </div>
           )
         })}
       </div>
-
-      {tab === 'profile' ? <AccountSettingsSection onClose={onClose} /> : <ThemesSection />}
     </Modal>
   )
 }
