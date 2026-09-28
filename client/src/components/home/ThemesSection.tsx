@@ -53,9 +53,9 @@ const THEME_OPTIONS: ThemeOption[] = [
  * app —no hay que tocar ningún otro componente para que un tema nuevo se
  * sienta "completo".
  *
- * "Kids" es un gusto más, elegible por cualquier cuenta: solo cambia colores
- * y decoraciones (ver `[data-theme='kids']` en index.css y `KidsMascot`), no
- * la interfaz simplificada que ven las cuentas de 9 años o menos — esa sigue
+ * "Kids" es un gusto más, elegible por cualquier cuenta: solo cambia colores,
+ * decoraciones y el fondo ilustrado (ver `[data-theme='kids']` en index.css),
+ * no la interfaz simplificada que ven las cuentas de 9 años o menos — esa sigue
  * decidida solo por edad/rol (`isKidsMode`, ver useTheme.tsx) y no se elige
  * acá. Una cuenta infantil real siempre ve "Kids" sin importar lo que elija
  * aquí; para cualquier otra cuenta, elegirlo es puramente estético.
