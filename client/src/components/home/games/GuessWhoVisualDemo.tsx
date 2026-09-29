@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { ArrowLeft, ArrowRight, Check, CircleHelp, MessageCircle, Sparkles, UserRound, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CircleHelp, MessageCircle, Sparkles, X } from 'lucide-react'
+import { DemoChildIllustration } from './DemoChildIllustration'
 import type { GuessWhoDemoExample } from './guessWhoDemoExamples'
 
 const sceneTitles = ['Descubre el objetivo', 'Haz una pregunta', 'Escucha y descarta', 'Cambia el turno', 'Adivina con cuidado']
@@ -52,9 +53,7 @@ export function GuessWhoVisualDemo({ example, onContinue }: { example: GuessWhoD
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           {[0, 1].map(player => <div key={player} className={player === 1 ? 'col-start-3 row-start-1' : 'col-start-1 row-start-1'}>
             <div className={`flex flex-col items-center gap-1 rounded-2xl border-2 p-2 text-center transition-colors duration-300 ${activePlayer === player ? 'border-accent bg-accent/10 shadow-[var(--shadow)]' : 'border-transparent'}`}>
-              <span className={`flex h-10 w-10 items-center justify-center rounded-full ${player === 0 ? 'bg-accent/15 text-accent' : 'bg-surface text-text-h'}`}>
-                <UserRound className="h-6 w-6" aria-hidden="true" />
-              </span>
+              <DemoChildIllustration rival={player === 1} />
               <span className="text-[12px] font-semibold text-text-h">{player === 0 ? 'Tú' : 'Tu rival'}</span>
               <span className="min-h-8 text-[11px] font-semibold leading-tight text-accent" data-active-player={activePlayer === player ? player : undefined}>
                 {activePlayer === player ? player === 0 ? 'Tu turno' : 'Turno de tu rival' : ' '}
