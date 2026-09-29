@@ -15,6 +15,8 @@ export interface GenerateGameDraftInput {
   gameType: string;
   /** Solo relevante para MEMORY_MATCH — distingue PAIRS de OPPOSITES. */
   mode?: string;
+  /** Instrucción libre del usuario para guiar a la IA (p. ej. "enfócate en el capítulo 3") — nunca reemplaza a `files`. */
+  message?: string;
   files: SourceFile[];
 }
 
@@ -74,8 +76,8 @@ export class GenerateGameDraftUseCase
     }
 
     return spec.imageRequirement
-      ? this.executeWithContentImages(gameType.getName(), spec, input.files)
-      : this.executeTextOnly(gameType.getName(), spec, input.files);
+      ? this.executeWithContentImages(gameType.getName(), spec, input.files, input.message)
+      : this.executeTextOnly(gameType.getName(), spec, input.files, input.message);
   }
 
   /** Tipos de juego sin imagen obligatoria (Dominó, Laberinto, Escaleras, Opuestos, Dual Quest…). */
@@ -83,6 +85,7 @@ export class GenerateGameDraftUseCase
     gameTypeName: GameTypeName,
     spec: GamePromptSpec,
     files: SourceFile[],
+    message: string | undefined,
   ): Promise<GenerateGameDraftOutput> {
     const sourceText = await this.fileTextExtractor.extractAll(files);
     if (!sourceText.trim()) {
@@ -92,7 +95,7 @@ export class GenerateGameDraftUseCase
     const draft = await this.aiContentAssistant.generateGameDraft({
       gameType: gameTypeName,
       sourceText,
-      instructions: `${spec.instructions}\n\nForma de JSON esperada:\n${spec.jsonShapeExample}`,
+      instructions: buildInstructions(spec, message),
     });
 
     const content =
@@ -105,6 +108,7 @@ export class GenerateGameDraftUseCase
     gameTypeName: GameTypeName,
     spec: GamePromptSpec,
     files: SourceFile[],
+    message: string | undefined,
   ): Promise<GenerateGameDraftOutput> {
     const { min, max } = spec.imageRequirement!;
     const imageFiles = files.filter((file) => file.mimeType.startsWith('image/'));
@@ -133,7 +137,7 @@ export class GenerateGameDraftUseCase
     const draft = await this.aiContentAssistant.generateGameDraft({
       gameType: gameTypeName,
       sourceText: sourceText || '(el usuario no adjuntó texto de referencia — usa solo las imágenes.)',
-      instructions: `${spec.instructions}\n\nForma de JSON esperada:\n${spec.jsonShapeExample}`,
+      instructions: buildInstructions(spec, message),
       imageDescriptions,
     });
 
@@ -151,6 +155,20 @@ export class GenerateGameDraftUseCase
     const validatedContent = validator.validateContent(content, validatedConfig);
     return { config: validatedConfig, content: validatedContent };
   }
+}
+
+/**
+ * Arma el bloque de instrucciones que recibe el modelo: la instrucción fija
+ * de este tipo de juego (`spec.instructions`) primero, la del usuario
+ * (opcional, texto libre desde el chat del asistente) después — así una
+ * instrucción del usuario puede afinar el resultado pero nunca reemplaza las
+ * reglas del tipo de juego, que siempre van primero.
+ */
+function buildInstructions(spec: GamePromptSpec, message: string | undefined): string {
+  const userInstructions = message?.trim()
+    ? `\n\nInstrucciones del usuario (aplícalas dentro de las reglas de arriba):\n${message.trim()}`
+    : '';
+  return `${spec.instructions}${userInstructions}\n\nForma de JSON esperada:\n${spec.jsonShapeExample}`;
 }
 
 /**
