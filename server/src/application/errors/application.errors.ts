@@ -17,6 +17,30 @@ export class InvalidCredentialsError extends ApplicationError {
   }
 }
 
+/**
+ * Issue #197: el email verificado por Google coincide con una cuenta ya
+ * existente en la plataforma. No se auto-vincula por seguridad — quien
+ * quiera asociar Google a esa cuenta debe hacerlo desde su perfil ya
+ * autenticado (flujo separado, fuera de alcance de este issue).
+ */
+export class GoogleAccountEmailConflictError extends ApplicationError {
+  constructor(email: string) {
+    super(
+      `Ya existe una cuenta registrada con el correo "${email}". Inicia sesión con tu contraseña.`,
+    );
+  }
+}
+
+/**
+ * Issue #197: el idToken de Google no pasó la verificación de
+ * google-auth-library (firma inválida, expirado, audience distinto, etc.).
+ */
+export class InvalidGoogleTokenError extends ApplicationError {
+  constructor() {
+    super('El token de Google no es válido o expiró.');
+  }
+}
+
 export class UserNotFoundError extends ApplicationError {
   constructor(userId: string) {
     super(`No se encontró un usuario con id "${userId}".`);

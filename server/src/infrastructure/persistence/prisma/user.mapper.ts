@@ -12,7 +12,7 @@ export class UserMapper {
     return User.fromPersistence({
       id: record.id,
       email: Email.create(record.email),
-      password: Password.fromHash(record.passwordHash),
+      password: record.passwordHash ? Password.fromHash(record.passwordHash) : Password.none(),
       name: PersonName.create(record.firstName, record.lastName, record.middleName),
       role: Role.create(record.role.name),
       displayName: record.displayName,
@@ -33,7 +33,7 @@ export class UserMapper {
     return {
       id: props.id,
       email: props.email.getValue(),
-      passwordHash: props.password.getHashedValue(),
+      passwordHash: props.password.hasPassword() ? props.password.getHashedValue() : null,
       firstName: props.name.firstName,
       middleName: props.name.middleName,
       lastName: props.name.lastName,

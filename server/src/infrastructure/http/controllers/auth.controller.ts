@@ -2,10 +2,12 @@ import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/
 import type { Request, Response } from 'express';
 import { RegisterUserUseCase } from '../../../application/use-cases/register-user.use-case.js';
 import { LoginUserUseCase } from '../../../application/use-cases/login-user.use-case.js';
+import { LoginWithGoogleUseCase } from '../../../application/use-cases/login-with-google.use-case.js';
 import { RefreshAccessTokenUseCase } from '../../../application/use-cases/refresh-access-token.use-case.js';
 import { LogoutUseCase } from '../../../application/use-cases/logout.use-case.js';
 import { RegisterUserDto } from '../dtos/register-user.dto.js';
 import { LoginUserDto } from '../dtos/login-user.dto.js';
+import { LoginWithGoogleDto } from '../dtos/login-with-google.dto.js';
 import { InvalidCredentialsError } from '../../../application/errors/application.errors.js';
 
 const REFRESH_TOKEN_COOKIE = 'refreshToken';
@@ -16,6 +18,7 @@ export class AuthController {
   constructor(
     private readonly registerUserUseCase: RegisterUserUseCase,
     private readonly loginUserUseCase: LoginUserUseCase,
+    private readonly loginWithGoogleUseCase: LoginWithGoogleUseCase,
     private readonly refreshAccessTokenUseCase: RefreshAccessTokenUseCase,
     private readonly logoutUseCase: LogoutUseCase,
   ) {}
@@ -33,6 +36,17 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginUserDto, @Res({ passthrough: true }) response: Response) {
     const { user, accessToken, refreshToken } = await this.loginUserUseCase.execute(dto);
+    this.setRefreshTokenCookie(response, refreshToken);
+    return { user, accessToken };
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  async loginWithGoogle(
+    @Body() dto: LoginWithGoogleDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { user, accessToken, refreshToken } = await this.loginWithGoogleUseCase.execute(dto);
     this.setRefreshTokenCookie(response, refreshToken);
     return { user, accessToken };
   }

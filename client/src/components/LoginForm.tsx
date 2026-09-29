@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { TextField } from './TextField'
 import { useLoginForm } from '../hooks/useLoginForm'
+import { useGoogleSignIn } from '../hooks/useGoogleSignIn'
 
 export function LoginForm() {
   const {
@@ -13,6 +14,8 @@ export function LoginForm() {
     handleSubmit,
   } = useLoginForm()
   const [showPassword, setShowPassword] = useState(false)
+  const googleButtonRef = useRef<HTMLDivElement>(null)
+  const { error: googleError, clientId: googleClientId } = useGoogleSignIn(googleButtonRef)
 
   return (
     <form className="flex flex-col gap-[18px]" onSubmit={handleSubmit} noValidate>
@@ -68,6 +71,27 @@ export function LoginForm() {
       >
         {submitting ? 'Ingresando…' : 'Iniciar sesión'}
       </button>
+
+      {googleClientId && (
+        <>
+          <div className="my-1 flex items-center gap-3 text-[13px] text-muted">
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            <span>o continúa con</span>
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          </div>
+
+          {googleError && (
+            <p
+              className="rounded-lg border border-danger/35 bg-danger/10 px-[13px] py-[11px] text-sm leading-snug text-danger"
+              role="alert"
+            >
+              {googleError}
+            </p>
+          )}
+
+          <div ref={googleButtonRef} className="flex justify-center" />
+        </>
+      )}
     </form>
   )
 }
