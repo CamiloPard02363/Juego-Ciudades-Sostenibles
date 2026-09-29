@@ -51,7 +51,7 @@ async function main() {
       assert.equal(await demo.locator('[data-demo-discarded="true"]').count(), 3)
       for (const label of ['Finlandia', 'Suecia', 'Grecia']) assert.equal(await demo.getByRole('listitem', { name: `${label}, descartada`, exact: true }).count(), 1)
       await page.waitForTimeout(motion === 'reduce' ? 600 : 1200)
-      assert.ok(Number(await demo.locator('[data-demo-discarded]').first().evaluate(el => getComputedStyle(el).opacity)) < 0.5)
+      assert.ok(Number(await demo.locator('[data-demo-discarded] > div').first().evaluate(el => getComputedStyle(el).opacity)) < 0.5)
       await page.screenshot({ path: `.scratch/guess-who-demo-discard-${width}.png` })
       await demo.getByRole('button', { name: 'Anterior' }).click()
       assert.equal(await demo.locator('[data-demo-discarded]').count(), 0)

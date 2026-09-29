@@ -96,11 +96,11 @@ export function GuessWhoVisualDemo({ example, onContinue }: { example: GuessWhoD
             const discarded = scene >= 2 && !option.matchesAnswer
             const chosen = selected === option.id
             return <li key={option.id} aria-label={`${option.label}${discarded ? ', descartada' : chosen ? ', seleccionada' : ''}`} data-demo-discarded={discarded || undefined}
-              className={`relative min-w-0 rounded-lg border-2 p-1.5 ${chosen ? correct ? 'border-accent ring-2 ring-accent/30' : 'border-danger ring-2 ring-danger/20' : 'border-border'} ${discarded ? 'animate-[guess-who-demo-discard_0.5s_ease-out_both]' : 'bg-surface'}`}
-              style={discarded ? { animationDelay: `${index * 90}ms` } : undefined}>
-              <div className="mx-auto aspect-[3/2] w-full max-w-[90px] overflow-hidden sm:max-w-[130px]">{option.visual}</div>
+              className={`relative min-w-0 rounded-lg border-2 p-1.5 ${chosen ? correct ? 'border-accent ring-2 ring-accent/30' : 'border-danger ring-2 ring-danger/20' : 'border-border'} ${discarded && scene === 2 ? 'animate-[guess-who-demo-discard_0.7s_ease-out_both] motion-reduce:animate-none' : 'bg-surface'}`}
+              style={discarded && scene === 2 ? { animationDelay: `${index * 90}ms` } : undefined}>
+              <div className={`mx-auto aspect-[3/2] w-full max-w-[90px] overflow-hidden sm:max-w-[130px] ${discarded ? 'opacity-40' : ''}`}>{option.visual}</div>
               <p className="mt-1 break-words text-center text-[10px] font-semibold text-text-h sm:text-[12px]">{option.label}</p>
-              {discarded && <span className="absolute inset-0 flex items-center justify-center rounded-md bg-surface/50" aria-hidden="true"><X className="h-7 w-7 text-text-h" strokeWidth={3} /></span>}
+              {discarded && <span className="absolute inset-0 flex items-center justify-center rounded-md bg-surface/30" aria-hidden="true"><X className="h-14 w-14 max-w-full text-red-600 drop-shadow-sm sm:h-20 sm:w-20" strokeWidth={4} /></span>}
               {chosen && <span className="absolute -right-1 -top-1 rounded-full bg-surface p-0.5" aria-hidden="true">{correct ? <Check className="h-4 w-4 text-accent" /> : <X className="h-4 w-4 text-danger" />}</span>}
             </li>
           })}
