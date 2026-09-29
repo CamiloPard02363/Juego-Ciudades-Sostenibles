@@ -66,7 +66,10 @@ export function GuessWhoVisualDemo({ example, onContinue }: { example: GuessWhoD
         </div>
 
         <div key={`${scene}-${correct}`} className="mt-3 space-y-3 animate-[fade-in-up_0.35s_ease-out] motion-reduce:animate-none">
-          {scene === 0 && <p className="text-center text-[13.5px] leading-relaxed text-text">Tu rival tiene una identidad oculta. Haz preguntas para descubrirla.</p>}
+          {scene === 0 && <div className="rounded-2xl border-2 border-accent bg-accent/10 p-4 text-center shadow-[0_8px_24px_-12px_var(--accent)] animate-[guess-who-demo-objective_0.9s_ease-out_both] motion-reduce:animate-none sm:p-5">
+            <Sparkles className="mx-auto mb-2 h-6 w-6 text-accent" aria-hidden="true" />
+            <p className="text-[17px] font-bold leading-relaxed text-text-h sm:text-[20px]">Tu rival tiene una identidad oculta. <span className="text-accent">Haz preguntas para descubrirla.</span></p>
+          </div>}
           {(scene === 1 || scene === 2) && <>
             <Bubble speaker="Tú" text={example.question} />
             {scene === 1 ? <div className="flex justify-end gap-2" aria-label="Respuestas posibles: Sí o No">
