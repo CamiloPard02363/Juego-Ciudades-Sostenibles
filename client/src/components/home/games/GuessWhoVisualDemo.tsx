@@ -47,7 +47,8 @@ export function GuessWhoVisualDemo({ example, onContinue }: { example: GuessWhoD
       </div>
       <h3 ref={heading} tabIndex={-1} className="text-[18px] font-bold text-text-h focus:outline-none">{sceneTitles[scene]}</h3>
 
-      <div className="rounded-2xl border border-border bg-code-bg p-3 sm:p-4">
+      <div className="rounded-2xl border border-border bg-code-bg p-3 sm:p-4 lg:grid lg:grid-cols-2 lg:items-center lg:gap-8 lg:p-6">
+        <div className="min-w-0">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           {[0, 1].map(player => <div key={player} className={player === 1 ? 'col-start-3 row-start-1' : 'col-start-1 row-start-1'}>
             <div className={`flex flex-col items-center gap-1 rounded-2xl border-2 p-2 text-center transition-colors duration-300 ${activePlayer === player ? 'border-accent bg-accent/10 shadow-[var(--shadow)]' : 'border-transparent'}`}>
@@ -89,15 +90,16 @@ export function GuessWhoVisualDemo({ example, onContinue }: { example: GuessWhoD
           </>}
         </div>
 
-        <ul className="mt-4 grid grid-cols-3 gap-2" aria-label="Opciones del ejemplo">
+        </div>
+        <ul className="mt-4 grid grid-cols-3 gap-2 lg:mt-0 lg:gap-3" aria-label="Opciones del ejemplo">
           {example.options.map((option, index) => {
             const discarded = scene >= 2 && !option.matchesAnswer
             const chosen = selected === option.id
             return <li key={option.id} aria-label={`${option.label}${discarded ? ', descartada' : chosen ? ', seleccionada' : ''}`} data-demo-discarded={discarded || undefined}
               className={`relative min-w-0 rounded-lg border-2 p-1.5 ${chosen ? correct ? 'border-accent ring-2 ring-accent/30' : 'border-danger ring-2 ring-danger/20' : 'border-border'} ${discarded ? 'animate-[guess-who-demo-discard_0.5s_ease-out_both]' : 'bg-surface'}`}
               style={discarded ? { animationDelay: `${index * 90}ms` } : undefined}>
-              <div className="mx-auto aspect-[3/2] w-full max-w-[90px] overflow-hidden">{option.visual}</div>
-              <p className="mt-1 break-words text-center text-[10px] font-semibold text-text-h">{option.label}</p>
+              <div className="mx-auto aspect-[3/2] w-full max-w-[90px] overflow-hidden sm:max-w-[130px]">{option.visual}</div>
+              <p className="mt-1 break-words text-center text-[10px] font-semibold text-text-h sm:text-[12px]">{option.label}</p>
               {discarded && <span className="absolute inset-0 flex items-center justify-center rounded-md bg-surface/50" aria-hidden="true"><X className="h-7 w-7 text-text-h" strokeWidth={3} /></span>}
               {chosen && <span className="absolute -right-1 -top-1 rounded-full bg-surface p-0.5" aria-hidden="true">{correct ? <Check className="h-4 w-4 text-accent" /> : <X className="h-4 w-4 text-danger" />}</span>}
             </li>
