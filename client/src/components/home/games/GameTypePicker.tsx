@@ -1,4 +1,5 @@
-import { Ghost, Layers, Puzzle, UserRoundSearch, Dices, Flame } from 'lucide-react'
+import { Ghost, Layers, Puzzle, UserRoundSearch, Dices, Flame, User, Users } from 'lucide-react'
+import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
 
 export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS' | 'DUAL_QUEST'
 
@@ -81,6 +82,7 @@ export function GameTypePicker({ onClose, onSelect, archivedGameTypes }: GameTyp
       <div className="flex flex-col gap-3">
         {TYPE_OPTIONS.map(({ choice, title, description, icon: Icon }) => {
           const isArchived = archivedGameTypes?.has(GAME_TYPE_BY_CHOICE[choice]) ?? false
+          const isMultiplayer = LIVE_ROOM_GAME_TYPES.includes(GAME_TYPE_BY_CHOICE[choice])
 
           return (
             <button
@@ -101,8 +103,12 @@ export function GameTypePicker({ onClose, onSelect, archivedGameTypes }: GameTyp
                 <Icon className="h-5 w-5" strokeWidth={2} />
               </span>
               <span>
-                <span className="flex items-center gap-2">
+                <span className="flex flex-wrap items-center gap-2">
                   <span className="block text-[14.5px] font-semibold text-text-h">{title}</span>
+                  <span className="flex items-center gap-1 rounded-full bg-code-bg px-2 py-0.5 text-[10.5px] font-medium text-text">
+                    {isMultiplayer ? <Users className="h-3 w-3" strokeWidth={2.5} /> : <User className="h-3 w-3" strokeWidth={2.5} />}
+                    {isMultiplayer ? 'Multijugador' : '1 jugador'}
+                  </span>
                   {isArchived && (
                     <span className="rounded-full bg-border px-2 py-0.5 text-[10.5px] font-medium text-text">
                       Archivado temporalmente
