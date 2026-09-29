@@ -7,6 +7,7 @@ import type {
   GenerateGameDraftInput,
   GenerateGameDraftOutput,
 } from '../../domain/ports/ai-content-assistant.port.js';
+import { RateLimiter } from './rate-limiter.js';
 
 // gemini-2.5-flash dejó de estar disponible para keys nuevas (Google
 // responde 404 "no longer available to new users" y recomienda este
@@ -18,7 +19,6 @@ const TEXT_MODEL = 'gemini-3.6-flash';
 // proyecto pasa a un plan de pago con más cuota — ver GOOGLE_IA_STUDIO_MAX_RPM
 // en .env.example.
 const DEFAULT_MAX_REQUESTS_PER_MINUTE = 5;
-const RATE_LIMIT_WINDOW_MS = 60_000;
 
 /**
  * Único archivo que sabe que el proveedor de IA es Gemini. Si el día de
@@ -29,8 +29,7 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 @Injectable()
 export class GeminiContentAssistant implements AiContentAssistant {
   private client: GoogleGenAI | null = null;
-  /** Timestamps (epoch ms) de las últimas llamadas a Gemini, para el throttle de abajo. */
-  private requestTimestamps: number[] = [];
+  private readonly rateLimiter = new RateLimiter('GOOGLE_IA_STUDIO_MAX_RPM', DEFAULT_MAX_REQUESTS_PER_MINUTE);
 
   private getClient(): GoogleGenAI {
     const apiKey = process.env.GOOGLE_IA_STUDIO_API_KEY;
@@ -55,21 +54,7 @@ export class GeminiContentAssistant implements AiContentAssistant {
    * ventana de 60s, en vez de dejar que la API de Google las rechace.
    */
   private async throttle(): Promise<void> {
-    const limitRaw = Number(process.env.GOOGLE_IA_STUDIO_MAX_RPM);
-    const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? limitRaw : DEFAULT_MAX_REQUESTS_PER_MINUTE;
-
-    for (;;) {
-      const now = Date.now();
-      this.requestTimestamps = this.requestTimestamps.filter(
-        (timestamp) => now - timestamp < RATE_LIMIT_WINDOW_MS,
-      );
-      if (this.requestTimestamps.length < limit) {
-        this.requestTimestamps.push(now);
-        return;
-      }
-      const waitMs = RATE_LIMIT_WINDOW_MS - (now - this.requestTimestamps[0]) + 250;
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
-    }
+    await this.rateLimiter.throttle();
   }
 
   async describeImage({ buffer, mimeType }: DescribeImageInput): Promise<string> {

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BookOpen, Building2, ChevronLeft, Gamepad2, LayoutGrid, Lock, Plus, Users, Users2, Zap } from 'lucide-react'
+import { BookOpen, Bot, Building2, ChevronLeft, Gamepad2, LayoutGrid, Lock, Plus, Users, Users2, Zap } from 'lucide-react'
 type SidebarProps = {
   userRole: string
   canManageUsers: boolean
@@ -156,6 +156,16 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
                 active={location.pathname === '/usuarios'}
                 onClick={() => navigate('/usuarios')}
                 icon={<Users className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+              />
+            )}
+            {canManageUsers && (
+              <SidebarItem
+                tourTarget="nav-ai-providers"
+                label="IA"
+                collapsed={collapsed}
+                active={location.pathname === '/ia'}
+                onClick={() => navigate('/ia')}
+                icon={<Bot className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
               />
             )}
             {canAccessOrganization && (

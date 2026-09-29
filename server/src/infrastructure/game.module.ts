@@ -40,15 +40,31 @@ import { ArchiveGameTypeUseCase } from '../application/use-cases/archive-game-ty
 import { UnarchiveGameTypeUseCase } from '../application/use-cases/unarchive-game-type.use-case.js';
 import { UpdateGameTypeSettingUseCase } from '../application/use-cases/update-game-type-setting.use-case.js';
 import { GenerateGameDraftUseCase } from '../application/use-cases/generate-game-draft.use-case.js';
-import { AI_CONTENT_ASSISTANT } from '../domain/ports/ai-content-assistant.port.js';
+import { ListAiProviderAttemptsUseCase } from '../application/use-cases/list-ai-provider-attempts.use-case.js';
+import { AiProviderAttemptTracker } from '../application/services/ai-provider-attempt-tracker.service.js';
+import { AI_CONTENT_ASSISTANT, type AiContentAssistant } from '../domain/ports/ai-content-assistant.port.js';
+import { AI_PROVIDER_ATTEMPT_REPOSITORY } from '../domain/ports/ai-provider-attempt.repository.port.js';
 import { IMAGE_STORAGE } from '../domain/ports/image-storage.port.js';
 import { GeminiContentAssistant } from './ai/gemini-content-assistant.adapter.js';
+import { GroqContentAssistant } from './ai/groq-content-assistant.adapter.js';
+import { AiProviderOrchestrator } from './ai/ai-provider-orchestrator.js';
+import { PrismaAiProviderAttemptRepository } from './persistence/prisma/ai-provider-attempt.repository.js';
 import { CloudinaryImageStorage } from './storage/cloudinary-image.storage.js';
 import { FileTextExtractor } from './ai/file-text-extractor.js';
 import { GameController } from './http/controllers/game.controller.js';
 import { GameImportController } from './http/controllers/game-import.controller.js';
 import { GameAiDraftController } from './http/controllers/game-ai-draft.controller.js';
 import { GameTypeSettingController } from './http/controllers/game-type-setting.controller.js';
+import { AiProviderAttemptsController } from './http/controllers/ai-provider-attempts.controller.js';
+
+/**
+ * Orden por defecto de la cadena de fallback (issue #204): Gemini primero
+ * (mejor calidad de visión hoy), Groq como respaldo. Un ADMIN puede
+ * reordenar o quitar un proveedor sin redeploy de código vía la variable de
+ * entorno `AI_PROVIDER_ORDER` (ej. "groq,gemini"), siempre que el nombre
+ * exista en `AI_PROVIDER_REGISTRY_NAMES` de abajo.
+ */
+const DEFAULT_AI_PROVIDER_ORDER = ['gemini', 'groq'];
 
 @Module({
   imports: [UserModule, OrganizationCoreModule, ClassCoreModule],
@@ -57,6 +73,7 @@ import { GameTypeSettingController } from './http/controllers/game-type-setting.
     GameImportController,
     GameAiDraftController,
     GameTypeSettingController,
+    AiProviderAttemptsController,
   ],
   providers: [
     MongoService,
@@ -92,10 +109,32 @@ import { GameTypeSettingController } from './http/controllers/game-type-setting.
     ArchiveGameTypeUseCase,
     UnarchiveGameTypeUseCase,
     UpdateGameTypeSettingUseCase,
-    { provide: AI_CONTENT_ASSISTANT, useClass: GeminiContentAssistant },
+    GeminiContentAssistant,
+    GroqContentAssistant,
+    AiProviderAttemptTracker,
+    { provide: AI_PROVIDER_ATTEMPT_REPOSITORY, useClass: PrismaAiProviderAttemptRepository },
+    {
+      provide: AI_CONTENT_ASSISTANT,
+      useFactory: (
+        gemini: GeminiContentAssistant,
+        groq: GroqContentAssistant,
+        tracker: AiProviderAttemptTracker,
+      ) => {
+        const registry: Record<string, AiContentAssistant> = { gemini, groq };
+        const configuredOrder = (process.env.AI_PROVIDER_ORDER ?? '')
+          .split(',')
+          .map((name) => name.trim())
+          .filter((name) => name in registry);
+        const order = configuredOrder.length > 0 ? configuredOrder : DEFAULT_AI_PROVIDER_ORDER;
+        const chain = order.map((name) => ({ name, assistant: registry[name] }));
+        return new AiProviderOrchestrator(chain, tracker);
+      },
+      inject: [GeminiContentAssistant, GroqContentAssistant, AiProviderAttemptTracker],
+    },
     { provide: IMAGE_STORAGE, useClass: CloudinaryImageStorage },
     FileTextExtractor,
     GenerateGameDraftUseCase,
+    ListAiProviderAttemptsUseCase,
   ],
 })
 export class GameModule {}

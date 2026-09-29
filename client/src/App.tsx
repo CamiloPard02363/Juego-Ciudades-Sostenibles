@@ -10,6 +10,7 @@ import { GameTypeGamesPage } from './components/home/games/GameTypeGamesPage'
 import { CommunityPage } from './components/home/sections/CommunityPage'
 import { MyGamesPage } from './components/home/sections/MyGamesPage'
 import { AdminUsersPage } from './components/home/sections/AdminUsersPage'
+import { AdminAiProviderLogsPage } from './components/home/sections/AdminAiProviderLogsPage'
 import { OrganizationDashboardPage } from './components/home/sections/OrganizationDashboardPage'
 import { MyClassesPage } from './components/home/sections/MyClassesPage'
 import { CreateGameLayout } from './components/home/games/create/CreateGameLayout'
@@ -124,6 +125,7 @@ function App() {
         <Route path="mis-juegos" element={<MyGamesPage />} />
         <Route path="mis-juegos/:slug" element={<MyGamesPage />} />
         <Route path="usuarios" element={<AdminUsersPage />} />
+        <Route path="ia" element={<AdminAiProviderLogsPage />} />
         <Route path="organizacion" element={<OrganizationDashboardPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

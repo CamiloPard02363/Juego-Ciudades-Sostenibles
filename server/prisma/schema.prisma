@@ -193,6 +193,27 @@ enum GameTypeStatus {
   ARCHIVED
 }
 
+/// Registro crudo de cada intento de llamada a un proveedor de IA (issue
+/// #204: fallback Gemini → Groq). `provider`/`operation` son `String` a
+/// propósito, no un enum de Postgres — agregar un proveedor nuevo el día de
+/// mañana (ver `AiProviderOrchestrator`) nunca debe requerir una migración
+/// de esquema, solo escribir en esta tabla con un nombre nuevo. Panel de
+/// administración de IA la lee; nada del flujo de generación depende de
+/// leerla, solo de escribirla (best-effort, ver `AiProviderAttemptTracker`).
+model AiProviderAttemptModel {
+  id           String   @id @default(uuid())
+  provider     String
+  operation    String
+  succeeded    Boolean
+  usedFallback Boolean  @map("used_fallback")
+  errorMessage String?  @map("error_message")
+  latencyMs    Int      @map("latency_ms")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("ai_provider_attempts")
+}
+
 /// Gobernanza transversal por `GameType` (issue #156): archivar un tipo es
 /// una capa de visibilidad EN TIEMPO DE LECTURA que cruza `gameType` contra
 /// esta tabla — nunca se itera ni se modifica el `GameStatus` individual de
