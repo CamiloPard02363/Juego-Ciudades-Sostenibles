@@ -144,6 +144,35 @@ describe('GenerateGameDraftUseCase — tipos sin imagen obligatoria', () => {
       expect(pair.negImageUrl).toBeNull();
     }
   });
+
+  it('suma el mensaje del usuario a las instrucciones que recibe la IA, sin reemplazarlas', async () => {
+    const assistant = fakeAssistant(VALID_DOMINO_DRAFT);
+
+    await buildUseCase(assistant).execute({
+      gameType: 'DOMINO',
+      message: 'Enfócate en energías renovables poco comunes.',
+      files: [csvFile('concepto,descripcion\nEnergía solar,...')],
+    });
+
+    const call = vi.mocked(assistant.generateGameDraft).mock.calls[0][0];
+    expect(call.instructions).toContain('Enfócate en energías renovables poco comunes.');
+    // La instrucción del usuario va antes que la forma de JSON esperada, no la reemplaza.
+    expect(call.instructions.indexOf('Instrucciones del usuario')).toBeLessThan(
+      call.instructions.indexOf('Forma de JSON esperada'),
+    );
+  });
+
+  it('no agrega la sección de instrucciones del usuario cuando no manda mensaje', async () => {
+    const assistant = fakeAssistant(VALID_DOMINO_DRAFT);
+
+    await buildUseCase(assistant).execute({
+      gameType: 'DOMINO',
+      files: [csvFile('concepto,descripcion\nEnergía solar,...')],
+    });
+
+    const call = vi.mocked(assistant.generateGameDraft).mock.calls[0][0];
+    expect(call.instructions).not.toContain('Instrucciones del usuario');
+  });
 });
 
 describe('GenerateGameDraftUseCase — tipos con imagen obligatoria (el usuario las sube, la IA las organiza)', () => {

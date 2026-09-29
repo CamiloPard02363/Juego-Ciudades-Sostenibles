@@ -65,6 +65,7 @@ export class GameAiDraftController {
     return this.generateGameDraftUseCase.execute({
       gameType: dto.gameType,
       mode: dto.mode,
+      message: dto.message,
       files: files.map((file) => ({
         buffer: file.buffer,
         mimeType: file.mimetype,
