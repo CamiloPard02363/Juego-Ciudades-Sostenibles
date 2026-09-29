@@ -326,6 +326,12 @@ code {
 }
 
 /* Entrada escalonada de las tarjetas del catálogo de juegos. */
+/* Solo el simulacro: sin relojes ni cambios en tarjetas reales. */
+@keyframes guess-who-demo-discard {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0.4; transform: scale(0.96); }
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
