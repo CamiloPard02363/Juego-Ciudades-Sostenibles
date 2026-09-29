@@ -28,8 +28,10 @@ export const LIVE_ROOM_ROUTES: Partial<Record<ResolvedRoomKind, (code: string) =
  * Tipos de juego (valores de `Game.gameType`) que tienen sala en vivo con
  * código para unirse — usado por GameDetailModal para decidir si mostrar el
  * campo de "unirme con código" propio del juego y el botón "Abrir sala" en
- * vez de "Jugar". Agregar un juego nuevo con sala en vivo es agregar su
- * `gameType` acá (y una entrada en LIVE_ROOM_ROUTES si tiene página propia).
+ * vez de "Jugar", y por GameCard/GameTypePicker/GameTypesCatalogPage como
+ * fuente de verdad de la insignia "Multijugador" vs "1 jugador" (issue
+ * #202). Agregar un juego nuevo con sala en vivo es agregar su `gameType`
+ * acá (y una entrada en LIVE_ROOM_ROUTES si tiene página propia).
  */
 export const LIVE_ROOM_GAME_TYPES: readonly string[] = ['GUESS_WHO', 'DOMINO', 'SNAKES_LADDERS', 'DUAL_QUEST']
 
