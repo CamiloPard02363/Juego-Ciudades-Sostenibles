@@ -359,6 +359,18 @@ code {
   }
 }
 
+/* Resaltado temporal de la tarjeta del juego recién creado (issue #218):
+ * pulso suave del glow para que la mirada caiga ahí sin ser una animación
+ * agresiva ni permanente — GamesSection la apaga por interacción o timeout. */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb, 59, 130, 246), 0.15), 0 0 28px -4px var(--accent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(var(--accent-rgb, 59, 130, 246), 0.25), 0 0 40px -2px var(--accent);
+  }
+}
+
 /* Entrada de popups (Modal.tsx): el fondo se desvanece y el panel aparece
  * con un ligero scale-up, para que abrir un popup se sienta como una
  * transición y no como un cambio brusco de contenido. */

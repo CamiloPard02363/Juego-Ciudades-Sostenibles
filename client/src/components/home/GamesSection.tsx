@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, KeyRound, PlusCircle, Sparkles, Trash2, Trophy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { DEFAULT_CATEGORY_COLOR, colorForCategory, iconForCategory } from './gamesCatalogVisuals'
@@ -70,6 +70,31 @@ export function GamesSection({
 }: GamesSectionProps) {
   const navigate = useNavigate()
   const { slug: slugFromUrl } = useParams<{ slug?: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Id del juego recién creado (issue #218): llega por query param desde el
+  // redirect post-creación en SaveVisibilityModal/GuessWhoGameFormPage, y se
+  // usa para resaltar su tarjeta en este listado. Se limpia de la URL tras
+  // interactuar con el highlight o pasado un tiempo razonable, sin quedar
+  // permanente ni sobrevivir a un refresh manual de la página.
+  const [justCreatedGameId, setJustCreatedGameId] = useState<string | null>(
+    () => searchParams.get('justCreated'),
+  )
+
+  function dismissJustCreatedHighlight() {
+    setJustCreatedGameId(null)
+    if (searchParams.has('justCreated')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('justCreated')
+      setSearchParams(next, { replace: true })
+    }
+  }
+
+  useEffect(() => {
+    if (!justCreatedGameId) return
+    const timeout = setTimeout(dismissJustCreatedHighlight, 12000)
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justCreatedGameId])
   // En modo 'game-type' la lista vive en /tipos-de-juego/:gameType, así que
   // el detalle debe anidarse ahí (/tipos-de-juego/:gameType/:slug) para no
   // perder el filtro de tipo al navegar de vuelta o al recargar (issue #156).
@@ -1022,6 +1047,8 @@ export function GamesSection({
                   color={colorForGame(game)}
                   onClick={() => openGame(game)}
                   isTypeArchived={archivedGameTypes.has(game.gameType)}
+                  justCreated={justCreatedGameId === game.id}
+                  onDismissJustCreated={dismissJustCreatedHighlight}
                 />
               </div>
             ))}
