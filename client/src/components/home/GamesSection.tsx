@@ -1077,65 +1077,68 @@ export function GamesSection({
               )}
           </div>
         ) : (
-          <div className="flex flex-col gap-5 sm:flex-row">
-            <GameFiltersPanel
-              soloCount={soloFilterCount}
-              multiCount={multiFilterCount}
-              activeModes={activeModes}
-              onToggleMode={toggleModeFilter}
-              typeOptions={typeFilterOptions}
-              activeTypes={activeTypes}
-              onToggleType={toggleTypeFilter}
-              onClear={() => {
-                setActiveModes(new Set())
-                setActiveTypes(new Set())
-              }}
-            />
-
-            <div className="min-w-0 flex-1">
-              <p className="mb-3 text-[12.5px] text-text/70">
+          <div className="flex flex-col gap-4">
+            {/* El botón de filtro va literalmente arriba de la grilla de
+                juegos (issue #216/corrección), no a un lado como un panel
+                lateral — al abrirse, su recuadro flota encima del contenido
+                sin empujarlo (ver GameFiltersPanel). */}
+            <div className="flex items-center justify-between gap-4">
+              <GameFiltersPanel
+                soloCount={soloFilterCount}
+                multiCount={multiFilterCount}
+                activeModes={activeModes}
+                onToggleMode={toggleModeFilter}
+                typeOptions={typeFilterOptions}
+                activeTypes={activeTypes}
+                onToggleType={toggleTypeFilter}
+                onClear={() => {
+                  setActiveModes(new Set())
+                  setActiveTypes(new Set())
+                }}
+              />
+              <p className="text-[12.5px] text-text/70">
                 {filteredGames.length} {filteredGames.length === 1 ? 'juego' : 'juegos'}
                 {filteredGames.length !== games.length ? ` de ${games.length}` : ''}
               </p>
-
-              {filteredGames.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
-                  <p className="text-[15px] font-medium text-text-h">Ningún juego coincide con estos filtros.</p>
-                  <button
-                    type="button"
-                    className="mt-3 text-[13px] font-medium text-accent hover:underline"
-                    onClick={() => {
-                      setActiveModes(new Set())
-                      setActiveTypes(new Set())
-                    }}
-                  >
-                    Limpiar filtros
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredGames.map((game, index) => (
-                    <div
-                      key={game.id}
-                      className="animate-[fade-in-up_0.35s_ease-out_backwards]"
-                      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-                    >
-                      <GameCard
-                        game={game}
-                        edition={mode !== 'all' ? undefined
-                          : game.gameType === 'GUESS_WHO' && game.slug === 'quien-es-de-banderas' ? 'Banderas'
-                          : game.gameType === 'MEMORY_MATCH' && game.slug === 'herbario-urbano' ? 'Sostenibilidad'
-                          : game.gameType === 'DOMINO' && game.slug === 'nexus-play-ecosistemas-sostenibles' ? 'Sostenibilidad'
-                          : undefined}
-                        color={colorForGame(game)}
-                        onClick={() => openGame(game)}
-                        isTypeArchived={archivedGameTypes.has(game.gameType)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
+
+            {filteredGames.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                <p className="text-[15px] font-medium text-text-h">Ningún juego coincide con estos filtros.</p>
+                <button
+                  type="button"
+                  className="mt-3 text-[13px] font-medium text-accent hover:underline"
+                  onClick={() => {
+                    setActiveModes(new Set())
+                    setActiveTypes(new Set())
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredGames.map((game, index) => (
+                  <div
+                    key={game.id}
+                    className="animate-[fade-in-up_0.35s_ease-out_backwards]"
+                    style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+                  >
+                    <GameCard
+                      game={game}
+                      edition={mode !== 'all' ? undefined
+                        : game.gameType === 'GUESS_WHO' && game.slug === 'quien-es-de-banderas' ? 'Banderas'
+                        : game.gameType === 'MEMORY_MATCH' && game.slug === 'herbario-urbano' ? 'Sostenibilidad'
+                        : game.gameType === 'DOMINO' && game.slug === 'nexus-play-ecosistemas-sostenibles' ? 'Sostenibilidad'
+                        : undefined}
+                      color={colorForGame(game)}
+                      onClick={() => openGame(game)}
+                      isTypeArchived={archivedGameTypes.has(game.gameType)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { ChevronDown, SlidersHorizontal, User, Users, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { SlidersHorizontal, User, Users, X } from 'lucide-react'
 import { MULTI_MODE_COLOR, SOLO_MODE_COLOR, type GameModeFilter } from './gameModeVisuals'
 
 export type GameTypeFilterOption = {
@@ -21,13 +21,14 @@ type GameFiltersPanelProps = {
 }
 
 /**
- * Filtro clásico de catálogo (issue #216): arranca colapsado, mostrando solo
- * "Filtro" con una flecha — al hacer click se despliega el panel con las
- * casillas agrupadas por sección (como Mercado Libre/Amazon). Varias
- * casillas se combinan a la vez (OR dentro de cada sección, AND entre
- * secciones) y el filtrado es 100% en cliente sobre los juegos ya cargados
- * por GamesSection — no dispara peticiones nuevas al marcar/desmarcar una
- * casilla ni al abrir/cerrar el panel.
+ * Filtro clásico de catálogo (issue #216): un botón "Filtro" — nada
+ * desplegable dentro del mismo recuadro — que al hacer click abre un
+ * recuadro flotante propio (popover) con las casillas agrupadas por
+ * sección (Modo de juego / Tipo de juego), superpuesto sobre el contenido
+ * en vez de empujarlo. Se cierra al hacer click fuera o con el botón "X" de
+ * su encabezado. Varias casillas se combinan a la vez (OR dentro de cada
+ * sección, AND entre secciones) y el filtrado es 100% en cliente sobre los
+ * juegos ya cargados por GamesSection — no dispara peticiones nuevas.
  */
 export function GameFiltersPanel({
   soloCount,
@@ -40,45 +41,59 @@ export function GameFiltersPanel({
   onClear,
 }: GameFiltersPanelProps) {
   const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
   const hasActiveFilters = activeModes.size > 0 || activeTypes.size > 0
+  const activeCount = activeModes.size + activeTypes.size
+
+  useEffect(() => {
+    if (!open) return
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
 
   return (
-    <aside
-      className={`inline-flex shrink-0 flex-col self-start rounded-2xl border border-border bg-surface ${
-        open ? 'w-full sm:w-[220px]' : ''
-      }`}
-    >
+    <div ref={containerRef} className="relative inline-block">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`flex items-center gap-2.5 px-4 py-2.5 text-left ${open ? 'w-full justify-between' : ''}`}
+        className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-2.5 text-[13px] font-semibold text-text-h transition-colors hover:border-accent"
       >
-        <span className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-semibold text-text-h">
-          <SlidersHorizontal className="h-4 w-4" strokeWidth={2.5} />
-          Filtro
-          {hasActiveFilters && (
-            <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10.5px] font-bold text-white">
-              {activeModes.size + activeTypes.size}
-            </span>
-          )}
-        </span>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-text transition-transform ${open ? 'rotate-180' : ''}`}
-          strokeWidth={2.5}
-        />
+        <SlidersHorizontal className="h-4 w-4" strokeWidth={2.5} />
+        Filtro
+        {hasActiveFilters && (
+          <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10.5px] font-bold text-white">
+            {activeCount}
+          </span>
+        )}
       </button>
 
       {open && (
-        <div className="flex flex-col gap-5 border-t border-border p-4">
+        <div className="absolute left-0 top-[calc(100%+8px)] z-20 flex w-[260px] flex-col gap-5 rounded-2xl border border-border bg-surface p-4 shadow-[var(--shadow)]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[13px] font-semibold text-text-h">Filtro</span>
+            <button
+              type="button"
+              aria-label="Cerrar filtro"
+              onClick={() => setOpen(false)}
+              className="rounded-full p-1 text-text hover:bg-code-bg hover:text-text-h"
+            >
+              <X className="h-4 w-4" strokeWidth={2.5} />
+            </button>
+          </div>
+
           {hasActiveFilters && (
             <button
               type="button"
               onClick={onClear}
-              className="flex items-center gap-1 self-start text-[12px] font-medium text-accent hover:underline"
+              className="self-start text-[12px] font-medium text-accent hover:underline"
             >
-              <X className="h-3 w-3" strokeWidth={2.5} />
-              Limpiar
+              Limpiar filtros
             </button>
           )}
 
@@ -120,7 +135,7 @@ export function GameFiltersPanel({
           )}
         </div>
       )}
-    </aside>
+    </div>
   )
 }
 
