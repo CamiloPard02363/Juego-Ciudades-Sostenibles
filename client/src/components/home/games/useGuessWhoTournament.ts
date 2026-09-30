@@ -83,6 +83,16 @@ export function useGuessWhoTournament(token: string | null) {
     if (socketRef.current?.connected && text.trim()) socketRef.current.emit('tournament:chat', { text: text.trim() })
   }, [])
 
+  const sendMatchMessage = useCallback((text: string) => {
+    if (socketRef.current?.connected && text.trim()) socketRef.current.emit('tournament:match-chat', { text: text.trim() })
+  }, [])
+  const askQuestion = useCallback((questionId: string) => {
+    if (socketRef.current?.connected) socketRef.current.emit('tournament:match-question', { questionId })
+  }, [])
+  const answerQuestion = useCallback((requestId: string, answer: boolean) => {
+    if (socketRef.current?.connected) socketRef.current.emit('tournament:match-answer', { requestId, answer })
+  }, [])
+
   const setReady = useCallback((ready: boolean) => {
     if (socketRef.current?.connected) socketRef.current.emit('tournament:ready', { ready })
   }, [])
@@ -111,6 +121,9 @@ export function useGuessWhoTournament(token: string | null) {
   }, [])
 
   return {
+    sendMatchMessage,
+    askQuestion,
+    answerQuestion,
     messages,
     sendChatMessage,
     tournament,

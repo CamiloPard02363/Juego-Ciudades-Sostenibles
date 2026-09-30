@@ -115,6 +115,13 @@ export function useGuessWhoRoom(token: string | null) {
     socketRef.current?.emit('room:chat', { text: trimmed })
   }, [])
 
+  const askQuestion = useCallback((questionId: string) => {
+    if (socketRef.current?.connected) socketRef.current.emit('room:question', { questionId })
+  }, [])
+  const answerQuestion = useCallback((requestId: string, answer: boolean) => {
+    if (socketRef.current?.connected) socketRef.current.emit('room:answer', { requestId, answer })
+  }, [])
+
   const leaveRoom = useCallback(() => {
     waitingCodeRef.current = null
     socketRef.current?.emit('room:leave')
@@ -123,6 +130,8 @@ export function useGuessWhoRoom(token: string | null) {
   }, [])
 
   return {
+    askQuestion,
+    answerQuestion,
     room,
     error,
     connecting,

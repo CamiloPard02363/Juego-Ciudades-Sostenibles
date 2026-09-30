@@ -1,4 +1,5 @@
 import { GameInstructionsGate } from './GameInstructionsGate'
+import { ChatPanel } from './ChatPanel'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -42,6 +43,9 @@ function TournamentSession() {
     setReady,
     messages,
     sendChatMessage,
+    sendMatchMessage,
+    askQuestion,
+    answerQuestion,
     updateTurnDuration,
     leaveTournament,
     discardMatchCard,
@@ -238,7 +242,7 @@ function TournamentSession() {
         <PairingAnnouncementOverlay announcement={pairingAnnouncement} selfUserId={user?.id ?? null} />
       )}
 
-      <div className="mx-auto flex min-h-full max-w-[1200px] flex-col p-5 sm:p-8">
+      <div className="mx-auto flex min-h-full max-w-[1560px] flex-col p-5 sm:p-8">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-[19px] tracking-tight text-text-h">{tournament.gameTitle} — Grupo</h2>
@@ -283,6 +287,11 @@ function TournamentSession() {
 
         {tournament.phase === 'RUNNING' && !iAmEliminated && tournament.myMatch && self && (
           <RunningMatch
+            error={error}
+            onSend={sendMatchMessage}
+            onAsk={askQuestion}
+            onAnswer={answerQuestion}
+            disconnected={connecting}
             match={tournament.myMatch}
             accusationMessage={matchAccusationFailedMessage ? 'Bandera equivocada' : null}
             discardMatchCard={discardMatchCard}
@@ -327,6 +336,11 @@ function TournamentSession() {
 }
 
 function RunningMatch({
+  error,
+  onSend,
+  onAsk,
+  onAnswer,
+  disconnected,
   match,
   accusationMessage,
   discardMatchCard,
@@ -334,6 +348,11 @@ function RunningMatch({
   passMatchTurn,
   selfUserId,
 }: {
+  error: string | null
+  onSend: (text: string) => void
+  onAsk: (questionId: string) => void
+  onAnswer: (requestId: string, answer: boolean) => void
+  disconnected: boolean
   match: NonNullable<ReturnType<typeof useGuessWhoTournament>['tournament']>['myMatch']
   accusationMessage?: string | null
   discardMatchCard: (cardId: string) => void
@@ -351,6 +370,8 @@ function RunningMatch({
 
   if (match.phase === 'PLAYING') {
     return (
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+      <div className="min-w-0">
       <MatchBoard
         cards={match.cards}
         self={self}
@@ -364,6 +385,10 @@ function RunningMatch({
         onAccuse={accuseMatchCard}
         onPassTurn={passMatchTurn}
       />
+      </div>
+      <ChatPanel key={match.matchCode} inline error={error} messages={match.guidedChat ?? []} selfUserId={selfUserId} onSend={onSend} disconnected={disconnected}
+        guided={{ cards: match.cards, questions: match.suggestedQuestions ?? [], pending: match.pendingQuestion ?? null, isMyTurn, onAsk, onAnswer }} />
+      </div>
     )
   }
 

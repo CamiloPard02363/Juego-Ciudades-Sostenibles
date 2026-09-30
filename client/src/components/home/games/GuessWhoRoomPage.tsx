@@ -3,7 +3,7 @@ import { MultiplayerLobby } from './MultiplayerLobby'
 import { ChatPanel } from './ChatPanel'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Copy, Link, LogOut, MessageCircle, Trophy, XCircle } from 'lucide-react'
+import { Copy, Link, LogOut, Trophy, XCircle } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
 import { MIN_DISCARDS_TO_ACCUSE } from './guessWhoTypes'
@@ -46,6 +46,8 @@ function GuessWhoRoomSession() {
     voteRematch,
     passTurn,
     sendChatMessage,
+    askQuestion,
+    answerQuestion,
     leaveRoom,
   } = useGuessWhoRoom(token)
 
@@ -76,14 +78,7 @@ function GuessWhoRoomSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.code])
 
-  const [chatOpen, setChatOpen] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
-  useEffect(() => {
-    if (messages.length === 0) return
-    if (!chatOpen) setUnreadCount((current) => current + 1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length])
 
   const [dealDeadline, setDealDeadline] = useState<number | null>(null)
   useEffect(() => {
@@ -213,7 +208,7 @@ function GuessWhoRoomSession() {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
       {dealing && <DealCountdownOverlay remainingMs={dealRemainingMs} />}
 
-      <div className="mx-auto flex min-h-full max-w-[1200px] flex-col p-5 sm:p-8">
+      <div className="mx-auto flex min-h-full max-w-[1560px] flex-col p-5 sm:p-8">
         <div className="mb-5 rounded-[24px] border border-border/80 bg-gradient-to-r from-accent/8 via-surface to-bg p-4 shadow-[var(--shadow)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -221,22 +216,6 @@ function GuessWhoRoomSession() {
               <h2 className="mt-1 text-[22px] font-bold tracking-tight text-text-h">{room.gameTitle}</h2>
             </div>
             <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                className="relative flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
-                onClick={() => {
-                  setChatOpen((current) => !current)
-                  setUnreadCount(0)
-                }}
-              >
-                <MessageCircle className="h-4 w-4" strokeWidth={2} />
-                Chat
-                {!chatOpen && unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
               <button
                 type="button"
                 className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
@@ -301,6 +280,8 @@ function GuessWhoRoomSession() {
           </div>
         )}
 
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+        <div className="min-w-0">
         {room.phase === 'PLAYING' && self && opponent && (
           <MatchBoard
             cards={room.cards}
@@ -389,16 +370,18 @@ function GuessWhoRoomSession() {
             </button>
           </div>
         )}
-      </div>
-
-      {chatOpen && (
+        </div>
         <ChatPanel
-          messages={messages}
+          inline
+          error={error}
+          messages={room.guidedChat ?? []}
           selfUserId={self?.userId ?? null}
-          onClose={() => setChatOpen(false)}
           onSend={sendChatMessage}
+          disconnected={connecting || dealing}
+          guided={room.phase === 'PLAYING' ? { cards: room.cards, questions: room.suggestedQuestions ?? [], pending: room.pendingQuestion ?? null, isMyTurn, onAsk: askQuestion, onAnswer: answerQuestion } : undefined}
         />
-      )}
+        </div>
+      </div>
     </div>
   )
 }

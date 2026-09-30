@@ -55,6 +55,7 @@ import type {
 import { AnalyticsTrackerService } from '../../application/services/analytics-tracker.service.js';
 import { WsExceptionFilter } from './ws-exception.filter.js';
 import { allLobbyReady, recordLobbyReady, resetLobbyReady } from './lobby-ready.js';
+import { addGuidedMessage, askGuidedQuestion, answerGuidedQuestion, guidedView } from '../../domain/services/guided-questions.js';
 
 interface AuthenticatedSocket extends Socket {
   data: {
@@ -191,6 +192,7 @@ function findParticipantMatchView(tournament: TournamentState, forUserId: string
 /** Vista pública de un match de torneo para un userId dado: oculta la carta secreta ajena. */
 function toMatchClientView(match: TournamentMatch, tournament: TournamentState, forUserId: string) {
   return {
+    ...guidedView(match, forUserId),
     matchCode: match.matchCode,
     round: match.round,
     isBye: match.isBye,
@@ -385,6 +387,7 @@ function toDualQuestClientView(room: DualQuestRoomState, forSocketId: string) {
 /** Vista pública de la sala que se envía a un jugador dado: oculta la carta secreta ajena. */
 function toClientView(room: RoomState, forSocketId: string) {
   return {
+    ...guidedView(room, room.players.find(p => p.socketId === forSocketId)?.userId ?? ''),
     code: room.code,
     gameTitle: room.gameTitle,
     cards: room.cards,
@@ -823,7 +826,54 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   handleChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
     const room = this.roomStore.findBySocketId(socket.id);
     if (!room) throw new Error('No estás en ninguna sala.');
+    if (room.phase !== 'WAITING') {
+      addGuidedMessage(room, socket.data.userId, socket.data.displayName, body?.text);
+      this.roomStore.set(room);
+      this.broadcastState(room);
+    }
     this.relayLobbyChat(socket, body, room.players, 'room:chat-message');
+  }
+
+  @SubscribeMessage('room:question')
+  handleQuestion(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { questionId: string }) {
+    const room = this.roomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    askGuidedQuestion(room, socket.data.userId, socket.data.displayName, body?.questionId);
+    this.roomStore.set(room);
+    this.broadcastState(room);
+  }
+
+  @SubscribeMessage('room:answer')
+  handleAnswer(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { requestId: string; answer: boolean }) {
+    const room = this.roomStore.findBySocketId(socket.id);
+    if (!room) throw new Error('No estás en ninguna sala.');
+    answerGuidedQuestion(room, socket.data.userId, socket.data.displayName, body?.requestId, body?.answer);
+    this.roomStore.set(room);
+    this.broadcastState(room);
+  }
+
+  @SubscribeMessage('tournament:match-chat')
+  handleMatchChat(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { text: string }) {
+    const { tournament, match } = this.requireActiveTournamentMatch(socket);
+    addGuidedMessage(match, socket.data.userId, socket.data.displayName, body?.text);
+    this.tournamentStore.set(tournament);
+    this.broadcastMatchState(tournament, match);
+  }
+
+  @SubscribeMessage('tournament:match-question')
+  handleMatchQuestion(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { questionId: string }) {
+    const { tournament, match } = this.requireActiveTournamentMatch(socket);
+    askGuidedQuestion(match, socket.data.userId, socket.data.displayName, body?.questionId);
+    this.tournamentStore.set(tournament);
+    this.broadcastMatchState(tournament, match);
+  }
+
+  @SubscribeMessage('tournament:match-answer')
+  handleMatchAnswer(@ConnectedSocket() socket: AuthenticatedSocket, @MessageBody() body: { requestId: string; answer: boolean }) {
+    const { tournament, match } = this.requireActiveTournamentMatch(socket);
+    answerGuidedQuestion(match, socket.data.userId, socket.data.displayName, body?.requestId, body?.answer);
+    this.tournamentStore.set(tournament);
+    this.broadcastMatchState(tournament, match);
   }
 
   @SubscribeMessage('domino:chat')
@@ -942,6 +992,8 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
   /** Baraja cartas nuevas, reparte, elige turno al azar y pasa la sala a PLAYING. */
   private dealNewGame(room: RoomState) {
+    room.pendingQuestion = null;
+    room.guidedChat = [];
     const shuffled = shuffle(room.cards);
     room.players[0].secretCardId = shuffled[0].cardId;
     room.players[1].secretCardId = shuffled[1].cardId;
@@ -1045,6 +1097,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
   /** Fija el turno activo, arranca su deadline y programa el auto-pase server-side. */
   private setActiveTurn(room: RoomState, userId: string) {
+    room.pendingQuestion = null;
     room.activePlayerUserId = userId;
     room.turnDeadline = Date.now() + room.turnDurationSeconds * 1000;
 
@@ -1359,6 +1412,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   private readonly lastCreatedGameCards = new Map<string, GuessWhoCard[]>();
 
   private startTournamentMatchTurn(tournament: TournamentState, match: TournamentMatch, userId: string) {
+    match.pendingQuestion = null;
     match.activePlayerUserId = userId;
     match.turnDeadline = Date.now() + tournament.turnDurationSeconds * 1000;
     this.tournamentStore.set(tournament);

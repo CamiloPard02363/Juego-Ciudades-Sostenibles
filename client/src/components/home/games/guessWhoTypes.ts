@@ -17,6 +17,14 @@ export const MIN_DISCARDS_TO_ACCUSE = 3
 
 export type RoomPhase = 'WAITING' | 'PLAYING' | 'FINISHED'
 
+export type GuidedQuestion = { id: string; text: string; cardIds: string[] }
+export type PendingQuestion = GuidedQuestion & { requestId: string; askerId: string; deadline: number }
+export type GuidedChatState = {
+  suggestedQuestions?: GuidedQuestion[]
+  pendingQuestion?: PendingQuestion | null
+  guidedChat?: GuessWhoChatMessage[]
+}
+
 export type RoomPlayerView = {
   userId: string
   displayName: string
@@ -33,7 +41,7 @@ export type RoomPlayerView = {
   isHost?: boolean
 }
 
-export type RoomStateView = {
+export type RoomStateView = GuidedChatState & {
   code: string
   gameTitle: string
   cards: GuessWhoCard[]
@@ -94,7 +102,7 @@ export type TournamentRoundSummary = {
 }
 
 /** Vista de un match 1v1 de torneo: mismo shape que una sala 1v1 normal, más metadata de ronda. */
-export type TournamentMatchStateView = {
+export type TournamentMatchStateView = GuidedChatState & {
   matchCode: string
   round: number
   isBye: boolean
