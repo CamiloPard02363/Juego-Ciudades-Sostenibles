@@ -182,10 +182,20 @@ try {
     await until(()=>match.activePlayerUserId===responderId,'turn');
     assert.equal(match.pendingQuestion,null);
     await region(responder).getByRole('button',{name:'Preguntar: ¿Tu tarjeta está en este grupo?',exact:true}).waitFor();
-    for(const width of [390,320]){
-      await responder.setViewportSize({width,height:900}); await region(responder).scrollIntoViewIfNeeded();
+    for(const [width,height] of [[1440,900],[1024,768],[768,600],[390,844],[320,700]]){
+      await responder.setViewportSize({width,height});
+      await responder.waitForTimeout(150);
       assert.equal(await responder.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
       const box=await region(responder).boundingBox(); assert.ok(box.x>=0&&box.x+box.width<=width);
+      const board=await responder.locator('.guess-who-play-board').boundingBox();
+      assert.ok(box.x>=board.x+board.width,`chat al costado ${width}: ${JSON.stringify({box,board})}`);
+      assert.ok(Math.abs(box.y-board.y)<2,'chat alineado con el tablero');
+      assert.ok(box.y+box.height<=height+1,`chat completo dentro del viewport ${width}x${height}: ${JSON.stringify(box)}`);
+      const input=await region(responder).getByRole('textbox',{name:'Mensaje',exact:true}).boundingBox();
+      const send=await region(responder).getByRole('button',{name:'Enviar mensaje',exact:true}).boundingBox();
+      assert.ok(input.y>=0&&input.y+input.height<=height,'campo visible sin scroll');
+      assert.ok(send.y>=0&&send.y+send.height<=height,'enviar visible sin scroll');
+      assert.equal(await responder.locator('.guess-who-play-shell').evaluate(el=>el.parentElement.scrollHeight<=el.parentElement.clientHeight),true);
       await responder.screenshot({path:'.scratch/guided-chat-'+mode+'-'+width+'.png'});
     }
     console.log('PASS '+mode+': panel visible, sugerencia, respuesta inválida, descarte sincronizado, chat libre, turno y móvil');

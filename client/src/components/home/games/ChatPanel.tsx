@@ -55,7 +55,7 @@ export function ChatPanel({
 
   return (
     <div
-      className={inline ? 'flex h-[min(720px,85dvh)] min-h-[440px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-accent/30 bg-surface/80 shadow-[var(--shadow)] backdrop-blur-xl xl:sticky xl:top-5' : 'fixed right-5 bottom-5 z-[80] flex h-[min(420px,80dvh)] w-[min(320px,calc(100vw-40px))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow)] animate-[modal-panel-in_0.2s_cubic-bezier(0.16,1,0.3,1)]'}
+      className={inline ? 'guess-who-side-chat flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-accent/30 bg-surface/80 shadow-[var(--shadow)] backdrop-blur-xl' : 'fixed right-5 bottom-5 z-[80] flex h-[min(420px,80dvh)] w-[min(320px,calc(100vw-40px))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow)] animate-[modal-panel-in_0.2s_cubic-bezier(0.16,1,0.3,1)]'}
       role={inline ? 'region' : 'dialog'}
       aria-modal={modal || undefined}
       aria-label="Chat de la sala"
