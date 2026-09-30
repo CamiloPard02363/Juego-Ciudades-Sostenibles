@@ -1,4 +1,5 @@
 import type { GuessWhoCard } from '../../application/content-validators/guess-who.content-validator.js';
+import type { PendingQuestion, GuidedMessage } from '../services/guided-questions.js';
 
 export const ROOM_STORE = Symbol('ROOM_STORE');
 
@@ -17,6 +18,8 @@ export interface RoomPlayer {
 }
 
 export interface RoomState {
+  pendingQuestion?: PendingQuestion | null;
+  guidedChat?: GuidedMessage[];
   code: string;
   gameId: string;
   gameTitle: string;
