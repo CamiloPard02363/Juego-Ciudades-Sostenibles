@@ -8,12 +8,12 @@ import { GameFormShell } from './GameFormShell'
 import { WizardPhaseNav } from './WizardPhaseNav'
 import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
+import { CategorySelectField } from './create/CategorySelectField'
 import { useCreateGameProgress } from './create/CreateGameProgressContext'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { createGame, publishGame } from '../../../services/game.service'
 import {
-  createSubject,
   listSubjects as listCategories,
   type SubjectWithGameCount as CategoryWithGameCount,
 } from '../../../services/subject.service'
@@ -73,8 +73,6 @@ export function OppositesGameForm({
   const [pairs, setPairs] = useState<PairDraft[]>([{ ...EMPTY_PAIR }, { ...EMPTY_PAIR }])
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [categoryId, setCategoryId] = useState('')
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [creatingCategory, setCreatingCategory] = useState(false)
   const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
   const [organizationId, setOrganizationId] = useState('')
   const [createdGameId, setCreatedGameId] = useState<string | null>(null)
@@ -107,30 +105,6 @@ export function OppositesGameForm({
         console.error('No se pudieron cargar las organizaciones del usuario:', err)
       })
   }, [token])
-
-  // Toda materia nueva creada al vuelo aquí nace como sub-materia privada de
-  // la materia raíz que ya esté elegida en el selector de arriba — por eso
-  // exige tener un categoryId (raíz) seleccionado antes de poder crearla.
-  async function handleCreateCategory() {
-    if (!token || !newCategoryName.trim() || !categoryId) return
-    setCreatingCategory(true)
-    setError(null)
-    try {
-      const category = await createSubject(token, newCategoryName.trim(), categoryId)
-      setCategories((current) => [...current, { ...category, gameCount: 0 }])
-      setCategoryId(category.id)
-      setNewCategoryName('')
-      showToast('Materia creada', 'success')
-      // El home mantiene su propia lista de materias para "Explorar
-      // materias"; sin avisarle, la nueva queda invisible ahí hasta que
-      // el usuario termine de crear el juego (o para siempre si cancela).
-      onCategoryCreated()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo crear la materia.')
-    } finally {
-      setCreatingCategory(false)
-    }
-  }
 
   function applyAiDraft(draft: GameDraft) {
     const items = Array.isArray(draft.content) ? draft.content : []
@@ -309,44 +283,18 @@ export function OppositesGameForm({
               onChange={setCoverImageUrl}
             />
 
-            <div>
-              <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="game-category">
-                Materia
-              </label>
-              <select
-                id="game-category"
-                className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
-                value={categoryId}
-                disabled={submitting}
-                onChange={(event) => setCategoryId(event.target.value)}
-              >
-                <option value="">Elige una materia…</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-
-              <div className="mt-2 flex gap-2">
-                <input
-                  type="text"
-                  className="flex-1 rounded-lg border border-border bg-bg px-[13px] py-2 text-[13px] text-text-h outline-none focus:border-accent"
-                  placeholder={categoryId ? 'Nombre de la sub-materia…' : 'Elige una materia arriba primero'}
-                  value={newCategoryName}
-                  disabled={submitting || creatingCategory || !categoryId}
-                  onChange={(event) => setNewCategoryName(event.target.value)}
-                />
-                <button
-                  type="button"
-                  className="shrink-0 rounded-lg border border-dashed border-border px-3 py-2 text-[12px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={handleCreateCategory}
-                  disabled={submitting || creatingCategory || !newCategoryName.trim() || !categoryId}
-                >
-                  {creatingCategory ? 'Creando…' : '+ Crear'}
-                </button>
-              </div>
-            </div>
+            <CategorySelectField
+              token={token}
+              categories={categories}
+              categoryId={categoryId}
+              onCategoryIdChange={setCategoryId}
+              onCategoryCreated={(category) => {
+                setCategories((current) => [...current, category])
+                onCategoryCreated()
+              }}
+              disabled={submitting}
+              showToast={showToast}
+            />
 
             <OrganizationSelectField
               organizations={organizations}
