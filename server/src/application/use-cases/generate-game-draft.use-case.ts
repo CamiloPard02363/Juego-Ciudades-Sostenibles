@@ -24,6 +24,24 @@ export interface GenerateGameDraftInput {
 export interface GenerateGameDraftOutput {
   config: Record<string, unknown>;
   content: unknown[];
+  /** Ver `AiContentAssistant.GenerateGameDraftOutput` — mismo criterio de saneo (issue #210). */
+  suggestedTitle?: string;
+  suggestedDescription?: string;
+}
+
+const MAX_SUGGESTED_TITLE_LENGTH = 120;
+const MAX_SUGGESTED_DESCRIPTION_LENGTH = 500;
+
+/**
+ * Nunca deja pasar un `suggestedTitle`/`suggestedDescription` vacío o
+ * absurdamente largo hacia el formulario — si no pasa este saneo simple, se
+ * trata como si la IA no lo hubiera mandado (`undefined`), nunca como un
+ * error que tumbe la generación completa (issue #210: esto es un extra, no
+ * el propósito principal del borrador).
+ */
+function sanitizeSuggestedText(value: string | undefined, maxLength: number): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length <= maxLength ? trimmed : undefined;
 }
 
 const MAX_FILES = 65;
@@ -50,6 +68,12 @@ const MAX_FILES = 65;
  * "organice" — que les asigne un concepto — referenciándolas por posición
  * ("imageIndex") en vez de por URL, y luego reemplaza cada índice por la URL
  * real ya subida antes de validar.
+ *
+ * Algunos `gameType` (hoy, "Pares"/MEMORY_MATCH-PAIRS, issue #210) piden en
+ * sus `instructions` que el modelo también proponga `suggestedTitle`/
+ * `suggestedDescription` para el formulario completo, no solo el contenido
+ * — se sanean y se devuelven aparte de `config`/`content` (nunca dentro de
+ * `config`, que es lo único que persiste el juego).
  */
 @Injectable()
 export class GenerateGameDraftUseCase
@@ -103,7 +127,7 @@ export class GenerateGameDraftUseCase
 
     const content =
       gameTypeName === 'MEMORY_MATCH' ? normalizeOppositesImageFields(draft.content) : draft.content;
-    return this.validate(gameTypeName, draft.config, content);
+    return this.validate(gameTypeName, draft.config, content, draft);
   }
 
   /** Tipos de juego con imagen obligatoria por elemento (Quién Es, Parejas). */
@@ -167,13 +191,14 @@ export class GenerateGameDraftUseCase
     });
 
     const content = resolveImageIndexes(draft.content, uploadedImages.map((image) => image.url));
-    return this.validate(gameTypeName, draft.config, content);
+    return this.validate(gameTypeName, draft.config, content, draft);
   }
 
   private validate(
     gameTypeName: GameTypeName,
     config: unknown,
     content: unknown,
+    draft: { suggestedTitle?: string; suggestedDescription?: string },
   ): GenerateGameDraftOutput {
     const validator = this.contentValidators.resolve(gameTypeName);
     const validatedConfig = validator.validateConfig(config);
@@ -181,7 +206,12 @@ export class GenerateGameDraftUseCase
     // final) — el validador de cada gameType decide si eso le cambia algo;
     // la mayoría lo ignora (ver ContentValidationOptions).
     const validatedContent = validator.validateContent(content, validatedConfig, { isDraft: true });
-    return { config: validatedConfig, content: validatedContent };
+    return {
+      config: validatedConfig,
+      content: validatedContent,
+      suggestedTitle: sanitizeSuggestedText(draft.suggestedTitle, MAX_SUGGESTED_TITLE_LENGTH),
+      suggestedDescription: sanitizeSuggestedText(draft.suggestedDescription, MAX_SUGGESTED_DESCRIPTION_LENGTH),
+    };
   }
 }
 

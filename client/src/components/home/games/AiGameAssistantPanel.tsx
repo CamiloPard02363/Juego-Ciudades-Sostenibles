@@ -29,6 +29,12 @@ type AiGameAssistantPanelProps = {
    * después. Por defecto (`undefined`) sí bloquea, como antes.
    */
   imagesRequired?: { min: number; max: number; enforceMinimum?: boolean }
+  /**
+   * true cuando este `gameType` también pide título/descripción sugeridos
+   * (issue #210, "Pares") — solo cambia el texto de ayuda para avisarlo; el
+   * llenado real lo hace el formulario en su propio `onDraftReady`.
+   */
+  autofillsFormFields?: boolean
   onDraftReady: (draft: GameDraft) => void
 }
 
@@ -47,6 +53,7 @@ export function AiGameAssistantPanel({
   mode,
   disabled,
   imagesRequired,
+  autofillsFormFields,
   onDraftReady,
 }: AiGameAssistantPanelProps) {
   const { token } = useAuth()
@@ -175,6 +182,7 @@ export function AiGameAssistantPanel({
                 llena el resto del formulario con ese tema.
               </>
             )}{' '}
+            {autofillsFormFields && 'La IA también sugiere el título y la descripción del juego a partir del tema que detecte. '}
             No se aceptan links, solo archivos que subas tú.
           </p>
 

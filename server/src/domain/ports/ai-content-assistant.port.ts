@@ -25,6 +25,16 @@ export interface GenerateGameDraftInput {
 export interface GenerateGameDraftOutput {
   config: unknown;
   content: unknown;
+  /**
+   * Título/descripción que la IA sugiere para el formulario de creación
+   * (issue #210, "Pares"/MEMORY_MATCH) — solo presente cuando el `spec` del
+   * tipo de juego se lo pide en sus `instructions` (ver game-prompt-catalog).
+   * `undefined` cuando el modelo no los devolvió o el tipo de juego no los
+   * pide; nunca reemplaza lo que el usuario ya haya escrito a mano en el
+   * formulario sin que él lo acepte explícitamente al aplicar el borrador.
+   */
+  suggestedTitle?: string;
+  suggestedDescription?: string;
 }
 
 /**

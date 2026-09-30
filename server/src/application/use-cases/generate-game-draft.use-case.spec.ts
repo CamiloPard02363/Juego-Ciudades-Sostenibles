@@ -402,3 +402,115 @@ describe('GenerateGameDraftUseCase — GUESS_WHO sin mínimo estricto de imágen
     expect(result.content).toHaveLength(2);
   });
 });
+
+describe('GenerateGameDraftUseCase — suggestedTitle/suggestedDescription (issue #210, Pares)', () => {
+  // Pares sigue exigiendo su mínimo de 4 imágenes (a propósito, no se tocó —
+  // ver imageRequirement de MEMORY_MATCH_PAIRS_SPEC), así que estos tests
+  // suben 4 para no chocar con esa regla, que es independiente de lo que se
+  // prueba acá (el saneo de suggestedTitle/suggestedDescription).
+  const FOUR_PAIR_FILES = Array.from({ length: 4 }, (_, i) => imageFile(`p${i}`));
+
+  function pairsDraft(overrides: Partial<GenerateGameDraftOutput> = {}): GenerateGameDraftOutput {
+    return {
+      config: { mode: 'PAIRS' },
+      content: Array.from({ length: 4 }, (_, index) => ({ imageIndex: index, label: `Concepto ${index}` })),
+      ...overrides,
+    };
+  }
+
+  it('devuelve suggestedTitle/suggestedDescription cuando la IA los manda', async () => {
+    const assistant = fakeAssistant(
+      pairsDraft({ suggestedTitle: 'Sumas básicas', suggestedDescription: 'Empareja cada imagen con la suma que representa.' }),
+    );
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'PAIRS',
+      files: FOUR_PAIR_FILES,
+    });
+
+    expect(result.suggestedTitle).toBe('Sumas básicas');
+    expect(result.suggestedDescription).toBe('Empareja cada imagen con la suma que representa.');
+  });
+
+  it('omite suggestedTitle/suggestedDescription cuando la IA no los manda, sin fallar', async () => {
+    const assistant = fakeAssistant(pairsDraft());
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'PAIRS',
+      files: FOUR_PAIR_FILES,
+    });
+
+    expect(result.suggestedTitle).toBeUndefined();
+    expect(result.suggestedDescription).toBeUndefined();
+  });
+
+  it('descarta un suggestedTitle vacío o solo espacios en vez de colarlo al formulario', async () => {
+    const assistant = fakeAssistant(pairsDraft({ suggestedTitle: '   ', suggestedDescription: 'Descripción válida.' }));
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'PAIRS',
+      files: FOUR_PAIR_FILES,
+    });
+
+    expect(result.suggestedTitle).toBeUndefined();
+    expect(result.suggestedDescription).toBe('Descripción válida.');
+  });
+
+  it('descarta un suggestedTitle absurdamente largo en vez de fallar toda la generación', async () => {
+    const assistant = fakeAssistant(pairsDraft({ suggestedTitle: 'x'.repeat(200) }));
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'PAIRS',
+      files: FOUR_PAIR_FILES,
+    });
+
+    expect(result.suggestedTitle).toBeUndefined();
+    expect(result.content).toHaveLength(4);
+  });
+});
+
+describe('GenerateGameDraftUseCase — MEMORY_MATCH/PAIRS con PDF/Word real (paridad con Quién Es, issue #210)', () => {
+  function pairsDraftWithImages(count: number): GenerateGameDraftOutput {
+    return {
+      config: { mode: 'PAIRS' },
+      content: Array.from({ length: count }, (_, index) => ({ imageIndex: index, label: `Concepto ${index}` })),
+    };
+  }
+
+  it('extrae de verdad las imágenes incrustadas en un PDF también para Pares, no solo Quién Es', async () => {
+    const assistant = fakeAssistant(pairsDraftWithImages(4));
+    const imageStorage = fakeImageStorage();
+
+    const result = await buildUseCase(assistant, imageStorage).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'PAIRS',
+      // Pares exige un mínimo de 4 — un solo PDF con 4 fotos incrustadas
+      // debe alcanzar, sin subir ningún archivo de imagen suelto.
+      files: [pdfFile('conceptos.pdf', 4)],
+    });
+
+    expect(imageStorage.upload).toHaveBeenCalledTimes(4);
+    expect(result.content).toHaveLength(4);
+  });
+
+  it('un archivo corrupto no tumba la generación de Pares (misma resiliencia que Quién Es)', async () => {
+    const assistant = fakeAssistant(pairsDraftWithImages(4));
+    const corruptDocx: SourceFile = {
+      buffer: Buffer.from('esto no es un docx de verdad'),
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      filename: 'roto.docx',
+    };
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'PAIRS',
+      files: [imageFile('p0'), imageFile('p1'), imageFile('p2'), imageFile('p3'), corruptDocx],
+    });
+
+    expect(result.content).toHaveLength(4);
+  });
+});
