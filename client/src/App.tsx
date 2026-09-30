@@ -29,6 +29,9 @@ import { MemoryMatchPlayPage } from './components/home/games/MemoryMatchPlayPage
 import { MazeCollectorPlayPage } from './components/home/games/MazeCollectorPlayPage'
 import { GuessWhoRoomPage } from './components/home/games/GuessWhoRoomPage'
 import { TournamentRoomPage } from './components/home/games/TournamentRoomPage'
+import { PublicHomePage } from './components/legal/PublicHomePage'
+import { PrivacyPolicyPage } from './components/legal/PrivacyPolicyPage'
+import { TermsOfServicePage } from './components/legal/TermsOfServicePage'
 import { useAuth } from './hooks/useAuth'
 
 // PixiJS + Matter.js solo se descargan si alguien entra a esta ruta —
@@ -55,6 +58,9 @@ function App() {
   if (status !== 'authenticated' || !user) {
     return (
       <Routes>
+        <Route path="/inicio" element={<PublicHomePage />} />
+        <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+        <Route path="/terminos" element={<TermsOfServicePage />} />
         <Route
           path="/login"
           element={<LoginPage onSwitchToRegister={() => navigate('/register')} />}
@@ -73,6 +79,9 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/inicio" element={<PublicHomePage />} />
+      <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+      <Route path="/terminos" element={<TermsOfServicePage />} />
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/register" element={<Navigate to="/" replace />} />
       <Route path="/juegos/crear" element={<CreateGameLayout />}>
