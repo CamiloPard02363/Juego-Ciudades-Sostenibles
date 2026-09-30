@@ -1,5 +1,6 @@
-import { Archive, Gamepad2 } from 'lucide-react'
+import { Archive, Gamepad2, User, Users } from 'lucide-react'
 import type { GameSummary } from '../../../services/game.service'
+import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
 
 type GameCardProps = {
   game: GameSummary
@@ -22,12 +23,21 @@ type GameCardProps = {
 
 export function GameCard({ game, onClick, color, isTypeArchived = false, edition }: GameCardProps) {
   const accentColor = color ?? game.theme.primaryColor
+  const isMultiplayer = LIVE_ROOM_GAME_TYPES.includes(game.gameType)
   return (
     <button
       type="button"
       onClick={onClick}
       className="group relative flex h-full min-w-0 w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-1"
     >
+      {/* Izquierda: 1 jugador vs multijugador (ver LIVE_ROOM_GAME_TYPES) — a la derecha, si aplica, va "Tipo archivado". */}
+      <span
+        className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)]"
+        title={isMultiplayer ? 'Se juega con más personas, en una sala.' : 'Se juega en solitario.'}
+      >
+        {isMultiplayer ? <Users className="h-3 w-3" strokeWidth={2.5} /> : <User className="h-3 w-3" strokeWidth={2.5} />}
+        {isMultiplayer ? 'Multijugador' : '1 jugador'}
+      </span>
       {isTypeArchived && (
         <span
           className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)]"
