@@ -6,8 +6,10 @@ import { ImageUploadField } from './ImageUploadField'
 import { AudioUploadField } from './AudioUploadField'
 import { AiGameAssistantPanel } from './AiGameAssistantPanel'
 import { GameFormShell } from './GameFormShell'
+import { WizardPhaseNav } from './WizardPhaseNav'
 import type { GameDraft } from '../../../services/ai-game-assistant.service'
 import { OrganizationSelectField } from './create/OrganizationSelectField'
+import { useCreateGameProgress } from './create/CreateGameProgressContext'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { createGame, publishGame } from '../../../services/game.service'
@@ -32,9 +34,26 @@ const MIN_CARDS = 12
 const MAX_INFO_LENGTH = 500
 const DEFAULT_MAX_ACCUSATION_COUNT = 6
 
+/**
+ * Fases del formulario (issue #218): antes era un único scroll largo
+ * validado solo al submit final; ahora se fragmenta en 3 pasos lógicos, cada
+ * uno con su propia validación antes de dejar avanzar.
+ */
+const PHASES = [
+  { label: 'Identidad del juego' },
+  { label: 'Configuración del juego' },
+  { label: 'Contenido: tarjetas' },
+] as const
+const TOTAL_PHASES = PHASES.length
+
 type GuessWhoGameFormProps = {
   onClose: () => void
-  onCreated: () => void
+  /**
+   * Se dispara tras elegir visibilidad en SaveVisibilityModal, con el id del
+   * juego recién creado y dónde quedó guardado — para que quien llama pueda
+   * redirigir al listado correcto y destacar la tarjeta (issue #218).
+   */
+  onCreated: (gameId: string, visibility: 'private' | 'community') => void
   onBack: () => void
   onCategoryCreated: () => void
 }
@@ -69,6 +88,17 @@ export function GuessWhoGameForm({
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [createdGameId, setCreatedGameId] = useState<string | null>(null)
+  const [phase, setPhase] = useState(0)
+  const { setSubPhase } = useCreateGameProgress()
+
+  // Informa al header del wizard (CreateGameLayout) en qué fase va este
+  // formulario, para que "Paso X de Y" cuente las 3 sub-fases — se limpia al
+  // desmontar (ej. al volver a elegir tipo de juego).
+  useEffect(() => {
+    setSubPhase({ phase: phase + 1, totalPhases: TOTAL_PHASES, phaseLabel: PHASES[phase].label })
+    return () => setSubPhase(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   useEffect(() => {
     if (!token) return
@@ -136,34 +166,70 @@ export function GuessWhoGameForm({
     setCards((current) => (current.length > MIN_CARDS ? current.filter((_, i) => i !== index) : current))
   }
 
+  /** Valida solo los campos de la fase 1 (Identidad): título, descripción, materia. */
+  function validateIdentityPhase(): string | null {
+    if (!title.trim() || title.trim().length < 3) {
+      return 'El título debe tener al menos 3 caracteres.'
+    }
+    if (!description.trim() || description.trim().length < 10) {
+      return 'La descripción debe tener al menos 10 caracteres.'
+    }
+    if (!categoryId) {
+      return 'Elige una materia para el juego.'
+    }
+    return null
+  }
+
+  /** Valida solo los campos de la fase 2 (Configuración): parámetros propios del tipo de juego. */
+  function validateConfigPhase(): string | null {
+    if (!Number.isInteger(maxAccusationCount) || maxAccusationCount < 2 || maxAccusationCount > 12) {
+      return 'Las cartas restantes para acusar deben ser un entero entre 2 y 12.'
+    }
+    return null
+  }
+
+  /** Valida solo los campos de la fase 3 (Contenido): el bloque repetible de tarjetas. */
+  function validateContentPhase(): string | null {
+    if (cards.length < MIN_CARDS) {
+      return `Necesitas al menos ${MIN_CARDS} tarjetas.`
+    }
+    const incompleteCard = cards.some((card) => !card.label.trim() || !card.imageUrl)
+    if (incompleteCard) {
+      return 'Cada tarjeta necesita una imagen y un nombre antes de crear el juego.'
+    }
+    return null
+  }
+
+  const VALIDATORS = [validateIdentityPhase, validateConfigPhase, validateContentPhase]
+
+  function goToNextPhase() {
+    const validationError = VALIDATORS[phase]()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    setError(null)
+    setPhase((current) => Math.min(current + 1, TOTAL_PHASES - 1))
+  }
+
+  function goToPreviousPhase() {
+    setError(null)
+    setPhase((current) => Math.max(current - 1, 0))
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!token) return
 
-    if (!title.trim() || title.trim().length < 3) {
-      setError('El título debe tener al menos 3 caracteres.')
-      return
-    }
-    if (!description.trim() || description.trim().length < 10) {
-      setError('La descripción debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!categoryId) {
-      setError('Elige una materia para el juego.')
-      return
-    }
-    if (cards.length < MIN_CARDS) {
-      setError(`Necesitas al menos ${MIN_CARDS} tarjetas.`)
-      return
-    }
-    if (!Number.isInteger(maxAccusationCount) || maxAccusationCount < 2 || maxAccusationCount > 12) {
-      setError('Las cartas restantes para acusar deben ser un entero entre 2 y 12.')
-      return
-    }
-    const incompleteCard = cards.some((card) => !card.label.trim() || !card.imageUrl)
-    if (incompleteCard) {
-      setError('Cada tarjeta necesita una imagen y un nombre antes de crear el juego.')
-      return
+    // Al llegar aquí ya se validó fase por fase al avanzar, pero se revalida
+    // todo por si el usuario retrocedió y cambió algo — no cuesta nada y
+    // evita depender únicamente del orden de navegación.
+    for (const validate of VALIDATORS) {
+      const validationError = validate()
+      if (validationError) {
+        setError(validationError)
+        return
+      }
     }
 
     setSubmitting(true)
@@ -200,7 +266,7 @@ export function GuessWhoGameForm({
       await publishGame(token, createdGameId)
     }
     showToast('Juego creado', 'success')
-    onCreated()
+    onCreated(createdGameId, visibility)
   }
 
   if (createdGameId) {
@@ -223,95 +289,108 @@ export function GuessWhoGameForm({
       }
     >
       <form className="flex flex-col gap-[16px]" onSubmit={handleSubmit} noValidate>
-        <TextField
-          label="Título del juego"
-          type="text"
-          value={title}
-          disabled={submitting}
-          onChange={setTitle}
-          onBlur={() => {}}
-        />
-        <TextField
-          label="Descripción"
-          type="text"
-          value={description}
-          disabled={submitting}
-          onChange={setDescription}
-          onBlur={() => {}}
-        />
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-accent">
+          Fase {phase + 1} de {TOTAL_PHASES} · {PHASES[phase].label}
+        </p>
 
-        <ImageUploadField
-          label="Portada del juego (opcional)"
-          imageUrl={coverImageUrl}
-          folder="game-covers"
-          disabled={submitting}
-          onChange={setCoverImageUrl}
-        />
-
-        <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="max-accusation-count">
-            Cartas restantes para poder acusar
-          </label>
-          <input
-            id="max-accusation-count"
-            type="number"
-            min={2}
-            max={12}
-            className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
-            value={maxAccusationCount}
-            disabled={submitting}
-            onChange={(event) => setMaxAccusationCount(Number(event.target.value))}
-          />
-          <p className="mt-1 text-[11.5px] text-text">Entre 2 y 12 tarjetas.</p>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="game-category">
-            Materia
-          </label>
-          <select
-            id="game-category"
-            className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
-            value={categoryId}
-            disabled={submitting}
-            onChange={(event) => setCategoryId(event.target.value)}
-          >
-            <option value="">Elige una materia…</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-
-          <div className="mt-2 flex gap-2">
-            <input
+        {phase === 0 && (
+          <div className="flex flex-col gap-[16px] animate-[fade-in-up_0.25s_ease-out_backwards]">
+            <TextField
+              label="Título del juego"
               type="text"
-              className="flex-1 rounded-lg border border-border bg-bg px-[13px] py-2 text-[13px] text-text-h outline-none focus:border-accent"
-              placeholder={categoryId ? 'Nombre de la sub-materia…' : 'Elige una materia arriba primero'}
-              value={newCategoryName}
-              disabled={submitting || creatingCategory || !categoryId}
-              onChange={(event) => setNewCategoryName(event.target.value)}
+              value={title}
+              disabled={submitting}
+              onChange={setTitle}
+              onBlur={() => {}}
             />
-            <button
-              type="button"
-              className="shrink-0 rounded-lg border border-dashed border-border px-3 py-2 text-[12px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={handleCreateCategory}
-              disabled={submitting || creatingCategory || !newCategoryName.trim() || !categoryId}
-            >
-              {creatingCategory ? 'Creando…' : '+ Crear'}
-            </button>
+            <TextField
+              label="Descripción"
+              type="text"
+              value={description}
+              disabled={submitting}
+              onChange={setDescription}
+              onBlur={() => {}}
+            />
+
+            <ImageUploadField
+              label="Portada del juego (opcional)"
+              imageUrl={coverImageUrl}
+              folder="game-covers"
+              disabled={submitting}
+              onChange={setCoverImageUrl}
+            />
+
+            <div>
+              <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="game-category">
+                Materia
+              </label>
+              <select
+                id="game-category"
+                className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
+                value={categoryId}
+                disabled={submitting}
+                onChange={(event) => setCategoryId(event.target.value)}
+              >
+                <option value="">Elige una materia…</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 rounded-lg border border-border bg-bg px-[13px] py-2 text-[13px] text-text-h outline-none focus:border-accent"
+                  placeholder={categoryId ? 'Nombre de la sub-materia…' : 'Elige una materia arriba primero'}
+                  value={newCategoryName}
+                  disabled={submitting || creatingCategory || !categoryId}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg border border-dashed border-border px-3 py-2 text-[12px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleCreateCategory}
+                  disabled={submitting || creatingCategory || !newCategoryName.trim() || !categoryId}
+                >
+                  {creatingCategory ? 'Creando…' : '+ Crear'}
+                </button>
+              </div>
+            </div>
+
+            <OrganizationSelectField
+              organizations={organizations}
+              value={organizationId}
+              disabled={submitting}
+              onChange={setOrganizationId}
+            />
           </div>
-        </div>
+        )}
 
-        <OrganizationSelectField
-          organizations={organizations}
-          value={organizationId}
-          disabled={submitting}
-          onChange={setOrganizationId}
-        />
+        {phase === 1 && (
+          <div className="flex flex-col gap-[16px] animate-[fade-in-up_0.25s_ease-out_backwards]">
+            <div>
+              <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="max-accusation-count">
+                Cartas restantes para poder acusar
+              </label>
+              <input
+                id="max-accusation-count"
+                type="number"
+                min={2}
+                max={12}
+                className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
+                value={maxAccusationCount}
+                disabled={submitting}
+                onChange={(event) => setMaxAccusationCount(Number(event.target.value))}
+              />
+              <p className="mt-1 text-[11.5px] text-text">Entre 2 y 12 tarjetas.</p>
+            </div>
+          </div>
+        )}
 
-        <div className="flex flex-col gap-3">
+        {phase === 2 && (
+        <div className="flex flex-col gap-3 animate-[fade-in-up_0.25s_ease-out_backwards]">
           {cards.map((card, index) => (
             <div key={index} className="rounded-xl border border-border p-4">
               <div className="mb-2.5 flex items-center justify-between">
@@ -376,16 +455,17 @@ export function GuessWhoGameForm({
               </div>
             </div>
           ))}
-        </div>
 
-        <button
-          type="button"
-          className="self-start rounded-lg border border-dashed border-border px-3.5 py-2 text-[13px] font-medium text-text-h"
-          onClick={addCard}
-          disabled={submitting}
-        >
-          + Agregar tarjeta
-        </button>
+          <button
+            type="button"
+            className="self-start rounded-lg border border-dashed border-border px-3.5 py-2 text-[13px] font-medium text-text-h"
+            onClick={addCard}
+            disabled={submitting}
+          >
+            + Agregar tarjeta
+          </button>
+        </div>
+        )}
 
         {error && (
           <p
@@ -396,24 +476,42 @@ export function GuessWhoGameForm({
           </p>
         )}
 
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            disabled={submitting}
-          >
-            {submitting ? 'Creando…' : 'Crear juego'}
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
-            onClick={onClose}
-            disabled={submitting}
-          >
-            Cancelar
-          </button>
-        </div>
+        <WizardPhaseNav
+          onBack={phase === 0 ? onBack : goToPreviousPhase}
+          backLabel={phase === 0 ? 'Cambiar tipo de juego' : 'Atrás'}
+          onNext={goToNextPhase}
+          isLastPhase={phase === TOTAL_PHASES - 1}
+          submitting={submitting}
+        />
+
+        {phase === TOTAL_PHASES - 1 && (
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="rounded-lg px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:not-disabled:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              disabled={submitting}
+            >
+              {submitting ? 'Creando…' : 'Crear juego'}
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
+              onClick={goToPreviousPhase}
+              disabled={submitting}
+            >
+              ← Atrás
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-border px-4 py-2.5 text-[14px] font-medium text-text-h"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
       </form>
     </GameFormShell>
   )

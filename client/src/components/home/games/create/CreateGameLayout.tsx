@@ -1,12 +1,13 @@
 import { ArrowLeft } from 'lucide-react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { stepFromPath } from './steps'
+import { CreateGameProgressProvider, useCreateGameProgress } from './CreateGameProgressContext'
 
-/** Contenedor inmersivo del flujo de creación de juegos: página completa, sin Sidebar. */
-export function CreateGameLayout() {
+function CreateGameLayoutContent() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { label, step, total } = stepFromPath(location.pathname)
+  const { subPhase } = useCreateGameProgress()
+  const { label, step, total } = stepFromPath(location.pathname, subPhase)
 
   return (
     <div className="fixed inset-0 flex flex-col bg-bg">
@@ -30,5 +31,14 @@ export function CreateGameLayout() {
         <Outlet />
       </main>
     </div>
+  )
+}
+
+/** Contenedor inmersivo del flujo de creación de juegos: página completa, sin Sidebar. */
+export function CreateGameLayout() {
+  return (
+    <CreateGameProgressProvider>
+      <CreateGameLayoutContent />
+    </CreateGameProgressProvider>
   )
 }
