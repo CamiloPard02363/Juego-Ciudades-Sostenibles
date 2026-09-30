@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   AI_CONTENT_ASSISTANT,
   type AiContentAssistant,
@@ -14,7 +14,9 @@ export interface SourceFile {
   filename: string;
 }
 
-const DOCX_MIME_TYPES = new Set([
+// Exportado: content-image-extractor.ts lo reusa para decidir qué archivos
+// pueden traer imágenes incrustadas, sin duplicar esta lista.
+export const DOCX_MIME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 const XLSX_MIME_TYPES = new Set([
@@ -31,15 +33,41 @@ const XLSX_MIME_TYPES = new Set([
  */
 @Injectable()
 export class FileTextExtractor {
+  private readonly logger = new Logger(FileTextExtractor.name);
+
   constructor(
     @Inject(AI_CONTENT_ASSISTANT) private readonly aiContentAssistant: AiContentAssistant,
   ) {}
 
   async extractAll(files: SourceFile[]): Promise<string> {
-    const parts = await Promise.all(files.map((file) => this.extractOne(file)));
+    const parts = await Promise.all(files.map((file) => this.extractOneSafely(file)));
     return parts
       .map((text, index) => `--- Archivo: ${files[index].filename} ---\n${text.trim()}`)
       .join('\n\n');
+  }
+
+  /**
+   * Un archivo de un formato soportado (PDF, Word, Excel, imagen…) puede
+   * seguir estando corrupto, dañado o con una estructura interna que la
+   * librería no sabe leer — issue #208: eso no debe tumbar TODA la
+   * generación cuando el usuario subió varios archivos y solo uno falla, así
+   * que se degrada a "sin texto de este archivo" en vez de propagar el error
+   * crudo de la librería. `InvalidGameContentError` sí se deja pasar tal
+   * cual: esa es una validación a propósito (formato no soportado), no una
+   * falla de la librería, y merece llegar como error real al usuario.
+   */
+  private async extractOneSafely(file: SourceFile): Promise<string> {
+    try {
+      return await this.extractOne(file);
+    } catch (error) {
+      if (error instanceof InvalidGameContentError) throw error;
+      this.logger.warn(
+        `No se pudo extraer el contenido de "${file.filename}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return '';
+    }
   }
 
   private async extractOne(file: SourceFile): Promise<string> {

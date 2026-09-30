@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InvalidGameContentError } from '../../domain/errors/game.errors.js';
-import type { ContentValidator } from './content-validator.port.js';
+import type { ContentValidationOptions, ContentValidator } from './content-validator.port.js';
 
 /**
  * Una tarjeta del set de "¿Quién Es?": imagen + nombre, con audio opcional y
@@ -66,8 +66,20 @@ export class GuessWhoContentValidator implements ContentValidator {
     return { maxAccusationCount, turnDurationSeconds };
   }
 
-  validateContent(content: unknown): unknown[] {
-    if (!Array.isArray(content) || content.length < MIN_CARDS) {
+  /**
+   * En un borrador de IA (`options.isDraft`, issue #208) se omite el mínimo
+   * de `MIN_CARDS`: el usuario pudo haber subido menos imágenes de las
+   * recomendadas a propósito, para completar el resto de tarjetas a mano en
+   * el formulario después — nunca es obligatorio subir la cantidad exacta.
+   * Ese mínimo SÍ se vuelve a exigir al crear/editar el juego de verdad
+   * (mismo validador, sin `isDraft`). El máximo y la validación de cada
+   * tarjeta se exigen siempre, sea borrador o no.
+   */
+  validateContent(content: unknown, _config?: Record<string, unknown>, options?: ContentValidationOptions): unknown[] {
+    if (!Array.isArray(content) || content.length === 0) {
+      throw new InvalidGameContentError('el juego necesita al menos 1 tarjeta.');
+    }
+    if (!options?.isDraft && content.length < MIN_CARDS) {
       throw new InvalidGameContentError(`el juego necesita al menos ${MIN_CARDS} tarjetas.`);
     }
     if (content.length > MAX_CARDS) {
