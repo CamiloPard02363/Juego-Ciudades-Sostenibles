@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Clock3, SkipForward, Swords, Volume2 } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { CircleHelp, Clock3, SkipForward, Sparkles, Volume2 } from 'lucide-react'
 import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoCard, type RoomPlayerView } from './guessWhoTypes'
 import { CardInfoBubble } from './CardInfoBubble'
 
@@ -211,6 +211,17 @@ export function AccusationOverlay({
   onAccuse: (cardId: string) => void
 }) {
   const remaining = cards.filter((card) => !discardedCardIds.includes(card.cardId))
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selected = remaining.find(card => card.cardId === selectedId)
+  const dialog = useRef<HTMLDivElement>(null)
+  const submitted = useRef(false)
+  const titleId = useId()
+
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+    dialog.current?.focus()
+    return () => previous?.focus()
+  }, [])
 
   return (
     <div
@@ -219,18 +230,36 @@ export function AccusationOverlay({
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-[420px] rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] animate-[accusation-overlay-pop-in_0.25s_cubic-bezier(0.16,1,0.3,1)]"
+        ref={dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="max-h-[calc(100dvh-40px)] w-full max-w-[420px] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] animate-[accusation-overlay-pop-in_0.25s_cubic-bezier(0.16,1,0.3,1)]"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') { event.stopPropagation(); onCancel() }
+          if (event.key !== 'Tab') return
+          const buttons = Array.from(dialog.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])
+          const first = buttons[0], last = buttons[buttons.length - 1]
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) {
+            event.preventDefault(); last?.focus()
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault(); first?.focus()
+          }
+        }}
       >
-        <h3 className="mb-4 text-[16px] font-semibold text-text-h">Elige la tarjeta del rival</h3>
+        <h3 id={titleId} className="mb-2 text-[18px] font-bold text-text-h">¿Cuál es la identidad oculta?</h3>
+        <p className="mb-4 text-[13px] text-text">Elige una tarjeta y confirma tu respuesta. Si aciertas, ganas; si fallas, pierdes el turno.</p>
         <div className="grid grid-cols-3 gap-2.5">
           {remaining.map((card, index) => (
             <div key={card.cardId} className="relative">
               <button
                 type="button"
-                className="w-full overflow-hidden rounded-lg border border-border text-left transition-transform hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]"
+                aria-pressed={selectedId === card.cardId}
+                className={`w-full overflow-hidden rounded-lg border text-left transition-transform hover:-translate-y-0.5 hover:border-accent focus-visible:outline-2 focus-visible:outline-accent ${selectedId === card.cardId ? 'border-accent ring-2 ring-accent' : 'border-border'}`}
                 style={{ animation: `card-pop-in 0.25s ease-out ${index * 0.03}s backwards` }}
-                onClick={() => onAccuse(card.cardId)}
+                onClick={() => setSelectedId(card.cardId)}
               >
                 <img src={card.imageUrl} alt="" className="h-16 w-full object-cover" />
                 <p className="truncate bg-surface px-1.5 py-1 text-[10.5px] font-medium text-text-h">
@@ -241,12 +270,20 @@ export function AccusationOverlay({
             </div>
           ))}
         </div>
+        <div className="mt-4 rounded-xl border border-accent/40 bg-accent/10 p-3" aria-live="polite">
+          <p className="text-[13px] font-semibold text-text-h">{selected ? `¿Crees que ${selected.label} es la identidad oculta?` : 'Selecciona una tarjeta para confirmar.'}</p>
+        </div>
+        <button type="button" disabled={!selected} className="mt-3 w-full rounded-xl bg-accent px-4 py-3 text-[14px] font-bold text-white disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent" onClick={() => {
+          if (!selected || submitted.current) return
+          submitted.current = true
+          onAccuse(selected.cardId)
+        }}>Sí, confirmar</button>
         <button
           type="button"
           className="mt-4 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
           onClick={onCancel}
         >
-          Cancelar
+          Seguir pensando
         </button>
       </div>
     </div>
@@ -288,10 +325,16 @@ export function MatchBoard({
   onPassTurn,
 }: MatchBoardProps) {
   const [accusing, setAccusing] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+  const helpId = useId()
+  const statusId = useId()
   const turnRemainingMs = useCountdown(turnDeadline)
   const remainingForSelf = cards.length - self.discardedCardIds.length
   const secretCard = cards.find((card) => card.cardId === self.secretCardId)
   const discardsMissing = Math.max(0, MIN_DISCARDS_TO_ACCUSE - self.discardedCardIds.length)
+  const guessAvailable = canAccuse && isMyTurn && discardsMissing === 0
+  // Invalida la selección al perder disponibilidad; no reaparece en el próximo turno.
+  if (accusing && !guessAvailable) setAccusing(false)
 
   return (
     <div className="flex flex-col gap-5">
@@ -336,32 +379,34 @@ export function MatchBoard({
               acción, en vez de que aparezca/desaparezca de golpe a mitad de
               partida. Deshabilitado con una explicación clara de qué falta. */}
           <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
-            <p className="mb-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-text-h">
-              <Swords className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={2} />
-              Acusar al rival
-            </p>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[13px] font-bold text-text-h">Adivina la identidad</p>
+              <button type="button" aria-label="¿Cómo puedo adivinar?" aria-expanded={showHelp} aria-controls={helpId} onClick={() => setShowHelp(value => !value)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-accent"><CircleHelp className="h-6 w-6" aria-hidden="true" /></button>
+            </div>
+            <p className="mb-2 text-[12px] text-text">Descartes necesarios: <strong>{Math.min(self.discardedCardIds.length, MIN_DISCARDS_TO_ACCUSE)}/{MIN_DISCARDS_TO_ACCUSE}</strong></p>
+            <p id={helpId} hidden={!showHelp} className="mb-3 rounded-lg border border-border bg-surface p-3 text-[12px] leading-relaxed text-text">Acusar es intentar adivinar la tarjeta del rival. Puedes hacerlo en tu turno después de descartar al menos {MIN_DISCARDS_TO_ACCUSE} tarjetas. Si aciertas, ganas; si fallas, pierdes el turno.</p>
             <button
               type="button"
-              disabled={!canAccuse}
-              className={`w-full rounded-lg border border-accent px-3 py-2 text-[12px] font-semibold text-accent transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
-                canAccuse && !accusing ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''
+              disabled={!guessAvailable}
+              aria-describedby={statusId}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl border border-accent bg-accent px-3 py-3 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 ${
+                guessAvailable && !accusing ? 'animate-[result-glow-pulse_1s_ease-in-out_2] motion-reduce:animate-none' : ''
               }`}
               onClick={() => setAccusing((current) => !current)}
             >
-              {accusing ? 'Cancelar acusación' : 'Acusar una tarjeta'}
+              <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {accusing ? 'Cancelar selección' : '¡Creo que es esta!'}
             </button>
-            {!canAccuse && (
-              <p className="mt-2 text-[11px] text-text" role="status">
+              <p id={statusId} className="mt-2 text-[12px] text-text" role="status">
                 {!isMyTurn
-                  ? 'Solo puedes acusar en tu turno.'
+                  ? 'Espera tu turno para adivinar.'
                   : discardsMissing > 0
-                    ? `Descarta ${discardsMissing} tarjeta${discardsMissing === 1 ? '' : 's'} más para poder acusar.`
-                    : 'Ya puedes acusar.'}
+                    ? `Descarta ${discardsMissing} tarjeta${discardsMissing === 1 ? '' : 's'} más para poder adivinar.`
+                    : guessAvailable ? '¡Ya puedes adivinar! Elige una tarjeta cuando creas saber la respuesta.' : 'La adivinanza no está disponible ahora.'}
               </p>
-            )}
             {accusing && (
               <p className="mt-2 text-[11px] text-text animate-[fade-in-up_0.2s_ease-out]">
-                Toca la tarjeta correspondiente para confirmar.
+                Elige una tarjeta y luego confirma tu respuesta.
               </p>
             )}
           </div>
@@ -431,7 +476,7 @@ export function MatchBoard({
         </div>
       </div>
 
-      {accusing && (
+      {accusing && guessAvailable && (
         <AccusationOverlay
           cards={cards}
           discardedCardIds={self.discardedCardIds}
