@@ -59,10 +59,11 @@ export function GameFormShell({
             dispositivos sí lo hacen con ticks pequeños, otros no con un
             evento grande, así que el usuario podía quedar "atrapado" sin
             poder bajar hasta el fondo del formulario. Ahora esta columna NO
-            tiene scroll propio (solo sticky): el único scroll interno vive
-            en la lista de archivos de AiGameAssistantPanel, que es lo único
-            que crece sin límite — los botones y el formulario de abajo
-            siempre son alcanzables con el scroll normal de la página.
+            tiene scroll propio (solo sticky): AiGameAssistantPanel es solo
+            un botón acá — su lista de archivos y el resto del chat viven en
+            un modal aparte, con su propio scroll — así que los botones y el
+            formulario de abajo siempre son alcanzables con el scroll normal
+            de la página.
           */}
           <aside className="order-1 lg:order-2 lg:sticky lg:top-8">{aiPanel}</aside>
           <div className={`order-2 w-full lg:order-1 ${formMaxWidthClassName}`}>{children}</div>

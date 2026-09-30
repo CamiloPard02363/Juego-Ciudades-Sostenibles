@@ -17,10 +17,13 @@ export async function generateGameDraft(
   gameType: string,
   files: File[],
   mode?: string,
+  /** Instrucción libre del usuario (chat del asistente) para guiar a la IA — nunca reemplaza a `files`. */
+  message?: string,
 ): Promise<GameDraft> {
   const formData = new FormData()
   formData.append('gameType', gameType)
   if (mode) formData.append('mode', mode)
+  if (message?.trim()) formData.append('message', message.trim())
   for (const file of files) formData.append('files', file)
 
   const response = await fetch(`${API_URL}/games/ai-draft`, {

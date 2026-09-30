@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  User,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
@@ -19,6 +21,7 @@ import { useHomeSearch } from '../homeSearchContext'
 import { ApiError } from '../../../utils/http'
 import { Modal } from './Modal'
 import { GameTypeSettingEditModal } from './GameTypeSettingEditModal'
+import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
 
 /** Mismo ícono por mecánica que usa el picker de creación (GameTypePicker.tsx). */
 const ICON_BY_GAME_TYPE: Record<string, LucideIcon> = {
@@ -220,6 +223,7 @@ export function GameTypesCatalogPage() {
             >
               {items.map((setting) => {
                 const Icon = ICON_BY_GAME_TYPE[setting.gameType] ?? Layers
+                const isMultiplayer = LIVE_ROOM_GAME_TYPES.includes(setting.gameType)
                 return (
                   <div
                     key={setting.gameType}
@@ -255,8 +259,12 @@ export function GameTypesCatalogPage() {
                       <Icon className="h-5 w-5" strokeWidth={2} />
                     </span>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[15px] font-semibold text-text-h">{setting.displayName}</span>
+                      <span className="flex items-center gap-1 rounded-full bg-code-bg px-2 py-0.5 text-[10.5px] font-medium text-text">
+                        {isMultiplayer ? <Users className="h-3 w-3" strokeWidth={2.5} /> : <User className="h-3 w-3" strokeWidth={2.5} />}
+                        {isMultiplayer ? 'Multijugador' : '1 jugador'}
+                      </span>
                       {setting.isArchived && (
                         <span className="rounded-full bg-border px-2 py-0.5 text-[10.5px] font-medium text-text">
                           Archivado
