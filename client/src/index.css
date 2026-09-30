@@ -236,9 +236,15 @@
   transform: translate(2px, 2px) scale(0.98);
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 #root {
   width: 100%;
-  min-height: 100svh;
+  height: 100svh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;

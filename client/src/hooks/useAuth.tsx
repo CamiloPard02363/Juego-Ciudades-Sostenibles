@@ -20,6 +20,7 @@ type AuthContextValue = {
   authMessage: string | null
   clearAuthMessage: () => void
   signIn: (credentials: LoginCredentials) => Promise<void>
+  signInWithGoogle: (idToken: string) => Promise<void>
   signUp: (input: RegisterInput) => Promise<void>
   signOut: () => void
   updateProfile: (input: UpdateProfileInput) => Promise<void>
@@ -120,6 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession],
   )
 
+  const signInWithGoogle = useCallback(
+    async (idToken: string) => {
+      const { accessToken, user: profile } = await authService.loginWithGoogle(idToken)
+      applySession(accessToken, profile)
+    },
+    [applySession],
+  )
+
   const signUp = useCallback(
     async (input: RegisterInput) => {
       await authService.registerUser(input)
@@ -164,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authMessage,
         clearAuthMessage,
         signIn,
+        signInWithGoogle,
         signUp,
         signOut,
         updateProfile,

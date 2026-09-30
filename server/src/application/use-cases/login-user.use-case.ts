@@ -45,6 +45,13 @@ export class LoginUserUseCase implements UseCase<LoginUserInput, LoginUserOutput
       throw new InvalidCredentialsError();
     }
 
+    // Usuario con cuenta solo por proveedor externo (ej. Google): no tiene
+    // hash contra el cual comparar, así que el login con password falla igual
+    // que credenciales inválidas, sin llegar a bcrypt.compare.
+    if (!user.password.hasPassword()) {
+      throw new InvalidCredentialsError();
+    }
+
     const passwordMatches = await this.passwordHasher.compare(
       input.plainPassword,
       user.password.getHashedValue(),

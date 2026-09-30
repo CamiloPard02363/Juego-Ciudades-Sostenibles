@@ -20,31 +20,64 @@ model RoleModel {
 }
 
 model UserModel {
-  id                      String                        @id @default(uuid())
-  email                   String                        @unique
-  passwordHash            String                        @map("password_hash")
-  firstName               String                        @map("first_name")
-  middleName              String?                       @map("middle_name")
-  lastName                String                        @map("last_name")
-  displayName             String                        @map("display_name")
-  roleId                  String                        @map("role_id")
-  role                    RoleModel                     @relation(fields: [roleId], references: [id])
-  avatarUrl               String?                       @map("avatar_url")
-  birthDate               DateTime?                     @map("birth_date")
-  locale                  String                        @default("es-CO")
-  isActive                Boolean                       @default(true) @map("is_active")
-  isEmailVerified         Boolean                       @default(false) @map("is_email_verified")
-  lastLoginAt             DateTime?                     @map("last_login_at")
-  createdAt               DateTime                      @default(now()) @map("created_at")
-  lastUpdate              DateTime                      @updatedAt @map("last_update")
-  refreshTokens           RefreshTokenModel[]
-  organizationsCreated    OrganizationModel[]           @relation("OrganizationCreatedBy")
-  organizationMemberships OrganizationMembershipModel[]
-  classes                 ClassModel[]
-  classEnrollments        ClassEnrollmentModel[]
-  subjectsCreated         SubjectModel[]
+  id                       String                         @id @default(uuid())
+  email                    String                         @unique
+  /// Nullable (issue #197): un usuario que solo entra por un proveedor OAuth
+  /// (ej. Google) no tiene contraseña local. Ver `Password.none()`.
+  passwordHash             String?                        @map("password_hash")
+  firstName                String                         @map("first_name")
+  middleName               String?                        @map("middle_name")
+  lastName                 String                         @map("last_name")
+  displayName              String                         @map("display_name")
+  roleId                   String                         @map("role_id")
+  role                     RoleModel                      @relation(fields: [roleId], references: [id])
+  avatarUrl                String?                        @map("avatar_url")
+  birthDate                DateTime?                      @map("birth_date")
+  locale                   String                         @default("es-CO")
+  isActive                 Boolean                        @default(true) @map("is_active")
+  isEmailVerified          Boolean                        @default(false) @map("is_email_verified")
+  lastLoginAt              DateTime?                      @map("last_login_at")
+  createdAt                DateTime                       @default(now()) @map("created_at")
+  lastUpdate               DateTime                       @updatedAt @map("last_update")
+  refreshTokens            RefreshTokenModel[]
+  organizationsCreated     OrganizationModel[]            @relation("OrganizationCreatedBy")
+  organizationMemberships  OrganizationMembershipModel[]
+  classes                  ClassModel[]
+  classEnrollments         ClassEnrollmentModel[]
+  subjectsCreated          SubjectModel[]
+  identityProviderAccounts IdentityProviderAccountModel[]
 
   @@map("users")
+}
+
+/// Proveedores de identidad externa soportados para login federado (issue
+/// #197). MICROSOFT no tiene flujo implementado todavía — existe para que
+/// agregar un segundo proveedor no requiera otra migración estructural.
+enum AuthProviderEnum {
+  GOOGLE
+  MICROSOFT
+
+  @@map("auth_provider")
+}
+
+/// Identidad externa vinculada a un usuario (patrón NextAuth/Auth.js): 1
+/// usuario puede tener 0, 1 o N identidades (una por proveedor). Reemplaza
+/// el enfoque de columnas sueltas `authProvider`/`googleId` en `UserModel`
+/// para que un segundo proveedor (Microsoft) no exija tocar esa tabla.
+model IdentityProviderAccountModel {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  user           UserModel        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       AuthProviderEnum
+  providerUserId String           @map("provider_user_id")
+  /// Email reportado por el proveedor en el momento del vínculo — se guarda
+  /// aparte de `UserModel.email` porque este último puede cambiar después.
+  emailAtLinking String           @map("email_at_linking")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("identity_provider_accounts")
 }
 
 /// Rol de un usuario DENTRO de una organización. Eje ortogonal al rol global

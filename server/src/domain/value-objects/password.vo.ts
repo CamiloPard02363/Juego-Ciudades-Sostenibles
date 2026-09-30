@@ -6,9 +6,9 @@ const HAS_LOWERCASE = /[a-z]/;
 const HAS_NUMBER = /[0-9]/;
 
 export class Password {
-  private readonly hashedValue: string;
+  private readonly hashedValue: string | null;
 
-  private constructor(hashedValue: string) {
+  private constructor(hashedValue: string | null) {
     this.hashedValue = hashedValue;
   }
 
@@ -36,7 +36,24 @@ export class Password {
     return new Password(hashedValue);
   }
 
+  /**
+   * Issue #197: representa un usuario sin contraseña local (login solo por
+   * proveedor externo, ej. Google). Estado explícito en vez de un hash vacío
+   * o inventado — evita que un valor mágico pase por alto una comparación
+   * de bcrypt.
+   */
+  static none(): Password {
+    return new Password(null);
+  }
+
+  hasPassword(): boolean {
+    return this.hashedValue !== null;
+  }
+
   getHashedValue(): string {
+    if (this.hashedValue === null) {
+      throw new InvalidPasswordError('este usuario no tiene contraseña local.');
+    }
     return this.hashedValue;
   }
 }

@@ -7,9 +7,11 @@ import { ID_GENERATOR } from '../domain/ports/id-generator.port.js';
 import { TOKEN_GENERATOR } from '../domain/ports/token-generator.port.js';
 import { REFRESH_TOKEN_REPOSITORY } from '../domain/ports/refresh-token.repository.port.js';
 import { OPAQUE_TOKEN_GENERATOR } from '../domain/ports/opaque-token-generator.port.js';
+import { IDENTITY_PROVIDER_ACCOUNT_REPOSITORY } from '../domain/ports/identity-provider-account.repository.port.js';
 import { PrismaService } from './persistence/prisma/prisma.service.js';
 import { PrismaUserRepository } from './persistence/prisma/prisma-user.repository.js';
 import { PrismaRefreshTokenRepository } from './persistence/prisma/prisma-refresh-token.repository.js';
+import { PrismaIdentityProviderAccountRepository } from './persistence/prisma/prisma-identity-provider-account.repository.js';
 import { BcryptPasswordHasher } from './security/bcrypt-password-hasher.adapter.js';
 import { CryptoIdGenerator } from './security/crypto-id-generator.adapter.js';
 import { JwtTokenGenerator } from './security/jwt-token-generator.adapter.js';
@@ -18,6 +20,7 @@ import { TokenPairIssuer } from '../application/services/token-pair-issuer.servi
 import { RegisterUserUseCase } from '../application/use-cases/register-user.use-case.js';
 import { CreateUserUseCase } from '../application/use-cases/create-user.use-case.js';
 import { LoginUserUseCase } from '../application/use-cases/login-user.use-case.js';
+import { LoginWithGoogleUseCase } from '../application/use-cases/login-with-google.use-case.js';
 import { RefreshAccessTokenUseCase } from '../application/use-cases/refresh-access-token.use-case.js';
 import { LogoutUseCase } from '../application/use-cases/logout.use-case.js';
 import { UpdateUserProfileUseCase } from '../application/use-cases/update-user-profile.use-case.js';
@@ -54,6 +57,10 @@ import { AuthController } from './http/controllers/auth.controller.js';
     PrismaService,
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: REFRESH_TOKEN_REPOSITORY, useClass: PrismaRefreshTokenRepository },
+    {
+      provide: IDENTITY_PROVIDER_ACCOUNT_REPOSITORY,
+      useClass: PrismaIdentityProviderAccountRepository,
+    },
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: TOKEN_GENERATOR, useClass: JwtTokenGenerator },
@@ -63,6 +70,7 @@ import { AuthController } from './http/controllers/auth.controller.js';
     RegisterUserUseCase,
     CreateUserUseCase,
     LoginUserUseCase,
+    LoginWithGoogleUseCase,
     RefreshAccessTokenUseCase,
     LogoutUseCase,
     UpdateUserProfileUseCase,

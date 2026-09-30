@@ -56,6 +56,14 @@ export function login(credentials: LoginCredentials): Promise<LoginResponse> {
   })
 }
 
+/** POST /auth/google — canjea el idToken de Google Identity Services por sesión propia. */
+export function loginWithGoogle(idToken: string): Promise<LoginResponse> {
+  return request<LoginResponse>('/auth/google', {
+    method: 'POST',
+    body: { idToken },
+  })
+}
+
 /** POST /auth/register — crea la cuenta. No autentica: no hay token en la respuesta. */
 export function registerUser(input: RegisterInput): Promise<AuthUser> {
   return request<AuthUser>('/auth/register', {
