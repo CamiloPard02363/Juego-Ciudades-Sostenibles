@@ -5,6 +5,9 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
 export type GameDraft = {
   config: Record<string, unknown>
   content: unknown[]
+  /** Solo algunos tipos de juego lo piden (hoy, Pares) — ver game-prompt-catalog.ts en el servidor. */
+  suggestedTitle?: string
+  suggestedDescription?: string
 }
 
 /**

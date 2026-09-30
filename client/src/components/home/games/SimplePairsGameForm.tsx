@@ -102,6 +102,11 @@ export function SimplePairsGameForm({
         }
       }),
     )
+    // La IA también llena título/descripción a partir del tema que detectó
+    // (issue #210) — solo si de verdad los mandó, nunca borra lo que el
+    // profesor ya haya escrito a mano por su cuenta.
+    if (draft.suggestedTitle) setTitle(draft.suggestedTitle)
+    if (draft.suggestedDescription) setDescription(draft.suggestedDescription)
   }
 
   function updatePair<K extends keyof PairDraft>(index: number, field: K, value: PairDraft[K]) {
@@ -191,6 +196,7 @@ export function SimplePairsGameForm({
           mode="PAIRS"
           disabled={submitting}
           imagesRequired={{ min: 4, max: 40 }}
+          autofillsFormFields
           onDraftReady={applyAiDraft}
         />
       }

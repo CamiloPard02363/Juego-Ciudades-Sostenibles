@@ -141,15 +141,31 @@ imágenes que subió el usuario (y del texto fuente, si lo hay, como contexto ad
 usuario ya subió sus propias imágenes — nunca inventes una URL: cada pareja debe referenciar su
 imagen con "imageIndex" (el número de imagen, 0-based, de la lista "Imágenes disponibles" de abajo).
 Genera EXACTAMENTE una pareja por cada imagen disponible, usando cada índice de imagen UNA sola vez.
-Para cada imagen, escribe un "label" corto (máximo 120 caracteres) que nombre con precisión el
-concepto que muestra esa imagen específica, basándote en su descripción. No agregues "imageUrl",
-solo "imageIndex" y "label".`,
+
+Antes de nombrar las parejas, identifica con precisión el TEMA/materia que pide el usuario (de sus
+instrucciones y/o del texto fuente que haya subido — ej. "sumas de un dígito", "capitales de
+Sudamérica", "partes de la célula", "ciclo del agua"). Para cada imagen, escribe un "label" corto
+(máximo 120 caracteres) que nombre el concepto que le corresponde a ESA imagen DENTRO de ese tema
+específico — nunca una descripción genérica de lo que literalmente se ve en la foto si el tema pide
+otra cosa. Ejemplos: si el tema es sumas y una imagen muestra "3 manzanas + 2 manzanas", el label
+correcto es la operación o su resultado (ej. "3 + 2 = 5"), no "manzanas"; si el tema es capitales y la
+imagen es la Torre Eiffel, el label es el país o la capital que representa (ej. "Francia" o "París"),
+no "torre". Si una imagen puntual no calza con precisión en el tema, igual asígnale el concepto más
+razonable según lo que muestra — nunca la dejes sin usar ni inventes una pareja sin imagen. No
+agregues "imageUrl", solo "imageIndex" y "label".
+
+Además, junto a "config" y "content", genera "suggestedTitle" (título corto y atractivo para el
+juego, máximo 80 caracteres, acorde al tema que identificaste) y "suggestedDescription" (1-2 frases,
+mínimo 15 palabras, que resuman de qué trata el juego para quien lo va a jugar) — se usan para
+pre-llenar el formulario de creación completo, no solo las parejas.`,
   jsonShapeExample: `{
   "config": { "mode": "PAIRS", "perZone": 8, "timePerZoneSeconds": 90, "previewSeconds": 5 },
   "content": [
     { "imageIndex": 0, "label": "Mitocondria" },
     { "imageIndex": 1, "label": "Núcleo celular" }
-  ]
+  ],
+  "suggestedTitle": "Organelos de la célula",
+  "suggestedDescription": "Empareja cada imagen con el organelo celular que representa — ideal para repasar biología celular de forma visual."
 }`,
   imageRequirement: { min: 4, max: 40 },
   contentImageFolder: 'memory-cards',

@@ -150,8 +150,22 @@ ${sourceText.slice(0, 200_000)}
       throw new InvalidGameContentError('la IA devolvió una respuesta con forma inesperada.');
     }
 
-    const { config, content } = parsed as { config?: unknown; content?: unknown };
-    return { config: config ?? {}, content };
+    const { config, content, suggestedTitle, suggestedDescription } = parsed as {
+      config?: unknown;
+      content?: unknown;
+      suggestedTitle?: unknown;
+      suggestedDescription?: unknown;
+    };
+    return {
+      config: config ?? {},
+      content,
+      // Solo algunos gameType piden estos campos en sus `instructions` (ver
+      // game-prompt-catalog) — si el modelo no los devuelve, o los devuelve
+      // con un tipo raro, se ignoran acá mismo en vez de colarse como texto
+      // inválido más adelante en el formulario.
+      suggestedTitle: typeof suggestedTitle === 'string' ? suggestedTitle : undefined,
+      suggestedDescription: typeof suggestedDescription === 'string' ? suggestedDescription : undefined,
+    };
   }
 
   /**
