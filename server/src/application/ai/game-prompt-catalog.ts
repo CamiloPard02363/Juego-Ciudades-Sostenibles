@@ -22,7 +22,22 @@ export interface GamePromptSpec {
    * imágenes, o porque son opcionales y se agregan a mano después, como en
    * Opuestos).
    */
-  imageRequirement: { min: number; max: number } | null;
+  imageRequirement: {
+    min: number;
+    max: number;
+    /**
+     * `false` desactiva el bloqueo estricto de "menos de `min` imágenes es un
+     * error" (issue #208, Quién Es) — `min` pasa a ser solo una
+     * recomendación para la instrucción/UI, nunca una cantidad exacta
+     * obligatoria: el usuario puede subir menos (completa el resto a mano
+     * después) sin importar cómo las subió (sueltas, o dentro de un
+     * PDF/Word con varias fotos adentro). `max` SIEMPRE se sigue exigiendo
+     * como tope, y siempre se exige al menos 1 imagen en total — sin
+     * ninguna imagen no hay nada que la IA pueda organizar. Por defecto
+     * (`undefined`) se comporta como `true`: bloqueo estricto de siempre.
+     */
+    enforceMinimum?: boolean;
+  } | null;
   /** Carpeta de Cloudinary donde subir las imágenes de contenido (mismas que usa la subida manual). */
   contentImageFolder?: string;
 }
@@ -116,7 +131,7 @@ información dentro de la tarjeta durante la partida. No agregues "imageUrl" ni 
     { "imageIndex": 1, "label": "Brasil", "info": "Es el único país de Sudamérica cuyo idioma oficial es el portugués." }
   ]
 }`,
-  imageRequirement: { min: 12, max: 60 },
+  imageRequirement: { min: 12, max: 60, enforceMinimum: false },
   contentImageFolder: 'guess-who-cards',
 };
 

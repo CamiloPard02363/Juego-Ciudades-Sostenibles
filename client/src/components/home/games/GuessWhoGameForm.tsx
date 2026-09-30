@@ -217,7 +217,7 @@ export function GuessWhoGameForm({
         <AiGameAssistantPanel
           gameType="GUESS_WHO"
           disabled={submitting}
-          imagesRequired={{ min: MIN_CARDS, max: 60 }}
+          imagesRequired={{ min: MIN_CARDS, max: 60, enforceMinimum: false }}
           onDraftReady={applyAiDraft}
         />
       }

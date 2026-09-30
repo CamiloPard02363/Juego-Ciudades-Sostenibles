@@ -22,8 +22,13 @@ type AiGameAssistantPanelProps = {
    * Parejas), la IA no puede inventarlas: el usuario SIEMPRE sube sus propias
    * imágenes, y la IA solo las organiza — les asigna el concepto que le
    * corresponde a cada una.
+   *
+   * `enforceMinimum: false` (issue #208, Quién Es) deja `min` como una
+   * recomendación en el texto de ayuda, sin bloquear el envío por debajo de
+   * esa cantidad — el usuario puede completar el resto de tarjetas a mano
+   * después. Por defecto (`undefined`) sí bloquea, como antes.
    */
-  imagesRequired?: { min: number; max: number }
+  imagesRequired?: { min: number; max: number; enforceMinimum?: boolean }
   onDraftReady: (draft: GameDraft) => void
 }
 
@@ -55,7 +60,12 @@ export function AiGameAssistantPanel({
 
   const maxFiles = imagesRequired ? imagesRequired.max + EXTRA_REFERENCE_FILES : DEFAULT_MAX_FILES
   const imageCount = files.filter((file) => file.type.startsWith('image/')).length
-  const hasEnoughImages = !imagesRequired || imageCount >= imagesRequired.min
+  // Con enforceMinimum: false no se puede saber client-side cuántas imágenes
+  // hay en total (un PDF/Word puede traer varias adentro, y eso solo se sabe
+  // al procesarlo en el servidor) — así que ahí ni se bloquea el envío ni se
+  // muestra un contador que sería engañoso (ver imagesGuidance más abajo).
+  const enforcesMinimum = imagesRequired?.enforceMinimum !== false
+  const hasEnoughImages = !imagesRequired || !enforcesMinimum || imageCount >= imagesRequired.min
   const canSend = !disabled && !generating && files.length > 0 && hasEnoughImages
 
   function handleFilesChosen(event: React.ChangeEvent<HTMLInputElement>) {
@@ -143,12 +153,22 @@ export function AiGameAssistantPanel({
 
           <p className="mb-3 text-[12px] leading-relaxed text-text">
             {imagesRequired ? (
-              <>
-                Este juego necesita una imagen por elemento — eso lo subes tú (mínimo {imagesRequired.min}), la
-                IA no puede inventarlas. Súbelas con el clip y la IA se encarga de organizarlas: le asigna a
-                cada imagen el concepto que le corresponde. También puedes agregar PDF/Word/Excel/CSV de
-                referencia (opcional).
-              </>
+              enforcesMinimum ? (
+                <>
+                  Este juego necesita una imagen por elemento — eso lo subes tú (mínimo {imagesRequired.min}), la
+                  IA no puede inventarlas. Súbelas con el clip y la IA se encarga de organizarlas: le asigna a
+                  cada imagen el concepto que le corresponde. También puedes agregar PDF/Word/Excel/CSV de
+                  referencia (opcional).
+                </>
+              ) : (
+                <>
+                  Este juego necesita una imagen por elemento — eso lo subes tú, la IA no puede inventarlas, solo
+                  las organiza. Súbelas como prefieras: cada imagen suelta, o un solo PDF/Word con varias fotos
+                  adentro (la IA las extrae automáticamente — cuenta como una sola carga). Recomendamos al menos{' '}
+                  {imagesRequired.min} para armar el juego completo, pero no es obligatorio: puedes subir menos y
+                  completar el resto a mano después.
+                </>
+              )
             ) : (
               <>
                 Adjunta PDF, Word, Excel, CSV o imágenes con tu propio material — la IA extrae la información y
@@ -158,7 +178,7 @@ export function AiGameAssistantPanel({
             No se aceptan links, solo archivos que subas tú.
           </p>
 
-          {imagesRequired && (
+          {imagesRequired && enforcesMinimum && (
             <p className={`mb-2 text-[12px] font-medium ${hasEnoughImages ? 'text-accent' : 'text-text'}`}>
               {imageCount} / {imagesRequired.min} imágenes mínimo
               {imageCount > 0 && !hasEnoughImages ? ' — sigue subiendo' : ''}

@@ -10,6 +10,7 @@ import type { UseCase } from '../ports/use-case.port.js';
 import { ContentValidatorRegistry } from '../content-validators/content-validator.registry.js';
 import { resolveGamePromptSpec, type GamePromptSpec } from '../ai/game-prompt-catalog.js';
 import { FileTextExtractor, type SourceFile } from '../../infrastructure/ai/file-text-extractor.js';
+import { extractEmbeddedImages } from '../../infrastructure/ai/content-image-extractor.js';
 
 export interface GenerateGameDraftInput {
   gameType: string;
@@ -42,7 +43,9 @@ const MAX_FILES = 65;
  *
  * Tipos de juego con imagen obligatoria por elemento (Quién Es, Parejas): la
  * IA nunca inventa esas imágenes. El profesor sube sus propias imágenes junto
- * con los demás archivos; este caso de uso las sube a Cloudinary (mismo
+ * con los demás archivos — sueltas, o dentro de un PDF/Word con varias fotos
+ * adentro (se extraen automáticamente, ver `content-image-extractor.ts`,
+ * issue #208) — y este caso de uso las sube a Cloudinary (mismo
  * `ImageStorage` que usa la subida manual) y le pide al modelo que las
  * "organice" — que les asigne un concepto — referenciándolas por posición
  * ("imageIndex") en vez de por URL, y luego reemplaza cada índice por la URL
@@ -110,13 +113,35 @@ export class GenerateGameDraftUseCase
     files: SourceFile[],
     message: string | undefined,
   ): Promise<GenerateGameDraftOutput> {
-    const { min, max } = spec.imageRequirement!;
-    const imageFiles = files.filter((file) => file.mimeType.startsWith('image/'));
+    const { min, max, enforceMinimum } = spec.imageRequirement!;
+    const directImageFiles = files.filter((file) => file.mimeType.startsWith('image/'));
     const documentFiles = files.filter((file) => !file.mimeType.startsWith('image/'));
 
-    if (imageFiles.length < min) {
+    // PDF/Word con fotos incrustadas (en vez de un archivo de imagen suelto
+    // por tarjeta) cuentan igual — issue #208: se extraen y se tratan como
+    // si el usuario hubiera subido cada una por separado. `documentFiles`
+    // sigue pasando completo (sin filtrar) a la extracción de texto de más
+    // abajo: un PDF de fotos con pie de foto aporta AMBAS cosas (imágenes Y
+    // texto de contexto), no una sola.
+    const embeddedImages = (
+      await Promise.all(documentFiles.map((file) => extractEmbeddedImages(file)))
+    ).flat();
+    const embeddedImageFiles: SourceFile[] = embeddedImages.map((image) => ({
+      buffer: image.buffer,
+      mimeType: image.mimeType,
+      filename: image.filename,
+    }));
+
+    const imageFiles = [...directImageFiles, ...embeddedImageFiles];
+
+    if (imageFiles.length === 0) {
       throw new InvalidGameContentError(
-        `sube al menos ${min} imágenes — tú las subes, la IA solo las organiza con el concepto que le corresponde a cada una.`,
+        'sube al menos una imagen — suelta, o dentro de un PDF/Word (la IA las extrae automáticamente); tú las subes, la IA solo las organiza.',
+      );
+    }
+    if (enforceMinimum !== false && imageFiles.length < min) {
+      throw new InvalidGameContentError(
+        `sube al menos ${min} imágenes — tú las subes (sueltas o dentro de un PDF/Word), la IA solo las organiza con el concepto que le corresponde a cada una.`,
       );
     }
     if (imageFiles.length > max) {
@@ -136,7 +161,7 @@ export class GenerateGameDraftUseCase
 
     const draft = await this.aiContentAssistant.generateGameDraft({
       gameType: gameTypeName,
-      sourceText: sourceText || '(el usuario no adjuntó texto de referencia — usa solo las imágenes.)',
+      sourceText: sourceText.trim() || '(el usuario no adjuntó texto de referencia — usa solo las imágenes.)',
       instructions: buildInstructions(spec, message),
       imageDescriptions,
     });
@@ -152,7 +177,10 @@ export class GenerateGameDraftUseCase
   ): GenerateGameDraftOutput {
     const validator = this.contentValidators.resolve(gameTypeName);
     const validatedConfig = validator.validateConfig(config);
-    const validatedContent = validator.validateContent(content, validatedConfig);
+    // isDraft: true porque esto SIEMPRE es un borrador (nunca el juego
+    // final) — el validador de cada gameType decide si eso le cambia algo;
+    // la mayoría lo ignora (ver ContentValidationOptions).
+    const validatedContent = validator.validateContent(content, validatedConfig, { isDraft: true });
     return { config: validatedConfig, content: validatedContent };
   }
 }

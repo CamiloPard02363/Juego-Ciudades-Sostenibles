@@ -64,6 +64,88 @@ function imageFile(name: string): SourceFile {
   return { buffer: Buffer.from(`fake-image-${name}`), mimeType: 'image/png', filename: `${name}.png` };
 }
 
+// JPEG real y mínimo (96×96, un solo color) en base64 — issue #208, para
+// construir un PDF de verdad con imágenes incrustadas de verdad, en vez de
+// mockear la extracción. Generado una sola vez con @napi-rs/canvas (la misma
+// librería que usa pdf-parse por debajo) y pegado acá como literal para que
+// el test no dependa de esa librería en tiempo de ejecución.
+const TEST_JPEG_BASE64 =
+  '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCABgAGADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFgEBAQEAAAAAAAAAAAAAAAAAAAUJ/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AiAI7QUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/9k='
+const TEST_JPEG = Buffer.from(TEST_JPEG_BASE64, 'base64')
+
+/**
+ * Arma un PDF válido de verdad (con xref real, no un truco de parser
+ * tolerante) con una imagen JPEG incrustada por página, vía DCTDecode — la
+ * misma forma en que cualquier PDF real embebe fotos. Usado para probar
+ * `executeWithContentImages` contra una extracción de imágenes real, no
+ * mockeada (issue #208).
+ */
+function buildPdfWithEmbeddedImages(imageCount: number): Buffer {
+  type Obj = { num: number; body?: string; bodyBuffer?: Buffer }
+  const objects: Obj[] = [{ num: 1, body: '<< /Type /Catalog /Pages 2 0 R >>' }]
+  const pageNums: number[] = []
+  let next = 3
+
+  for (let i = 0; i < imageCount; i++) {
+    const pageNum = next++
+    const contentNum = next++
+    const imageNum = next++
+    pageNums.push(pageNum)
+    const contentStream = `q 96 0 0 96 0 0 cm /Im${i} Do Q`
+    objects.push({
+      num: pageNum,
+      body: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 96 96] /Resources << /XObject << /Im${i} ${imageNum} 0 R >> >> /Contents ${contentNum} 0 R >>`,
+    })
+    objects.push({
+      num: contentNum,
+      body: `<< /Length ${Buffer.byteLength(contentStream)} >>\nstream\n${contentStream}\nendstream`,
+    })
+    objects.push({
+      num: imageNum,
+      bodyBuffer: Buffer.concat([
+        Buffer.from(
+          `<< /Type /XObject /Subtype /Image /Width 96 /Height 96 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${TEST_JPEG.length} >>\nstream\n`,
+        ),
+        TEST_JPEG,
+        Buffer.from('\nendstream'),
+      ]),
+    })
+  }
+
+  objects.push({
+    num: 2,
+    body: `<< /Type /Pages /Kids [${pageNums.map((n) => `${n} 0 R`).join(' ')}] /Count ${pageNums.length} >>`,
+  })
+  objects.sort((a, b) => a.num - b.num)
+
+  const chunks: Buffer[] = [Buffer.from('%PDF-1.4\n')]
+  const offsets = new Map<number, number>()
+  let offset = chunks[0].length
+
+  for (const obj of objects) {
+    offsets.set(obj.num, offset)
+    const body = obj.bodyBuffer ?? Buffer.from(obj.body!)
+    const buf = Buffer.concat([Buffer.from(`${obj.num} 0 obj\n`), body, Buffer.from('\nendobj\n')])
+    chunks.push(buf)
+    offset += buf.length
+  }
+
+  const xrefStart = offset
+  const maxNum = Math.max(...objects.map((o) => o.num))
+  let xref = `xref\n0 ${maxNum + 1}\n0000000000 65535 f \n`
+  for (let n = 1; n <= maxNum; n++) {
+    xref += `${String(offsets.get(n)).padStart(10, '0')} 00000 n \n`
+  }
+  chunks.push(Buffer.from(xref))
+  chunks.push(Buffer.from(`trailer\n<< /Size ${maxNum + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`))
+
+  return Buffer.concat(chunks)
+}
+
+function pdfFile(filename: string, imageCount: number): SourceFile {
+  return { buffer: buildPdfWithEmbeddedImages(imageCount), mimeType: 'application/pdf', filename }
+}
+
 const VALID_DOMINO_DRAFT: GenerateGameDraftOutput = {
   config: { handSize: 7 },
   content: [
@@ -204,14 +286,27 @@ describe('GenerateGameDraftUseCase — tipos con imagen obligatoria (el usuario 
     expect(result.content).toHaveLength(12);
   });
 
-  it('rechaza si no llegan suficientes imágenes, sin llamar a la IA', async () => {
-    const assistant = fakeAssistant(guessWhoDraftWithImages(5));
+  it('MEMORY_MATCH modo PAIRS rechaza si no llegan suficientes imágenes, sin llamar a la IA', async () => {
+    const assistant = fakeAssistant({
+      config: { mode: 'PAIRS' },
+      content: Array.from({ length: 2 }, (_, index) => ({ imageIndex: index, label: `Concepto ${index}` })),
+    });
 
     await expect(
       buildUseCase(assistant).execute({
-        gameType: 'GUESS_WHO',
-        files: Array.from({ length: 5 }, (_, i) => imageFile(`card-${i}`)),
+        gameType: 'MEMORY_MATCH',
+        mode: 'PAIRS',
+        files: Array.from({ length: 2 }, (_, i) => imageFile(`pair-${i}`)),
       }),
+    ).rejects.toThrow(InvalidGameContentError);
+    expect(assistant.generateGameDraft).not.toHaveBeenCalled();
+  });
+
+  it('rechaza si no se sube ninguna imagen, sin importar el tipo de juego (mínimo absoluto: 1)', async () => {
+    const assistant = fakeAssistant(guessWhoDraftWithImages(0));
+
+    await expect(
+      buildUseCase(assistant).execute({ gameType: 'GUESS_WHO', files: [csvFile('a,b')] }),
     ).rejects.toThrow(InvalidGameContentError);
     expect(assistant.generateGameDraft).not.toHaveBeenCalled();
   });
@@ -244,5 +339,66 @@ describe('GenerateGameDraftUseCase — tipos con imagen obligatoria (el usuario 
 
     expect(result.content).toHaveLength(4);
     expect((result.content[0] as { imageUrl: string }).imageUrl).toBe('https://cdn.test/image-0.png');
+  });
+});
+
+describe('GenerateGameDraftUseCase — GUESS_WHO sin mínimo estricto de imágenes (issue #208)', () => {
+  it('genera igual con menos imágenes que la cantidad recomendada, sin rechazarlo', async () => {
+    const assistant = fakeAssistant(guessWhoDraftWithImages(3));
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'GUESS_WHO',
+      files: Array.from({ length: 3 }, (_, i) => imageFile(`card-${i}`)),
+    });
+
+    expect(result.content).toHaveLength(3);
+    expect(assistant.generateGameDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('extrae de verdad las imágenes incrustadas en un PDF y las trata como cargas sueltas', async () => {
+    const assistant = fakeAssistant(guessWhoDraftWithImages(2));
+    const imageStorage = fakeImageStorage();
+
+    const result = await buildUseCase(assistant, imageStorage).execute({
+      gameType: 'GUESS_WHO',
+      // Un solo archivo PDF, cero imágenes sueltas — las 2 fotos incrustadas
+      // en el PDF (de verdad, no mockeadas) deben contar como la carga.
+      files: [pdfFile('banderas.pdf', 2)],
+    });
+
+    expect(imageStorage.upload).toHaveBeenCalledTimes(2);
+    expect(assistant.describeImage).toHaveBeenCalledTimes(2);
+    expect(result.content).toHaveLength(2);
+  });
+
+  it('combina imágenes sueltas con imágenes incrustadas en un PDF en la misma generación', async () => {
+    const assistant = fakeAssistant(guessWhoDraftWithImages(3));
+    const imageStorage = fakeImageStorage();
+
+    const result = await buildUseCase(assistant, imageStorage).execute({
+      gameType: 'GUESS_WHO',
+      files: [imageFile('card-suelta'), pdfFile('banderas.pdf', 2)],
+    });
+
+    expect(imageStorage.upload).toHaveBeenCalledTimes(3);
+    expect(result.content).toHaveLength(3);
+  });
+
+  it('un PDF corrupto no tumba la generación: simplemente no aporta imágenes incrustadas', async () => {
+    const assistant = fakeAssistant(guessWhoDraftWithImages(2));
+    const corruptPdf: SourceFile = {
+      buffer: Buffer.from('esto no es un PDF de verdad'),
+      mimeType: 'application/pdf',
+      filename: 'roto.pdf',
+    };
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'GUESS_WHO',
+      files: [imageFile('card-0'), imageFile('card-1'), corruptPdf],
+    });
+
+    // Las 2 imágenes sueltas sí se procesan con normalidad; el PDF roto solo
+    // no aporta imágenes propias (no revienta la petición completa).
+    expect(result.content).toHaveLength(2);
   });
 });
