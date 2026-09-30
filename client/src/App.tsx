@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { LoginPage } from './components/LoginPage'
 import { RegisterPage } from './components/RegisterPage'
 import { HomeLayout } from './components/home/HomeLayout'
@@ -34,6 +34,7 @@ import { PublicHomePage } from './components/legal/PublicHomePage'
 import { PrivacyPolicyPage } from './components/legal/PrivacyPolicyPage'
 import { TermsOfServicePage } from './components/legal/TermsOfServicePage'
 import { useAuth } from './hooks/useAuth'
+import { invitationAuthPath, invitationDestination } from './utils/invitationDestination'
 
 // PixiJS + Matter.js solo se descargan si alguien entra a esta ruta —
 // van cargados de fábrica (~700 KB) y nadie más en el sitio los necesita.
@@ -47,6 +48,8 @@ const DualQuestPixiPlayPage = lazy(() =>
 function App() {
   const { user, status } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = invitationDestination(new URLSearchParams(location.search).get('returnTo'))
 
   if (status === 'checking') {
     return (
@@ -64,15 +67,24 @@ function App() {
         <Route path="/terminos" element={<TermsOfServicePage />} />
         <Route
           path="/login"
-          element={<LoginPage onSwitchToRegister={() => navigate('/register')} />}
+          element={
+            <LoginPage onSwitchToRegister={() => navigate(invitationAuthPath('/register', returnTo))} />
+          }
         />
         <Route
           path="/register"
-          element={<RegisterPage onSwitchToLogin={() => navigate('/login')} />}
+          element={
+            <RegisterPage onSwitchToLogin={() => navigate(invitationAuthPath('/login', returnTo))} />
+          }
         />
         <Route
           path="*"
-          element={<Navigate to="/login" replace />}
+          element={
+            <Navigate
+              to={invitationAuthPath('/login', location.pathname + location.search)}
+              replace
+            />
+          }
         />
       </Routes>
     )
@@ -83,8 +95,8 @@ function App() {
       <Route path="/inicio" element={<PublicHomePage />} />
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />
       <Route path="/terminos" element={<TermsOfServicePage />} />
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/register" element={<Navigate to="/" replace />} />
+      <Route path="/login" element={<Navigate to={returnTo ?? '/'} replace />} />
+      <Route path="/register" element={<Navigate to={returnTo ?? '/'} replace />} />
       <Route path="/juegos/crear" element={<CreateGameLayout />}>
         <Route index element={<GameTypePickerPage />} />
         <Route path="cartas" element={<GameModePickerPage />} />
