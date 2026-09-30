@@ -5,6 +5,7 @@ import { Modal } from './Modal'
 import { LobbyReadyControl } from './LobbyReadyControl'
 import { ChatPanel } from './ChatPanel'
 import type { GuessWhoChatMessage } from './guessWhoTypes'
+import { QRCodeSVG } from 'qrcode.react'
 
 type LobbyPlayer = {
   userId: string
@@ -51,6 +52,7 @@ export function MultiplayerLobby({
   onSend,
   children,
 }: Props) {
+  const invitationUrl = new URL(roomPath, window.location.origin).href
   const [chatOpen, setChatOpen] = useState(false)
   const [readCount, setReadCount] = useState(messages.length)
   const unreadCount = Math.max(0, messages.length - readCount)
@@ -189,7 +191,7 @@ export function MultiplayerLobby({
                 className="inline-flex items-center gap-1 rounded-xl border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
                 onClick={() =>
                   copyValue(
-                    new URL(roomPath, window.location.origin).href,
+                    invitationUrl,
                     'Enlace copiado',
                   )
                 }
@@ -205,6 +207,10 @@ export function MultiplayerLobby({
                   {copyFeedback}
                 </span>
               )}
+              <figure className="ml-auto flex shrink-0 flex-col items-center gap-1.5 rounded-xl border border-accent/30 bg-surface p-2" aria-label="Invitación por código QR">
+                <QRCodeSVG value={invitationUrl} size={144} level="M" marginSize={4} bgColor="#ffffff" fgColor="#000000" role="img" title={`Escanea para unirte a la sala ${room.code}`} />
+                <figcaption className="text-center text-[11px] font-semibold text-accent">Escanea para unirte</figcaption>
+              </figure>
             </div>
           </div>
         </div>
