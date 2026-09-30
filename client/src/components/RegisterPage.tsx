@@ -9,7 +9,7 @@ type RegisterPageProps = {
 
 export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
   return (
-    <main className="relative flex flex-1 items-center justify-center overflow-x-hidden overflow-y-auto p-5 sm:p-8">
+    <main className="relative flex h-svh max-h-svh min-h-0 flex-col items-center justify-center gap-3 overflow-hidden p-5 sm:p-8">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
@@ -24,10 +24,10 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
       </div>
 
       <div
-        className="relative w-full max-w-[420px] rounded-2xl border border-border bg-surface p-7 text-left shadow-[var(--shadow)] sm:p-10"
+        className="relative w-full max-w-[420px] rounded-2xl border border-border bg-surface p-6 text-left shadow-[var(--shadow)] sm:p-8"
         style={{ boxShadow: 'var(--shadow), var(--glow)' }}
       >
-        <header className="mb-7 text-center">
+        <header className="mb-5 text-center">
           <span
             className="inline-flex h-13 w-13 items-center justify-center rounded-2xl text-white"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
@@ -35,15 +35,13 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
           >
             <Zap className="h-6 w-6" fill="currentColor" strokeWidth={0} />
           </span>
-          <h1 className="mt-4.5 mb-2 text-[28px] tracking-tight text-text-h">
-            Crea tu cuenta
-          </h1>
+          <h1 className="mt-3 mb-1.5 text-[26px] tracking-tight text-text-h">Crea tu cuenta</h1>
           <p className="text-[15px]">Únete a NexusPlay y empieza a jugar.</p>
         </header>
 
         <RegisterForm />
 
-        <footer className="mt-6 border-t border-border pt-4.5 text-center">
+        <footer className="mt-5 border-t border-border pt-3.5 text-center">
           <p className="text-[13px] leading-snug">
             ¿Ya tienes cuenta?{' '}
             <button
@@ -57,7 +55,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
         </footer>
       </div>
 
-      <footer className="absolute bottom-5 left-1/2 -translate-x-1/2 text-center text-[13px] sm:bottom-8">
+      <footer className="relative shrink-0 text-center text-[13px]">
         <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
           <Link to="/inicio" className="hover:text-text-h hover:underline">
             Inicio

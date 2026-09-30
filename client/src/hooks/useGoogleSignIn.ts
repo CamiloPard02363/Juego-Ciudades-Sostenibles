@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from './useAuth'
+import { useTheme, type Theme } from './useTheme'
 import { ApiError } from '../utils/http'
 
 const GSI_SCRIPT_SRC = 'https://accounts.google.com/gsi/client'
@@ -54,13 +55,18 @@ function loadGsiScript(): Promise<void> {
  */
 export function useGoogleSignIn(containerRef: React.RefObject<HTMLDivElement | null>) {
   const { signInWithGoogle } = useAuth()
+  const { theme } = useTheme()
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
-  // Evita renderizar el botón dos veces si el efecto corre de nuevo (ej.
-  // Fast Refresh en desarrollo).
-  const renderedRef = useRef(false)
+  // El botón oficial de Google no reacciona solo a cambios de tema: hay que
+  // volver a llamar renderButton() cuando cambia, así que este ref solo
+  // evita el doble-render dentro del mismo tema (ej. Fast Refresh).
+  const renderedThemeRef = useRef<Theme | null>(null)
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
+  // 'kids' usa fondo claro (ver --color-bg en index.css), así que el botón
+  // outline (claro) también le sirve; solo 'dark' necesita el botón oscuro.
+  const gsiTheme = theme === 'dark' ? 'filled_black' : 'outline'
 
   const handleCredential = useCallback(
     async (response: GoogleCredentialResponse) => {
@@ -80,11 +86,16 @@ export function useGoogleSignIn(containerRef: React.RefObject<HTMLDivElement | n
 
   useEffect(() => {
     if (!clientId) return
+    if (renderedThemeRef.current === theme) return
     let cancelled = false
 
     loadGsiScript()
       .then(() => {
-        if (cancelled || renderedRef.current || !containerRef.current || !window.google) return
+        if (cancelled || !containerRef.current || !window.google) return
+
+        // Google no expone una forma de actualizar el theme de un botón ya
+        // renderizado: hay que limpiar el contenedor y volver a pintarlo.
+        containerRef.current.innerHTML = ''
 
         window.google.accounts.id.initialize({
           client_id: clientId,
@@ -92,12 +103,12 @@ export function useGoogleSignIn(containerRef: React.RefObject<HTMLDivElement | n
         })
         window.google.accounts.id.renderButton(containerRef.current, {
           type: 'standard',
-          theme: 'outline',
+          theme: gsiTheme,
           size: 'large',
           width: 320,
           text: 'continue_with',
         })
-        renderedRef.current = true
+        renderedThemeRef.current = theme
         setReady(true)
       })
       .catch(() => {
@@ -107,7 +118,7 @@ export function useGoogleSignIn(containerRef: React.RefObject<HTMLDivElement | n
     return () => {
       cancelled = true
     }
-  }, [clientId, containerRef, handleCredential])
+  }, [clientId, containerRef, handleCredential, theme, gsiTheme])
 
   return { error, ready, clientId }
 }

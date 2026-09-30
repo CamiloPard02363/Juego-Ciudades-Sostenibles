@@ -14,6 +14,12 @@ type Field = 'email' | 'password' | 'firstName' | 'lastName' | 'middleName' | 'b
 type FormState = Record<Field, string>
 type FieldErrors = Partial<Record<Field, string>>
 
+// El formulario se divide en 2 pasos para que cada pantalla quepa sin scroll
+// (6 campos en una sola card obligaban a scrollear la card en pantallas
+// comunes de laptop).
+const STEP_1_FIELDS: Field[] = ['firstName', 'lastName', 'middleName', 'birthDate']
+const STEP_2_FIELDS: Field[] = ['email', 'password']
+
 const VALIDATORS: Record<Field, (value: string) => string | null> = {
   email: validateEmail,
   password: validateNewPassword,
@@ -23,9 +29,10 @@ const VALIDATORS: Record<Field, (value: string) => string | null> = {
   birthDate: validateBirthDate,
 }
 
-/** Estado, validación y envío del formulario de registro. */
+/** Estado, validación y envío del formulario de registro, en 2 pasos. */
 export function useRegisterForm() {
   const { signUp } = useAuth()
+  const [step, setStep] = useState<1 | 2>(1)
   const [values, setValues] = useState<FormState>({
     email: '',
     password: '',
@@ -61,26 +68,48 @@ export function useRegisterForm() {
     }))
   }, [])
 
+  const handleNextStep = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+
+      const nextErrors: FieldErrors = {}
+      for (const field of STEP_1_FIELDS) {
+        const error = VALIDATORS[field](values[field])
+        if (error) nextErrors[field] = error
+      }
+
+      setTouched((current) => ({
+        ...current,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        birthDate: true,
+      }))
+      setErrors((current) => ({ ...current, ...nextErrors }))
+      if (Object.keys(nextErrors).length > 0) return
+
+      setStep(2)
+    },
+    [values],
+  )
+
+  const handleBackStep = useCallback(() => {
+    setStep(1)
+  }, [])
+
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
       if (submitting) return
 
       const nextErrors: FieldErrors = {}
-      for (const field of Object.keys(VALIDATORS) as Field[]) {
+      for (const field of STEP_2_FIELDS) {
         const error = VALIDATORS[field](values[field])
         if (error) nextErrors[field] = error
       }
 
-      setTouched({
-        email: true,
-        password: true,
-        firstName: true,
-        lastName: true,
-        middleName: true,
-        birthDate: true,
-      })
-      setErrors(nextErrors)
+      setTouched((current) => ({ ...current, email: true, password: true }))
+      setErrors((current) => ({ ...current, ...nextErrors }))
       setSubmitError(null)
       if (Object.keys(nextErrors).length > 0) return
 
@@ -109,12 +138,15 @@ export function useRegisterForm() {
   )
 
   return {
+    step,
     values,
     errors,
     submitError,
     submitting,
     handleChange,
     handleBlur,
+    handleNextStep,
+    handleBackStep,
     handleSubmit,
   }
 }
