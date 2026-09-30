@@ -242,7 +242,7 @@ function TournamentSession() {
         <PairingAnnouncementOverlay announcement={pairingAnnouncement} selfUserId={user?.id ?? null} />
       )}
 
-      <div className="mx-auto flex min-h-full max-w-[1560px] flex-col p-5 sm:p-8">
+      <div className={tournament.myMatch?.phase === 'PLAYING' ? 'guess-who-play-shell' : 'mx-auto flex min-h-full max-w-[1560px] flex-col p-5 sm:p-8'}>
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-[19px] tracking-tight text-text-h">{tournament.gameTitle} — Grupo</h2>
@@ -370,8 +370,8 @@ function RunningMatch({
 
   if (match.phase === 'PLAYING') {
     return (
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
-      <div className="min-w-0">
+      <div className="guess-who-play-panels">
+      <div className="guess-who-play-board">
       <MatchBoard
         cards={match.cards}
         self={self}
