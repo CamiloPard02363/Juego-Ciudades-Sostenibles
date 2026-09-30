@@ -1,4 +1,5 @@
 import { Zap } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { LoginForm } from './LoginForm'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../hooks/useAuth'
@@ -70,6 +71,22 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
           </p>
         </footer>
       </div>
+
+      <footer className="absolute bottom-5 left-1/2 -translate-x-1/2 text-center text-[13px] sm:bottom-8">
+        <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+          <Link to="/inicio" className="hover:text-text-h hover:underline">
+            Inicio
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/privacidad" className="hover:text-text-h hover:underline">
+            Política de Privacidad
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/terminos" className="hover:text-text-h hover:underline">
+            Términos de Servicio
+          </Link>
+        </p>
+      </footer>
     </main>
   )
 }
