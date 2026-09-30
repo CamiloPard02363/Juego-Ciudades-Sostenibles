@@ -350,8 +350,8 @@ export function MatchBoard({
           página — pedido explícito para que el juego se sienta más
           intuitivo. En pantallas angostas se apila arriba de las cartas en
           vez de al lado. */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="flex shrink-0 flex-col gap-3 sm:w-[210px]">
+      <div className="guess-who-board-columns flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="guess-who-board-actions flex shrink-0 flex-col gap-3 sm:w-[210px]">
           <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
             <p className="text-[10.5px] font-semibold tracking-wide text-accent uppercase">Tu tarjeta secreta</p>
             {/* Se muestra la imagen real (no solo el nombre) para que sea
@@ -430,7 +430,7 @@ export function MatchBoard({
           )}
         </div>
 
-        <div className={`grid flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>
+        <div className={`guess-who-board-cards grid flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>
           {cards.map((card, index) => {
             const discarded = self.discardedCardIds.includes(card.cardId)
             const locked = !isMyTurn || discarded

@@ -208,7 +208,7 @@ function GuessWhoRoomSession() {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
       {dealing && <DealCountdownOverlay remainingMs={dealRemainingMs} />}
 
-      <div className="mx-auto flex min-h-full max-w-[1560px] flex-col p-5 sm:p-8">
+      <div className="guess-who-play-shell">
         <div className="mb-5 rounded-[24px] border border-border/80 bg-gradient-to-r from-accent/8 via-surface to-bg p-4 shadow-[var(--shadow)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -280,8 +280,8 @@ function GuessWhoRoomSession() {
           </div>
         )}
 
-        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
-        <div className="min-w-0">
+        <div className="guess-who-play-panels">
+        <div className="guess-who-play-board">
         {room.phase === 'PLAYING' && self && opponent && (
           <MatchBoard
             cards={room.cards}
