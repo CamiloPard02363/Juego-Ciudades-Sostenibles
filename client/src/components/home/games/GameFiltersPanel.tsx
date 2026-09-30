@@ -44,17 +44,17 @@ export function GameFiltersPanel({
 
   return (
     <aside
-      className={`flex shrink-0 flex-col rounded-2xl border border-border bg-surface ${
-        open ? 'w-full sm:w-[220px]' : 'w-fit'
+      className={`inline-flex shrink-0 flex-col self-start rounded-2xl border border-border bg-surface ${
+        open ? 'w-full sm:w-[220px]' : ''
       }`}
     >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 p-4 text-left"
+        className={`flex items-center gap-2.5 px-4 py-2.5 text-left ${open ? 'w-full justify-between' : ''}`}
       >
-        <span className="flex items-center gap-1.5 text-[13px] font-semibold text-text-h">
+        <span className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-semibold text-text-h">
           <SlidersHorizontal className="h-4 w-4" strokeWidth={2.5} />
           Filtro
           {hasActiveFilters && (
