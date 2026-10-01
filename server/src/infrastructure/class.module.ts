@@ -20,6 +20,9 @@ import { EnrollStudentUseCase } from '../application/use-cases/enroll-student.us
 import { DeactivateClassUseCase } from '../application/use-cases/deactivate-class.use-case.js';
 import { ReactivateClassUseCase } from '../application/use-cases/reactivate-class.use-case.js';
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
+import { ClassAccessResolver } from '../application/services/class-access-resolver.service.js';
+import { SetClassGameArchivedUseCase } from '../application/use-cases/set-class-game-archived.use-case.js';
+import { GetClassStudentsUseCase } from '../application/use-cases/get-class-students.use-case.js';
 import { RolesGuard } from './http/guards/roles.guard.js';
 import { ClassController } from './http/controllers/class.controller.js';
 
@@ -31,6 +34,7 @@ import { ClassController } from './http/controllers/class.controller.js';
     { provide: GAME_REPOSITORY, useClass: MongoGameRepository },
     RolesGuard,
     RequesterAdminResolver,
+    ClassAccessResolver,
     TeacherPersonalOrganizationService,
     CreateClassUseCase,
     ListMyClassesUseCase,
@@ -45,6 +49,8 @@ import { ClassController } from './http/controllers/class.controller.js';
     EnrollStudentUseCase,
     DeactivateClassUseCase,
     ReactivateClassUseCase,
+    SetClassGameArchivedUseCase,
+    GetClassStudentsUseCase,
   ],
 })
 export class ClassModule {}

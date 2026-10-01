@@ -21,6 +21,7 @@ import { DeactivateOrganizationUseCase } from '../../../application/use-cases/de
 import { ReactivateOrganizationUseCase } from '../../../application/use-cases/reactivate-organization.use-case.js';
 import { JoinOrganizationUseCase } from '../../../application/use-cases/join-organization.use-case.js';
 import { ListOrganizationStudentsUseCase } from '../../../application/use-cases/list-organization-students.use-case.js';
+import { ListOrganizationClassesUseCase } from '../../../application/use-cases/list-organization-classes.use-case.js';
 import { ChangeOrganizationMemberRoleUseCase } from '../../../application/use-cases/change-organization-member-role.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { RolesGuard } from '../guards/roles.guard.js';
@@ -47,6 +48,7 @@ export class OrganizationController {
     private readonly joinOrganizationUseCase: JoinOrganizationUseCase,
     private readonly listOrganizationStudentsUseCase: ListOrganizationStudentsUseCase,
     private readonly changeOrganizationMemberRoleUseCase: ChangeOrganizationMemberRoleUseCase,
+    private readonly listOrganizationClassesUseCase: ListOrganizationClassesUseCase,
   ) {}
 
   @Post()
@@ -151,6 +153,18 @@ export class OrganizationController {
     @Param('organizationId') organizationId: string,
   ) {
     return this.listOrganizationStudentsUseCase.execute({ organizationId, requestingUserId });
+  }
+
+  /**
+   * Lista las Class de la organización, sin importar qué profesor las dicta
+   * (issue #226, drill-down de institución, sección "Clases").
+   */
+  @Get(':organizationId/classes')
+  listClasses(
+    @CurrentUserId() requestingUserId: string,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.listOrganizationClassesUseCase.execute({ organizationId, requestingUserId });
   }
 
   /**

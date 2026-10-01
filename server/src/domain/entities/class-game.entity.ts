@@ -3,6 +3,8 @@ export interface ClassGameProps {
   classId: string;
   gameId: string;
   addedAt: Date;
+  /** Archivado dentro de esta clase (issue #226): ver nota en el schema de Prisma. */
+  isArchived: boolean;
 }
 
 export interface CreateClassGameProps {
@@ -19,11 +21,7 @@ export interface CreateClassGameProps {
  * repositorio de Game, no con una FK de base de datos.
  */
 export class ClassGame {
-  private readonly props: ClassGameProps;
-
-  private constructor(props: ClassGameProps) {
-    this.props = props;
-  }
+  private constructor(private props: ClassGameProps) {}
 
   static create(props: CreateClassGameProps): ClassGame {
     return new ClassGame({
@@ -31,6 +29,7 @@ export class ClassGame {
       classId: props.classId,
       gameId: props.gameId,
       addedAt: new Date(),
+      isArchived: false,
     });
   }
 
@@ -52,6 +51,18 @@ export class ClassGame {
 
   get addedAt(): Date {
     return this.props.addedAt;
+  }
+
+  get isArchived(): boolean {
+    return this.props.isArchived;
+  }
+
+  archive(): void {
+    this.props.isArchived = true;
+  }
+
+  unarchive(): void {
+    this.props.isArchived = false;
   }
 
   toPersistence(): ClassGameProps {

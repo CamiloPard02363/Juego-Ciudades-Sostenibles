@@ -1,11 +1,13 @@
-import { ForbiddenException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { ClassRepository } from '../../domain/ports/class.repository.port.js';
 import type { OrganizationRepository } from '../../domain/ports/organization.repository.port.js';
 import type { OrganizationMembership } from '../../domain/entities/organization-membership.entity.js';
 import { ClassEntity } from '../../domain/entities/class.entity.js';
 import { OrganizationRole } from '../../domain/value-objects/organization-role.vo.js';
+import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
 import { ClassNotFoundError } from '../errors/application.errors.js';
+import { ClassAccessResolver } from '../services/class-access-resolver.service.js';
+import { RequesterAdminResolver } from '../services/requester-admin-resolver.service.js';
 import { RemoveClassEnrollmentUseCase } from './remove-class-enrollment.use-case.js';
 
 function createClass(overrides: { organizationId?: string | null; teacherUserId?: string } = {}) {
@@ -35,6 +37,7 @@ function membership(orgRoleName: 'STUDENT' | 'TEACHER' | 'ADMIN'): OrganizationM
 function setup(options: {
   classEntity: ClassEntity | null;
   requestingMembership?: OrganizationMembership | null;
+  isPlatformAdmin?: boolean;
 }) {
   const classRepository: ClassRepository = {
     save: vi.fn(),
@@ -42,9 +45,13 @@ function setup(options: {
     findByInviteCode: vi.fn(),
     findAllByTeacherUserId: vi.fn(),
     findAll: vi.fn(),
+    findAllByOrganizationId: vi.fn(),
     addGame: vi.fn(),
     removeGame: vi.fn(),
     findGameIdsByClassId: vi.fn(),
+    findClassGamesByClassId: vi.fn(),
+    findClassGame: vi.fn(),
+    setClassGameArchived: vi.fn(),
     findClassIdsContainingGame: vi.fn(),
     enroll: vi.fn(),
     unenroll: vi.fn(),
@@ -70,7 +77,13 @@ function setup(options: {
     removeMembership: vi.fn(),
   };
 
-  const useCase = new RemoveClassEnrollmentUseCase(classRepository, organizationRepository);
+  const requesterAdminResolver = {
+    resolve: vi.fn(async () => options.isPlatformAdmin ?? false),
+  } as unknown as RequesterAdminResolver;
+
+  const classAccessResolver = new ClassAccessResolver(organizationRepository, requesterAdminResolver);
+
+  const useCase = new RemoveClassEnrollmentUseCase(classRepository, classAccessResolver);
 
   return { useCase, classRepository, organizationRepository };
 }
@@ -109,6 +122,23 @@ describe('RemoveClassEnrollmentUseCase', () => {
     expect(classRepository.unenroll).toHaveBeenCalledWith('class-1', 's1');
   });
 
+  it('el admin global de la plataforma puede expulsar aunque no tenga membresía en la organización (issue #226)', async () => {
+    const classEntity = createClass({ organizationId: 'org-1' });
+    const { useCase, classRepository } = setup({
+      classEntity,
+      requestingMembership: null,
+      isPlatformAdmin: true,
+    });
+
+    await useCase.execute({
+      classId: 'class-1',
+      studentUserId: 's1',
+      requestingUserId: 'platform-admin-1',
+    });
+
+    expect(classRepository.unenroll).toHaveBeenCalledWith('class-1', 's1');
+  });
+
   it('un OrganizationRole.TEACHER (no ADMIN) de la organización NO puede expulsar', async () => {
     const classEntity = createClass({ organizationId: 'org-1' });
     const { useCase, classRepository } = setup({
@@ -118,7 +148,7 @@ describe('RemoveClassEnrollmentUseCase', () => {
 
     await expect(
       useCase.execute({ classId: 'class-1', studentUserId: 's1', requestingUserId: 'requester-1' }),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenActionError);
     expect(classRepository.unenroll).not.toHaveBeenCalled();
   });
 
@@ -128,7 +158,7 @@ describe('RemoveClassEnrollmentUseCase', () => {
 
     await expect(
       useCase.execute({ classId: 'class-1', studentUserId: 's1', requestingUserId: 'stranger' }),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenActionError);
     expect(classRepository.unenroll).not.toHaveBeenCalled();
   });
 
@@ -138,7 +168,7 @@ describe('RemoveClassEnrollmentUseCase', () => {
 
     await expect(
       useCase.execute({ classId: 'class-1', studentUserId: 's1', requestingUserId: 'someone-else' }),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenActionError);
     expect(organizationRepository.findMembership).not.toHaveBeenCalled();
     expect(classRepository.unenroll).not.toHaveBeenCalled();
   });

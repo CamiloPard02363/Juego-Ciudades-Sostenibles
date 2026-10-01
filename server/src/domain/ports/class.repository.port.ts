@@ -18,9 +18,20 @@ export interface ClassRepository {
   ): Promise<ClassEntity[]>;
   /** Query sin filtro de pertenencia — solo para ADMIN global de plataforma (issue #101). */
   findAll(): Promise<ClassEntity[]>;
+  /**
+   * Filtra por `organizationId` a nivel de query SQL (issue #226, fix de
+   * performance): reemplaza el patrón anterior de `findAll()` + filtro en
+   * memoria, que recorría todas las Class de la plataforma en cada carga del
+   * drill-down de institución.
+   */
+  findAllByOrganizationId(organizationId: string): Promise<ClassEntity[]>;
   addGame(classGame: ClassGame): Promise<void>;
   removeGame(classId: string, gameId: string): Promise<void>;
   findGameIdsByClassId(classId: string): Promise<string[]>;
+  /** Incluye el flag `isArchived` por juego (issue #226, Juegos de la clase). */
+  findClassGamesByClassId(classId: string): Promise<ClassGame[]>;
+  findClassGame(classId: string, gameId: string): Promise<ClassGame | null>;
+  setClassGameArchived(classId: string, gameId: string, isArchived: boolean): Promise<void>;
   /**
    * Ids de las Class que contienen este juego. Usado por la regla de
    * autorización de detalle de juego en DRAFT (issue #101, punto 2): un

@@ -120,6 +120,14 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
   const [previewSecondsLeft, setPreviewSecondsLeft] = useState(previewSeconds)
   const lockRef = useRef(false)
 
+  // Tracking para métricas (issue #226): aciertos/errores de toda la
+  // partida (no solo de la zona activa, que se resetea en `advanceZone`) y
+  // tiempo total jugado desde que se montó el hook. `startedAtRef` no usa
+  // estado porque no necesita re-render — solo se lee al terminar.
+  const [correctCount, setCorrectCount] = useState(0)
+  const [incorrectCount, setIncorrectCount] = useState(0)
+  const startedAtRef = useRef(Date.now())
+
   const currentZone = zones[zoneIndex]
   const totalPairsInZone = currentZone ? currentZone.cards.length / 2 : 0
   const matchedInZone = matchedPairIds.length
@@ -178,6 +186,7 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
             setMatchedPairIds((current) => [...current, first.pairId])
             setCombo(nextCombo)
             setTotalScore((score) => score + points)
+            setCorrectCount((count) => count + 1)
             setFlippedIds([])
             lockRef.current = false
           } else {
@@ -185,6 +194,7 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
             setShakingIds([firstId, secondId])
             setCombo(0)
             setTotalScore((score) => Math.max(0, score - 10))
+            setIncorrectCount((count) => count + 1)
             setTimeout(() => {
               setShakingIds([])
               setFlippedIds([])
@@ -244,6 +254,10 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
     previewSecondsLeft,
     totalPairsInZone,
     matchedInZone,
+    correctCount,
+    incorrectCount,
+    /** Milisegundos transcurridos desde que se montó el hook (issue #226, métricas). */
+    getTimePlayedMs: () => Date.now() - startedAtRef.current,
     flipCard,
     advanceZone,
     retryZone,

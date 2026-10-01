@@ -19,6 +19,7 @@ import { listMyOrganizations, type OrganizationWithMyRole } from '../../../servi
 import { listSubjects, type SubjectWithGameCount } from '../../../services/subject.service'
 import { iconForCategory } from '../gamesCatalogVisuals'
 import { Modal } from '../games/Modal'
+import { ClassHomeMetrics } from '../metrics/ClassHomeMetrics'
 
 export function MyClassesPage() {
   const { token, user } = useAuth()
@@ -463,6 +464,11 @@ function ClassDetail({
       </div>
 
       {error && <p className="rounded-lg border border-danger/35 bg-danger/10 px-3 py-2.5 text-sm text-danger" role="alert">{error}</p>}
+
+      <div className="rounded-2xl border border-border p-5">
+        <h3 className="mb-3 text-[15px] font-semibold text-text-h">Dashboard de métricas</h3>
+        <ClassHomeMetrics classId={classId} />
+      </div>
 
       <div className="rounded-2xl border border-border p-5">
         <div className="mb-3 flex items-center gap-2">

@@ -7,8 +7,19 @@ import { UploadModule } from './infrastructure/upload.module.js';
 import { RoomsModule } from './infrastructure/rooms.module.js';
 import { AnalyticsModule } from './infrastructure/analytics.module.js';
 import { ClassModule } from './infrastructure/class.module.js';
+import { MetricsModule } from './infrastructure/metrics.module.js';
 
 @Module({
-  imports: [UserModule, OrganizationModule, GameModule, SubjectModule, ClassModule, UploadModule, RoomsModule, AnalyticsModule],
+  imports: [
+    UserModule,
+    OrganizationModule,
+    GameModule,
+    SubjectModule,
+    ClassModule,
+    UploadModule,
+    RoomsModule,
+    AnalyticsModule,
+    MetricsModule,
+  ],
 })
 export class AppModule {}
