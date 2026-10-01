@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { VALID_GAME_TYPES } from '../../../domain/value-objects/game-type.vo.js';
 
@@ -8,13 +8,13 @@ export class ListGamesQueryDto {
   status?: 'DRAFT' | 'PUBLISHED' | 'FLAGGED' | 'REMOVED';
 
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   onlyMine?: boolean;
 
   /** Sección "Comunidad": juegos publicados por otros usuarios, con el nombre del creador. */
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   community?: boolean;
 
