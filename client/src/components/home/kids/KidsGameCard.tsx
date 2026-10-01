@@ -24,7 +24,7 @@ export function KidsGameCard({ game, color, onClick }: KidsGameCardProps) {
       style={{ borderColor: color, background: 'var(--surface)' }}
     >
       <div
-        className="flex h-[140px] items-center justify-center sm:h-[160px]"
+        className="flex h-[140px] shrink-0 items-center justify-center overflow-hidden sm:h-[160px]"
         style={{ background: `linear-gradient(135deg, ${color}66, ${color}22)` }}
       >
         {game.theme.coverImageUrl ? (
