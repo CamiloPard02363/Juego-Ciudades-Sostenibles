@@ -1,11 +1,13 @@
+import { GraduationCap, LayoutGrid, Puzzle, Users, Users2 } from 'lucide-react'
+
 export type InstitutionSection = 'members' | 'students' | 'teachers' | 'classes' | 'games'
 
-const SECTIONS: { id: InstitutionSection; label: string }[] = [
-  { id: 'members', label: 'Miembros' },
-  { id: 'students', label: 'Estudiantes' },
-  { id: 'teachers', label: 'Profesores' },
-  { id: 'classes', label: 'Clases' },
-  { id: 'games', label: 'Juegos' },
+const SECTIONS: { id: InstitutionSection; label: string; icon: typeof Users2 }[] = [
+  { id: 'members', label: 'Miembros', icon: Users2 },
+  { id: 'students', label: 'Estudiantes', icon: GraduationCap },
+  { id: 'teachers', label: 'Profesores', icon: Users },
+  { id: 'classes', label: 'Clases', icon: LayoutGrid },
+  { id: 'games', label: 'Juegos', icon: Puzzle },
 ]
 
 /**
@@ -17,37 +19,41 @@ const SECTIONS: { id: InstitutionSection; label: string }[] = [
  *
  * Única responsabilidad: navegación. No conoce de dónde vienen los datos de
  * cada sección — cada una es su propio componente/hook.
+ *
+ * Estilo en pills con ícono (issue #226, feedback de Manuel sobre jerarquía
+ * visual): reutiliza el mismo tratamiento de "tab activa = gradiente de
+ * marca" que ya usa el wizard de creación de juego (`GameFormShell`/
+ * `CreateGameLayout`), en vez de inventar un sistema nuevo.
  */
 export function InstitutionTopNav({
-  organizationName,
   activeSection,
   onSectionChange,
 }: {
-  organizationName: string
   activeSection: InstitutionSection
   onSectionChange: (section: InstitutionSection) => void
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <p className="text-[12.5px] font-medium uppercase tracking-wide text-text/60">
-        Estás en: <span className="text-text-h">{organizationName}</span>
-      </p>
-      <nav className="flex flex-wrap gap-2 border-b border-border">
-        {SECTIONS.map((section) => (
+    <nav className="flex flex-wrap gap-2 rounded-2xl border border-border bg-code-bg/40 p-2">
+      {SECTIONS.map((section) => {
+        const Icon = section.icon
+        const isActive = activeSection === section.id
+        return (
           <button
             key={section.id}
             type="button"
             onClick={() => onSectionChange(section.id)}
-            className={`px-3 py-2 text-[14px] ${
-              activeSection === section.id
-                ? 'border-b-2 border-text-h font-semibold text-text-h'
-                : 'text-text/70 hover:text-text'
+            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13.5px] font-medium transition-all ${
+              isActive
+                ? 'text-white shadow-[0_8px_20px_-8px_var(--accent)]'
+                : 'text-text/70 hover:bg-bg hover:text-text-h'
             }`}
+            style={isActive ? { background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' } : undefined}
           >
+            <Icon className="h-[15px] w-[15px]" strokeWidth={2} />
             {section.label}
           </button>
-        ))}
-      </nav>
-    </div>
+        )
+      })}
+    </nav>
   )
 }

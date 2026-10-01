@@ -23,6 +23,7 @@ function setup(options: { hasMembership: boolean; personalOrgId?: string }) {
     findByInviteCode: vi.fn(async () => null),
     findAllByTeacherUserId: vi.fn(),
     findAll: vi.fn(),
+    findAllByOrganizationId: vi.fn(),
     addGame: vi.fn(),
     removeGame: vi.fn(),
     findGameIdsByClassId: vi.fn(),

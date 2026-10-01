@@ -48,6 +48,14 @@ export class PrismaClassRepository implements ClassRepository {
     return records.map(ClassMapper.toDomain);
   }
 
+  async findAllByOrganizationId(organizationId: string): Promise<ClassEntity[]> {
+    const records = await this.prisma.classModel.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return records.map(ClassMapper.toDomain);
+  }
+
   async addGame(classGame: ClassGame): Promise<void> {
     const props = classGame.toPersistence();
 

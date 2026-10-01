@@ -18,6 +18,13 @@ export interface ClassRepository {
   ): Promise<ClassEntity[]>;
   /** Query sin filtro de pertenencia — solo para ADMIN global de plataforma (issue #101). */
   findAll(): Promise<ClassEntity[]>;
+  /**
+   * Filtra por `organizationId` a nivel de query SQL (issue #226, fix de
+   * performance): reemplaza el patrón anterior de `findAll()` + filtro en
+   * memoria, que recorría todas las Class de la plataforma en cada carga del
+   * drill-down de institución.
+   */
+  findAllByOrganizationId(organizationId: string): Promise<ClassEntity[]>;
   addGame(classGame: ClassGame): Promise<void>;
   removeGame(classId: string, gameId: string): Promise<void>;
   findGameIdsByClassId(classId: string): Promise<string[]>;

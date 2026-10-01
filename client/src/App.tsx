@@ -14,6 +14,7 @@ import { AdminAiProviderLogsPage } from './components/home/sections/AdminAiProvi
 import { OrganizationDashboardPage } from './components/home/sections/OrganizationDashboardPage'
 import { MyClassesPage } from './components/home/sections/MyClassesPage'
 import { MyMetricsPage } from './components/home/metrics/MyMetricsPage'
+import { InstitutionView } from './components/home/metrics/InstitutionView'
 import { CreateGameLayout } from './components/home/games/create/CreateGameLayout'
 import { GameTypePickerPage } from './components/home/games/create/GameTypePickerPage'
 import { GameModePickerPage } from './components/home/games/create/GameModePickerPage'
@@ -149,6 +150,7 @@ function App() {
         <Route path="usuarios" element={<AdminUsersPage />} />
         <Route path="ia" element={<AdminAiProviderLogsPage />} />
         <Route path="organizacion" element={<OrganizationDashboardPage />} />
+        <Route path="organizaciones/:id" element={<InstitutionView />} />
         <Route path="mis-metricas" element={<MyMetricsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

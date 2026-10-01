@@ -20,12 +20,12 @@ export interface ListOrganizationClassesInput {
  * institución, sección "Clases"): lista todas las Class cuya `organizationId`
  * coincide, sin importar qué profesor las dicta.
  *
- * Reutiliza `ClassRepository.findAll()` (ya usado por `ListAllClassesUseCase`
- * para el ADMIN global) y filtra en memoria por `organizationId` — el volumen
- * esperado de Class por plataforma no justifica todavía un método de
- * repositorio dedicado con `WHERE organizationId = ...`; si la plataforma
- * crece lo suficiente para que esto sea un problema de performance, ese
- * filtro debe bajar a la query SQL.
+ * Usa `ClassRepository.findAllByOrganizationId()`, que filtra por
+ * `organizationId` a nivel de query SQL (índice `@@index([organizationId])`
+ * en `ClassModel`). Antes filtraba en memoria sobre `findAll()` —recorriendo
+ * TODAS las Class de la plataforma en cada carga—, lo cual era el cuello de
+ * botella principal de performance del drill-down de institución (issue
+ * #226, feedback de Manuel: >1s por carga).
  *
  * Autorización — mismo criterio OR-entre-ejes que
  * `ListOrganizationStudentsUseCase`: ADMIN global, ADMIN de esa organización,
@@ -50,10 +50,8 @@ export class ListOrganizationClassesUseCase
 
     await this.assertAuthorized(input.organizationId, input.requestingUserId);
 
-    const allClasses = await this.classRepository.findAll();
-    return allClasses
-      .filter((classEntity) => classEntity.organizationId === input.organizationId)
-      .map((classEntity) => toClassDto(classEntity, organization.name));
+    const classes = await this.classRepository.findAllByOrganizationId(input.organizationId);
+    return classes.map((classEntity) => toClassDto(classEntity, organization.name));
   }
 
   private async assertAuthorized(organizationId: string, requestingUserId: string): Promise<void> {
