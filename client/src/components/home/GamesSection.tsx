@@ -26,6 +26,8 @@ import { Modal } from './games/Modal'
 import { JoinByCodeModal } from './games/JoinByCodeModal'
 import { resolveRoomCode, LIVE_ROOM_ROUTES, type ResolvedRoom } from './games/resolveRoomCode'
 import { GuessWhoRoom } from './games/GuessWhoRoom'
+import { GameFiltersPanel, type GameTypeFilterOption } from './games/GameFiltersPanel'
+import { modeFilterForGameType, type GameModeFilter } from './games/gameModeVisuals'
 
 export type GamesSectionMode = 'all' | 'categories' | 'community' | 'my-games' | 'game-type'
 
@@ -113,6 +115,15 @@ export function GamesSection({
   // tarjeta, que ese juego pertenece a un tipo que el resto de usuarios ya no
   // puede ver. Se resuelve una sola vez por montaje, no por juego.
   const [archivedGameTypes, setArchivedGameTypes] = useState<Set<string>>(new Set())
+  // Nombre visible por gameType (ej. "GUESS_WHO" -> "¿Quién Es?"), para las
+  // casillas del filtro por tipo (issue #216) — se pide para cualquier rol
+  // (el backend ya excluye ARCHIVED para no-ADMIN, así que no hace falta
+  // repetir esa lógica acá).
+  const [gameTypeDisplayNames, setGameTypeDisplayNames] = useState<Map<string, string>>(new Map())
+  // Filtro clásico por modo/tipo (issue #216): vacío = sin filtrar, se aplica
+  // en cliente sobre `games` ya cargados, sin disparar peticiones nuevas.
+  const [activeModes, setActiveModes] = useState<Set<GameModeFilter>>(new Set())
+  const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set())
 
   const [categories, setCategories] = useState<CategoryWithGameCount[]>([])
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
@@ -258,6 +269,67 @@ export function GamesSection({
       })
       .catch(() => {})
   }, [token, isAdmin])
+
+  // Nombres visibles por tipo, para las casillas del filtro (issue #216) —
+  // a diferencia del efecto de arriba, este corre para cualquier rol.
+  useEffect(() => {
+    if (!token) return
+    listAllGameTypeSettings(token)
+      .then((settings) => {
+        setGameTypeDisplayNames(new Map(settings.map((s) => [s.gameType, s.displayName])))
+      })
+      .catch(() => {})
+  }, [token])
+
+  // Se reinicia el filtro al cambiar de sección/modo, para no dejar
+  // aplicado sin que se vea (el panel no se muestra en 'categories').
+  useEffect(() => {
+    setActiveModes(new Set())
+    setActiveTypes(new Set())
+  }, [mode, gameTypeFilter])
+
+  function toggleModeFilter(value: GameModeFilter) {
+    setActiveModes((prev) => {
+      const next = new Set(prev)
+      if (next.has(value)) next.delete(value)
+      else next.add(value)
+      return next
+    })
+  }
+
+  function toggleTypeFilter(value: string) {
+    setActiveTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(value)) next.delete(value)
+      else next.add(value)
+      return next
+    })
+  }
+
+  /**
+   * Juegos visibles tras aplicar el filtro clásico del panel (issue #216):
+   * AND entre "Modo" y "Tipo de juego", OR dentro de cada sección (varias
+   * casillas marcadas de la misma sección se combinan, no se excluyen).
+   * Ninguna casilla marcada en una sección = esa sección no filtra.
+   */
+  const filteredGames = games.filter((game) => {
+    if (activeModes.size > 0 && !activeModes.has(modeFilterForGameType(game.gameType))) return false
+    if (activeTypes.size > 0 && !activeTypes.has(game.gameType)) return false
+    return true
+  })
+
+  const typeFilterOptions: GameTypeFilterOption[] = Array.from(
+    games.reduce((acc, game) => acc.set(game.gameType, (acc.get(game.gameType) ?? 0) + 1), new Map<string, number>()),
+  )
+    .map(([gameType, count]) => ({
+      gameType,
+      count,
+      label: gameTypeDisplayNames.get(gameType) ?? gameType,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  const soloFilterCount = games.filter((game) => modeFilterForGameType(game.gameType) === 'SOLO').length
+  const multiFilterCount = games.length - soloFilterCount
 
   /**
    * Color de un juego por psicología del color según su materia (ver
@@ -1030,28 +1102,70 @@ export function GamesSection({
               )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {games.map((game, index) => (
-              <div
-                key={game.id}
-                className="animate-[fade-in-up_0.35s_ease-out_backwards]"
-                style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-              >
-                <GameCard
-                  game={game}
-                  edition={mode !== 'all' ? undefined
-                    : game.gameType === 'GUESS_WHO' && game.slug === 'quien-es-de-banderas' ? 'Banderas'
-                    : game.gameType === 'MEMORY_MATCH' && game.slug === 'herbario-urbano' ? 'Sostenibilidad'
-                    : game.gameType === 'DOMINO' && game.slug === 'nexus-play-ecosistemas-sostenibles' ? 'Sostenibilidad'
-                    : undefined}
-                  color={colorForGame(game)}
-                  onClick={() => openGame(game)}
-                  isTypeArchived={archivedGameTypes.has(game.gameType)}
-                  justCreated={justCreatedGameId === game.id}
-                  onDismissJustCreated={dismissJustCreatedHighlight}
-                />
+          <div className="flex flex-col gap-4">
+            {/* El botón de filtro va literalmente arriba de la grilla de
+                juegos (issue #216/corrección), no a un lado como un panel
+                lateral — al abrirse, su recuadro flota encima del contenido
+                sin empujarlo (ver GameFiltersPanel). */}
+            <div className="flex items-center justify-between gap-4">
+              <GameFiltersPanel
+                soloCount={soloFilterCount}
+                multiCount={multiFilterCount}
+                activeModes={activeModes}
+                onToggleMode={toggleModeFilter}
+                typeOptions={typeFilterOptions}
+                activeTypes={activeTypes}
+                onToggleType={toggleTypeFilter}
+                onClear={() => {
+                  setActiveModes(new Set())
+                  setActiveTypes(new Set())
+                }}
+              />
+              <p className="text-[12.5px] text-text/70">
+                {filteredGames.length} {filteredGames.length === 1 ? 'juego' : 'juegos'}
+                {filteredGames.length !== games.length ? ` de ${games.length}` : ''}
+              </p>
+            </div>
+
+            {filteredGames.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+                <p className="text-[15px] font-medium text-text-h">Ningún juego coincide con estos filtros.</p>
+                <button
+                  type="button"
+                  className="mt-3 text-[13px] font-medium text-accent hover:underline"
+                  onClick={() => {
+                    setActiveModes(new Set())
+                    setActiveTypes(new Set())
+                  }}
+                >
+                  Limpiar filtros
+                </button>
               </div>
-            ))}
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredGames.map((game, index) => (
+                  <div
+                    key={game.id}
+                    className="animate-[fade-in-up_0.35s_ease-out_backwards]"
+                    style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+                  >
+                    <GameCard
+                      game={game}
+                      edition={mode !== 'all' ? undefined
+                        : game.gameType === 'GUESS_WHO' && game.slug === 'quien-es-de-banderas' ? 'Banderas'
+                        : game.gameType === 'MEMORY_MATCH' && game.slug === 'herbario-urbano' ? 'Sostenibilidad'
+                        : game.gameType === 'DOMINO' && game.slug === 'nexus-play-ecosistemas-sostenibles' ? 'Sostenibilidad'
+                        : undefined}
+                      color={colorForGame(game)}
+                      onClick={() => openGame(game)}
+                      isTypeArchived={archivedGameTypes.has(game.gameType)}
+                      justCreated={justCreatedGameId === game.id}
+                      onDismissJustCreated={dismissJustCreatedHighlight}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

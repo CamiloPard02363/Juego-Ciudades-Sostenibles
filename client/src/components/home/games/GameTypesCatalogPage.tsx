@@ -22,6 +22,7 @@ import { ApiError } from '../../../utils/http'
 import { Modal } from './Modal'
 import { GameTypeSettingEditModal } from './GameTypeSettingEditModal'
 import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
+import { modeColorForGameType } from './gameModeVisuals'
 
 /** Mismo ícono por mecánica que usa el picker de creación (GameTypePicker.tsx). */
 const ICON_BY_GAME_TYPE: Record<string, LucideIcon> = {
@@ -261,7 +262,10 @@ export function GameTypesCatalogPage() {
 
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[15px] font-semibold text-text-h">{setting.displayName}</span>
-                      <span className="flex items-center gap-1 rounded-full bg-code-bg px-2 py-0.5 text-[10.5px] font-medium text-text">
+                      <span
+                        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold text-white"
+                        style={{ background: modeColorForGameType(setting.gameType) }}
+                      >
                         {isMultiplayer ? <Users className="h-3 w-3" strokeWidth={2.5} /> : <User className="h-3 w-3" strokeWidth={2.5} />}
                         {isMultiplayer ? 'Multijugador' : '1 jugador'}
                       </span>

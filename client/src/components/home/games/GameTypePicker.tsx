@@ -1,5 +1,6 @@
 import { Ghost, Layers, Puzzle, UserRoundSearch, Dices, Flame, User, Users } from 'lucide-react'
 import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
+import { modeColorForGameType } from './gameModeVisuals'
 
 export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS' | 'DUAL_QUEST'
 
@@ -105,7 +106,10 @@ export function GameTypePicker({ onClose, onSelect, archivedGameTypes }: GameTyp
               <span>
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="block text-[14.5px] font-semibold text-text-h">{title}</span>
-                  <span className="flex items-center gap-1 rounded-full bg-code-bg px-2 py-0.5 text-[10.5px] font-medium text-text">
+                  <span
+                    className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold text-white"
+                    style={{ background: modeColorForGameType(GAME_TYPE_BY_CHOICE[choice]) }}
+                  >
                     {isMultiplayer ? <Users className="h-3 w-3" strokeWidth={2.5} /> : <User className="h-3 w-3" strokeWidth={2.5} />}
                     {isMultiplayer ? 'Multijugador' : '1 jugador'}
                   </span>

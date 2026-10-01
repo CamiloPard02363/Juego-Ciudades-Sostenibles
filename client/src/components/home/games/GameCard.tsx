@@ -1,6 +1,7 @@
 import { Archive, Gamepad2, Sparkles, User, Users } from 'lucide-react'
 import type { GameSummary } from '../../../services/game.service'
 import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
+import { modeColorForGameType } from './gameModeVisuals'
 
 type GameCardProps = {
   game: GameSummary
@@ -47,6 +48,7 @@ export function GameCard({
   }
 
   const isMultiplayer = LIVE_ROOM_GAME_TYPES.includes(game.gameType)
+  const modeColor = modeColorForGameType(game.gameType)
   return (
     <button
       type="button"
@@ -70,9 +72,14 @@ export function GameCard({
           </span>
         </div>
       )}
-      {/* Izquierda: 1 jugador vs multijugador (ver LIVE_ROOM_GAME_TYPES) — a la derecha, si aplica, va "Tipo archivado". Bajan un poco si el banner de "recién creado" ya ocupa la franja superior. */}
+      {/* Izquierda: 1 jugador vs multijugador (ver LIVE_ROOM_GAME_TYPES), con
+          color fijo por modo (issue #216, ver gameModeVisuals.ts) para que se
+          distinga de un vistazo sin tener que leer el texto — a la derecha,
+          si aplica, va "Tipo archivado". Bajan un poco si el banner de
+          "recién creado" ya ocupa la franja superior. */}
       <span
-        className={`absolute left-2 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)] ${justCreated ? 'top-9' : 'top-2'}`}
+        className={`absolute left-2 z-10 flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-semibold text-white shadow-[var(--shadow)] ${justCreated ? 'top-9' : 'top-2'}`}
+        style={{ background: modeColor }}
         title={isMultiplayer ? 'Se juega con más personas, en una sala.' : 'Se juega en solitario.'}
       >
         {isMultiplayer ? <Users className="h-3 w-3" strokeWidth={2.5} /> : <User className="h-3 w-3" strokeWidth={2.5} />}
