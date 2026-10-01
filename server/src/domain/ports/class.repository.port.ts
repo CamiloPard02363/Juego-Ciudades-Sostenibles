@@ -21,6 +21,10 @@ export interface ClassRepository {
   addGame(classGame: ClassGame): Promise<void>;
   removeGame(classId: string, gameId: string): Promise<void>;
   findGameIdsByClassId(classId: string): Promise<string[]>;
+  /** Incluye el flag `isArchived` por juego (issue #226, Juegos de la clase). */
+  findClassGamesByClassId(classId: string): Promise<ClassGame[]>;
+  findClassGame(classId: string, gameId: string): Promise<ClassGame | null>;
+  setClassGameArchived(classId: string, gameId: string, isArchived: boolean): Promise<void>;
   /**
    * Ids de las Class que contienen este juego. Usado por la regla de
    * autorización de detalle de juego en DRAFT (issue #101, punto 2): un

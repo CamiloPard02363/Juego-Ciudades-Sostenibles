@@ -24,6 +24,7 @@ import { RemoveClassEnrollmentUseCase } from '../../../application/use-cases/rem
 import { EnrollStudentUseCase } from '../../../application/use-cases/enroll-student.use-case.js';
 import { DeactivateClassUseCase } from '../../../application/use-cases/deactivate-class.use-case.js';
 import { ReactivateClassUseCase } from '../../../application/use-cases/reactivate-class.use-case.js';
+import { SetClassGameArchivedUseCase } from '../../../application/use-cases/set-class-game-archived.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { RolesGuard } from '../guards/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
@@ -51,6 +52,7 @@ export class ClassController {
     private readonly enrollStudentUseCase: EnrollStudentUseCase,
     private readonly deactivateClassUseCase: DeactivateClassUseCase,
     private readonly reactivateClassUseCase: ReactivateClassUseCase,
+    private readonly setClassGameArchivedUseCase: SetClassGameArchivedUseCase,
   ) {}
 
   @Get('mine')
@@ -124,6 +126,38 @@ export class ClassController {
     @Param('gameId') gameId: string,
   ) {
     return this.removeGameFromClassUseCase.execute({ classId, gameId, requestingUserId });
+  }
+
+  /** Archiva un juego dentro de la clase (issue #226): lo oculta sin desvincularlo. */
+  @Patch(':id/games/:gameId/archive')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  archiveGame(
+    @CurrentUserId() requestingUserId: string,
+    @Param('id') classId: string,
+    @Param('gameId') gameId: string,
+  ) {
+    return this.setClassGameArchivedUseCase.execute({
+      classId,
+      gameId,
+      isArchived: true,
+      requestingUserId,
+    });
+  }
+
+  /** Restaura un juego archivado de la clase a la vista activa (issue #226). */
+  @Patch(':id/games/:gameId/unarchive')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unarchiveGame(
+    @CurrentUserId() requestingUserId: string,
+    @Param('id') classId: string,
+    @Param('gameId') gameId: string,
+  ) {
+    return this.setClassGameArchivedUseCase.execute({
+      classId,
+      gameId,
+      isArchived: false,
+      requestingUserId,
+    });
   }
 
   /** El profesor dueño de la clase expulsa a un estudiante matriculado. */
