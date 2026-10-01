@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Archive, Settings, Trash2 } from 'lucide-react'
+import { Archive, Image, Settings, Trash2 } from 'lucide-react'
 import { donateGame, updateGame, type GameDetail } from '../../../services/game.service'
 import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { useAuth } from '../../../hooks/useAuth'
 import { ApiError } from '../../../utils/http'
+import { ImageUploadField } from './ImageUploadField'
 import { Modal } from './Modal'
 import { resolveRoomCode, LIVE_ROOM_GAME_TYPES, type ResolvedRoom } from './resolveRoomCode'
 
@@ -41,6 +42,10 @@ export function GameDetailModal({
   isTypeArchived = false,
 }: GameDetailModalProps) {
   const { token, user } = useAuth()
+  // Edición de portada: solo administradores (institución/plataforma), no el
+  // creador del juego — a diferencia de `canDelete`, que también deja
+  // eliminar al creador. Ver Alcance/Tareas del issue #227.
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
   const accentColor = color ?? game.theme.primaryColor
   const isGuessWho = game.gameType === 'GUESS_WHO'
   const opensLiveRoom = LIVE_ROOM_GAME_TYPES.includes(game.gameType)
@@ -51,6 +56,10 @@ export function GameDetailModal({
   const joinHeading = isGuessWho ? 'Únete a una partida ya creada' : '¿Ya tienes un código de sala de este juego?'
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
+  const [editingTheme, setEditingTheme] = useState(false)
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(game.theme.coverImageUrl ?? null)
+  const [savingTheme, setSavingTheme] = useState(false)
+  const [themeError, setThemeError] = useState<string | null>(null)
   const config = game.config as { maxAccusationCount?: number; turnDurationSeconds?: number }
   const [maxAccusationCount, setMaxAccusationCount] = useState(config.maxAccusationCount ?? 6)
   const [savingConfig, setSavingConfig] = useState(false)
@@ -144,6 +153,23 @@ export function GameDetailModal({
     }
   }
 
+  async function handleSaveTheme() {
+    if (!token) return
+    setSavingTheme(true)
+    setThemeError(null)
+    try {
+      const updated = await updateGame(token, game.id, {
+        theme: { primaryColor: game.theme.primaryColor, coverImageUrl },
+      })
+      onUpdated(updated)
+      setEditingTheme(false)
+    } catch (err) {
+      setThemeError(err instanceof ApiError ? err.message : 'No se pudo guardar la portada.')
+    } finally {
+      setSavingTheme(false)
+    }
+  }
+
   return (
     <Modal onClose={onClose}>
       <div
@@ -176,8 +202,19 @@ export function GameDetailModal({
           <h2 className="mb-2 text-[22px] tracking-tight text-text-h">{game.title}</h2>
           <p className="text-[14px] leading-relaxed text-text">{game.description}</p>
         </div>
-        {canDelete && !confirming && !editingConfig && (
+        {canDelete && !confirming && !editingConfig && !editingTheme && (
           <div className="flex shrink-0 gap-2">
+            {isAdmin && (
+              <button
+                type="button"
+                aria-label="Editar portada del juego"
+                title="Editar portada"
+                className="rounded-lg border border-border p-2 text-text/70 transition-colors hover:border-accent hover:bg-accent/10 hover:text-accent"
+                onClick={() => setEditingTheme(true)}
+              >
+                <Image className="h-4 w-4" strokeWidth={2} />
+              </button>
+            )}
             {isGuessWho && (
               <button
                 type="button"
@@ -203,7 +240,46 @@ export function GameDetailModal({
         )}
       </div>
 
-      {editingConfig ? (
+      {editingTheme ? (
+        <div className="mb-6 rounded-xl border border-border p-4">
+          <p className="mb-3 text-[13.5px] font-semibold text-text-h">Portada del juego</p>
+          <ImageUploadField
+            label="Imagen de portada"
+            imageUrl={coverImageUrl}
+            folder="game-covers"
+            disabled={savingTheme}
+            onChange={setCoverImageUrl}
+          />
+          {themeError && (
+            <p className="mt-3 text-[12.5px] text-danger" role="alert">
+              {themeError}
+            </p>
+          )}
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              className="flex-1 rounded-lg px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              onClick={handleSaveTheme}
+              disabled={savingTheme}
+            >
+              {savingTheme ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-medium text-text-h"
+              onClick={() => {
+                setEditingTheme(false)
+                setThemeError(null)
+                setCoverImageUrl(game.theme.coverImageUrl ?? null)
+              }}
+              disabled={savingTheme}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : editingConfig ? (
         <div className="mb-6 rounded-xl border border-border p-4">
           <p className="mb-3 text-[13.5px] font-semibold text-text-h">Configuración de la partida</p>
           <div>
