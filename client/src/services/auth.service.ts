@@ -32,6 +32,7 @@ export type AuthUser = {
   lastName: string
   displayName: string
   role: string
+  hasChosenRole: boolean
   avatarUrl: string | null
   birthDate: string | null
   isActive: boolean
@@ -227,6 +228,19 @@ export function updateUserRole(
   role: string,
 ): Promise<AuthUser> {
   return request<AuthUser>(`/users/${userId}/role`, {
+    method: 'PATCH',
+    token,
+    body: { newRole: role },
+  })
+}
+
+/**
+ * PATCH /users/me/role — autoservicio: cualquier usuario autenticado elige
+ * entre STUDENT y TEACHER (nunca ADMIN) para su propia cuenta. Se usa tanto
+ * en la pantalla de selección post-registro como en Configuración del perfil.
+ */
+export function chooseOwnRole(token: string, role: 'STUDENT' | 'TEACHER'): Promise<AuthUser> {
+  return request<AuthUser>('/users/me/role', {
     method: 'PATCH',
     token,
     body: { newRole: role },

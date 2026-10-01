@@ -33,6 +33,7 @@ import { ReactivateUserUseCase } from '../application/use-cases/reactivate-user.
 import { VerifyUserEmailUseCase } from '../application/use-cases/verify-user-email.use-case.js';
 import { ListUsersUseCase } from '../application/use-cases/list-users.use-case.js';
 import { ChangeUserRoleUseCase } from '../application/use-cases/change-user-role.use-case.js';
+import { ChangeOwnRoleUseCase } from '../application/use-cases/change-own-role.use-case.js';
 import { ResetUserPasswordUseCase } from '../application/use-cases/reset-user-password.use-case.js';
 import { UpdateUserProfileByAdminUseCase } from '../application/use-cases/update-user-profile-by-admin.use-case.js';
 import { RolesGuard } from './http/guards/roles.guard.js';
@@ -83,6 +84,7 @@ import { AuthController } from './http/controllers/auth.controller.js';
     VerifyUserEmailUseCase,
     ListUsersUseCase,
     ChangeUserRoleUseCase,
+    ChangeOwnRoleUseCase,
     ResetUserPasswordUseCase,
     UpdateUserProfileByAdminUseCase,
   ],

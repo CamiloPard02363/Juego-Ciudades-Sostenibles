@@ -32,6 +32,7 @@ import { MemoryMatchPlayPage } from './components/home/games/MemoryMatchPlayPage
 import { MazeCollectorPlayPage } from './components/home/games/MazeCollectorPlayPage'
 import { GuessWhoRoomPage } from './components/home/games/GuessWhoRoomPage'
 import { TournamentRoomPage } from './components/home/games/TournamentRoomPage'
+import { RoleSelectionPage } from './components/RoleSelectionPage'
 import { PublicHomePage } from './components/legal/PublicHomePage'
 import { PrivacyPolicyPage } from './components/legal/PrivacyPolicyPage'
 import { TermsOfServicePage } from './components/legal/TermsOfServicePage'
@@ -90,6 +91,13 @@ function App() {
         />
       </Routes>
     )
+  }
+
+  // Rol por defecto al registrarse es STUDENT; se exige elegir explícitamente
+  // entre estudiante/profesor antes de dejar entrar al resto de la app. ADMIN
+  // nunca pasa por aquí (se crea ya con rol fijo, no se autoasigna).
+  if (!user.hasChosenRole && user.role !== 'ADMIN') {
+    return <RoleSelectionPage />
   }
 
   return (

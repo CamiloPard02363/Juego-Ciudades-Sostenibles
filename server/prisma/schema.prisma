@@ -31,6 +31,11 @@ model UserModel {
   displayName              String                         @map("display_name")
   roleId                   String                         @map("role_id")
   role                     RoleModel                      @relation(fields: [roleId], references: [id])
+  /// Issue selección de rol post-registro: todo usuario se crea como
+  /// STUDENT por defecto; este flag indica si ya pasó por la pantalla de
+  /// selección (o la cambió luego en Configuración) para no volver a
+  /// mostrarla en cada login.
+  hasChosenRole            Boolean                        @default(false) @map("has_chosen_role")
   avatarUrl                String?                        @map("avatar_url")
   birthDate                DateTime?                      @map("birth_date")
   locale                   String                         @default("es-CO")
