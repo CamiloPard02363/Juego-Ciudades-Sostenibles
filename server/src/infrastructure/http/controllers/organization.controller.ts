@@ -23,6 +23,8 @@ import { JoinOrganizationUseCase } from '../../../application/use-cases/join-org
 import { ListOrganizationStudentsUseCase } from '../../../application/use-cases/list-organization-students.use-case.js';
 import { ListOrganizationClassesUseCase } from '../../../application/use-cases/list-organization-classes.use-case.js';
 import { ChangeOrganizationMemberRoleUseCase } from '../../../application/use-cases/change-organization-member-role.use-case.js';
+import { InviteStudentToOrganizationUseCase } from '../../../application/use-cases/invite-student-to-organization.use-case.js';
+import { ListOrganizationInvitationsUseCase } from '../../../application/use-cases/list-organization-invitations.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { RolesGuard } from '../guards/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
@@ -32,6 +34,7 @@ import { AddOrganizationMemberDto } from '../dtos/add-organization-member.dto.js
 import { ListOrganizationsQueryDto } from '../dtos/list-organizations-query.dto.js';
 import { JoinOrganizationDto } from '../dtos/join-organization.dto.js';
 import { ChangeOrganizationMemberRoleDto } from '../dtos/change-organization-member-role.dto.js';
+import { InviteStudentDto } from '../dtos/invite-student.dto.js';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
@@ -49,6 +52,8 @@ export class OrganizationController {
     private readonly listOrganizationStudentsUseCase: ListOrganizationStudentsUseCase,
     private readonly changeOrganizationMemberRoleUseCase: ChangeOrganizationMemberRoleUseCase,
     private readonly listOrganizationClassesUseCase: ListOrganizationClassesUseCase,
+    private readonly inviteStudentToOrganizationUseCase: InviteStudentToOrganizationUseCase,
+    private readonly listOrganizationInvitationsUseCase: ListOrganizationInvitationsUseCase,
   ) {}
 
   @Post()
@@ -186,6 +191,38 @@ export class OrganizationController {
       requestingUserId,
       orgRole: dto.orgRole,
     });
+  }
+
+  /**
+   * Alta manual de un estudiante a la organización (issue #232): si el email
+   * ya tiene cuenta, se vincula directo (`status: 'LINKED'`); si no, genera
+   * una invitación con link de un solo uso (`status: 'PENDING'`). Reservado
+   * a `OrganizationRole.ADMIN` de esta organización o ADMIN global —
+   * resuelto dentro del use-case, mismo OR que `addMember`.
+   */
+  @Post(':organizationId/invitations')
+  @HttpCode(HttpStatus.CREATED)
+  inviteStudent(
+    @CurrentUserId() requestingUserId: string,
+    @Param('organizationId') organizationId: string,
+    @Body() dto: InviteStudentDto,
+  ) {
+    return this.inviteStudentToOrganizationUseCase.execute({
+      organizationId,
+      requestingUserId,
+      email: dto.email,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+    });
+  }
+
+  /** Invitaciones pendientes de la organización (issue #232), mismo OR de autorización que `inviteStudent`. */
+  @Get(':organizationId/invitations')
+  listInvitations(
+    @CurrentUserId() requestingUserId: string,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.listOrganizationInvitationsUseCase.execute({ organizationId, requestingUserId });
   }
 
   /** Reservado a ADMIN global de plataforma (issue #106, CA2.3). */

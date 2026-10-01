@@ -22,6 +22,13 @@ type AuthContextValue = {
   signIn: (credentials: LoginCredentials) => Promise<void>
   signInWithGoogle: (idToken: string) => Promise<void>
   signUp: (input: RegisterInput) => Promise<void>
+  /**
+   * Issue #232: tras `POST /invitations/:token/accept`, el backend ya
+   * autenticó al usuario (mismo patrón de cookie httpOnly que `/auth/login`)
+   * — esto solo refleja esa sesión en el estado del cliente, sin pegarle de
+   * nuevo al servidor.
+   */
+  applyInvitationSession: (accessToken: string, profile: AuthUser) => void
   signOut: () => void
   updateProfile: (input: UpdateProfileInput) => Promise<void>
   deleteAccount: (currentPlainPassword: string) => Promise<void>
@@ -175,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signInWithGoogle,
         signUp,
+        applyInvitationSession: applySession,
         signOut,
         updateProfile,
         deleteAccount,

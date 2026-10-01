@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { OrganizationCoreModule } from './organization-core.module.js';
 import { ClassCoreModule } from './class-core.module.js';
+import { InvitationCoreModule } from './invitation-core.module.js';
 import { UserModule } from './user.module.js';
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
 import { CreateOrganizationUseCase } from '../application/use-cases/create-organization.use-case.js';
@@ -15,12 +16,14 @@ import { JoinOrganizationUseCase } from '../application/use-cases/join-organizat
 import { ListOrganizationStudentsUseCase } from '../application/use-cases/list-organization-students.use-case.js';
 import { ListOrganizationClassesUseCase } from '../application/use-cases/list-organization-classes.use-case.js';
 import { ChangeOrganizationMemberRoleUseCase } from '../application/use-cases/change-organization-member-role.use-case.js';
+import { InviteStudentToOrganizationUseCase } from '../application/use-cases/invite-student-to-organization.use-case.js';
+import { ListOrganizationInvitationsUseCase } from '../application/use-cases/list-organization-invitations.use-case.js';
 import { RolesGuard } from './http/guards/roles.guard.js';
 import { OrganizationController } from './http/controllers/organization.controller.js';
 
 /** Módulo público de organizaciones: casos de uso + endpoints HTTP. */
 @Module({
-  imports: [OrganizationCoreModule, ClassCoreModule, UserModule],
+  imports: [OrganizationCoreModule, ClassCoreModule, InvitationCoreModule, UserModule],
   controllers: [OrganizationController],
   providers: [
     RequesterAdminResolver,
@@ -37,6 +40,8 @@ import { OrganizationController } from './http/controllers/organization.controll
     ListOrganizationStudentsUseCase,
     ChangeOrganizationMemberRoleUseCase,
     ListOrganizationClassesUseCase,
+    InviteStudentToOrganizationUseCase,
+    ListOrganizationInvitationsUseCase,
   ],
 })
 export class OrganizationModule {}

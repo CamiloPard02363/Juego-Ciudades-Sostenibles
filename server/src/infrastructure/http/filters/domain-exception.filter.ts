@@ -17,6 +17,9 @@ import {
   GameSlugAlreadyTakenError,
   InvalidCredentialsError,
   InvalidImageError,
+  InvitationAlreadyAcceptedError,
+  InvitationExpiredError,
+  InvitationNotFoundError,
   NotAnOrganizationMemberError,
   OrganizationDomainAlreadyClaimedError,
   OrganizationNotFoundByInviteCodeError,
@@ -51,6 +54,9 @@ const STATUS_BY_ERROR = new Map<Function, HttpStatus>([
   [OrganizationNotFoundByInviteCodeError, HttpStatus.NOT_FOUND],
   [CannotChangeOwnOrganizationRoleError, HttpStatus.FORBIDDEN],
   [TargetUserNotMemberOfOrganizationError, HttpStatus.NOT_FOUND],
+  [InvitationNotFoundError, HttpStatus.NOT_FOUND],
+  [InvitationAlreadyAcceptedError, HttpStatus.CONFLICT],
+  [InvitationExpiredError, HttpStatus.GONE],
 ]);
 
 @Catch(DomainError, ApplicationError)
