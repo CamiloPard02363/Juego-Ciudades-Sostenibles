@@ -236,7 +236,10 @@ export function createGame(token: string, input: CreateGameInput): Promise<GameD
 export function updateGame(
   token: string,
   gameId: string,
-  input: { config?: Record<string, unknown> },
+  input: {
+    config?: Record<string, unknown>
+    theme?: { primaryColor?: string; coverImageUrl?: string | null }
+  },
 ): Promise<GameDetail> {
   return request<GameDetail>(`/games/${gameId}`, {
     method: 'PATCH',
