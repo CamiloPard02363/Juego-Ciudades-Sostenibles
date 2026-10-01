@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, X } from 'lucide-react'
+import { Building2, GraduationCap, Presentation, X } from 'lucide-react'
 import { TextField } from '../TextField'
+import { RoleCharacterIllustration } from '../RoleCharacterIllustration'
 import { useAuth } from '../../hooks/useAuth'
 import { ApiError } from '../../utils/http'
 import { validateBirthDate, validateRequiredName } from '../../utils/validation'
@@ -30,9 +31,27 @@ const ORG_ROLE_STYLES: Record<string, string> = {
  * Datos de la cuenta para modificar: una de las dos pestañas de `SettingsPanel`
  * (la otra es `ThemesSection`). Antes vivía sola dentro de `ProfileSettings`.
  */
+type RoleOption = 'STUDENT' | 'TEACHER'
+
+const ROLE_SWITCH_COPY: Record<RoleOption, { title: string; description: string; icon: typeof GraduationCap }> = {
+  STUDENT: {
+    title: 'Estudiante',
+    description: 'Juego las actividades que crean mis profesores.',
+    icon: GraduationCap,
+  },
+  TEACHER: {
+    title: 'Profesor',
+    description: 'Creo actividades y hago seguimiento a mis estudiantes.',
+    icon: Presentation,
+  },
+}
+
 export function AccountSettingsSection({ onClose }: AccountSettingsSectionProps) {
-  const { user, token, updateProfile, deleteAccount } = useAuth()
+  const { user, token, updateProfile, chooseRole, deleteAccount } = useAuth()
   const navigate = useNavigate()
+
+  const [roleSwitching, setRoleSwitching] = useState(false)
+  const [roleError, setRoleError] = useState<string | null>(null)
 
   const [deleteRequested, setDeleteRequested] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
@@ -66,6 +85,21 @@ export function AccountSettingsSection({ onClose }: AccountSettingsSectionProps)
   }, [token])
 
   if (!user) return null
+
+  async function handleRoleSwitch(role: RoleOption) {
+    if (role === user!.role || roleSwitching) return
+    setRoleSwitching(true)
+    setRoleError(null)
+    try {
+      await chooseRole(role)
+    } catch (error) {
+      setRoleError(
+        error instanceof ApiError ? error.message : 'No se pudo cambiar el tipo de perfil.',
+      )
+    } finally {
+      setRoleSwitching(false)
+    }
+  }
 
   const emailDomain = getEmailDomain(user.email)
   // Si el dominio ya pertenece a alguna de las organizaciones del usuario, no
@@ -156,13 +190,61 @@ export function AccountSettingsSection({ onClose }: AccountSettingsSectionProps)
 
   return (
     <div>
-      {/* Badge de rol global (STUDENT/TEACHER/ADMIN de plataforma), separado
-          de los badges de rol de organización de abajo — no se mezclan
-          porque son ejes ortogonales (ver organization-role.vo.ts). */}
+      {/* Rol global (STUDENT/TEACHER/ADMIN de plataforma), separado de los
+          badges de rol de organización de abajo — son ejes ortogonales (ver
+          organization-role.vo.ts). ADMIN no se autoasigna: solo ve el badge. */}
+      {user.role === 'ADMIN' ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-code-bg px-2.5 py-1 text-[12px] font-medium text-text-h">
+            {user.role}
+          </span>
+        </div>
+      ) : (
+        <div className="mb-6">
+          <p className="mb-2 text-[13px] font-semibold text-text-h">Tipo de perfil</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(Object.keys(ROLE_SWITCH_COPY) as RoleOption[]).map((role) => {
+              const copy = ROLE_SWITCH_COPY[role]
+              const Icon = copy.icon
+              const isActive = user.role === role
+
+              return (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => handleRoleSwitch(role)}
+                  disabled={roleSwitching}
+                  aria-pressed={isActive}
+                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isActive
+                      ? 'border-accent bg-accent/5 shadow-[var(--glow)]'
+                      : 'border-border hover:-translate-y-0.5 hover:border-accent/50'
+                  }`}
+                >
+                  <RoleCharacterIllustration
+                    variant={role === 'STUDENT' ? 'student' : 'teacher'}
+                    className="h-14 w-10 shrink-0 text-text"
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <Icon className="h-4 w-4 text-accent" />
+                      <span className="text-[13.5px] font-medium text-text-h">{copy.title}</span>
+                    </div>
+                    <p className="mt-0.5 text-[12px] leading-snug">{copy.description}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {roleError && (
+            <p className="mt-2 text-[12.5px] text-danger" role="alert">
+              {roleError}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-code-bg px-2.5 py-1 text-[12px] font-medium text-text-h">
-          {user.role}
-        </span>
         {organizations.map((org) => (
           <span
             key={org.id}

@@ -24,6 +24,7 @@ type AuthContextValue = {
   signUp: (input: RegisterInput) => Promise<void>
   signOut: () => void
   updateProfile: (input: UpdateProfileInput) => Promise<void>
+  chooseRole: (role: 'STUDENT' | 'TEACHER') => Promise<void>
   deleteAccount: (currentPlainPassword: string) => Promise<void>
 }
 
@@ -149,6 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(profile)
   }, [])
 
+  const chooseRole = useCallback(async (role: 'STUDENT' | 'TEACHER') => {
+    if (!tokenRef.current) throw new Error('No hay una sesión activa.')
+    const profile = await authService.chooseOwnRole(tokenRef.current, role)
+    setUser(profile)
+  }, [])
+
   const deleteAccount = useCallback(
     async (currentPlainPassword: string) => {
       if (!tokenRef.current) throw new Error('No hay una sesión activa.')
@@ -177,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         updateProfile,
+        chooseRole,
         deleteAccount,
       }}
     >

@@ -8,6 +8,7 @@ export interface UserResponseDto {
   lastName: string;
   displayName: string;
   role: string;
+  hasChosenRole: boolean;
   avatarUrl: string | null;
   birthDate: Date | null;
   locale: string;
@@ -27,6 +28,7 @@ export function toUserResponseDto(user: User): UserResponseDto {
     lastName: user.name.lastName,
     displayName: user.displayName,
     role: user.role.getName(),
+    hasChosenRole: user.hasChosenRole,
     avatarUrl: user.avatarUrl,
     birthDate: user.birthDate,
     locale: user.locale,

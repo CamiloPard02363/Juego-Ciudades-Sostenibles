@@ -10,6 +10,7 @@ export interface UserProps {
   password: Password;
   name: PersonName;
   role: Role;
+  hasChosenRole: boolean;
   displayName: string;
   avatarUrl: string | null;
   birthDate: Date | null;
@@ -49,6 +50,7 @@ export class User {
       password: props.password,
       name: props.name,
       role: props.role ?? Role.student(),
+      hasChosenRole: false,
       displayName: props.displayName?.trim() || props.name.firstName,
       avatarUrl: props.avatarUrl ?? null,
       birthDate: props.birthDate ?? null,
@@ -84,6 +86,10 @@ export class User {
 
   get role(): Role {
     return this.props.role;
+  }
+
+  get hasChosenRole(): boolean {
+    return this.props.hasChosenRole;
   }
 
   get displayName(): string {
@@ -168,6 +174,7 @@ export class User {
 
   changeRole(newRole: Role): void {
     this.props.role = newRole;
+    this.props.hasChosenRole = true;
     this.touch();
   }
 

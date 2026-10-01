@@ -22,6 +22,7 @@ import { ReactivateUserUseCase } from '../../../application/use-cases/reactivate
 import { VerifyUserEmailUseCase } from '../../../application/use-cases/verify-user-email.use-case.js';
 import { ListUsersUseCase } from '../../../application/use-cases/list-users.use-case.js';
 import { ChangeUserRoleUseCase } from '../../../application/use-cases/change-user-role.use-case.js';
+import { ChangeOwnRoleUseCase } from '../../../application/use-cases/change-own-role.use-case.js';
 import { ResetUserPasswordUseCase } from '../../../application/use-cases/reset-user-password.use-case.js';
 import { UpdateUserProfileByAdminUseCase } from '../../../application/use-cases/update-user-profile-by-admin.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
@@ -32,6 +33,7 @@ import { UpdateUserProfileDto } from '../dtos/update-user-profile.dto.js';
 import { ChangeUserPasswordDto } from '../dtos/change-user-password.dto.js';
 import { DeleteOwnAccountDto } from '../dtos/delete-own-account.dto.js';
 import { ChangeUserRoleDto } from '../dtos/change-user-role.dto.js';
+import { ChangeOwnRoleDto } from '../dtos/change-own-role.dto.js';
 import { ListUsersQueryDto } from '../dtos/list-users-query.dto.js';
 import { CreateUserDto } from '../dtos/create-user.dto.js';
 
@@ -50,6 +52,7 @@ export class UserController {
     private readonly verifyUserEmailUseCase: VerifyUserEmailUseCase,
     private readonly listUsersUseCase: ListUsersUseCase,
     private readonly changeUserRoleUseCase: ChangeUserRoleUseCase,
+    private readonly changeOwnRoleUseCase: ChangeOwnRoleUseCase,
     private readonly resetUserPasswordUseCase: ResetUserPasswordUseCase,
     private readonly updateUserProfileByAdminUseCase: UpdateUserProfileByAdminUseCase,
   ) {}
@@ -107,6 +110,11 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteMyAccount(@CurrentUserId() userId: string, @Body() dto: DeleteOwnAccountDto) {
     return this.deleteOwnAccountUseCase.execute({ userId, ...dto });
+  }
+
+  @Patch('me/role')
+  changeOwnRole(@CurrentUserId() userId: string, @Body() dto: ChangeOwnRoleDto) {
+    return this.changeOwnRoleUseCase.execute({ userId, newRole: dto.newRole });
   }
 
   @Post('me/verify-email')
