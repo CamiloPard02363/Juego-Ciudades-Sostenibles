@@ -26,6 +26,11 @@ export class ListGamesQueryDto {
   @IsString()
   categoryId?: string;
 
+  /** Juegos institucionales de una organización concreta (issue #226, Juegos de la institución). */
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
+
   /** Filtro por tipo de juego exacto, usado por la vista de catálogo de tipos (issue #156). */
   @IsOptional()
   @IsIn(VALID_GAME_TYPES)

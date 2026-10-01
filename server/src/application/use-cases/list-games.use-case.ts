@@ -28,6 +28,8 @@ export interface ListGamesInput {
   includeCreatorNames?: boolean;
   search?: string;
   categoryId?: string;
+  /** Juegos institucionales de una organización concreta (issue #226, Juegos de la institución). */
+  organizationId?: string;
   /** Filtra por tipo de juego exacto (vista de catálogo de tipos, issue #156). */
   gameType?: string;
   page?: number;
@@ -84,6 +86,7 @@ export class ListGamesUseCase implements UseCase<ListGamesInput, ListGamesOutput
       creatorUserId: input.onlyMine ? input.requestingUserId : undefined,
       excludeCreatorUserId: input.excludeMine ? input.requestingUserId : undefined,
       categoryId: input.categoryId,
+      organizationId: input.organizationId,
       gameType: input.gameType,
       excludeGameTypes: archivedGameTypes.length > 0 ? archivedGameTypes : undefined,
       search: input.search,

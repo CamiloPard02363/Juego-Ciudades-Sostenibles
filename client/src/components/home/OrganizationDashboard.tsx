@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Copy, Globe2, PlusCircle, Search, UserMinus, UserPlus, Users2 } from 'lucide-react'
+import { Copy, Globe2, PlusCircle, UserMinus, UserPlus, Users2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
 import {
@@ -23,6 +23,15 @@ import {
 import { donateGame, listGames, type GameSummary } from '../../services/game.service'
 import { ApiError } from '../../utils/http'
 import { Modal } from './games/Modal'
+import { OrganizationCard } from './OrganizationCard'
+import { OrganizationFilterBar } from './OrganizationFilterBar'
+import { useOrganizationAdmins } from './useOrganizationAdmins'
+import { InstitutionTopNav, type InstitutionSection } from './metrics/InstitutionTopNav'
+import { InstitutionStudentsSection } from './metrics/InstitutionStudentsSection'
+import { InstitutionTeachersSection } from './metrics/InstitutionTeachersSection'
+import { InstitutionClassesSection } from './metrics/InstitutionClassesSection'
+import { InstitutionGamesSection } from './metrics/InstitutionGamesSection'
+import { ClassDrilldownTabs } from './metrics/ClassDrilldownTabs'
 
 const ALL_ORGS_PAGE_SIZE = 10
 
@@ -80,6 +89,14 @@ export function OrganizationDashboard() {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
+
+  // Drill-down de institución (issue #226): sección del menú superior y,
+  // dentro de "Clases", la clase elegida (si hay una, se renderiza
+  // `ClassDrilldownTabs` en vez de las cards de clases).
+  const [institutionSection, setInstitutionSection] = useState<InstitutionSection>('members')
+  const [selectedClass, setSelectedClass] = useState<{ id: string; name: string } | null>(null)
+
+  const adminsByOrgId = useOrganizationAdmins(token, allOrganizations)
 
   const [members, setMembers] = useState<OrganizationMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
@@ -198,6 +215,14 @@ export function OrganizationDashboard() {
       })
       .finally(() => setLoadingMembers(false))
   }, [token, activeOrgId])
+
+  // Al cambiar de organización activa, el drill-down vuelve a su punto de
+  // partida — una clase seleccionada en la organización anterior no tiene
+  // sentido en la nueva.
+  useEffect(() => {
+    setInstitutionSection('members')
+    setSelectedClass(null)
+  }, [activeOrgId])
 
   // Juegos propios sin donar todavía (organizationId null), candidatos a
   // donar a la organización activa. Sin filtro de `status`: un juego
@@ -497,6 +522,56 @@ export function OrganizationDashboard() {
         </div>
       </div>
 
+      <InstitutionTopNav
+        organizationName={activeOrg.name}
+        activeSection={institutionSection}
+        onSectionChange={(section) => {
+          setInstitutionSection(section)
+          setSelectedClass(null)
+        }}
+      />
+
+      {institutionSection === 'students' && (
+        <div className="rounded-2xl border border-border p-5">
+          <InstitutionStudentsSection organizationId={activeOrg.id} />
+        </div>
+      )}
+
+      {institutionSection === 'teachers' && (
+        <div className="rounded-2xl border border-border p-5">
+          <InstitutionTeachersSection organizationId={activeOrg.id} />
+        </div>
+      )}
+
+      {institutionSection === 'classes' && (
+        <div className="rounded-2xl border border-border p-5">
+          {selectedClass ? (
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedClass(null)}
+                className="w-fit text-[12.5px] font-medium text-text hover:text-text-h"
+              >
+                ← Volver a clases
+              </button>
+              <ClassDrilldownTabs classId={selectedClass.id} className={selectedClass.name} />
+            </div>
+          ) : (
+            <InstitutionClassesSection
+              organizationId={activeOrg.id}
+              onSelectClass={(classId, className) => setSelectedClass({ id: classId, name: className })}
+            />
+          )}
+        </div>
+      )}
+
+      {institutionSection === 'games' && (
+        <div className="rounded-2xl border border-border p-5">
+          <InstitutionGamesSection organizationId={activeOrg.id} />
+        </div>
+      )}
+
+      {institutionSection === 'members' && (
       <div className="rounded-2xl border border-border p-5">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -600,6 +675,7 @@ export function OrganizationDashboard() {
           </div>
         )}
       </div>
+      )}
 
       {isGlobalAdmin && (
         <div className="rounded-2xl border border-border p-5">
@@ -608,73 +684,33 @@ export function OrganizationDashboard() {
             <h3 className="text-[15px] font-semibold text-text-h">Todas las organizaciones</h3>
           </div>
 
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="relative max-w-[280px] flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text/50" strokeWidth={2} />
-              <input
-                type="text"
-                value={allOrganizationsSearch}
-                onChange={(event) => setAllOrganizationsSearch(event.target.value)}
-                placeholder="Buscar por nombre o dominio…"
-                className="w-full rounded-lg border border-border bg-bg py-2.5 pl-9 pr-3 text-[13px] text-text-h outline-none focus:border-accent"
-              />
-            </div>
-            <select
-              className="rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[13px] text-text-h outline-none focus:border-accent"
-              value={allOrganizationsActiveFilter}
-              onChange={(event) =>
-                setAllOrganizationsActiveFilter(event.target.value as 'all' | 'active' | 'inactive')
-              }
-            >
-              <option value="all">Todas</option>
-              <option value="active">Activas</option>
-              <option value="inactive">Inactivas</option>
-            </select>
-          </div>
+          <OrganizationFilterBar
+            search={allOrganizationsSearch}
+            onSearchChange={setAllOrganizationsSearch}
+            activeFilter={allOrganizationsActiveFilter}
+            onActiveFilterChange={setAllOrganizationsActiveFilter}
+          />
 
           {loadingAllOrganizations ? (
             <p className="text-[14px] text-text">Cargando organizaciones…</p>
           ) : allOrganizations.length === 0 ? (
             <p className="text-[14px] text-text">No hay organizaciones que coincidan con el filtro.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-[13.5px]">
-                <thead>
-                  <tr className="border-b border-border text-text/70">
-                    <th className="px-3 py-2 font-medium">Nombre</th>
-                    <th className="px-3 py-2 font-medium">Dominio</th>
-                    <th className="px-3 py-2 font-medium">Estado</th>
-                    <th className="px-3 py-2 font-medium">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allOrganizations.map((org) => (
-                    <tr key={org.id} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2.5 text-text-h">{org.name}</td>
-                      <td className="px-3 py-2.5 text-text">{org.domain ?? '—'}</td>
-                      <td className="px-3 py-2.5">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[12px] font-medium ${
-                            org.isActive ? 'bg-accent/10 text-accent' : 'bg-danger/10 text-danger'
-                          }`}
-                        >
-                          {org.isActive ? 'Activa' : 'Inactiva'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <button
-                          type="button"
-                          className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={togglingOrgId === org.id}
-                          onClick={() => setOrgPendingToggle(org)}
-                        >
-                          {org.isActive ? 'Desactivar' : 'Reactivar'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {allOrganizations.map((org) => (
+                <OrganizationCard
+                  key={org.id}
+                  organization={org}
+                  adminDisplayName={adminsByOrgId[org.id]?.displayName ?? null}
+                  adminEmail={adminsByOrgId[org.id]?.email ?? null}
+                  toggling={togglingOrgId === org.id}
+                  onToggleActive={() => setOrgPendingToggle(org)}
+                  onOpen={() => {
+                    setActiveOrgId(org.id)
+                    setInstitutionSection('members')
+                  }}
+                />
+              ))}
             </div>
           )}
 

@@ -115,6 +115,9 @@ export function MemoryMatchPlayPage() {
       timePerZoneSeconds={config.timePerZoneSeconds ?? DEFAULT_MEMORY_CONFIG.timePerZoneSeconds}
       previewSeconds={config.previewSeconds ?? DEFAULT_MEMORY_CONFIG.previewSeconds}
       onExit={handleExit}
+      gameId={game.id}
+      subjectId={category?.id}
+      subjectName={category?.name}
     />
   )
 }

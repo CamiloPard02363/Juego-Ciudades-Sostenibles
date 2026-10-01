@@ -46,6 +46,8 @@ export type ListGamesParams = {
   categoryId?: string
   /** Filtra por tipo de juego exacto (vista de catálogo de tipos, issue #156). */
   gameType?: string
+  /** Juegos institucionales de una organización concreta (issue #226, Juegos de la institución). */
+  organizationId?: string
 }
 
 /** GET /games — catálogo paginado; sin filtro solo trae juegos publicados. */
@@ -59,6 +61,7 @@ export function listGames(token: string, params: ListGamesParams = {}): Promise<
   if (params.community) query.set('community', 'true')
   if (params.categoryId) query.set('categoryId', params.categoryId)
   if (params.gameType) query.set('gameType', params.gameType)
+  if (params.organizationId) query.set('organizationId', params.organizationId)
 
   const queryString = query.toString()
   return request<PaginatedGames>(`/games${queryString ? `?${queryString}` : ''}`, { token })
