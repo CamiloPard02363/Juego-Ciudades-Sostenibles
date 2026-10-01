@@ -1,8 +1,11 @@
+import { useEffect, useRef } from 'react'
 import { GameInstructionsGate } from './GameInstructionsGate'
 import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
 import { useMemoryMatchGame } from './useMemoryMatchGame'
 import { ConfettiBurst } from '../../kids/ConfettiBurst'
+import { useAuth } from '../../../hooks/useAuth'
+import { recordGamePlayResult } from '../../../services/metrics.service'
 
 type MemoryMatchGameProps = {
   title: string
@@ -15,6 +18,11 @@ type MemoryMatchGameProps = {
   timePerZoneSeconds: number
   previewSeconds: number
   onExit: () => void
+  /** Insumos para reportar la partida a `POST /me/game-results` (issue #226). `undefined` si no aplica. */
+  gameId?: string
+  subjectId?: string
+  subjectName?: string
+  classId?: string
 }
 
 export function MemoryMatchGame(props: MemoryMatchGameProps) {
@@ -32,7 +40,12 @@ function MemoryMatchSession({
   timePerZoneSeconds,
   previewSeconds,
   onExit,
+  gameId,
+  subjectId,
+  subjectName,
+  classId,
 }: MemoryMatchGameProps) {
+  const { token } = useAuth()
   const game = useMemoryMatchGame({
     pairs,
     pairCount,
@@ -42,6 +55,30 @@ function MemoryMatchSession({
     baseTimePerZoneSeconds: timePerZoneSeconds,
     previewSeconds,
   })
+
+  // Reporta el resultado una sola vez al llegar a "finished" (issue #226,
+  // conexión de un juego real a `POST /me/game-results`). `reportedRef` evita
+  // un doble POST si el componente re-renderiza estando ya en esa fase.
+  const reportedRef = useRef(false)
+  useEffect(() => {
+    if (game.phase !== 'finished' || reportedRef.current || !token || !gameId) return
+    reportedRef.current = true
+    recordGamePlayResult(token, {
+      gameId,
+      gameTitle: title,
+      classId,
+      subjectId,
+      subjectName,
+      score: game.totalScore,
+      correctCount: game.correctCount,
+      incorrectCount: game.incorrectCount,
+      timePlayedMs: game.getTimePlayedMs(),
+    }).catch((err: unknown) => {
+      // No bloquea la experiencia de fin de partida si falla el reporte de
+      // métricas — el jugador ya vio su resultado en pantalla.
+      console.error('No se pudo registrar el resultado de la partida:', err)
+    })
+  }, [game.phase, token, gameId, title, classId, subjectId, subjectName, game])
 
   const minutes = Math.floor(game.timeLeft / 60)
     .toString()

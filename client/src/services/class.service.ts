@@ -78,6 +78,47 @@ export function removeGameFromClass(token: string, classId: string, gameId: stri
   return request<void>(`/classes/${classId}/games/${gameId}`, { method: 'DELETE', token })
 }
 
+/** Juego dentro del contexto de una clase (issue #226): incluye `isArchived`, propio del vínculo. */
+export type ClassGameSummary = GameSummary & { isArchived: boolean; addedAt: string }
+
+/** GET /classes/:id/games — ahora devuelve `isArchived` por juego (issue #226). */
+export function listClassGamesDetail(token: string, classId: string): Promise<ClassGameSummary[]> {
+  return request<ClassGameSummary[]>(`/classes/${classId}/games`, { token })
+}
+
+/** PATCH /classes/:id/games/:gameId/archive — archiva el juego dentro de la clase (issue #226). Responde 204. */
+export function archiveClassGame(token: string, classId: string, gameId: string): Promise<void> {
+  return request<void>(`/classes/${classId}/games/${gameId}/archive`, { method: 'PATCH', token })
+}
+
+/** PATCH /classes/:id/games/:gameId/unarchive — restaura el juego a la vista activa (issue #226). Responde 204. */
+export function unarchiveClassGame(token: string, classId: string, gameId: string): Promise<void> {
+  return request<void>(`/classes/${classId}/games/${gameId}/unarchive`, { method: 'PATCH', token })
+}
+
+/** DELETE /classes/:id/students/:studentId — saca a un estudiante de la clase (issue #226). Responde 204. */
+export function removeStudentFromClass(
+  token: string,
+  classId: string,
+  studentUserId: string,
+): Promise<void> {
+  return request<void>(`/classes/${classId}/students/${studentUserId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
+/**
+ * GET /classes/:id/students — estudiantes matriculados de UNA clase puntual
+ * (issue #226, drill-down "Estudiantes de la clase"). A diferencia de
+ * `listMyClassesDetail` (solo clases propias del profesor autenticado), este
+ * endpoint autoriza vía `ClassAccessResolver` en el backend — también sirve
+ * a un admin de la institución dueña de la clase, o al admin global.
+ */
+export function getClassStudents(token: string, classId: string): Promise<EnrolledStudent[]> {
+  return request<EnrolledStudent[]>(`/classes/${classId}/students`, { token })
+}
+
 /**
  * POST /classes/:classId/enrollments — matrícula directa por el profesor,
  * sin código de invitación (issue #133/#136, Frente C). Pensada para usarse

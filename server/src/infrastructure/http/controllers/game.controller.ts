@@ -58,6 +58,7 @@ export class GameController {
       includeCreatorNames: query.community,
       search: query.search,
       categoryId: query.categoryId,
+      organizationId: query.organizationId,
       gameType: query.gameType,
       page: query.page,
       pageSize: query.pageSize,

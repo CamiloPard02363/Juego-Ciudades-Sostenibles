@@ -4,7 +4,7 @@ import type { ClassEntity } from '../../../domain/entities/class.entity.js';
 import type { ClassGame } from '../../../domain/entities/class-game.entity.js';
 import type { ClassEnrollment } from '../../../domain/entities/class-enrollment.entity.js';
 import { PrismaService } from './prisma.service.js';
-import { ClassEnrollmentMapper, ClassMapper } from './class.mapper.js';
+import { ClassEnrollmentMapper, ClassGameMapper, ClassMapper } from './class.mapper.js';
 
 @Injectable()
 export class PrismaClassRepository implements ClassRepository {
@@ -48,6 +48,14 @@ export class PrismaClassRepository implements ClassRepository {
     return records.map(ClassMapper.toDomain);
   }
 
+  async findAllByOrganizationId(organizationId: string): Promise<ClassEntity[]> {
+    const records = await this.prisma.classModel.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return records.map(ClassMapper.toDomain);
+  }
+
   async addGame(classGame: ClassGame): Promise<void> {
     const props = classGame.toPersistence();
 
@@ -69,6 +77,28 @@ export class PrismaClassRepository implements ClassRepository {
       select: { gameId: true },
     });
     return records.map((r) => r.gameId);
+  }
+
+  async findClassGamesByClassId(classId: string): Promise<ClassGame[]> {
+    const records = await this.prisma.classGameModel.findMany({
+      where: { classId },
+      orderBy: { addedAt: 'desc' },
+    });
+    return records.map(ClassGameMapper.toDomain);
+  }
+
+  async findClassGame(classId: string, gameId: string): Promise<ClassGame | null> {
+    const record = await this.prisma.classGameModel.findUnique({
+      where: { classId_gameId: { classId, gameId } },
+    });
+    return record ? ClassGameMapper.toDomain(record) : null;
+  }
+
+  async setClassGameArchived(classId: string, gameId: string, isArchived: boolean): Promise<void> {
+    await this.prisma.classGameModel.update({
+      where: { classId_gameId: { classId, gameId } },
+      data: { isArchived },
+    });
   }
 
   async findClassIdsContainingGame(gameId: string): Promise<string[]> {

@@ -24,6 +24,8 @@ import { RemoveClassEnrollmentUseCase } from '../../../application/use-cases/rem
 import { EnrollStudentUseCase } from '../../../application/use-cases/enroll-student.use-case.js';
 import { DeactivateClassUseCase } from '../../../application/use-cases/deactivate-class.use-case.js';
 import { ReactivateClassUseCase } from '../../../application/use-cases/reactivate-class.use-case.js';
+import { SetClassGameArchivedUseCase } from '../../../application/use-cases/set-class-game-archived.use-case.js';
+import { GetClassStudentsUseCase } from '../../../application/use-cases/get-class-students.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { RolesGuard } from '../guards/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
@@ -51,6 +53,8 @@ export class ClassController {
     private readonly enrollStudentUseCase: EnrollStudentUseCase,
     private readonly deactivateClassUseCase: DeactivateClassUseCase,
     private readonly reactivateClassUseCase: ReactivateClassUseCase,
+    private readonly setClassGameArchivedUseCase: SetClassGameArchivedUseCase,
+    private readonly getClassStudentsUseCase: GetClassStudentsUseCase,
   ) {}
 
   @Get('mine')
@@ -126,7 +130,51 @@ export class ClassController {
     return this.removeGameFromClassUseCase.execute({ classId, gameId, requestingUserId });
   }
 
-  /** El profesor dueño de la clase expulsa a un estudiante matriculado. */
+  /** Archiva un juego dentro de la clase (issue #226): lo oculta sin desvincularlo. */
+  @Patch(':id/games/:gameId/archive')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  archiveGame(
+    @CurrentUserId() requestingUserId: string,
+    @Param('id') classId: string,
+    @Param('gameId') gameId: string,
+  ) {
+    return this.setClassGameArchivedUseCase.execute({
+      classId,
+      gameId,
+      isArchived: true,
+      requestingUserId,
+    });
+  }
+
+  /** Restaura un juego archivado de la clase a la vista activa (issue #226). */
+  @Patch(':id/games/:gameId/unarchive')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unarchiveGame(
+    @CurrentUserId() requestingUserId: string,
+    @Param('id') classId: string,
+    @Param('gameId') gameId: string,
+  ) {
+    return this.setClassGameArchivedUseCase.execute({
+      classId,
+      gameId,
+      isArchived: false,
+      requestingUserId,
+    });
+  }
+
+  /**
+   * Estudiantes matriculados de una clase puntual (issue #226, drill-down
+   * "Estudiantes de la clase"): autoriza vía `ClassAccessResolver` (profesor
+   * dueño, admin de la institución dueña de la clase, o admin global) — a
+   * diferencia de `GET /classes/mine/detail`, que solo sirve las clases
+   * propias del profesor autenticado.
+   */
+  @Get(':id/students')
+  listStudents(@CurrentUserId() requestingUserId: string, @Param('id') classId: string) {
+    return this.getClassStudentsUseCase.execute({ classId, requestingUserId });
+  }
+
+  /** El profesor dueño de la clase o un admin (institución/global) expulsa a un estudiante matriculado. */
   @Delete(':id/students/:studentId')
   @HttpCode(HttpStatus.NO_CONTENT)
   removeStudent(

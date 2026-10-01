@@ -1,6 +1,7 @@
-import type { ClassEnrollmentModel, ClassModel } from '../../../generated/prisma/client.js';
+import type { ClassEnrollmentModel, ClassGameModel, ClassModel } from '../../../generated/prisma/client.js';
 import { ClassEntity } from '../../../domain/entities/class.entity.js';
 import { ClassEnrollment } from '../../../domain/entities/class-enrollment.entity.js';
+import { ClassGame } from '../../../domain/entities/class-game.entity.js';
 
 export class ClassEnrollmentMapper {
   static toDomain(record: ClassEnrollmentModel): ClassEnrollment {
@@ -20,6 +21,30 @@ export class ClassEnrollmentMapper {
       classId: props.classId,
       userId: props.userId,
       enrolledAt: props.enrolledAt,
+    };
+  }
+}
+
+export class ClassGameMapper {
+  static toDomain(record: ClassGameModel): ClassGame {
+    return ClassGame.fromPersistence({
+      id: record.id,
+      classId: record.classId,
+      gameId: record.gameId,
+      addedAt: record.addedAt,
+      isArchived: record.isArchived,
+    });
+  }
+
+  static toPersistence(classGame: ClassGame) {
+    const props = classGame.toPersistence();
+
+    return {
+      id: props.id,
+      classId: props.classId,
+      gameId: props.gameId,
+      addedAt: props.addedAt,
+      isArchived: props.isArchived,
     };
   }
 }

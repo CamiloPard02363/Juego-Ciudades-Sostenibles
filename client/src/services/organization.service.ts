@@ -188,6 +188,31 @@ export function listOrganizationStudents(
 }
 
 /**
+ * GET /organizations/:organizationId/classes — todas las Class de la
+ * organización, sin importar qué profesor las dicta (issue #226, drill-down
+ * de institución, sección "Clases"). Reutiliza el mismo DTO `ClassDto` que
+ * `GET /classes/all`.
+ */
+export type OrganizationClass = {
+  id: string
+  name: string
+  description: string
+  teacherUserId: string
+  organizationId: string | null
+  organizationName: string | null
+  inviteCode: string
+  createdAt: string
+  isActive: boolean
+}
+
+export function listOrganizationClasses(
+  token: string,
+  organizationId: string,
+): Promise<OrganizationClass[]> {
+  return request<OrganizationClass[]>(`/organizations/${organizationId}/classes`, { token })
+}
+
+/**
  * PATCH /organizations/:organizationId/members/:userId/role — cambia el
  * `orgRole` de un miembro ya existente (issue #133/#136, Frente E). Solo
  * ADMIN de esa organización o ADMIN global; nadie puede cambiar su propio

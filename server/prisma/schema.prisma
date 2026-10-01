@@ -51,6 +51,7 @@ model UserModel {
   classEnrollments         ClassEnrollmentModel[]
   subjectsCreated          SubjectModel[]
   identityProviderAccounts IdentityProviderAccountModel[]
+  gamePlayResults          GamePlayResultModel[]
 
   @@map("users")
 }
@@ -157,6 +158,7 @@ model ClassModel {
 
   games       ClassGameModel[]
   enrollments ClassEnrollmentModel[]
+  playResults GamePlayResultModel[]
 
   @@index([teacherUserId, createdAt(sort: Desc)])
   @@index([organizationId])
@@ -190,6 +192,13 @@ model ClassGameModel {
   class   ClassModel @relation(fields: [classId], references: [id], onDelete: Cascade)
   gameId  String     @map("game_id")
   addedAt DateTime   @default(now()) @map("added_at")
+  /// Archivado DENTRO de esta clase (issue #226): oculta el juego de la vista
+  /// activa de "Juegos de la clase" sin desvincularlo (a diferencia de
+  /// `removeGame`, que sí borra la fila). No afecta al `Game` global ni a su
+  /// uso en otras clases — es un flag de visibilidad local al vínculo
+  /// Class<->Game, mismo criterio que `GameTypeSettingModel` pero a nivel de
+  /// instancia en vez de a nivel de tipo.
+  isArchived Boolean  @default(false) @map("is_archived")
 
   @@unique([classId, gameId])
   @@index([classId])
@@ -269,6 +278,41 @@ model GameTypeSettingModel {
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
   @@map("game_type_settings")
+}
+
+/// Registro de un intento/partida jugada por un estudiante (issue #226).
+/// Es el hecho atómico sobre el que se agregan todas las métricas: ranking de
+/// clase, desglose por juego, desglose por materia y evolución en el tiempo.
+/// `gameId`/`subjectId` son strings sueltos sin FK real por el mismo motivo
+/// que `ClassGameModel.gameId`: `Game` vive en MongoDB y `Subject` sí vive en
+/// Postgres pero se referencia por id de todas formas para no acoplar esta
+/// tabla de hechos a reglas de integridad de otro agregado (una materia
+/// eliminada no debe impedir conservar el historial de resultados).
+model GamePlayResultModel {
+  id             String     @id @default(uuid())
+  studentUserId  String     @map("student_user_id")
+  student        UserModel  @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
+  classId        String?    @map("class_id")
+  class          ClassModel? @relation(fields: [classId], references: [id], onDelete: SetNull)
+  gameId         String     @map("game_id")
+  /// Denormalizado al momento de registrar el resultado: evita tener que ir a
+  /// Mongo a resolver `gameType`/`title` para listar el desglose por juego.
+  gameTitle      String     @map("game_title")
+  subjectId      String?    @map("subject_id")
+  /// Denormalizado por el mismo motivo que `gameTitle`, y porque una materia
+  /// puede eliminarse (soft-delete) sin que eso rompa el historial agregado.
+  subjectName    String?    @map("subject_name")
+  score          Int
+  correctCount   Int        @map("correct_count")
+  incorrectCount Int        @map("incorrect_count")
+  timePlayedMs   Int        @map("time_played_ms")
+  playedAt       DateTime   @default(now()) @map("played_at")
+
+  @@index([studentUserId, playedAt])
+  @@index([classId, playedAt])
+  @@index([studentUserId, subjectId])
+  @@index([gameId])
+  @@map("game_play_results")
 }
 
 model RefreshTokenModel {

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BookOpen, Bot, Building2, ChevronLeft, Gamepad2, LayoutGrid, Lock, Plus, Users, Users2, Zap } from 'lucide-react'
+import { BarChart3, BookOpen, Bot, Building2, ChevronLeft, Gamepad2, LayoutGrid, Lock, Plus, Users, Users2, Zap } from 'lucide-react'
 type SidebarProps = {
   userRole: string
   canManageUsers: boolean
@@ -123,6 +123,16 @@ export function Sidebar({ userRole, canManageUsers, canAccessOrganization }: Sid
             active={location.pathname.startsWith('/mis-clases')}
             onClick={() => navigate('/mis-clases')}
             icon={<Users2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
+          />
+        )}
+        {userRole.toUpperCase() === 'STUDENT' && (
+          <SidebarItem
+            tourTarget="nav-my-metrics"
+            label="Mis métricas"
+            collapsed={collapsed}
+            active={location.pathname.startsWith('/mis-metricas')}
+            onClick={() => navigate('/mis-metricas')}
+            icon={<BarChart3 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />}
           />
         )}
         <SidebarItem
