@@ -1,4 +1,4 @@
-import { Archive, Gamepad2, User, Users } from 'lucide-react'
+import { Archive, Gamepad2, Sparkles, User, Users } from 'lucide-react'
 import type { GameSummary } from '../../../services/game.service'
 import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
 import { modeColorForGameType } from './gameModeVisuals'
@@ -20,24 +20,65 @@ type GameCardProps = {
    */
   isTypeArchived?: boolean
   edition?: string
+  /**
+   * true cuando este es el juego recién creado que redirigió aquí (issue
+   * #218): pinta un resaltado temporal (glow) con una minisección "Este es
+   * el juego que acabas de crear" + CTA para abrirlo. GamesSection controla
+   * cuándo desaparece (interacción o timeout), esta tarjeta solo pinta.
+   */
+  justCreated?: boolean
+  /** Se dispara al interactuar con el resaltado (click en la tarjeta o en el CTA), para apagarlo ya. */
+  onDismissJustCreated?: () => void
 }
 
-export function GameCard({ game, onClick, color, isTypeArchived = false, edition }: GameCardProps) {
+export function GameCard({
+  game,
+  onClick,
+  color,
+  isTypeArchived = false,
+  edition,
+  justCreated = false,
+  onDismissJustCreated,
+}: GameCardProps) {
   const accentColor = color ?? game.theme.primaryColor
+
+  function handleClick() {
+    if (justCreated) onDismissJustCreated?.()
+    onClick()
+  }
+
   const isMultiplayer = LIVE_ROOM_GAME_TYPES.includes(game.gameType)
   const modeColor = modeColorForGameType(game.gameType)
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="group relative flex h-full min-w-0 w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-1"
+      onClick={handleClick}
+      className={`group relative flex h-full min-w-0 w-full flex-col overflow-hidden rounded-2xl border bg-surface text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-1 ${
+        justCreated
+          ? 'border-accent ring-2 ring-accent/60 shadow-[0_0_0_4px_rgba(var(--accent-rgb,59,130,246),0.15),0_0_28px_-4px_var(--accent)] animate-[glow-pulse_1.8s_ease-in-out_infinite]'
+          : 'border-border'
+      }`}
     >
+      {justCreated && (
+        <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-1.5 bg-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-[var(--shadow)]">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+          <span className="truncate">Este es el juego que acabas de crear</span>
+          <span
+            role="button"
+            tabIndex={-1}
+            className="ml-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10.5px] font-semibold"
+          >
+            Ábrelo aquí →
+          </span>
+        </div>
+      )}
       {/* Izquierda: 1 jugador vs multijugador (ver LIVE_ROOM_GAME_TYPES), con
           color fijo por modo (issue #216, ver gameModeVisuals.ts) para que se
           distinga de un vistazo sin tener que leer el texto — a la derecha,
-          si aplica, va "Tipo archivado". */}
+          si aplica, va "Tipo archivado". Bajan un poco si el banner de
+          "recién creado" ya ocupa la franja superior. */}
       <span
-        className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-semibold text-white shadow-[var(--shadow)]"
+        className={`absolute left-2 z-10 flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-semibold text-white shadow-[var(--shadow)] ${justCreated ? 'top-9' : 'top-2'}`}
         style={{ background: modeColor }}
         title={isMultiplayer ? 'Se juega con más personas, en una sala.' : 'Se juega en solitario.'}
       >
@@ -46,7 +87,7 @@ export function GameCard({ game, onClick, color, isTypeArchived = false, edition
       </span>
       {isTypeArchived && (
         <span
-          className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)]"
+          className={`absolute right-2 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)] ${justCreated ? 'top-9' : 'top-2'}`}
           title="Este tipo de juego está archivado: solo lo ven los administradores y no admite juegos nuevos."
         >
           <Archive className="h-3 w-3" strokeWidth={2.5} />

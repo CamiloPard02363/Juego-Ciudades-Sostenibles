@@ -8,7 +8,13 @@ type GameFormShellProps = {
   description: ReactNode
   /** El panel de <AiGameAssistantPanel /> ya configurado por el formulario. */
   aiPanel: ReactNode
-  /** Ancho máximo de la columna de campos — se mantiene angosta para que los inputs no queden estirados. */
+  /**
+   * Ancho máximo de la columna de campos en pantallas grandes. Por defecto
+   * ahora no limita (solo lg:max-w-none) — el grid ya reparte el espacio
+   * entre esta columna y el panel de IA, así que restringir el ancho acá
+   * solo dejaba espacio muerto en pantallas anchas (feedback tras probar el
+   * wizard multifase, issue #218).
+   */
   formMaxWidthClassName?: string
   children: ReactNode
 }
@@ -19,7 +25,10 @@ type GameFormShellProps = {
  * mucho espacio vacío a los lados en pantallas anchas. Ahora el panel de IA
  * pasa a una columna lateral fija (sticky en desktop, arriba del formulario
  * en mobile) sobre un fondo con desenfoques de color, aprovechando ese
- * espacio en vez de dejarlo muerto.
+ * espacio en vez de dejarlo muerto. El contenedor exterior también crece con
+ * la pantalla (xl/2xl) en vez de topar siempre en 1180px, para que en
+ * monitores grandes el formulario "respire" en vez de quedar en una columna
+ * angosta centrada — en mobile sigue siendo una sola columna apilada.
  */
 export function GameFormShell({
   backLabel,
@@ -27,11 +36,11 @@ export function GameFormShell({
   title,
   description,
   aiPanel,
-  formMaxWidthClassName = 'lg:max-w-[640px]',
+  formMaxWidthClassName = 'lg:max-w-none',
   children,
 }: GameFormShellProps) {
   return (
-    <div className="relative mx-auto max-w-[1180px] p-8">
+    <div className="relative mx-auto max-w-[1180px] p-5 sm:p-8 xl:max-w-[1440px] 2xl:max-w-[1680px]">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
         <div className="absolute -top-24 -right-16 h-80 w-80 rounded-full bg-accent/20 blur-[110px]" />
         <div className="absolute top-1/3 -right-44 h-[460px] w-[460px] rounded-full bg-accent-2/20 blur-[130px]" />
@@ -49,7 +58,7 @@ export function GameFormShell({
         <h2 className="mb-1 text-[20px] tracking-tight text-text-h">{title}</h2>
         <p className="mb-6 max-w-[640px] text-[13px] text-text">{description}</p>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-10">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-10 xl:grid-cols-[minmax(0,1fr)_380px]">
           {/*
             Antes esta columna entera tenía su propio max-height + scroll
             interno (independiente del scroll de la página). Con muchos

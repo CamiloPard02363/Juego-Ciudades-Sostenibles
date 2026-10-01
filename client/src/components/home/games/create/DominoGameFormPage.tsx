@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { DominoGameForm } from '../DominoGameForm'
+import { buildJustCreatedRedirect } from './justCreatedRedirect'
 
 export function DominoGameFormPage() {
   const navigate = useNavigate()
@@ -7,7 +8,7 @@ export function DominoGameFormPage() {
     <DominoGameForm
       onClose={() => navigate('/')}
       onBack={() => navigate('/juegos/crear')}
-      onCreated={() => navigate('/')}
+      onCreated={(gameId, visibility) => navigate(buildJustCreatedRedirect(gameId, visibility))}
       onCategoryCreated={() => {}}
     />
   )
