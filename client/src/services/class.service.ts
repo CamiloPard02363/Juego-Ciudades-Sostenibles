@@ -109,6 +109,17 @@ export function removeStudentFromClass(
 }
 
 /**
+ * GET /classes/:id/students — estudiantes matriculados de UNA clase puntual
+ * (issue #226, drill-down "Estudiantes de la clase"). A diferencia de
+ * `listMyClassesDetail` (solo clases propias del profesor autenticado), este
+ * endpoint autoriza vía `ClassAccessResolver` en el backend — también sirve
+ * a un admin de la institución dueña de la clase, o al admin global.
+ */
+export function getClassStudents(token: string, classId: string): Promise<EnrolledStudent[]> {
+  return request<EnrolledStudent[]>(`/classes/${classId}/students`, { token })
+}
+
+/**
  * POST /classes/:classId/enrollments — matrícula directa por el profesor,
  * sin código de invitación (issue #133/#136, Frente C). Pensada para usarse
  * junto a `listOrganizationStudents`.

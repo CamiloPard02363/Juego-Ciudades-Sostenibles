@@ -1,14 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ClassRepository } from '../../domain/ports/class.repository.port.js';
+import type { UserRepository } from '../../domain/ports/user.repository.port.js';
 import type { OrganizationRepository } from '../../domain/ports/organization.repository.port.js';
 import type { OrganizationMembership } from '../../domain/entities/organization-membership.entity.js';
 import { ClassEntity } from '../../domain/entities/class.entity.js';
+import { ClassEnrollment } from '../../domain/entities/class-enrollment.entity.js';
 import { OrganizationRole } from '../../domain/value-objects/organization-role.vo.js';
 import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
 import { ClassNotFoundError } from '../errors/application.errors.js';
 import { ClassAccessResolver } from '../services/class-access-resolver.service.js';
 import { RequesterAdminResolver } from '../services/requester-admin-resolver.service.js';
-import { RemoveClassEnrollmentUseCase } from './remove-class-enrollment.use-case.js';
+import { GetClassStudentsUseCase } from './get-class-students.use-case.js';
 
 function createClass(overrides: { organizationId?: string | null; teacherUserId?: string } = {}) {
   return ClassEntity.fromPersistence({
@@ -24,6 +26,15 @@ function createClass(overrides: { organizationId?: string | null; teacherUserId?
   });
 }
 
+function enrollment(userId: string) {
+  return ClassEnrollment.fromPersistence({
+    id: `enr-${userId}`,
+    classId: 'class-1',
+    userId,
+    enrolledAt: new Date(),
+  });
+}
+
 function membership(orgRoleName: 'STUDENT' | 'TEACHER' | 'ADMIN'): OrganizationMembership {
   return {
     organizationId: 'org-1',
@@ -36,6 +47,7 @@ function membership(orgRoleName: 'STUDENT' | 'TEACHER' | 'ADMIN'): OrganizationM
 
 function setup(options: {
   classEntity: ClassEntity | null;
+  enrollments?: ClassEnrollment[];
   requestingMembership?: OrganizationMembership | null;
   isPlatformAdmin?: boolean;
 }) {
@@ -58,7 +70,17 @@ function setup(options: {
     findEnrollment: vi.fn(),
     findClassIdsEnrolledByUserId: vi.fn(),
     findAllClassesEnrolledByUserId: vi.fn(),
-    findEnrollmentsByClassIds: vi.fn(),
+    findEnrollmentsByClassIds: vi.fn(async () => options.enrollments ?? []),
+  };
+
+  const userRepository: UserRepository = {
+    save: vi.fn(),
+    findById: vi.fn(),
+    findByIds: vi.fn(async () => []),
+    findByEmail: vi.fn(),
+    existsByEmail: vi.fn(),
+    findAll: vi.fn(),
+    delete: vi.fn(),
   };
 
   const organizationRepository: OrganizationRepository = {
@@ -83,102 +105,61 @@ function setup(options: {
 
   const classAccessResolver = new ClassAccessResolver(organizationRepository, requesterAdminResolver);
 
-  const useCase = new RemoveClassEnrollmentUseCase(classRepository, classAccessResolver);
+  const useCase = new GetClassStudentsUseCase(classRepository, userRepository, classAccessResolver);
 
-  return { useCase, classRepository, organizationRepository };
+  return { useCase, classRepository };
 }
 
-describe('RemoveClassEnrollmentUseCase', () => {
+describe('GetClassStudentsUseCase', () => {
   it('lanza ClassNotFoundError si la clase no existe', async () => {
     const { useCase } = setup({ classEntity: null });
 
-    await expect(
-      useCase.execute({ classId: 'missing', studentUserId: 's1', requestingUserId: 'teacher-1' }),
-    ).rejects.toThrow(ClassNotFoundError);
+    await expect(useCase.execute({ classId: 'missing', requestingUserId: 'teacher-1' })).rejects.toThrow(
+      ClassNotFoundError,
+    );
   });
 
-  it('el profesor dueño de la clase puede expulsar a un estudiante', async () => {
+  it('el profesor dueño de la clase puede ver sus estudiantes', async () => {
     const classEntity = createClass();
-    const { useCase, classRepository } = setup({ classEntity });
+    const { useCase } = setup({ classEntity, enrollments: [enrollment('s1')] });
 
-    await useCase.execute({ classId: 'class-1', studentUserId: 's1', requestingUserId: 'teacher-1' });
+    const result = await useCase.execute({ classId: 'class-1', requestingUserId: 'teacher-1' });
 
-    expect(classRepository.unenroll).toHaveBeenCalledWith('class-1', 's1');
+    expect(result).toHaveLength(1);
   });
 
-  it('un OrganizationRole.ADMIN de la organización dueña de la clase puede expulsar (CA3.2)', async () => {
+  it('un admin de la institución dueña de la clase puede ver los estudiantes (issue #226)', async () => {
     const classEntity = createClass({ organizationId: 'org-1' });
-    const { useCase, classRepository } = setup({
+    const { useCase } = setup({
       classEntity,
+      enrollments: [enrollment('s1')],
       requestingMembership: membership('ADMIN'),
     });
 
-    await useCase.execute({
-      classId: 'class-1',
-      studentUserId: 's1',
-      requestingUserId: 'requester-1',
-    });
+    const result = await useCase.execute({ classId: 'class-1', requestingUserId: 'requester-1' });
 
-    expect(classRepository.unenroll).toHaveBeenCalledWith('class-1', 's1');
+    expect(result).toHaveLength(1);
   });
 
-  it('el admin global de la plataforma puede expulsar aunque no tenga membresía en la organización (issue #226)', async () => {
+  it('el admin global de la plataforma puede ver los estudiantes de cualquier clase', async () => {
     const classEntity = createClass({ organizationId: 'org-1' });
-    const { useCase, classRepository } = setup({
+    const { useCase } = setup({
       classEntity,
-      requestingMembership: null,
+      enrollments: [enrollment('s1')],
       isPlatformAdmin: true,
     });
 
-    await useCase.execute({
-      classId: 'class-1',
-      studentUserId: 's1',
-      requestingUserId: 'platform-admin-1',
-    });
+    const result = await useCase.execute({ classId: 'class-1', requestingUserId: 'platform-admin-1' });
 
-    expect(classRepository.unenroll).toHaveBeenCalledWith('class-1', 's1');
+    expect(result).toHaveLength(1);
   });
 
-  it('un OrganizationRole.TEACHER (no ADMIN) de la organización NO puede expulsar', async () => {
+  it('un usuario sin relación con la clase recibe 403', async () => {
     const classEntity = createClass({ organizationId: 'org-1' });
-    const { useCase, classRepository } = setup({
-      classEntity,
-      requestingMembership: membership('TEACHER'),
-    });
+    const { useCase } = setup({ classEntity, requestingMembership: null });
 
     await expect(
-      useCase.execute({ classId: 'class-1', studentUserId: 's1', requestingUserId: 'requester-1' }),
+      useCase.execute({ classId: 'class-1', requestingUserId: 'stranger' }),
     ).rejects.toThrow(ForbiddenActionError);
-    expect(classRepository.unenroll).not.toHaveBeenCalled();
-  });
-
-  it('un usuario sin membresía en la organización de la clase recibe 403', async () => {
-    const classEntity = createClass({ organizationId: 'org-1' });
-    const { useCase, classRepository } = setup({ classEntity, requestingMembership: null });
-
-    await expect(
-      useCase.execute({ classId: 'class-1', studentUserId: 's1', requestingUserId: 'stranger' }),
-    ).rejects.toThrow(ForbiddenActionError);
-    expect(classRepository.unenroll).not.toHaveBeenCalled();
-  });
-
-  it('clase sin organizationId (profesor particular): solo el profesor dueño puede expulsar, sin lanzar error de organización', async () => {
-    const classEntity = createClass({ organizationId: null });
-    const { useCase, classRepository, organizationRepository } = setup({ classEntity });
-
-    await expect(
-      useCase.execute({ classId: 'class-1', studentUserId: 's1', requestingUserId: 'someone-else' }),
-    ).rejects.toThrow(ForbiddenActionError);
-    expect(organizationRepository.findMembership).not.toHaveBeenCalled();
-    expect(classRepository.unenroll).not.toHaveBeenCalled();
-  });
-
-  it('clase sin organizationId: el profesor dueño sí puede expulsar', async () => {
-    const classEntity = createClass({ organizationId: null, teacherUserId: 'teacher-1' });
-    const { useCase, classRepository } = setup({ classEntity });
-
-    await useCase.execute({ classId: 'class-1', studentUserId: 's1', requestingUserId: 'teacher-1' });
-
-    expect(classRepository.unenroll).toHaveBeenCalledWith('class-1', 's1');
   });
 });

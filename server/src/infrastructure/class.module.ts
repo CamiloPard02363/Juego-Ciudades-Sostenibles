@@ -22,6 +22,7 @@ import { ReactivateClassUseCase } from '../application/use-cases/reactivate-clas
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
 import { ClassAccessResolver } from '../application/services/class-access-resolver.service.js';
 import { SetClassGameArchivedUseCase } from '../application/use-cases/set-class-game-archived.use-case.js';
+import { GetClassStudentsUseCase } from '../application/use-cases/get-class-students.use-case.js';
 import { RolesGuard } from './http/guards/roles.guard.js';
 import { ClassController } from './http/controllers/class.controller.js';
 
@@ -49,6 +50,7 @@ import { ClassController } from './http/controllers/class.controller.js';
     DeactivateClassUseCase,
     ReactivateClassUseCase,
     SetClassGameArchivedUseCase,
+    GetClassStudentsUseCase,
   ],
 })
 export class ClassModule {}

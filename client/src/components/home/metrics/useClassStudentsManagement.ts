@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../../hooks/useAuth'
 import {
-  listMyClassesDetail,
+  getClassStudents,
   removeStudentFromClass,
   type EnrolledStudent,
 } from '../../../services/class.service'
@@ -10,10 +10,11 @@ const PAGE_SIZE = 10
 
 /**
  * Única responsabilidad: estudiantes matriculados de UNA clase (issue #226,
- * "Estudiantes de la clase") — búsqueda, paginado local y expulsión. Reutiliza
- * `listMyClassesDetail` (ya trae `students` por clase) en vez de pedir un
- * endpoint nuevo: no hay otra fuente de verdad distinta para esta lista
- * todavía, y duplicarla hubiera sido más riesgo que beneficio en este alcance.
+ * "Estudiantes de la clase") — búsqueda, paginado local y expulsión. Usa
+ * `GET /classes/:id/students` (no `listMyClassesDetail`, que solo lista las
+ * clases propias del profesor autenticado y rechaza a un admin de
+ * institución viendo la clase de otro profesor — bug reportado tras el
+ * primer corte de #226).
  */
 export function useClassStudentsManagement(classId: string) {
   const { token } = useAuth()
@@ -27,11 +28,8 @@ export function useClassStudentsManagement(classId: string) {
     if (!token) return
     setLoading(true)
     setError(null)
-    listMyClassesDetail(token, true)
-      .then((classes) => {
-        const target = classes.find((classDetail) => classDetail.id === classId)
-        setAllStudents(target?.students ?? [])
-      })
+    getClassStudents(token, classId)
+      .then((students) => setAllStudents(students))
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
   }, [token, classId])

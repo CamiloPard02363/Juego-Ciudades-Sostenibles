@@ -1,10 +1,8 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CLASS_REPOSITORY, type ClassRepository } from '../../domain/ports/class.repository.port.js';
-import {
-  ORGANIZATION_REPOSITORY,
-  type OrganizationRepository,
-} from '../../domain/ports/organization.repository.port.js';
+import { ForbiddenActionError } from '../../domain/errors/authorization.errors.js';
 import { ClassNotFoundError } from '../errors/application.errors.js';
+import { ClassAccessResolver } from '../services/class-access-resolver.service.js';
 
 export interface RemoveClassEnrollmentInput {
   classId: string;
@@ -14,22 +12,15 @@ export interface RemoveClassEnrollmentInput {
 
 /**
  * Expulsa a un estudiante matriculado de una Class (issue #101, ampliado en
- * #106). Puede hacerlo:
- * - el profesor dueño de la clase, siempre.
- * - un `OrganizationRole.ADMIN` de la organización dueña de la clase
- *   (`Class.organizationId`), para cualquier clase de esa organización.
- *
- * Si la clase no tiene `organizationId` (profesor particular, sin
- * organización asociada), solo el profesor dueño puede expulsar — no se
- * intenta resolver membresía de organización en ese caso, para no lanzar un
- * error de "organización no encontrada" que no aplica.
+ * #106 y #226). Autoriza vía `ClassAccessResolver` — mismo criterio "OR entre
+ * ejes" que el resto de endpoints de clase: el profesor dueño, un admin de la
+ * institución dueña de la clase, o el admin global de la plataforma.
  */
 @Injectable()
 export class RemoveClassEnrollmentUseCase {
   constructor(
     @Inject(CLASS_REPOSITORY) private readonly classRepository: ClassRepository,
-    @Inject(ORGANIZATION_REPOSITORY)
-    private readonly organizationRepository: OrganizationRepository,
+    private readonly classAccessResolver: ClassAccessResolver,
   ) {}
 
   async execute(input: RemoveClassEnrollmentInput): Promise<void> {
@@ -38,25 +29,14 @@ export class RemoveClassEnrollmentUseCase {
       throw new ClassNotFoundError(input.classId);
     }
 
-    const isOwner = classEntity.teacherUserId === input.requestingUserId;
-
-    if (!isOwner) {
-      const isOrgAdmin =
-        classEntity.organizationId !== null &&
-        (await this.isOrganizationAdmin(classEntity.organizationId, input.requestingUserId));
-
-      if (!isOrgAdmin) {
-        throw new ForbiddenException(
-          'Solo el profesor dueño de la clase o un administrador de su organización pueden expulsar estudiantes.',
-        );
-      }
+    const canManage = await this.classAccessResolver.canManage(
+      classEntity,
+      input.requestingUserId,
+    );
+    if (!canManage) {
+      throw new ForbiddenActionError('expulsar estudiantes de esta clase');
     }
 
     await this.classRepository.unenroll(input.classId, input.studentUserId);
-  }
-
-  private async isOrganizationAdmin(organizationId: string, userId: string): Promise<boolean> {
-    const membership = await this.organizationRepository.findMembership(organizationId, userId);
-    return membership?.isAdmin() ?? false;
   }
 }
