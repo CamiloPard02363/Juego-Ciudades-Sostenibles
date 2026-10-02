@@ -18,16 +18,18 @@ export interface GenerateGameDraftInput {
   mode?: string;
   /**
    * Instrucción libre del usuario para guiar a la IA (p. ej. "enfócate en el
-   * capítulo 3", o directamente el tema completo del juego). Para tipos de
-   * juego sin imagen obligatoria (ver `GamePromptSpec.imageRequirement`)
-   * puede ser la ÚNICA fuente de contenido si `files` viene vacío (issue
-   * #234) — para los que sí requieren imagen, nunca reemplaza a `files`.
+   * capítulo 3", o directamente el tema completo del juego) — puede ser la
+   * ÚNICA fuente de contenido si `files` viene vacío, en CUALQUIER tipo de
+   * juego (issues #234/#238). Para los tipos con imagen obligatoria por
+   * elemento (Quién Es, Parejas), eso sí, cada elemento del borrador queda
+   * sin imagen (`imageUrl: null`) — la IA no inventa fotos reales, el
+   * usuario las agrega a mano después.
    */
   message?: string;
   /**
-   * Puede venir vacío SOLO cuando el `gameType` no tiene imagen obligatoria
-   * Y `message` trae texto (issue #234) — `execute()` es quien decide esto
-   * según el `GamePromptSpec`, no el llamador.
+   * Puede venir vacío siempre que `message` traiga texto (issues #234/#238)
+   * — `execute()` es quien decide, según el `GamePromptSpec`, si eso implica
+   * generar sin imágenes o directamente sin ninguna fuente visual.
    */
   files: SourceFile[];
 }
@@ -53,19 +55,27 @@ const MAX_FILES = 65;
  * paralelo "más permisivo" para contenido generado por IA.
  *
  * Tipos de juego con imagen obligatoria por elemento (Quién Es, Parejas): la
- * IA nunca inventa esas imágenes. El profesor sube sus propias imágenes junto
- * con los demás archivos — sueltas, o dentro de un PDF/Word con varias fotos
- * adentro (se extraen automáticamente, ver `content-image-extractor.ts`,
- * issue #208) — y este caso de uso las sube a Cloudinary (mismo
- * `ImageStorage` que usa la subida manual) y le pide al modelo que las
- * "organice" — que les asigne un concepto — referenciándolas por posición
- * ("imageIndex") en vez de por URL, y luego reemplaza cada índice por la URL
- * real ya subida antes de validar.
+ * IA nunca inventa esas imágenes. Lo normal es que el profesor suba sus
+ * propias imágenes junto con los demás archivos — sueltas, o dentro de un
+ * PDF/Word con varias fotos adentro (se extraen automáticamente, ver
+ * `content-image-extractor.ts`, issue #208) — y este caso de uso las sube a
+ * Cloudinary (mismo `ImageStorage` que usa la subida manual) y le pide al
+ * modelo que las "organice" — que les asigne un concepto — referenciándolas
+ * por posición ("imageIndex") en vez de por URL, y luego reemplaza cada
+ * índice por la URL real ya subida antes de validar. Pero si no sube NINGUNA
+ * imagen y en cambio escribe el tema en `message` (issue #238), la IA genera
+ * igual el contenido completo (labels/info/config) solo con ese texto, y
+ * cada elemento queda con `imageUrl: null` — el usuario la completa a mano
+ * en el formulario de siempre antes de poder crear/guardar el juego de
+ * verdad (ahí el validador vuelve a exigirla, sin excepción).
  *
  * Tipos de juego SIN imagen obligatoria (Dominó, Laberinto, Escaleras,
  * Opuestos, Dúo Lógico — issue #234): acá `files` es opcional de verdad. El
  * usuario puede escribir solo el tema/instrucciones en `message` sin adjuntar
- * nada, y la IA genera el juego completo a partir de ese texto — se exige
+ * nada, y la IA genera el juego completo a partir de ese texto.
+ *
+ * En resumen (issues #234/#238): nunca es obligatorio adjuntar un archivo
+ * para poder generar un borrador, en ningún tipo de juego — pero sí se exige
  * al menos UNA de las dos fuentes (archivos o mensaje), nunca ninguna.
  */
 @Injectable()
@@ -93,10 +103,13 @@ export class GenerateGameDraftUseCase
     }
 
     if (spec.imageRequirement) {
-      // Acá SÍ es obligatorio al menos un archivo: sin ninguna imagen (suelta
-      // o incrustada en un PDF/Word) no hay nada que la IA pueda organizar.
-      if (input.files.length === 0) {
-        throw new InvalidGameContentError('sube al menos un archivo para generar el juego.');
+      // Sin archivos NI mensaje no hay nada de dónde partir — con mensaje
+      // (issue #238), `executeWithContentImages` genera igual sin ninguna
+      // imagen si no encuentra ninguna entre los archivos.
+      if (input.files.length === 0 && !input.message?.trim()) {
+        throw new InvalidGameContentError(
+          'sube al menos un archivo o escribe el tema para generar el juego.',
+        );
       }
       return this.executeWithContentImages(gameType.getName(), spec, input.files, input.message);
     }
@@ -173,8 +186,15 @@ export class GenerateGameDraftUseCase
     const imageFiles = [...directImageFiles, ...embeddedImageFiles];
 
     if (imageFiles.length === 0) {
+      // Sin ninguna imagen (ni suelta ni incrustada) — issue #238: si el
+      // usuario escribió un tema, la IA genera igual el contenido completo
+      // sin imágenes, para que él las agregue a mano después. Sin mensaje,
+      // no hay nada de dónde partir.
+      if (message?.trim()) {
+        return this.executeImageRequirementTextOnly(gameTypeName, spec, documentFiles, message);
+      }
       throw new InvalidGameContentError(
-        'sube al menos una imagen — suelta, o dentro de un PDF/Word (la IA las extrae automáticamente); tú las subes, la IA solo las organiza.',
+        'sube al menos una imagen — suelta, o dentro de un PDF/Word (la IA las extrae automáticamente) — o escribe el tema para que la IA arme el contenido y lo completes con imágenes después.',
       );
     }
     if (enforceMinimum !== false && imageFiles.length < min) {
@@ -208,6 +228,43 @@ export class GenerateGameDraftUseCase
     return this.validate(gameTypeName, draft.config, content);
   }
 
+  /**
+   * Tipos con imagen obligatoria por elemento (Quién Es, Parejas), pero SIN
+   * ninguna imagen disponible todavía (issue #238): la IA genera el
+   * contenido completo (labels/info/config) solo con el tema que escribe el
+   * usuario, usando `spec.textOnlyInstructions`/`textOnlyJsonShapeExample`
+   * en vez de las instrucciones normales (que darían por hecho que hay
+   * imágenes que organizar). Cada elemento queda con `imageUrl: null` — el
+   * mismo validador, en modo borrador (`isDraft`, ver `validate()`), lo
+   * permite; el usuario completa cada imagen a mano en el formulario de
+   * siempre antes de poder crear/guardar el juego de verdad.
+   */
+  private async executeImageRequirementTextOnly(
+    gameTypeName: GameTypeName,
+    spec: GamePromptSpec,
+    documentFiles: SourceFile[],
+    message: string,
+  ): Promise<GenerateGameDraftOutput> {
+    const sourceText = documentFiles.length > 0 ? await this.fileTextExtractor.extractAll(documentFiles) : '';
+
+    const draft = await this.aiContentAssistant.generateGameDraft({
+      gameType: gameTypeName,
+      sourceText:
+        sourceText.trim() ||
+        '(el usuario no adjuntó archivos — genera el contenido únicamente a partir de las instrucciones de abajo.)',
+      instructions: buildInstructions(
+        {
+          instructions: spec.textOnlyInstructions ?? spec.instructions,
+          jsonShapeExample: spec.textOnlyJsonShapeExample ?? spec.jsonShapeExample,
+        },
+        message,
+      ),
+    });
+
+    const content = normalizeMissingImageFields(draft.content);
+    return this.validate(gameTypeName, draft.config, content);
+  }
+
   private validate(
     gameTypeName: GameTypeName,
     config: unknown,
@@ -230,7 +287,10 @@ export class GenerateGameDraftUseCase
  * instrucción del usuario puede afinar el resultado pero nunca reemplaza las
  * reglas del tipo de juego, que siempre van primero.
  */
-function buildInstructions(spec: GamePromptSpec, message: string | undefined): string {
+function buildInstructions(
+  spec: Pick<GamePromptSpec, 'instructions' | 'jsonShapeExample'>,
+  message: string | undefined,
+): string {
   const userInstructions = message?.trim()
     ? `\n\nInstrucciones del usuario (aplícalas dentro de las reglas de arriba):\n${message.trim()}`
     : '';
@@ -279,5 +339,23 @@ function normalizeOppositesImageFields(content: unknown): unknown {
       posImageUrl: raw.posImageUrl ?? null,
       negImageUrl: raw.negImageUrl ?? null,
     };
+  });
+}
+
+/**
+ * Fuerza "imageUrl": null (y descarta cualquier "imageIndex" que el modelo
+ * haya devuelto de más, aunque se le pidió que no lo hiciera) en cada
+ * elemento — issue #238, camino sin ninguna imagen disponible para Quién Es
+ * y Parejas. Mismo patrón que `normalizeOppositesImageFields`, para cuando
+ * se genera sin imágenes en vez de sin ellas por diseño.
+ */
+function normalizeMissingImageFields(content: unknown): unknown {
+  if (!Array.isArray(content)) return content;
+
+  return content.map((item) => {
+    if (typeof item !== 'object' || item === null) return item;
+    const raw = item as Record<string, unknown>;
+    const { imageIndex: _imageIndex, ...rest } = raw;
+    return { ...rest, imageUrl: null };
   });
 }

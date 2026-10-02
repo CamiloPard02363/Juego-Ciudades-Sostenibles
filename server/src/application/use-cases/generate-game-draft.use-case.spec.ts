@@ -305,19 +305,6 @@ describe('GenerateGameDraftUseCase — generar solo con texto, sin archivos (iss
     expect(assistant.generateGameDraft).not.toHaveBeenCalled();
   });
 
-  it('GUESS_WHO (imagen obligatoria) sigue rechazando sin archivos aunque haya mensaje', async () => {
-    const assistant = fakeAssistant(guessWhoDraftWithImages(0));
-
-    await expect(
-      buildUseCase(assistant).execute({
-        gameType: 'GUESS_WHO',
-        message: 'Banderas de Sudamérica.',
-        files: [],
-      }),
-    ).rejects.toThrow(InvalidGameContentError);
-    expect(assistant.generateGameDraft).not.toHaveBeenCalled();
-  });
-
   it('combina archivos y mensaje cuando ambos llegan (el mensaje no reemplaza el texto extraído)', async () => {
     const assistant = fakeAssistant(VALID_DOMINO_DRAFT);
 
@@ -415,6 +402,106 @@ describe('GenerateGameDraftUseCase — tipos con imagen obligatoria (el usuario 
 
     expect(result.content).toHaveLength(4);
     expect((result.content[0] as { imageUrl: string }).imageUrl).toBe('https://cdn.test/image-0.png');
+  });
+});
+
+describe('GenerateGameDraftUseCase — tipos con imagen obligatoria, pero SIN ninguna imagen (issue #238)', () => {
+  it('GUESS_WHO genera el borrador completo solo con el mensaje, sin llamar a describeImage/ImageStorage', async () => {
+    const assistant = fakeAssistant({
+      config: {},
+      content: Array.from({ length: 12 }, (_, index) => ({
+        label: `País ${index}`,
+        info: `Dato ${index}`,
+      })),
+    });
+    const imageStorage = fakeImageStorage();
+
+    const result = await buildUseCase(assistant, imageStorage).execute({
+      gameType: 'GUESS_WHO',
+      message: 'Banderas de Sudamérica.',
+      files: [],
+    });
+
+    expect(result.content).toHaveLength(12);
+    for (const card of result.content as Array<Record<string, unknown>>) {
+      expect(card.imageUrl).toBeNull();
+    }
+    expect(imageStorage.upload).not.toHaveBeenCalled();
+    expect(assistant.describeImage).not.toHaveBeenCalled();
+
+    const call = vi.mocked(assistant.generateGameDraft).mock.calls[0][0];
+    expect(call.instructions).toContain('Banderas de Sudamérica.');
+    // Usa las instrucciones SIN imagen (textOnlyInstructions), no las que dan por hecho que hay imágenes.
+    expect(call.instructions).toContain('todavía no hay ninguna imagen disponible');
+    expect(call.imageDescriptions).toBeUndefined();
+  });
+
+  it('MEMORY_MATCH modo PAIRS también genera sin ninguna imagen, usando solo el mensaje', async () => {
+    const assistant = fakeAssistant({
+      config: { mode: 'PAIRS' },
+      content: [{ label: '2 + 2' }, { label: 'Triángulo' }, { label: 'Número primo' }, { label: 'Círculo' }],
+    });
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'PAIRS',
+      message: 'Matemáticas básicas.',
+      files: [],
+    });
+
+    expect(result.content).toHaveLength(4);
+    for (const pair of result.content as Array<Record<string, unknown>>) {
+      expect(pair.imageUrl).toBeNull();
+    }
+  });
+
+  it('descarta cualquier imageIndex que la IA devuelva de más cuando no hay imágenes', async () => {
+    const assistant = fakeAssistant({
+      config: {},
+      content: Array.from({ length: 12 }, (_, index) => ({
+        imageIndex: index, // la IA no debía incluir esto, pero si lo hace, se descarta
+        label: `País ${index}`,
+      })),
+    });
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'GUESS_WHO',
+      message: 'Banderas.',
+      files: [],
+    });
+
+    for (const card of result.content as Array<Record<string, unknown>>) {
+      expect(card).not.toHaveProperty('imageIndex');
+      expect(card.imageUrl).toBeNull();
+    }
+  });
+
+  it('sigue rechazando sin archivos NI mensaje, sin llamar a la IA (ninguna de las dos fuentes)', async () => {
+    const assistant = fakeAssistant(guessWhoDraftWithImages(0));
+
+    await expect(buildUseCase(assistant).execute({ gameType: 'GUESS_WHO', files: [] })).rejects.toThrow(
+      InvalidGameContentError,
+    );
+    await expect(
+      buildUseCase(assistant).execute({ gameType: 'GUESS_WHO', message: '   ', files: [] }),
+    ).rejects.toThrow(InvalidGameContentError);
+    expect(assistant.generateGameDraft).not.toHaveBeenCalled();
+  });
+
+  it('un documento sin imágenes incrustadas (CSV) aporta texto de contexto además del mensaje', async () => {
+    const assistant = fakeAssistant({
+      config: {},
+      content: Array.from({ length: 12 }, (_, index) => ({ label: `País ${index}` })),
+    });
+
+    await buildUseCase(assistant).execute({
+      gameType: 'GUESS_WHO',
+      message: 'Banderas de Sudamérica.',
+      files: [csvFile('pais,capital\nArgentina,Buenos Aires')],
+    });
+
+    const call = vi.mocked(assistant.generateGameDraft).mock.calls[0][0];
+    expect(call.sourceText).toContain('Argentina');
   });
 });
 

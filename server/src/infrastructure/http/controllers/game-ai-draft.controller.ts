@@ -37,14 +37,14 @@ function isAllowedMimeType(mimeType: string): boolean {
  * porque no es una operación CRUD sobre `Game` (no guarda nada), sino un
  * caso de uso de un solo paso.
  *
- * Los archivos son opcionales (issue #234): para tipos de juego sin imagen
- * obligatoria por elemento, `dto.message` puede ser la única fuente — el
- * usuario escribe el tema y la IA genera el juego completo con solo eso. El
- * caso de uso (`GenerateGameDraftUseCase`) es quien decide, según el
- * `gameType`, si eso es válido o si ese tipo sigue exigiendo al menos un
- * archivo (Quién Es, Parejas) — acá solo se bloquea el caso sin ninguna de
- * las dos fuentes, para devolver un 400 claro sin siquiera llamar al caso de
- * uso.
+ * Los archivos son opcionales en CUALQUIER tipo de juego (issues #234/#238):
+ * `dto.message` puede ser la única fuente — el usuario escribe el tema y la
+ * IA genera el borrador completo con solo eso. Para los tipos con imagen
+ * obligatoria por elemento (Quién Es, Parejas), eso sí, cada elemento queda
+ * sin imagen (`GenerateGameDraftUseCase` decide esto según el `gameType`) —
+ * el usuario la agrega a mano después. Acá solo se bloquea el caso sin
+ * ninguna de las dos fuentes (ni archivos ni mensaje), para devolver un 400
+ * claro sin siquiera llamar al caso de uso.
  */
 @Controller('games/ai-draft')
 @UseGuards(JwtAuthGuard)

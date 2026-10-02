@@ -4,10 +4,11 @@ import { VALID_GAME_TYPES } from '../../../domain/value-objects/game-type.vo.js'
 /**
  * `message` es texto libre del usuario (instrucciones para guiar a la IA,
  * p. ej. "enfócate en el capítulo 3", o directamente el tema completo del
- * juego), NUNCA un link. Para tipos de juego sin imagen obligatoria por
- * elemento, puede ser la ÚNICA fuente de contenido si no se adjunta ningún
- * archivo (issue #234) — para los que sí la requieren (Quién Es, Parejas),
- * los archivos siguen siendo obligatorios (ver GameAiDraftController).
+ * juego), NUNCA un link. Puede ser la ÚNICA fuente de contenido si no se
+ * adjunta ningún archivo, en CUALQUIER tipo de juego (issues #234/#238). En
+ * los tipos con imagen obligatoria por elemento (Quién Es, Parejas) eso sí,
+ * cada elemento del borrador queda sin imagen — la IA no inventa fotos
+ * reales, el usuario las agrega a mano después (ver GameAiDraftController).
  */
 export class GenerateGameDraftDto {
   @IsIn(VALID_GAME_TYPES)

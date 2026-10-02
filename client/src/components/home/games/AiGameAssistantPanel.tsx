@@ -41,11 +41,13 @@ type AiGameAssistantPanelProps = {
  * formulario con un borrador — que sigue el flujo normal de revisar/editar
  * y crear con el botón de siempre. No crea el juego por sí solo.
  *
- * Para tipos de juego CON imagen obligatoria por elemento (`imagesRequired`,
- * Quién Es/Parejas) los archivos siguen siendo obligatorios y el texto solo
- * orienta cómo usarlos. Para el resto (issue #234), el texto puede ser la
- * ÚNICA entrada: el usuario escribe el tema sin adjuntar nada y la IA genera
- * el juego completo con eso.
+ * Nunca es obligatorio adjuntar un archivo para enviar (issues #234/#238):
+ * el usuario puede escribir solo el tema y la IA genera el borrador
+ * completo con eso. Para tipos de juego CON imagen obligatoria por elemento
+ * (`imagesRequired`, Quién Es/Parejas), eso sí, cada elemento del borrador
+ * queda sin imagen cuando no se adjuntó ninguna — la IA no puede inventar
+ * fotos reales, así que el usuario la agrega a mano después en el
+ * formulario de siempre (que también admite arrastrar y soltar).
  */
 export function AiGameAssistantPanel({
   gameType,
@@ -71,12 +73,11 @@ export function AiGameAssistantPanel({
   // muestra un contador que sería engañoso (ver imagesGuidance más abajo).
   const enforcesMinimum = imagesRequired?.enforceMinimum !== false
   const hasEnoughImages = !imagesRequired || !enforcesMinimum || imageCount >= imagesRequired.min
-  // Tipos SIN imagen obligatoria (issue #234): el usuario puede escribir
-  // solo el tema en el cuadro de texto, sin adjuntar ningún archivo — la IA
-  // genera el juego completo con eso. Los tipos con imagen obligatoria
-  // (Quién Es, Parejas) siguen exigiendo al menos un archivo: la IA no
-  // puede inventar esas imágenes, solo organizar las que el usuario suba.
-  const canSendTextOnly = !imagesRequired && files.length === 0 && message.trim().length > 0
+  // Nunca es obligatorio adjuntar un archivo para enviar (issues #234/#238):
+  // el usuario puede escribir solo el tema, sin adjuntar nada, en CUALQUIER
+  // tipo de juego — incluyendo Quién Es/Parejas (ahí cada elemento del
+  // borrador queda sin imagen, para completarla a mano después).
+  const canSendTextOnly = files.length === 0 && message.trim().length > 0
   const canSend =
     !disabled && !generating && (canSendTextOnly || (files.length > 0 && hasEnoughImages))
 
@@ -174,11 +175,7 @@ export function AiGameAssistantPanel({
               </span>
               <div>
                 <h2 className="text-[17px] font-semibold text-text-h">Generar con IA</h2>
-                <p className="text-[12px] text-text">
-                  {imagesRequired
-                    ? 'Sube tus archivos y, si quieres, agrega instrucciones'
-                    : 'Sube tus archivos, o escribe directamente el tema'}
-                </p>
+                <p className="text-[12px] text-text">Sube tus archivos, o escribe directamente el tema</p>
               </div>
             </div>
             <button
@@ -199,15 +196,17 @@ export function AiGameAssistantPanel({
                   Este juego necesita una imagen por elemento — eso lo subes tú (mínimo {imagesRequired.min}), la
                   IA no puede inventarlas. Súbelas con el clip y la IA se encarga de organizarlas: le asigna a
                   cada imagen el concepto que le corresponde. También puedes agregar PDF/Word/Excel/CSV de
-                  referencia (opcional).
+                  referencia (opcional). O, si prefieres, escribe solo el tema sin ninguna imagen: la IA arma el
+                  contenido completo y tú agregas cada imagen a mano después.
                 </>
               ) : (
                 <>
                   Este juego necesita una imagen por elemento — eso lo subes tú, la IA no puede inventarlas, solo
                   las organiza. Súbelas como prefieras: cada imagen suelta, o un solo PDF/Word con varias fotos
                   adentro (la IA las extrae automáticamente — cuenta como una sola carga). Recomendamos al menos{' '}
-                  {imagesRequired.min} para armar el juego completo, pero no es obligatorio: puedes subir menos y
-                  completar el resto a mano después.
+                  {imagesRequired.min} para armar el juego completo, pero no es obligatorio: puedes subir menos, o
+                  incluso ninguna y escribir solo el tema — la IA arma el contenido completo y tú agregas cada
+                  imagen a mano después.
                 </>
               )
             ) : (
@@ -217,8 +216,7 @@ export function AiGameAssistantPanel({
                 cuadro de texto, sin adjuntar nada: la IA genera el juego completo solo con eso.
               </>
             )}{' '}
-            No se aceptan links, solo archivos que subas tú
-            {!imagesRequired ? ' (o el texto que escribas).' : '.'}
+            No se aceptan links, solo archivos que subas tú (o el texto que escribas, sin ningún archivo).
           </p>
 
           {imagesRequired && enforcesMinimum && (
@@ -298,11 +296,7 @@ export function AiGameAssistantPanel({
                 onChange={(event) => setMessage(event.target.value)}
                 onKeyDown={handleMessageKeyDown}
                 disabled={disabled || generating}
-                placeholder={
-                  imagesRequired
-                    ? 'Escribe instrucciones para la IA (opcional)…'
-                    : 'Escribe instrucciones, o directamente el tema del juego (ej. "La Revolución Francesa")…'
-                }
+                placeholder='Escribe instrucciones, o directamente el tema del juego (ej. "La Revolución Francesa")…'
                 className="max-h-28 min-h-9 flex-1 resize-none rounded-2xl border border-border bg-surface px-3.5 py-2 text-[13px] text-text-h outline-none placeholder:text-text focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
               />
 
