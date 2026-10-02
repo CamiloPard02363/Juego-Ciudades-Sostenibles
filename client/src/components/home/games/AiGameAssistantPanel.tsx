@@ -34,13 +34,18 @@ type AiGameAssistantPanelProps = {
 
 /**
  * Botón que abre el asistente de IA para creación de juego, con una interfaz
- * tipo chat: un campo de texto para instrucciones (opcional, Enter para
- * enviar), un botón de clip para adjuntar archivos y un botón de enviar. El
- * profesor sube SUS archivos propios (nunca un link) y la IA pre-llena el
- * resto del formulario con un borrador — que sigue el flujo normal de
- * revisar/editar y crear con el botón de siempre. No crea el juego por sí
- * solo, y el texto del chat solo orienta cómo usar los archivos: no los
- * reemplaza (siguen siendo obligatorios).
+ * tipo chat: un campo de texto para instrucciones (Enter para enviar), un
+ * botón de clip para adjuntar archivos (o arrastrarlos y soltarlos encima
+ * del recuadro, issue #234) y un botón de enviar. El profesor sube SUS
+ * archivos propios (nunca un link) y la IA pre-llena el resto del
+ * formulario con un borrador — que sigue el flujo normal de revisar/editar
+ * y crear con el botón de siempre. No crea el juego por sí solo.
+ *
+ * Para tipos de juego CON imagen obligatoria por elemento (`imagesRequired`,
+ * Quién Es/Parejas) los archivos siguen siendo obligatorios y el texto solo
+ * orienta cómo usarlos. Para el resto (issue #234), el texto puede ser la
+ * ÚNICA entrada: el usuario escribe el tema sin adjuntar nada y la IA genera
+ * el juego completo con eso.
  */
 export function AiGameAssistantPanel({
   gameType,
@@ -66,18 +71,50 @@ export function AiGameAssistantPanel({
   // muestra un contador que sería engañoso (ver imagesGuidance más abajo).
   const enforcesMinimum = imagesRequired?.enforceMinimum !== false
   const hasEnoughImages = !imagesRequired || !enforcesMinimum || imageCount >= imagesRequired.min
-  const canSend = !disabled && !generating && files.length > 0 && hasEnoughImages
+  // Tipos SIN imagen obligatoria (issue #234): el usuario puede escribir
+  // solo el tema en el cuadro de texto, sin adjuntar ningún archivo — la IA
+  // genera el juego completo con eso. Los tipos con imagen obligatoria
+  // (Quién Es, Parejas) siguen exigiendo al menos un archivo: la IA no
+  // puede inventar esas imágenes, solo organizar las que el usuario suba.
+  const canSendTextOnly = !imagesRequired && files.length === 0 && message.trim().length > 0
+  const canSend =
+    !disabled && !generating && (canSendTextOnly || (files.length > 0 && hasEnoughImages))
+
+  function addFiles(incoming: File[]) {
+    if (incoming.length === 0) return
+    setError(null)
+    setFiles((current) => [...current, ...incoming].slice(0, maxFiles))
+  }
 
   function handleFilesChosen(event: React.ChangeEvent<HTMLInputElement>) {
     const chosen = Array.from(event.target.files ?? [])
     event.target.value = ''
-    if (chosen.length === 0) return
-    setError(null)
-    setFiles((current) => [...current, ...chosen].slice(0, maxFiles))
+    addFiles(chosen)
   }
 
   function removeFile(index: number) {
     setFiles((current) => current.filter((_, i) => i !== index))
+  }
+
+  // Arrastrar y soltar (issue #234), además del clip de siempre.
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false)
+  const canDropFiles = !disabled && !generating && files.length < maxFiles
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    if (canDropFiles) setIsDraggingFiles(true)
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    setIsDraggingFiles(false)
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    setIsDraggingFiles(false)
+    if (!canDropFiles) return
+    addFiles(Array.from(event.dataTransfer.files ?? []))
   }
 
   function closeModal() {
@@ -137,7 +174,11 @@ export function AiGameAssistantPanel({
               </span>
               <div>
                 <h2 className="text-[17px] font-semibold text-text-h">Generar con IA</h2>
-                <p className="text-[12px] text-text">Sube tus archivos y, si quieres, agrega instrucciones</p>
+                <p className="text-[12px] text-text">
+                  {imagesRequired
+                    ? 'Sube tus archivos y, si quieres, agrega instrucciones'
+                    : 'Sube tus archivos, o escribe directamente el tema'}
+                </p>
               </div>
             </div>
             <button
@@ -172,10 +213,12 @@ export function AiGameAssistantPanel({
             ) : (
               <>
                 Adjunta PDF, Word, Excel, CSV o imágenes con tu propio material — la IA extrae la información y
-                llena el resto del formulario con ese tema.
+                llena el resto del formulario con ese tema. También puedes escribir el tema directamente en el
+                cuadro de texto, sin adjuntar nada: la IA genera el juego completo solo con eso.
               </>
             )}{' '}
-            No se aceptan links, solo archivos que subas tú.
+            No se aceptan links, solo archivos que subas tú
+            {!imagesRequired ? ' (o el texto que escribas).' : '.'}
           </p>
 
           {imagesRequired && enforcesMinimum && (
@@ -196,8 +239,23 @@ export function AiGameAssistantPanel({
           />
 
           {/* Recuadro tipo chat: archivos adjuntos como chips arriba, y abajo la
-              fila de entrada (clip + texto + enviar), como cualquier chat. */}
-          <div className="rounded-xl border border-border bg-code-bg/40 p-2.5">
+              fila de entrada (clip + texto + enviar), como cualquier chat.
+              También admite arrastrar y soltar archivos encima (issue #234),
+              no solo el botón de clip. */}
+          <div
+            className={`rounded-xl border p-2.5 transition-colors ${
+              isDraggingFiles ? 'border-accent bg-accent/10' : 'border-border bg-code-bg/40'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {files.length === 0 && (
+              <p className="mb-2 text-center text-[11.5px] text-text/60">
+                {isDraggingFiles ? 'Suelta los archivos aquí' : 'Arrastra tus archivos aquí, o usa el clip'}
+              </p>
+            )}
+
             {files.length > 0 && (
               <ul className="mb-2 flex max-h-[160px] flex-wrap gap-1.5 overflow-y-auto pr-1">
                 {files.map((file, index) => (
@@ -240,7 +298,11 @@ export function AiGameAssistantPanel({
                 onChange={(event) => setMessage(event.target.value)}
                 onKeyDown={handleMessageKeyDown}
                 disabled={disabled || generating}
-                placeholder="Escribe instrucciones para la IA (opcional)…"
+                placeholder={
+                  imagesRequired
+                    ? 'Escribe instrucciones para la IA (opcional)…'
+                    : 'Escribe instrucciones, o directamente el tema del juego (ej. "La Revolución Francesa")…'
+                }
                 className="max-h-28 min-h-9 flex-1 resize-none rounded-2xl border border-border bg-surface px-3.5 py-2 text-[13px] text-text-h outline-none placeholder:text-text focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
               />
 

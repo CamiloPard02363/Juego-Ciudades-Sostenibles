@@ -257,6 +257,82 @@ describe('GenerateGameDraftUseCase — tipos sin imagen obligatoria', () => {
   });
 });
 
+describe('GenerateGameDraftUseCase — generar solo con texto, sin archivos (issue #234)', () => {
+  it('genera un borrador de DOMINO sin ningún archivo, usando solo el mensaje del usuario', async () => {
+    const assistant = fakeAssistant(VALID_DOMINO_DRAFT);
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'DOMINO',
+      message: 'Energías renovables: solar, eólica, biomasa, hidroeléctrica, geotermia, mareomotriz.',
+      files: [],
+    });
+
+    expect(result.content).toHaveLength(6);
+    const call = vi.mocked(assistant.generateGameDraft).mock.calls[0][0];
+    expect(call.instructions).toContain('Energías renovables');
+    // Sin archivos, el "texto fuente" que recibe la IA es el aviso de respaldo, no texto vacío.
+    expect(call.sourceText).toContain('no adjuntó archivos');
+  });
+
+  it('MEMORY_MATCH modo OPPOSITES también genera solo con texto, sin archivos', async () => {
+    const assistant = fakeAssistant({
+      config: { mode: 'OPPOSITES' },
+      content: [
+        { posTitle: 'Ácido', posDescription: 'pH bajo', negTitle: 'Base', negDescription: 'pH alto' },
+        { posTitle: 'Día', posDescription: 'Luz solar', negTitle: 'Noche', negDescription: 'Oscuridad' },
+      ],
+    });
+
+    const result = await buildUseCase(assistant).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'OPPOSITES',
+      message: 'Química: ácidos y bases.',
+      files: [],
+    });
+
+    expect(result.content).toHaveLength(2);
+  });
+
+  it('rechaza si no hay archivos NI mensaje, sin llamar a la IA', async () => {
+    const assistant = fakeAssistant(VALID_DOMINO_DRAFT);
+
+    await expect(buildUseCase(assistant).execute({ gameType: 'DOMINO', files: [] })).rejects.toThrow(
+      InvalidGameContentError,
+    );
+    await expect(
+      buildUseCase(assistant).execute({ gameType: 'DOMINO', message: '   ', files: [] }),
+    ).rejects.toThrow(InvalidGameContentError);
+    expect(assistant.generateGameDraft).not.toHaveBeenCalled();
+  });
+
+  it('GUESS_WHO (imagen obligatoria) sigue rechazando sin archivos aunque haya mensaje', async () => {
+    const assistant = fakeAssistant(guessWhoDraftWithImages(0));
+
+    await expect(
+      buildUseCase(assistant).execute({
+        gameType: 'GUESS_WHO',
+        message: 'Banderas de Sudamérica.',
+        files: [],
+      }),
+    ).rejects.toThrow(InvalidGameContentError);
+    expect(assistant.generateGameDraft).not.toHaveBeenCalled();
+  });
+
+  it('combina archivos y mensaje cuando ambos llegan (el mensaje no reemplaza el texto extraído)', async () => {
+    const assistant = fakeAssistant(VALID_DOMINO_DRAFT);
+
+    await buildUseCase(assistant).execute({
+      gameType: 'DOMINO',
+      message: 'Dale énfasis a la energía solar.',
+      files: [csvFile('concepto,descripcion\nEnergía solar,la más usada')],
+    });
+
+    const call = vi.mocked(assistant.generateGameDraft).mock.calls[0][0];
+    expect(call.sourceText).toContain('Energía solar');
+    expect(call.instructions).toContain('Dale énfasis a la energía solar.');
+  });
+});
+
 describe('GenerateGameDraftUseCase — tipos con imagen obligatoria (el usuario las sube, la IA las organiza)', () => {
   it('sube cada imagen y reemplaza el imageIndex de la IA por la URL real en GUESS_WHO', async () => {
     const assistant = fakeAssistant(guessWhoDraftWithImages(12));
