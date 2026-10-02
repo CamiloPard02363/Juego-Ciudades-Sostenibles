@@ -16,8 +16,19 @@ export interface GenerateGameDraftInput {
   gameType: string;
   /** Solo relevante para MEMORY_MATCH — distingue PAIRS de OPPOSITES. */
   mode?: string;
-  /** Instrucción libre del usuario para guiar a la IA (p. ej. "enfócate en el capítulo 3") — nunca reemplaza a `files`. */
+  /**
+   * Instrucción libre del usuario para guiar a la IA (p. ej. "enfócate en el
+   * capítulo 3", o directamente el tema completo del juego). Para tipos de
+   * juego sin imagen obligatoria (ver `GamePromptSpec.imageRequirement`)
+   * puede ser la ÚNICA fuente de contenido si `files` viene vacío (issue
+   * #234) — para los que sí requieren imagen, nunca reemplaza a `files`.
+   */
   message?: string;
+  /**
+   * Puede venir vacío SOLO cuando el `gameType` no tiene imagen obligatoria
+   * Y `message` trae texto (issue #234) — `execute()` es quien decide esto
+   * según el `GamePromptSpec`, no el llamador.
+   */
   files: SourceFile[];
 }
 
@@ -50,6 +61,12 @@ const MAX_FILES = 65;
  * "organice" — que les asigne un concepto — referenciándolas por posición
  * ("imageIndex") en vez de por URL, y luego reemplaza cada índice por la URL
  * real ya subida antes de validar.
+ *
+ * Tipos de juego SIN imagen obligatoria (Dominó, Laberinto, Escaleras,
+ * Opuestos, Dúo Lógico — issue #234): acá `files` es opcional de verdad. El
+ * usuario puede escribir solo el tema/instrucciones en `message` sin adjuntar
+ * nada, y la IA genera el juego completo a partir de ese texto — se exige
+ * al menos UNA de las dos fuentes (archivos o mensaje), nunca ninguna.
  */
 @Injectable()
 export class GenerateGameDraftUseCase
@@ -63,9 +80,6 @@ export class GenerateGameDraftUseCase
   ) {}
 
   async execute(input: GenerateGameDraftInput): Promise<GenerateGameDraftOutput> {
-    if (input.files.length === 0) {
-      throw new InvalidGameContentError('sube al menos un archivo para generar el juego.');
-    }
     if (input.files.length > MAX_FILES) {
       throw new InvalidGameContentError(`sube como máximo ${MAX_FILES} archivos.`);
     }
@@ -78,26 +92,50 @@ export class GenerateGameDraftUseCase
       );
     }
 
-    return spec.imageRequirement
-      ? this.executeWithContentImages(gameType.getName(), spec, input.files, input.message)
-      : this.executeTextOnly(gameType.getName(), spec, input.files, input.message);
+    if (spec.imageRequirement) {
+      // Acá SÍ es obligatorio al menos un archivo: sin ninguna imagen (suelta
+      // o incrustada en un PDF/Word) no hay nada que la IA pueda organizar.
+      if (input.files.length === 0) {
+        throw new InvalidGameContentError('sube al menos un archivo para generar el juego.');
+      }
+      return this.executeWithContentImages(gameType.getName(), spec, input.files, input.message);
+    }
+
+    // Sin imagen obligatoria (issue #234): basta con UNA de las dos fuentes
+    // — archivos o un mensaje de texto — nunca ninguna de las dos.
+    if (input.files.length === 0 && !input.message?.trim()) {
+      throw new InvalidGameContentError(
+        'sube al menos un archivo o escribe el tema/instrucciones para generar el juego.',
+      );
+    }
+    return this.executeTextOnly(gameType.getName(), spec, input.files, input.message);
   }
 
-  /** Tipos de juego sin imagen obligatoria (Dominó, Laberinto, Escaleras, Opuestos, Dual Quest…). */
+  /**
+   * Tipos de juego sin imagen obligatoria (Dominó, Laberinto, Escaleras,
+   * Opuestos, Dual Quest…). `files` puede venir vacío (issue #234): sin
+   * archivos, `sourceText` queda vacío y la IA genera el juego completo
+   * usando únicamente `message` como fuente — `execute()` ya garantizó que
+   * al menos una de las dos (archivos o mensaje) llegó con algo.
+   */
   private async executeTextOnly(
     gameTypeName: GameTypeName,
     spec: GamePromptSpec,
     files: SourceFile[],
     message: string | undefined,
   ): Promise<GenerateGameDraftOutput> {
-    const sourceText = await this.fileTextExtractor.extractAll(files);
-    if (!sourceText.trim()) {
-      throw new InvalidGameContentError('no se pudo extraer texto de los archivos subidos.');
+    const sourceText = files.length > 0 ? await this.fileTextExtractor.extractAll(files) : '';
+    if (!sourceText.trim() && !message?.trim()) {
+      throw new InvalidGameContentError(
+        'no se pudo extraer texto de los archivos subidos y no escribiste ningún tema.',
+      );
     }
 
     const draft = await this.aiContentAssistant.generateGameDraft({
       gameType: gameTypeName,
-      sourceText,
+      sourceText:
+        sourceText.trim() ||
+        '(el usuario no adjuntó archivos — genera el juego únicamente a partir de las instrucciones de abajo.)',
       instructions: buildInstructions(spec, message),
     });
 
