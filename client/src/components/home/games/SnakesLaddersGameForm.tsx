@@ -50,7 +50,7 @@ function emptyCellQuestion(cellNumber: number): CellQuestionDraft {
 
 type SnakesLaddersGameFormProps = {
   onClose: () => void
-  onCreated: () => void
+  onCreated: (gameId: string, visibility: 'private' | 'community') => void
   onBack: () => void
   onCategoryCreated: () => void
 }
@@ -276,11 +276,15 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
       await publishGame(token, createdGameId)
     }
     showToast('Juego creado', 'success')
-    onCreated()
   }
 
   if (createdGameId) {
-    return <SaveVisibilityModal onChoose={handleChooseVisibility} />
+    return (
+      <SaveVisibilityModal
+        onChoose={handleChooseVisibility}
+        onDone={(visibility) => onCreated(createdGameId, visibility)}
+      />
+    )
   }
 
   return (
