@@ -276,11 +276,15 @@ export function DominoGameForm({
       await publishGame(token, createdGameId)
     }
     showToast('Juego creado', 'success')
-    onCreated(createdGameId, visibility)
   }
 
   if (createdGameId) {
-    return <SaveVisibilityModal onChoose={handleChooseVisibility} />
+    return (
+      <SaveVisibilityModal
+        onChoose={handleChooseVisibility}
+        onDone={(visibility) => onCreated(createdGameId, visibility)}
+      />
+    )
   }
 
   const tileCount = (concepts.length * (concepts.length + 1)) / 2

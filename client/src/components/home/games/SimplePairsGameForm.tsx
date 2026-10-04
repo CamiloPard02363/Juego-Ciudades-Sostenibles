@@ -209,11 +209,15 @@ export function SimplePairsGameForm({
       await publishGame(token, createdGameId)
     }
     showToast('Juego creado', 'success')
-    onCreated(createdGameId, visibility)
   }
 
   if (createdGameId) {
-    return <SaveVisibilityModal onChoose={handleChooseVisibility} />
+    return (
+      <SaveVisibilityModal
+        onChoose={handleChooseVisibility}
+        onDone={(visibility) => onCreated(createdGameId, visibility)}
+      />
+    )
   }
 
   return (

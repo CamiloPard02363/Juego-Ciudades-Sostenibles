@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Lock, Users2 } from 'lucide-react'
+import { CheckCircle2, Lock, Users2 } from 'lucide-react'
 import { Modal } from './Modal'
 
 type SaveVisibilityModalProps = {
   onChoose: (visibility: 'private' | 'community') => Promise<void>
+  /** Se llama al aceptar el aviso "Juego guardado"; normalmente redirige al listado. */
+  onDone: (visibility: 'private' | 'community') => void
 }
 
 /**
@@ -12,12 +14,47 @@ type SaveVisibilityModalProps = {
  * se publica para toda la comunidad. No tiene botón de cerrar — el juego ya
  * existe, así que hay que elegir una de las dos opciones para continuar.
  */
-export function SaveVisibilityModal({ onChoose }: SaveVisibilityModalProps) {
+export function SaveVisibilityModal({ onChoose, onDone }: SaveVisibilityModalProps) {
   const [submitting, setSubmitting] = useState<'private' | 'community' | null>(null)
+  const [saved, setSaved] = useState<'private' | 'community' | null>(null)
 
   async function handleChoose(visibility: 'private' | 'community') {
     setSubmitting(visibility)
-    await onChoose(visibility)
+    try {
+      await onChoose(visibility)
+      setSaved(visibility)
+    } catch {
+      setSubmitting(null)
+    }
+  }
+
+  if (saved) {
+    const isCommunity = saved === 'community'
+    return (
+      <Modal onClose={() => onDone(saved)} maxWidthClassName="max-w-[440px]">
+        <div className="flex flex-col items-center text-center">
+          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-code-bg text-text-h">
+            <CheckCircle2 className="h-6 w-6" strokeWidth={2} />
+          </span>
+          <h2 className="mb-1 text-[19px] tracking-tight text-text-h">
+            {isCommunity ? 'Juego guardado en Comunidad' : 'Juego guardado en Mis juegos privados'}
+          </h2>
+          <p className="mb-6 text-[13px] text-text">
+            {isCommunity
+              ? 'Ya es visible para todos. Te llevamos a Comunidad para que lo veas.'
+              : 'Solo tú lo ves. Te llevamos a Mis juegos para que lo veas.'}
+          </p>
+          <button
+            type="button"
+            className="rounded-lg px-6 py-2.5 text-[14px] font-semibold text-white shadow-[0_8px_20px_-8px_var(--accent)] transition-transform hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={() => onDone(saved)}
+          >
+            Aceptar
+          </button>
+        </div>
+      </Modal>
+    )
   }
 
   return (
