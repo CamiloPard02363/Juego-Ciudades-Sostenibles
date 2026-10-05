@@ -4,6 +4,10 @@ import {
   type AiContentAssistant,
 } from '../../domain/ports/ai-content-assistant.port.js';
 import { IMAGE_STORAGE, type ImageStorage } from '../../domain/ports/image-storage.port.js';
+import {
+  CONTENT_IMAGE_FINDER,
+  type ContentImageFinder,
+} from '../../domain/ports/content-image-finder.port.js';
 import { InvalidGameContentError } from '../../domain/errors/game.errors.js';
 import { GameType, type GameTypeName } from '../../domain/value-objects/game-type.vo.js';
 import type { UseCase } from '../ports/use-case.port.js';
@@ -21,9 +25,10 @@ export interface GenerateGameDraftInput {
    * capítulo 3", o directamente el tema completo del juego) — puede ser la
    * ÚNICA fuente de contenido si `files` viene vacío, en CUALQUIER tipo de
    * juego (issues #234/#238). Para los tipos con imagen obligatoria por
-   * elemento (Quién Es, Parejas), eso sí, cada elemento del borrador queda
-   * sin imagen (`imageUrl: null`) — la IA no inventa fotos reales, el
-   * usuario las agrega a mano después.
+   * elemento (Quién Es, Parejas), la IA además consigue una imagen para cada
+   * elemento (issue #240, ver `ContentImageFinder`); las que no encuentre
+   * quedan sin imagen (`imageUrl: null`) para que el usuario las agregue a
+   * mano.
    */
   message?: string;
   /**
@@ -37,9 +42,16 @@ export interface GenerateGameDraftInput {
 export interface GenerateGameDraftOutput {
   config: Record<string, unknown>;
   content: unknown[];
+  /**
+   * Aviso opcional para mostrarle al usuario junto con el borrador (p. ej.
+   * cuántas imágenes consiguió la IA y cuántas faltan completar a mano).
+   */
+  notice?: string;
 }
 
 const MAX_FILES = 65;
+/** Búsquedas/descargas de imágenes en paralelo como máximo (cortesía con la fuente externa). */
+const IMAGE_SEARCH_CONCURRENCY = 4;
 
 /**
  * Arma un borrador de `config`/`content` para un juego a partir de archivos
@@ -64,9 +76,13 @@ const MAX_FILES = 65;
  * por posición ("imageIndex") en vez de por URL, y luego reemplaza cada
  * índice por la URL real ya subida antes de validar. Pero si no sube NINGUNA
  * imagen y en cambio escribe el tema en `message` (issue #238), la IA genera
- * igual el contenido completo (labels/info/config) solo con ese texto, y
- * cada elemento queda con `imageUrl: null` — el usuario la completa a mano
- * en el formulario de siempre antes de poder crear/guardar el juego de
+ * igual el contenido completo (labels/info/config) solo con ese texto y,
+ * además (issue #240), consigue ella misma una imagen real para cada
+ * elemento: el modelo propone una búsqueda por elemento (`imageQuery`) y
+ * `ContentImageFinder` la resuelve en una fuente de imágenes libres; cada
+ * imagen encontrada se sube a Cloudinary igual que una subida manual. Las
+ * que no encuentre quedan con `imageUrl: null` — el usuario las completa a
+ * mano en el formulario de siempre antes de poder crear/guardar el juego de
  * verdad (ahí el validador vuelve a exigirla, sin excepción).
  *
  * Tipos de juego SIN imagen obligatoria (Dominó, Laberinto, Escaleras,
@@ -87,6 +103,7 @@ export class GenerateGameDraftUseCase
     @Inject(IMAGE_STORAGE) private readonly imageStorage: ImageStorage,
     private readonly fileTextExtractor: FileTextExtractor,
     private readonly contentValidators: ContentValidatorRegistry,
+    @Inject(CONTENT_IMAGE_FINDER) private readonly contentImageFinder: ContentImageFinder,
   ) {}
 
   async execute(input: GenerateGameDraftInput): Promise<GenerateGameDraftOutput> {
@@ -234,10 +251,13 @@ export class GenerateGameDraftUseCase
    * contenido completo (labels/info/config) solo con el tema que escribe el
    * usuario, usando `spec.textOnlyInstructions`/`textOnlyJsonShapeExample`
    * en vez de las instrucciones normales (que darían por hecho que hay
-   * imágenes que organizar). Cada elemento queda con `imageUrl: null` — el
-   * mismo validador, en modo borrador (`isDraft`, ver `validate()`), lo
-   * permite; el usuario completa cada imagen a mano en el formulario de
-   * siempre antes de poder crear/guardar el juego de verdad.
+   * imágenes que organizar).
+   *
+   * Imágenes (issue #240): el modelo devuelve un `imageQuery` por elemento y
+   * `fillImagesFromQueries` consigue y sube una imagen para cada uno. Las
+   * que no aparezcan quedan con `imageUrl: null` — el mismo validador, en
+   * modo borrador (`isDraft`, ver `validate()`), lo permite; el usuario
+   * completa esas a mano antes de poder crear/guardar el juego de verdad.
    */
   private async executeImageRequirementTextOnly(
     gameTypeName: GameTypeName,
@@ -261,8 +281,69 @@ export class GenerateGameDraftUseCase
       ),
     });
 
+    const queries = extractImageQueries(draft.content);
     const content = normalizeMissingImageFields(draft.content);
-    return this.validate(gameTypeName, draft.config, content);
+    // Validar primero sin imágenes: si el contenido del modelo no sirve, se
+    // rechaza antes de gastar búsquedas/descargas/subidas.
+    const withoutImages = this.validate(gameTypeName, draft.config, content);
+    if (!Array.isArray(content) || content.length === 0) return withoutImages;
+
+    const folder = spec.contentImageFolder ?? 'ai-game-content';
+    const imageUrls = await this.fillImagesFromQueries(queries, folder);
+    const found = imageUrls.filter(Boolean).length;
+    if (found === 0) {
+      return {
+        ...withoutImages,
+        notice:
+          'La IA armó el contenido, pero no encontró imágenes para este tema — agrega la imagen de cada elemento a mano.',
+      };
+    }
+
+    const contentWithImages = content.map((item, index) =>
+      typeof item === 'object' && item !== null ? { ...item, imageUrl: imageUrls[index] ?? null } : item,
+    );
+    const missing = content.length - found;
+    return {
+      ...this.validate(gameTypeName, draft.config, contentWithImages),
+      notice:
+        missing === 0
+          ? `La IA consiguió las ${found} imágenes en Wikimedia Commons — revisa que cada una corresponda.`
+          : `La IA consiguió ${found} de ${content.length} imágenes en Wikimedia Commons — agrega a mano las ${missing} que faltan.`,
+    };
+  }
+
+  /**
+   * Una imagen por elemento a partir de su búsqueda (`null` si no hay
+   * búsqueda, no se encontró nada o falló la descarga/subida — nunca lanza).
+   * Nunca repite la misma imagen en dos elementos: cada candidato se
+   * reserva de forma síncrona antes de descargarlo, así dos búsquedas en
+   * paralelo no pueden quedarse con el mismo.
+   */
+  private async fillImagesFromQueries(
+    queries: Array<{ query: string; label: string } | null>,
+    folder: string,
+  ): Promise<Array<string | null>> {
+    const reserved = new Set<string>();
+    return mapWithConcurrency(queries, IMAGE_SEARCH_CONCURRENCY, async (entry) => {
+      if (!entry) return null;
+      const candidates = await this.contentImageFinder.search(entry.query, entry.label);
+      for (const candidate of candidates) {
+        const key = candidate.url.split('?')[0];
+        if (reserved.has(key)) continue;
+        reserved.add(key);
+        const image = await this.contentImageFinder.download(candidate);
+        if (!image) continue;
+        try {
+          const uploaded = await this.imageStorage.upload(image.buffer, folder);
+          return uploaded.url;
+        } catch {
+          // Sin almacenamiento disponible no tiene sentido seguir probando
+          // candidatos: el elemento queda sin imagen para completarlo a mano.
+          return null;
+        }
+      }
+      return null;
+    });
   }
 
   private validate(
@@ -355,7 +436,41 @@ function normalizeMissingImageFields(content: unknown): unknown {
   return content.map((item) => {
     if (typeof item !== 'object' || item === null) return item;
     const raw = item as Record<string, unknown>;
-    const { imageIndex: _imageIndex, ...rest } = raw;
+    const { imageIndex: _imageIndex, imageQuery: _imageQuery, ...rest } = raw;
     return { ...rest, imageUrl: null };
   });
+}
+
+/**
+ * Búsqueda de imagen que propuso el modelo para cada elemento (issue #240),
+ * en el mismo orden que `content`. Si el modelo no mandó `imageQuery`, se
+ * usa el `label` como búsqueda; `null` si no hay ninguno de los dos.
+ */
+function extractImageQueries(content: unknown): Array<{ query: string; label: string } | null> {
+  if (!Array.isArray(content)) return [];
+  return content.map((item) => {
+    if (typeof item !== 'object' || item === null) return null;
+    const raw = item as Record<string, unknown>;
+    const label = typeof raw.label === 'string' ? raw.label.trim() : '';
+    const query = typeof raw.imageQuery === 'string' && raw.imageQuery.trim() ? raw.imageQuery.trim() : label;
+    return query ? { query: query.slice(0, 200), label } : null;
+  });
+}
+
+/** `Promise.all` con un máximo de tareas simultáneas; conserva el orden de `items`. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  task: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await task(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }

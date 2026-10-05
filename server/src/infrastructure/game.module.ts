@@ -50,6 +50,8 @@ import { GroqContentAssistant } from './ai/groq-content-assistant.adapter.js';
 import { AiProviderOrchestrator } from './ai/ai-provider-orchestrator.js';
 import { PrismaAiProviderAttemptRepository } from './persistence/prisma/ai-provider-attempt.repository.js';
 import { CloudinaryImageStorage } from './storage/cloudinary-image.storage.js';
+import { CONTENT_IMAGE_FINDER } from '../domain/ports/content-image-finder.port.js';
+import { WikimediaContentImageFinder } from './ai/wikimedia-content-image-finder.js';
 import { FileTextExtractor } from './ai/file-text-extractor.js';
 import { GameController } from './http/controllers/game.controller.js';
 import { GameImportController } from './http/controllers/game-import.controller.js';
@@ -132,6 +134,7 @@ const DEFAULT_AI_PROVIDER_ORDER = ['gemini', 'groq'];
       inject: [GeminiContentAssistant, GroqContentAssistant, AiProviderAttemptTracker],
     },
     { provide: IMAGE_STORAGE, useClass: CloudinaryImageStorage },
+    { provide: CONTENT_IMAGE_FINDER, useClass: WikimediaContentImageFinder },
     FileTextExtractor,
     GenerateGameDraftUseCase,
     ListAiProviderAttemptsUseCase,

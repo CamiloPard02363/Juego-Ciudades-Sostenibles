@@ -37,9 +37,9 @@ export interface GamePromptSpec {
      *
      * Sin NINGUNA imagen (issue #238) ya no es un error si el usuario
      * escribió el tema en `message`: la IA genera el contenido completo con
-     * `textOnlyInstructions`/`textOnlyJsonShapeExample` de abajo, dejando
-     * cada elemento sin imagen para completarla a mano después — sin
-     * mensaje, sigue siendo obligatorio al menos un archivo.
+     * `textOnlyInstructions`/`textOnlyJsonShapeExample` de abajo y consigue
+     * ella misma las imágenes (issue #240) — sin mensaje, sigue siendo
+     * obligatorio al menos un archivo.
      */
     enforceMinimum?: boolean;
   } | null;
@@ -50,13 +50,13 @@ export interface GamePromptSpec {
    * alternativas para cuando el usuario no subió NINGUNA imagen (ni suelta
    * ni incrustada en un PDF/Word) pero sí escribió un tema en `message`
    * (issue #238). La IA genera el contenido completo (labels/info/config)
-   * solo con ese texto, sin `imageIndex` ni `imageUrl` — el usuario agrega
-   * cada imagen a mano después en el formulario de siempre (que ya admite
-   * arrastrar y soltar). `undefined` en tipos sin `imageRequirement` (nunca
-   * se usa ahí).
+   * solo con ese texto, sin `imageIndex` ni `imageUrl`, y con un
+   * `imageQuery` por elemento que el caso de uso resuelve en una imagen real
+   * (issue #240); las que no se encuentren las agrega el usuario a mano.
+   * `undefined` en tipos sin `imageRequirement` (nunca se usa ahí).
    */
   textOnlyInstructions?: string;
-  /** Forma de JSON esperada junto con `textOnlyInstructions` (sin `imageIndex`/`imageUrl`). */
+  /** Forma de JSON esperada junto con `textOnlyInstructions` (con `imageQuery`, sin `imageIndex`/`imageUrl`). */
   textOnlyJsonShapeExample?: string;
 }
 
@@ -152,18 +152,21 @@ información dentro de la tarjeta durante la partida. No agregues "imageUrl" ni 
   imageRequirement: { min: 12, max: 60, enforceMinimum: false },
   contentImageFolder: 'guess-who-cards',
   textOnlyInstructions: `Genera el contenido de un juego de "¿Quién Es?" a partir ÚNICAMENTE del tema que
-describe el usuario — todavía no hay ninguna imagen disponible, el usuario agrega la imagen de cada tarjeta a
-mano después de revisar este borrador. Genera entre 12 y 20 tarjetas razonables para ese tema (ni menos de
+describe el usuario — el usuario no subió imágenes. Genera entre 12 y 20 tarjetas razonables para ese tema (ni menos de
 12, ni más de 20). Para cada tarjeta escribe un "label" corto (máximo 120 caracteres) que identifique con
 precisión un elemento concreto y distinto del tema (ej. si el tema es "banderas de Sudamérica", cada label es
 el nombre de un país distinto de esa región) y un "info" (dato breve y curioso, máximo 280 caracteres) sobre
-ese elemento puntual — mismo criterio que si hubiera imágenes. NO incluyas "imageIndex" ni "imageUrl" en
-ningún elemento: el usuario los completa a mano después.`,
+ese elemento puntual — mismo criterio que si hubiera imágenes. Elige elementos que tengan una imagen
+reconocible (personas, lugares, animales, objetos, banderas…), porque cada tarjeta se juega viendo su imagen.
+Además, para cada elemento escribe un "imageQuery": una búsqueda corta EN INGLÉS (2 a 6 palabras) para
+encontrar en Wikipedia/Wikimedia Commons una foto o ilustración real que represente ese elemento concreto sin
+ambigüedad (ej. "Flag of Argentina", "Bald eagle", "Eiffel Tower", "Right triangle diagram") — se usa para
+conseguir la imagen automáticamente. NO incluyas "imageIndex" ni "imageUrl" en ningún elemento.`,
   textOnlyJsonShapeExample: `{
   "config": { "maxAccusationCount": 6, "turnDurationSeconds": 15 },
   "content": [
-    { "label": "Argentina", "info": "Su capital es Buenos Aires y es el país de habla hispana más grande del mundo." },
-    { "label": "Brasil", "info": "Es el único país de Sudamérica cuyo idioma oficial es el portugués." }
+    { "label": "Argentina", "info": "Su capital es Buenos Aires y es el país de habla hispana más grande del mundo.", "imageQuery": "Flag of Argentina" },
+    { "label": "Brasil", "info": "Es el único país de Sudamérica cuyo idioma oficial es el portugués.", "imageQuery": "Flag of Brazil" }
   ]
 }`,
 };
@@ -187,17 +190,19 @@ solo "imageIndex" y "label".`,
   imageRequirement: { min: 4, max: 40 },
   contentImageFolder: 'memory-cards',
   textOnlyInstructions: `Genera el contenido de un juego de memoria (parejas imagen-concepto) a partir
-ÚNICAMENTE del tema que describe el usuario — todavía no hay ninguna imagen disponible, el usuario agrega la
-imagen de cada pareja a mano después de revisar este borrador. Genera entre 4 y 10 conceptos razonables para
+ÚNICAMENTE del tema que describe el usuario — el usuario no subió imágenes. Genera entre 4 y 10 conceptos razonables para
 ese tema, cada uno con un "label" corto (máximo 120 caracteres) que nombre con precisión un concepto concreto
-y distinto del tema, y que sea algo representable con una imagen real más adelante (ej. si el tema es
-"matemáticas básicas": "2 + 2", "Triángulo", "Número primo" — no ideas abstractas sin forma visual clara). NO
-incluyas "imageIndex" ni "imageUrl" en ningún elemento: el usuario los completa a mano después.`,
+y distinto del tema, y que sea algo representable con una imagen real (ej. si el tema es "geometría
+básica": "Triángulo", "Cubo", "Círculo" — no ideas abstractas sin forma visual clara).
+Además, para cada elemento escribe un "imageQuery": una búsqueda corta EN INGLÉS (2 a 6 palabras) para
+encontrar en Wikipedia/Wikimedia Commons una foto o ilustración real que represente ese elemento concreto sin
+ambigüedad (ej. "Flag of Argentina", "Bald eagle", "Eiffel Tower", "Right triangle diagram") — se usa para
+conseguir la imagen automáticamente. NO incluyas "imageIndex" ni "imageUrl" en ningún elemento.`,
   textOnlyJsonShapeExample: `{
   "config": { "mode": "PAIRS", "perZone": 8, "timePerZoneSeconds": 90, "previewSeconds": 5 },
   "content": [
-    { "label": "2 + 2" },
-    { "label": "Triángulo" }
+    { "label": "Triángulo", "imageQuery": "Triangle geometry" },
+    { "label": "Cubo", "imageQuery": "Cube geometric solid" }
   ]
 }`,
 };
