@@ -1028,7 +1028,7 @@ code {
  * traen degradados o brillos en el mismo color de acento (p. ej. el botón
  * "Crear un juego nuevo" del hero de Home).
  */
-[data-tour-active='true'] {
+[data-tour-active='true']:not([data-tour-spotlight]) {
   position: relative;
   z-index: 41;
   outline: 3px solid var(--accent);
@@ -1042,6 +1042,46 @@ code {
 
 .welcome-tour-card {
   max-height: min(440px, 55dvh);
+}
+
+/*
+ * Spotlight del recorrido (TourSpotlight.tsx, issue #240): la sombra gigante
+ * del anillo oscurece toda la pantalla menos el hueco (con esquinas
+ * redondeadas); los paneles de alrededor solo aportan el desenfoque. El
+ * anillo de "bg" entre el hueco y el acento mantiene el contraste sobre
+ * elementos que ya traen el color de acento.
+ */
+[data-tour-spotlight='true'] {
+  scroll-margin-top: 96px;
+}
+
+.tour-spotlight-ring {
+  border: 3px solid var(--accent);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--bg) 80%, transparent),
+    0 0 24px 6px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 0 0 200vmax rgb(0 0 0 / 0.55);
+}
+
+.tour-spotlight-ring::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 3px solid var(--accent);
+  animation: tour-spotlight-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes tour-spotlight-ping {
+  0% {
+    inset: -3px;
+    opacity: 0.9;
+  }
+  80%,
+  100% {
+    inset: -16px;
+    opacity: 0;
+  }
 }
 
 /* Mantener quietos los controles de lectura incluso con el wiggle del modo Kids. */

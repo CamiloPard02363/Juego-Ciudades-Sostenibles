@@ -6,6 +6,8 @@ import type { AuthUser } from '../../services/auth.service'
 import { getWelcomeSteps, hasGreetedThisSession, hasSeenWelcome, initialWelcomePhase, markGreetedThisSession, markWelcomeSeen, phaseAfterGreeting, welcomeStorageKey } from './welcomeTourSteps'
 import type { WelcomeOptions, WelcomePhase } from './welcomeTourSteps'
 import { WelcomeCard } from './WelcomeCard'
+import { TourSpotlight } from './TourSpotlight'
+import { cardCornerClasses, pickCardCorner, tourCardBounds, useSpotlightRect } from './tourSpotlightLayout'
 import { isKidsMode } from '../../utils/kidsMode'
 
 const icons = { play: Gamepad2, create: Plus, explore: Compass, profile: UserRound }
@@ -73,6 +75,9 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
     headingRef.current?.focus({ preventScroll: true })
     const target = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`)
     target?.setAttribute('data-tour-active', 'true')
+    // El resaltado visual lo dibuja <TourSpotlight> (ver ahí por qué); esta
+    // marca apaga el contorno CSS de [data-tour-active] para no duplicarlo.
+    target?.setAttribute('data-tour-spotlight', 'true')
     // "center" (en vez de "start") deja margen a ambos lados: con "start" un
     // objetivo pegado al borde superior (como el botón de crear juego) podía
     // terminar justo debajo del encabezado, apenas visible.
@@ -82,6 +87,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
     target?.addEventListener('click', onUseTarget)
     return () => {
       target?.removeAttribute('data-tour-active')
+      target?.removeAttribute('data-tour-spotlight')
       target?.removeEventListener('click', onUseTarget)
     }
   }, [visible, phase, step.target, index, close])
@@ -115,14 +121,21 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
 
   const Icon = icons[step.icon]
   // Tanto el aviso obligatorio inicial como cada paso del recorrido
-  // desenfocan el resto de la pantalla: el elemento señalado (botón, menú,
-  // Sidebar…) ya queda por encima gracias a [data-tour-active], así que es
-  // lo único que se ve nítido — el ojo va directo a donde apunta la flecha.
-  const dimBackground = forcedInvite || (visible && phase === 'tour')
+  // desenfocan el resto de la pantalla. En el aviso inicial el botón "Guía"
+  // queda por encima gracias a [data-tour-active]; en cada paso del
+  // recorrido el spotlight deja un hueco nítido con la forma del elemento
+  // señalado (botón, menú, Sidebar…) y un anillo pulsante alrededor — el ojo
+  // va directo a lo que explica la tarjeta.
+  const inTour = visible && phase === 'tour'
+  const spotlightRect = useSpotlightRect(inTour ? `[data-tour="${step.target}"]` : null)
+  // La tarjeta se aparta a otra esquina si taparía el elemento iluminado.
+  const viewport = { width: window.innerWidth, height: window.innerHeight }
+  const cardCorner = pickCardCorner(spotlightRect, tourCardBounds(viewport), viewport, viewport.width >= 640 ? 24 : 12)
   return <>
-    {dimBackground && (
+    {forcedInvite && (
       <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm" aria-hidden="true" />
     )}
+    {inTour && <TourSpotlight rect={spotlightRect} />}
 
     <div className="relative inline-flex">
       <button
@@ -155,7 +168,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
     )}
 
     {visible && phase === 'tour' && createPortal(
-      <section aria-label="Recorrido de NexusPlay" className="welcome-tour-card fixed right-3 bottom-3 z-[45] w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-3xl border border-border bg-surface p-5 text-left text-text shadow-[var(--shadow)] sm:right-6 sm:bottom-6">
+      <section aria-label="Recorrido de NexusPlay" className={`welcome-tour-card fixed ${cardCornerClasses[cardCorner]} z-[45] w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-3xl border border-border bg-surface p-5 text-left text-text shadow-[var(--shadow)]`}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/15 text-accent"><Icon className="h-6 w-6" aria-hidden="true" /></span>
           <span className="flex-1 text-xs font-semibold text-accent">{index + 1} de {steps.length} · A tu ritmo</span>
