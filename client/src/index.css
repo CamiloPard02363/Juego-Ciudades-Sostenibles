@@ -1040,8 +1040,10 @@ code {
     0 0 28px 8px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
+/* Sin scroll interno: el texto de cada paso se muestra completo. */
 .welcome-tour-card {
-  max-height: min(440px, 55dvh);
+  max-height: none;
+  overflow: visible;
 }
 
 /*

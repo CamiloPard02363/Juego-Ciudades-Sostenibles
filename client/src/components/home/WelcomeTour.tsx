@@ -168,7 +168,7 @@ export function WelcomeTour({ user, canAccessOrganization, canGoBackToWorlds }: 
     )}
 
     {visible && phase === 'tour' && createPortal(
-      <section aria-label="Recorrido de NexusPlay" className={`welcome-tour-card fixed ${cardCornerClasses[cardCorner]} z-[45] w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-3xl border border-border bg-surface p-5 text-left text-text shadow-[var(--shadow)]`}>
+      <section aria-label="Recorrido de NexusPlay" className={`welcome-tour-card fixed ${cardCornerClasses[cardCorner]} z-[45] w-[min(360px,calc(100vw-24px))] rounded-3xl border border-border bg-surface p-5 text-left text-text shadow-[var(--shadow)]`}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/15 text-accent"><Icon className="h-6 w-6" aria-hidden="true" /></span>
           <span className="flex-1 text-xs font-semibold text-accent">{index + 1} de {steps.length} · A tu ritmo</span>
