@@ -63,7 +63,7 @@ export function IconPickerField({ id, value, labels, disabled, onChange }: IconP
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <div className="grid max-h-[220px] grid-cols-5 gap-1.5 overflow-y-auto">
+          <div className="scroll-fade grid max-h-[220px] grid-cols-5 gap-1.5 overflow-y-auto">
             {entries.map(([key, label]) => {
               const Icon = iconForConcept(key)
               const selected = key === value

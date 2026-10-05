@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { DualQuestGameForm } from '../DualQuestGameForm'
+import { buildJustCreatedRedirect } from './justCreatedRedirect'
 
 export function DualQuestGameFormPage() {
   const navigate = useNavigate()
@@ -7,7 +8,7 @@ export function DualQuestGameFormPage() {
     <DualQuestGameForm
       onClose={() => navigate('/')}
       onBack={() => navigate('/juegos/crear')}
-      onCreated={() => navigate('/')}
+      onCreated={(gameId, visibility) => navigate(buildJustCreatedRedirect(gameId, visibility))}
       onCategoryCreated={() => {}}
     />
   )

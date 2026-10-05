@@ -75,7 +75,7 @@ function isPosition(value: unknown): value is DualQuestCellPosition {
 
 type DualQuestGameFormProps = {
   onClose: () => void
-  onCreated: () => void
+  onCreated: (gameId: string, visibility: 'private' | 'community') => void
   onBack: () => void
   onCategoryCreated: () => void
 }
@@ -364,11 +364,15 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
       await publishGame(token, createdGameId)
     }
     showToast('Juego creado', 'success')
-    onCreated()
   }
 
   if (createdGameId) {
-    return <SaveVisibilityModal onChoose={handleChooseVisibility} />
+    return (
+      <SaveVisibilityModal
+        onChoose={handleChooseVisibility}
+        onDone={(visibility) => onCreated(createdGameId, visibility)}
+      />
+    )
   }
 
   return (

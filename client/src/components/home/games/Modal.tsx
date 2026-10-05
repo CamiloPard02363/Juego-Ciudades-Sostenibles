@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
+import { ScrollMoreHint } from '../../ScrollMoreHint'
 
 type ModalProps = {
   onClose: () => void
@@ -54,6 +55,7 @@ export function Modal({
         onClick={(event) => event.stopPropagation()}
       >
         {children}
+        <ScrollMoreHint fade="surface" />
       </div>
     </div>
   )

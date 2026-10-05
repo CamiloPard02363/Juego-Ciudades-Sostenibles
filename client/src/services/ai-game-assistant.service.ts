@@ -5,6 +5,8 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
 export type GameDraft = {
   config: Record<string, unknown>
   content: unknown[]
+  /** Aviso para el usuario (p. ej. cuántas imágenes consiguió la IA y cuántas faltan). */
+  notice?: string
 }
 
 /**

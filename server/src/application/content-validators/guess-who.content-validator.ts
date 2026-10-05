@@ -11,7 +11,14 @@ import type { ContentValidationOptions, ContentValidator } from './content-valid
  */
 export interface GuessWhoCard {
   cardId: string;
-  imageUrl: string;
+  /**
+   * `null` SOLO puede venir de un borrador de IA generado sin ninguna imagen
+   * disponible (issue #238, `options.isDraft`) — el usuario la completa a
+   * mano en el formulario de siempre antes de poder crear/guardar el juego
+   * de verdad, momento en el que este mismo validador (sin `isDraft`) vuelve
+   * a exigir un `imageUrl` real, sin excepción.
+   */
+  imageUrl: string | null;
   label: string;
   audioUrl: string | null;
   info: string | null;
@@ -86,10 +93,10 @@ export class GuessWhoContentValidator implements ContentValidator {
       throw new InvalidGameContentError(`el juego admite como máximo ${MAX_CARDS} tarjetas.`);
     }
 
-    return content.map((item, index) => this.validateCard(item, index));
+    return content.map((item, index) => this.validateCard(item, index, options));
   }
 
-  private validateCard(item: unknown, index: number): GuessWhoCard {
+  private validateCard(item: unknown, index: number, options?: ContentValidationOptions): GuessWhoCard {
     if (typeof item !== 'object' || item === null) {
       throw new InvalidGameContentError(`la tarjeta en la posición ${index} no es un objeto válido.`);
     }
@@ -101,7 +108,13 @@ export class GuessWhoContentValidator implements ContentValidator {
         `la tarjeta en la posición ${index} necesita label (máximo ${MAX_LABEL_LENGTH} caracteres).`,
       );
     }
-    if (!isNonEmptyString(card.imageUrl, MAX_URL_LENGTH)) {
+    // Borrador de IA sin ninguna imagen disponible (issue #238): "imageUrl"
+    // puede venir ausente/null — el usuario la completa a mano después. Al
+    // crear/editar el juego de verdad (sin isDraft) sigue siendo obligatoria.
+    const imageUrlValid = options?.isDraft
+      ? isNullableString(card.imageUrl, MAX_URL_LENGTH)
+      : isNonEmptyString(card.imageUrl, MAX_URL_LENGTH);
+    if (!imageUrlValid) {
       throw new InvalidGameContentError(`la tarjeta en la posición ${index} necesita imageUrl.`);
     }
     if (!isNullableString(card.audioUrl, MAX_URL_LENGTH)) {
@@ -117,7 +130,7 @@ export class GuessWhoContentValidator implements ContentValidator {
 
     return {
       cardId: isNonEmptyString(card.cardId, 60) ? card.cardId : `card-${index}`,
-      imageUrl: card.imageUrl,
+      imageUrl: typeof card.imageUrl === 'string' ? card.imageUrl : null,
       label: card.label.trim(),
       audioUrl: card.audioUrl ?? null,
       info: trimmedInfo || null,

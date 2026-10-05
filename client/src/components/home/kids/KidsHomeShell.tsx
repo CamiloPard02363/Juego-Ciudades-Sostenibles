@@ -17,6 +17,7 @@ import { SettingsPanel } from '../SettingsPanel'
 import { KidsWorldGrid } from './KidsWorldGrid'
 import { KidsGameGrid } from './KidsGameGrid'
 import { WelcomeTour } from '../WelcomeTour'
+import { ScrollMoreHint } from '../../ScrollMoreHint'
 
 type KidsHomeShellProps = {
   user: AuthUser
@@ -119,6 +120,7 @@ export function KidsHomeShell({ user, onSignOut }: KidsHomeShellProps) {
           <Outlet />
         </HomeSearchContext.Provider>
       </main>
+      <ScrollMoreHint />
 
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>

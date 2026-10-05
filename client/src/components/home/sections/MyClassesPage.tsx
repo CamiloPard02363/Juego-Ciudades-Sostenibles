@@ -670,7 +670,7 @@ function AddGameModal({
         />
       </div>
 
-      <div className="max-h-[300px] overflow-y-auto rounded-lg border border-border">
+      <div className="scroll-fade max-h-[300px] overflow-y-auto rounded-lg border border-border">
         {loading ? (
           <p className="p-4 text-center text-[13px] text-text">Buscando…</p>
         ) : selectable.length === 0 ? (

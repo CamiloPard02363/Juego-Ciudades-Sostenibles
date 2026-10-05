@@ -146,8 +146,13 @@ export class MongoGameRepository implements GameRepository, OnModuleInit {
     if (filter.excludeCreatorUserId) query.creatorUserId = { $ne: filter.excludeCreatorUserId };
     if (filter.categoryId) query.categoryId = filter.categoryId;
     if (filter.organizationId) query.organizationId = filter.organizationId;
-    if (filter.gameType) query.gameType = filter.gameType;
-    if (filter.excludeGameTypes && filter.excludeGameTypes.length > 0) {
+    // El caller (list-games.use-case.ts) ya corta antes de llegar aquí si
+    // `gameType` está dentro de `excludeGameTypes`, así que cuando ambos
+    // vienen presentes el tipo exacto manda — si no, el `$nin` sobrescribía
+    // el filtro exacto y la query devolvía todos los tipos no archivados.
+    if (filter.gameType) {
+      query.gameType = filter.gameType;
+    } else if (filter.excludeGameTypes && filter.excludeGameTypes.length > 0) {
       query.gameType = { $nin: filter.excludeGameTypes };
     }
     if (filter.search) {

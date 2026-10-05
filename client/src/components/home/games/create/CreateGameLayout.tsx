@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { stepFromPath } from './steps'
 import { CreateGameProgressProvider, useCreateGameProgress } from './CreateGameProgressContext'
+import { ScrollMoreHint } from '../../../ScrollMoreHint'
 
 function CreateGameLayoutContent() {
   const navigate = useNavigate()
@@ -29,6 +30,7 @@ function CreateGameLayoutContent() {
       </header>
       <main className="flex-1 overflow-y-auto">
         <Outlet />
+        <ScrollMoreHint />
       </main>
     </div>
   )

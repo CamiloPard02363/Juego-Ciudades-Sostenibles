@@ -219,7 +219,7 @@ function EnrollStudentsModal({
             </select>
           </label>
 
-          <div className="max-h-[280px] overflow-y-auto rounded-lg border border-border">
+          <div className="scroll-fade max-h-[280px] overflow-y-auto rounded-lg border border-border">
             {selectableStudents.length === 0 ? (
               <p className="flex items-center gap-2 p-4 text-center text-[13px] text-text">
                 <GraduationCap className="h-4 w-4 shrink-0" strokeWidth={2} />
