@@ -24,12 +24,10 @@ export function ImageUploadField({
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file || !token) return
-
+  async function uploadFile(file: File) {
+    if (!token) return
     setUploading(true)
     setError(null)
     try {
@@ -40,6 +38,34 @@ export function ImageUploadField({
     } finally {
       setUploading(false)
     }
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    await uploadFile(file)
+  }
+
+  // Arrastrar y soltar, además del click de siempre (issue #234).
+  const canDrop = !disabled && !uploading
+
+  function handleDragOver(event: React.DragEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    if (canDrop) setIsDraggingOver(true)
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    setIsDraggingOver(false)
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    setIsDraggingOver(false)
+    if (!canDrop) return
+    const file = event.dataTransfer.files?.[0]
+    if (file) void uploadFile(file)
   }
 
   return (
@@ -71,16 +97,23 @@ export function ImageUploadField({
       ) : (
         <button
           type="button"
-          className="flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-text disabled:cursor-not-allowed disabled:opacity-60"
+          className={`flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed text-text disabled:cursor-not-allowed disabled:opacity-60 ${
+            isDraggingOver ? 'border-accent bg-accent/5' : 'border-border'
+          }`}
           disabled={disabled || uploading}
           onClick={() => inputRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
           {uploading ? (
             <Loader2 className="h-5 w-5 animate-spin text-accent" strokeWidth={2} />
           ) : (
             <ImagePlus className="h-5 w-5" strokeWidth={1.75} />
           )}
-          <span className="text-[12px]">{uploading ? 'Subiendo…' : 'Agregar imagen'}</span>
+          <span className="text-[12px]">
+            {uploading ? 'Subiendo…' : isDraggingOver ? 'Suelta la imagen aquí' : 'Agregar imagen o arrástrala aquí'}
+          </span>
         </button>
       )}
 
