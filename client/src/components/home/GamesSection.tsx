@@ -577,20 +577,30 @@ export function GamesSection({
   if (mode === 'categories') {
     return (
       <section className="flex flex-col gap-8">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Materias</h2>
             <p className="text-[14px] text-text">Elige una materia para ver sus juegos publicados.</p>
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
-            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            onClick={() => setCreatingCategory(true)}
-          >
-            <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
-            Crear materia
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-[15px] font-bold text-white shadow-[0_12px_30px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:w-auto"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              onClick={() => navigate('/juegos/crear')}
+            >
+              <PlusCircle className="h-5 w-5" strokeWidth={2.25} />
+              {isTeacher ? 'Crear actividad' : 'Crear juego'}
+            </button>
+            <button
+              type="button"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border-2 border-accent px-5 py-3 text-[15px] font-bold text-accent transition-colors hover:bg-accent/10 sm:w-auto"
+              onClick={() => setCreatingCategory(true)}
+            >
+              <PlusCircle className="h-5 w-5" strokeWidth={2.25} />
+              Crear materia
+            </button>
+          </div>
         </div>
 
         {categories.length === 0 ? (
@@ -994,7 +1004,7 @@ export function GamesSection({
       )}
 
       {mode !== 'all' && (
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="mb-1 text-[22px] tracking-tight text-text-h">
               {mode === 'community'
@@ -1018,11 +1028,11 @@ export function GamesSection({
           {mode !== 'game-type' && (
             <button
               type="button"
-              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_10px_28px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-[15px] font-bold text-white shadow-[0_12px_30px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:w-auto"
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
               onClick={() => navigate('/juegos/crear')}
             >
-              <PlusCircle className="h-[18px] w-[18px]" strokeWidth={2} />
+              <PlusCircle className="h-5 w-5" strokeWidth={2.25} />
               {isTeacher ? 'Crear actividad' : 'Crear juego'}
             </button>
           )}
@@ -1031,11 +1041,20 @@ export function GamesSection({
 
       <div ref={resultsRef} className="scroll-mt-6">
         {mode === 'all' && (
-          <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Juegos</h2>
               <p className="text-[14px] text-text">Elige un juego para empezar a aprender jugando.</p>
             </div>
+            <button
+              type="button"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-[15px] font-bold text-white shadow-[0_12px_30px_-10px_var(--accent)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:w-auto"
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+              onClick={() => navigate('/juegos/crear')}
+            >
+              <PlusCircle className="h-5 w-5" strokeWidth={2.25} />
+              {isTeacher ? 'Crear actividad' : 'Crear juego'}
+            </button>
           </div>
         )}
 

@@ -80,7 +80,7 @@ export function CategorySelectField({
       onCategoryCreated({ ...category, gameCount: 0 })
       onCategoryIdChange(category.id)
       setNewCategoryName('')
-      showToast('Materia creada', 'success')
+      showToast('Sub-materia creada', 'success')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la materia.')
     } finally {
@@ -108,45 +108,66 @@ export function CategorySelectField({
         ))}
       </select>
 
-      {rootId && subCategories.length > 0 && (
-        <div className="mt-2">
-          <label className="mb-1.5 block text-[12px] font-medium text-text-h" htmlFor="game-sub-category">
-            Sub-materia (opcional)
-          </label>
-          <select
-            id="game-sub-category"
-            className="w-full rounded-lg border border-border bg-bg px-[13px] py-2 text-[13px] text-text-h outline-none focus:border-accent"
-            value={categoryId !== rootId ? categoryId : ''}
-            disabled={disabled}
-            onChange={(event) => handleSubCategoryChange(event.target.value)}
-          >
-            <option value="">Sin sub-materia (usar la materia general)</option>
-            {subCategories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="mt-4 rounded-xl border-2 border-accent/40 bg-accent/5 p-4">
+        <p className="text-[14px] font-semibold text-text-h">Sub-materia</p>
+        <p className="mt-0.5 text-[13px] leading-snug text-text">
+          Una sub-materia es un tema dentro de la materia (por ejemplo, Fracciones dentro de Matemáticas).
+          Crearla ayuda a ordenar tus juegos y a que los demás los encuentren más fácil.
+        </p>
 
-      <div className="mt-2 flex gap-2">
-        <input
-          type="text"
-          className="flex-1 rounded-lg border border-border bg-bg px-[13px] py-2 text-[13px] text-text-h outline-none focus:border-accent"
-          placeholder={rootId ? 'Nombre de la sub-materia nueva…' : 'Elige una materia arriba primero'}
-          value={newCategoryName}
-          disabled={disabled || creatingCategory || !rootId}
-          onChange={(event) => setNewCategoryName(event.target.value)}
-        />
-        <button
-          type="button"
-          className="shrink-0 rounded-lg border border-dashed border-border px-3 py-2 text-[12px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={handleCreateCategory}
-          disabled={disabled || creatingCategory || !newCategoryName.trim() || !rootId}
-        >
-          {creatingCategory ? 'Creando…' : '+ Crear'}
-        </button>
+        {!rootId ? (
+          <p className="mt-3 text-[13px] font-medium text-text-h">
+            Elige una materia arriba para ver o crear sus sub-materias.
+          </p>
+        ) : subCategories.length > 0 ? (
+          <div className="mt-3">
+            <label className="mb-1.5 block text-[13px] font-medium text-text-h" htmlFor="game-sub-category">
+              Elige una sub-materia existente
+            </label>
+            <select
+              id="game-sub-category"
+              className="w-full rounded-lg border border-border bg-bg px-[13px] py-[11px] text-[15px] text-text-h outline-none focus:border-accent"
+              value={categoryId !== rootId ? categoryId : ''}
+              disabled={disabled}
+              onChange={(event) => handleSubCategoryChange(event.target.value)}
+            >
+              <option value="">Sin sub-materia (usar la materia general)</option>
+              {subCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <p className="mt-3 text-[13px] font-medium text-text-h">
+            Esta materia todavía no tiene sub-materias: crea la primera.
+          </p>
+        )}
+
+        <label className="mb-1.5 mt-3 block text-[13px] font-medium text-text-h" htmlFor="game-new-sub-category">
+          {subCategories.length > 0 ? 'O crea una sub-materia nueva' : 'Nombre de la sub-materia'}
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            id="game-new-sub-category"
+            type="text"
+            className="min-h-[44px] flex-1 rounded-lg border border-border bg-bg px-[13px] py-2.5 text-[15px] text-text-h outline-none focus:border-accent"
+            placeholder={rootId ? 'Ej. Fracciones, Reciclaje…' : 'Elige una materia arriba primero'}
+            value={newCategoryName}
+            disabled={disabled || creatingCategory || !rootId}
+            onChange={(event) => setNewCategoryName(event.target.value)}
+          />
+          <button
+            type="button"
+            className="min-h-[44px] shrink-0 rounded-lg px-5 py-2.5 text-[14px] font-bold text-white shadow-[0_8px_20px_-10px_var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={handleCreateCategory}
+            disabled={disabled || creatingCategory || !newCategoryName.trim() || !rootId}
+          >
+            {creatingCategory ? 'Creando…' : '+ Crear sub-materia'}
+          </button>
+        </div>
       </div>
 
       {error && <p className="mt-1.5 text-[12px] text-danger">{error}</p>}
