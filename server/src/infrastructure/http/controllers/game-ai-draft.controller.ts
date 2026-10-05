@@ -36,6 +36,15 @@ function isAllowedMimeType(mimeType: string): boolean {
  * sube el profesor — nunca de un link. Vive separado de `GameController`
  * porque no es una operación CRUD sobre `Game` (no guarda nada), sino un
  * caso de uso de un solo paso.
+ *
+ * Los archivos son opcionales en CUALQUIER tipo de juego (issues #234/#238):
+ * `dto.message` puede ser la única fuente — el usuario escribe el tema y la
+ * IA genera el borrador completo con solo eso. Para los tipos con imagen
+ * obligatoria por elemento (Quién Es, Parejas), eso sí, cada elemento queda
+ * sin imagen (`GenerateGameDraftUseCase` decide esto según el `gameType`) —
+ * el usuario la agrega a mano después. Acá solo se bloquea el caso sin
+ * ninguna de las dos fuentes (ni archivos ni mensaje), para devolver un 400
+ * claro sin siquiera llamar al caso de uso.
  */
 @Controller('games/ai-draft')
 @UseGuards(JwtAuthGuard)
@@ -56,9 +65,10 @@ export class GameAiDraftController {
     @UploadedFiles() files: Express.Multer.File[] | undefined,
     @Body() dto: GenerateGameDraftDto,
   ) {
-    if (!files || files.length === 0) {
+    const hasFiles = Boolean(files && files.length > 0);
+    if (!hasFiles && !dto.message?.trim()) {
       throw new BadRequestException(
-        'Sube al menos un archivo compatible (PDF, Word, Excel, CSV o imagen).',
+        'Sube al menos un archivo compatible (PDF, Word, Excel, CSV o imagen), o escribe el tema/instrucciones.',
       );
     }
 
@@ -66,7 +76,7 @@ export class GameAiDraftController {
       gameType: dto.gameType,
       mode: dto.mode,
       message: dto.message,
-      files: files.map((file) => ({
+      files: (files ?? []).map((file) => ({
         buffer: file.buffer,
         mimeType: file.mimetype,
         filename: file.originalname,

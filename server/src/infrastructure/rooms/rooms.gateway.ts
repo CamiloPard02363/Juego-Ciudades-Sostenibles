@@ -1388,7 +1388,18 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       playerUserIds,
       isBye: false,
       phase: 'PLAYING',
-      cards: shuffled,
+      // `GuessWhoCard.imageUrl` admite `null` desde issue #238 (borrador de
+      // IA sin imágenes todavía) — pero estas cartas vienen de un juego YA
+      // creado (`lastCreatedGameCards`), que solo llega a existir si pasó la
+      // validación SIN `isDraft`, la que exige una imagen real por tarjeta
+      // sin excepción. El `?? ''` es puramente defensivo (nunca debería
+      // activarse) para no tener que ensanchar este shape de gameplay.
+      cards: shuffled.map((card) => ({
+        cardId: card.cardId,
+        imageUrl: card.imageUrl ?? '',
+        label: card.label,
+        audioUrl: card.audioUrl,
+      })),
       players: [
         { userId: playerUserIds[0], secretCardId: shuffled[0].cardId, discardedCardIds: [] },
         { userId: playerUserIds[1], secretCardId: shuffled[1].cardId, discardedCardIds: [] },

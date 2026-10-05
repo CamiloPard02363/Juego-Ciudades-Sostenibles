@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InvalidGameContentError } from '../../domain/errors/game.errors.js';
-import type { ContentValidator } from './content-validator.port.js';
+import type { ContentValidationOptions, ContentValidator } from './content-validator.port.js';
 
 export type MemoryMatchMode = 'OPPOSITES' | 'PAIRS';
 
@@ -20,7 +20,14 @@ export interface OppositesPair {
 export interface SimplePair {
   mode: 'PAIRS';
   pairId: string;
-  imageUrl: string;
+  /**
+   * `null` SOLO puede venir de un borrador de IA generado sin ninguna imagen
+   * disponible (issue #238, `options.isDraft`) — el usuario la completa a
+   * mano en el formulario de siempre antes de poder crear/guardar el juego
+   * de verdad, momento en el que este mismo validador (sin `isDraft`) vuelve
+   * a exigir un `imageUrl` real, sin excepción.
+   */
+  imageUrl: string | null;
   label: string;
 }
 
@@ -90,7 +97,11 @@ export class MemoryMatchContentValidator implements ContentValidator {
     return { mode, perZone, timePerZoneSeconds, previewSeconds };
   }
 
-  validateContent(content: unknown, config?: Record<string, unknown>): unknown[] {
+  validateContent(
+    content: unknown,
+    config?: Record<string, unknown>,
+    options?: ContentValidationOptions,
+  ): unknown[] {
     if (!Array.isArray(content) || content.length < 2) {
       throw new InvalidGameContentError('el juego necesita al menos 2 parejas de contenido.');
     }
@@ -101,7 +112,7 @@ export class MemoryMatchContentValidator implements ContentValidator {
     const mode = (config?.mode as MemoryMatchMode | undefined) ?? DEFAULT_CONFIG.mode;
 
     return content.map((item, index) =>
-      mode === 'PAIRS' ? this.validateSimplePair(item, index) : this.validateOppositesPair(item, index),
+      mode === 'PAIRS' ? this.validateSimplePair(item, index, options) : this.validateOppositesPair(item, index),
     );
   }
 
@@ -149,7 +160,7 @@ export class MemoryMatchContentValidator implements ContentValidator {
     };
   }
 
-  private validateSimplePair(item: unknown, index: number): SimplePair {
+  private validateSimplePair(item: unknown, index: number, options?: ContentValidationOptions): SimplePair {
     if (typeof item !== 'object' || item === null) {
       throw new InvalidGameContentError(`la pareja en la posición ${index} no es un objeto válido.`);
     }
@@ -161,7 +172,13 @@ export class MemoryMatchContentValidator implements ContentValidator {
         `la pareja en la posición ${index} necesita label (máximo ${MAX_TITLE_LENGTH} caracteres).`,
       );
     }
-    if (!isNonEmptyString(pair.imageUrl, MAX_IMAGE_URL_LENGTH)) {
+    // Borrador de IA sin ninguna imagen disponible (issue #238): "imageUrl"
+    // puede venir ausente/null — el usuario la completa a mano después. Al
+    // crear/editar el juego de verdad (sin isDraft) sigue siendo obligatoria.
+    const imageUrlValid = options?.isDraft
+      ? isNullableString(pair.imageUrl, MAX_IMAGE_URL_LENGTH)
+      : isNonEmptyString(pair.imageUrl, MAX_IMAGE_URL_LENGTH);
+    if (!imageUrlValid) {
       throw new InvalidGameContentError(
         `la pareja en la posición ${index} necesita imageUrl.`,
       );
@@ -170,7 +187,7 @@ export class MemoryMatchContentValidator implements ContentValidator {
     return {
       mode: 'PAIRS',
       pairId: isNonEmptyString(pair.pairId, 60) ? pair.pairId : `pair-${index}`,
-      imageUrl: pair.imageUrl,
+      imageUrl: typeof pair.imageUrl === 'string' ? pair.imageUrl : null,
       label: pair.label.trim(),
     };
   }

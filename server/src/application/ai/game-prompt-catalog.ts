@@ -32,14 +32,32 @@ export interface GamePromptSpec {
      * obligatoria: el usuario puede subir menos (completa el resto a mano
      * después) sin importar cómo las subió (sueltas, o dentro de un
      * PDF/Word con varias fotos adentro). `max` SIEMPRE se sigue exigiendo
-     * como tope, y siempre se exige al menos 1 imagen en total — sin
-     * ninguna imagen no hay nada que la IA pueda organizar. Por defecto
-     * (`undefined`) se comporta como `true`: bloqueo estricto de siempre.
+     * como tope. Por defecto (`undefined`) se comporta como `true`: bloqueo
+     * estricto de siempre.
+     *
+     * Sin NINGUNA imagen (issue #238) ya no es un error si el usuario
+     * escribió el tema en `message`: la IA genera el contenido completo con
+     * `textOnlyInstructions`/`textOnlyJsonShapeExample` de abajo, dejando
+     * cada elemento sin imagen para completarla a mano después — sin
+     * mensaje, sigue siendo obligatorio al menos un archivo.
      */
     enforceMinimum?: boolean;
   } | null;
   /** Carpeta de Cloudinary donde subir las imágenes de contenido (mismas que usa la subida manual). */
   contentImageFolder?: string;
+  /**
+   * Solo relevante cuando `imageRequirement` no es `null`: instrucciones
+   * alternativas para cuando el usuario no subió NINGUNA imagen (ni suelta
+   * ni incrustada en un PDF/Word) pero sí escribió un tema en `message`
+   * (issue #238). La IA genera el contenido completo (labels/info/config)
+   * solo con ese texto, sin `imageIndex` ni `imageUrl` — el usuario agrega
+   * cada imagen a mano después en el formulario de siempre (que ya admite
+   * arrastrar y soltar). `undefined` en tipos sin `imageRequirement` (nunca
+   * se usa ahí).
+   */
+  textOnlyInstructions?: string;
+  /** Forma de JSON esperada junto con `textOnlyInstructions` (sin `imageIndex`/`imageUrl`). */
+  textOnlyJsonShapeExample?: string;
 }
 
 function catalogKey(gameType: GameTypeName, mode?: string): string {
@@ -133,6 +151,21 @@ información dentro de la tarjeta durante la partida. No agregues "imageUrl" ni 
 }`,
   imageRequirement: { min: 12, max: 60, enforceMinimum: false },
   contentImageFolder: 'guess-who-cards',
+  textOnlyInstructions: `Genera el contenido de un juego de "¿Quién Es?" a partir ÚNICAMENTE del tema que
+describe el usuario — todavía no hay ninguna imagen disponible, el usuario agrega la imagen de cada tarjeta a
+mano después de revisar este borrador. Genera entre 12 y 20 tarjetas razonables para ese tema (ni menos de
+12, ni más de 20). Para cada tarjeta escribe un "label" corto (máximo 120 caracteres) que identifique con
+precisión un elemento concreto y distinto del tema (ej. si el tema es "banderas de Sudamérica", cada label es
+el nombre de un país distinto de esa región) y un "info" (dato breve y curioso, máximo 280 caracteres) sobre
+ese elemento puntual — mismo criterio que si hubiera imágenes. NO incluyas "imageIndex" ni "imageUrl" en
+ningún elemento: el usuario los completa a mano después.`,
+  textOnlyJsonShapeExample: `{
+  "config": { "maxAccusationCount": 6, "turnDurationSeconds": 15 },
+  "content": [
+    { "label": "Argentina", "info": "Su capital es Buenos Aires y es el país de habla hispana más grande del mundo." },
+    { "label": "Brasil", "info": "Es el único país de Sudamérica cuyo idioma oficial es el portugués." }
+  ]
+}`,
 };
 
 const MEMORY_MATCH_PAIRS_SPEC: GamePromptSpec = {
@@ -153,6 +186,20 @@ solo "imageIndex" y "label".`,
 }`,
   imageRequirement: { min: 4, max: 40 },
   contentImageFolder: 'memory-cards',
+  textOnlyInstructions: `Genera el contenido de un juego de memoria (parejas imagen-concepto) a partir
+ÚNICAMENTE del tema que describe el usuario — todavía no hay ninguna imagen disponible, el usuario agrega la
+imagen de cada pareja a mano después de revisar este borrador. Genera entre 4 y 10 conceptos razonables para
+ese tema, cada uno con un "label" corto (máximo 120 caracteres) que nombre con precisión un concepto concreto
+y distinto del tema, y que sea algo representable con una imagen real más adelante (ej. si el tema es
+"matemáticas básicas": "2 + 2", "Triángulo", "Número primo" — no ideas abstractas sin forma visual clara). NO
+incluyas "imageIndex" ni "imageUrl" en ningún elemento: el usuario los completa a mano después.`,
+  textOnlyJsonShapeExample: `{
+  "config": { "mode": "PAIRS", "perZone": 8, "timePerZoneSeconds": 90, "previewSeconds": 5 },
+  "content": [
+    { "label": "2 + 2" },
+    { "label": "Triángulo" }
+  ]
+}`,
 };
 
 const MEMORY_MATCH_OPPOSITES_SPEC: GamePromptSpec = {
