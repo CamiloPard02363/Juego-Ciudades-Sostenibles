@@ -1144,3 +1144,35 @@ code {
   .guess-who-side-chat > form button { width: 100%; }
   .guess-who-side-chat > :first-child p { font-size: 12px; }
 }
+
+/*
+ * Indicador de "hay más abajo" para listas internas con scroll propio
+ * (issue #240) — las áreas de página completa usan <ScrollMoreHint />. El
+ * borde inferior se desvanece mientras quede contenido oculto y vuelve a
+ * nítido al llegar al final. Es una máscara (no un color), así que funciona
+ * igual en claro, oscuro y Kids, sobre cualquier fondo. Navegadores sin
+ * animaciones ligadas al scroll simplemente no muestran el desvanecido.
+ */
+@property --scroll-fade-size {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - var(--scroll-fade-size)), transparent);
+    animation: scroll-fade-reveal linear both;
+    animation-timeline: scroll(self);
+  }
+}
+
+@keyframes scroll-fade-reveal {
+  0%,
+  92% {
+    --scroll-fade-size: 40px;
+  }
+  100% {
+    --scroll-fade-size: 0px;
+  }
+}

@@ -102,7 +102,7 @@ export function CategoriesManagerModal({
       {filtered.length === 0 ? (
         <p className="py-6 text-center text-[13px] text-text">No hay materias que coincidan.</p>
       ) : (
-        <ul className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+        <ul className="scroll-fade flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
           {filtered.map((category) => {
             const color = colorFor(category.name)
             const Icon = iconFor(category.name)

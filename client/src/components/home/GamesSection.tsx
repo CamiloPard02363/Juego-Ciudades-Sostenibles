@@ -769,7 +769,7 @@ export function GamesSection({
                 <p className="mb-2 text-[13px] font-medium text-text-h">
                   Estos juegos en borrador se publicarán automáticamente:
                 </p>
-                <ul className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
+                <ul className="scroll-fade flex max-h-[220px] flex-col gap-1.5 overflow-y-auto rounded-lg border border-border p-2">
                   {publishDraftGames.map((game) => (
                     <li
                       key={game.id}
@@ -831,7 +831,7 @@ export function GamesSection({
                 ) : (
                   <>
                     {subCategories.filter((s) => s.parentSubjectId === activeCategoryId).length > 0 && (
-                      <div className="mb-6 grid max-h-[45vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3">
+                      <div className="scroll-fade mb-6 grid max-h-[45vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3">
                         {subCategories
                           .filter((sub) => sub.parentSubjectId === activeCategoryId)
                           .map((sub) => (
@@ -857,7 +857,7 @@ export function GamesSection({
                         {loadingRootUnclassified ? (
                           <p className="py-4 text-center text-[14px] text-text">Cargando…</p>
                         ) : (
-                          <div className="grid max-h-[35vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                          <div className="scroll-fade grid max-h-[35vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
                             {rootUnclassifiedGames.map((game) => (
                               <GameCard
                                 key={game.id}
@@ -894,7 +894,7 @@ export function GamesSection({
                     <p className="text-[15px] font-medium text-text-h">Aún no hay juegos en esta materia.</p>
                   </div>
                 ) : (
-                  <div className="grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="scroll-fade grid max-h-[60vh] grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
                     {games.map((game) => (
                       <GameCard
                         key={game.id}
