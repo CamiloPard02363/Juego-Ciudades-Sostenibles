@@ -202,7 +202,7 @@ export function AiGameAssistantPanel({
             {imagesRequired ? (
               enforcesMinimum ? (
                 <>
-                  Este juego necesita una imagen por elemento. Si tienes las tuyas (mínimo {imagesRequired.min}),
+                  Este juego necesita una imagen por elemento. Si tienes las tuyas,
                   arrástralas aquí o súbelas con el clip y la IA las organiza: le asigna a cada imagen el
                   concepto que le corresponde. También puedes agregar PDF/Word/Excel/CSV de referencia
                   (opcional). O escribe solo el tema, sin ningún archivo: la IA arma el contenido completo y
@@ -228,13 +228,6 @@ export function AiGameAssistantPanel({
             )}{' '}
             No se aceptan links, solo archivos que subas tú (o el texto que escribas, sin ningún archivo).
           </p>
-
-          {imagesRequired && enforcesMinimum && (
-            <p className={`mb-2 text-[12px] font-medium ${hasEnoughImages ? 'text-accent' : 'text-text'}`}>
-              {imageCount} / {imagesRequired.min} imágenes mínimo
-              {imageCount > 0 && !hasEnoughImages ? ' — sigue subiendo' : ''}
-            </p>
-          )}
 
           <input
             ref={inputRef}

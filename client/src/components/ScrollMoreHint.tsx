@@ -52,7 +52,9 @@ export function ScrollMoreHint({ scope = 'container', fade = 'bg' }: ScrollMoreH
         // asomarse por encima del modal.
         const dialog = document.querySelector('[aria-modal="true"]')
         const coveredByDialog = !!dialog && !dialog.contains(element)
-        setVisible(hidden > MIN_HIDDEN_PX && !coveredByDialog)
+        // Durante la guía el indicador no se muestra: el recorrido ya dirige la vista.
+        const inGuide = !!document.querySelector('.welcome-tour-card, [data-testid="tour-spotlight"]')
+        setVisible(hidden > MIN_HIDDEN_PX && !coveredByDialog && !inGuide)
         if (scope === 'container') setBottomOffset(parseFloat(getComputedStyle(element).paddingBottom) || 0)
       })
     }
