@@ -5,6 +5,7 @@ import type {
   GenerateGameDraftOutput,
 } from '../../domain/ports/ai-content-assistant.port.js';
 import type { ImageStorage, UploadedImage } from '../../domain/ports/image-storage.port.js';
+import type { ContentImageFinder, ImageCandidate } from '../../domain/ports/content-image-finder.port.js';
 import { ContentValidatorRegistry } from '../content-validators/content-validator.registry.js';
 import { MemoryMatchContentValidator } from '../content-validators/memory-match.content-validator.js';
 import { GuessWhoContentValidator } from '../content-validators/guess-who.content-validator.js';
@@ -47,12 +48,33 @@ function fakeImageStorage(): ImageStorage {
   };
 }
 
-function buildUseCase(assistant: AiContentAssistant, imageStorage: ImageStorage = fakeImageStorage()) {
+/**
+ * Buscador de imágenes en memoria (issue #240): `results` mapea cada
+ * búsqueda a sus candidatos; lo que no esté ahí no encuentra nada. Por
+ * defecto no encuentra nada, que es lo que esperan los tests de antes.
+ */
+function fakeImageFinder(results: Record<string, string[]> = {}): ContentImageFinder {
+  return {
+    search: vi.fn().mockImplementation(async (query: string): Promise<ImageCandidate[]> =>
+      (results[query] ?? []).map((url) => ({ url })),
+    ),
+    download: vi.fn().mockImplementation(async (candidate: ImageCandidate) =>
+      candidate.url.includes('broken') ? null : { buffer: Buffer.from(candidate.url), mimeType: 'image/jpeg' },
+    ),
+  };
+}
+
+function buildUseCase(
+  assistant: AiContentAssistant,
+  imageStorage: ImageStorage = fakeImageStorage(),
+  imageFinder: ContentImageFinder = fakeImageFinder(),
+) {
   return new GenerateGameDraftUseCase(
     assistant,
     imageStorage,
     new FileTextExtractor(assistant),
     buildRegistry(),
+    imageFinder,
   );
 }
 
@@ -406,7 +428,7 @@ describe('GenerateGameDraftUseCase — tipos con imagen obligatoria (el usuario 
 });
 
 describe('GenerateGameDraftUseCase — tipos con imagen obligatoria, pero SIN ninguna imagen (issue #238)', () => {
-  it('GUESS_WHO genera el borrador completo solo con el mensaje, sin llamar a describeImage/ImageStorage', async () => {
+  it('GUESS_WHO genera el borrador completo solo con el mensaje, sin llamar a describeImage (y sin subir nada si no encuentra imágenes)', async () => {
     const assistant = fakeAssistant({
       config: {},
       content: Array.from({ length: 12 }, (_, index) => ({
@@ -432,8 +454,10 @@ describe('GenerateGameDraftUseCase — tipos con imagen obligatoria, pero SIN ni
     const call = vi.mocked(assistant.generateGameDraft).mock.calls[0][0];
     expect(call.instructions).toContain('Banderas de Sudamérica.');
     // Usa las instrucciones SIN imagen (textOnlyInstructions), no las que dan por hecho que hay imágenes.
-    expect(call.instructions).toContain('todavía no hay ninguna imagen disponible');
+    expect(call.instructions).toContain('el usuario no subió imágenes');
+    expect(call.instructions).toContain('imageQuery');
     expect(call.imageDescriptions).toBeUndefined();
+    expect(result.notice).toMatch(/no encontró imágenes/);
   });
 
   it('MEMORY_MATCH modo PAIRS también genera sin ninguna imagen, usando solo el mensaje', async () => {
@@ -502,6 +526,128 @@ describe('GenerateGameDraftUseCase — tipos con imagen obligatoria, pero SIN ni
 
     const call = vi.mocked(assistant.generateGameDraft).mock.calls[0][0];
     expect(call.sourceText).toContain('Argentina');
+  });
+});
+
+describe('GenerateGameDraftUseCase — la IA consigue las imágenes que faltan (issue #240)', () => {
+  function flagsDraft(count: number) {
+    return {
+      config: {},
+      content: Array.from({ length: count }, (_, index) => ({
+        label: `País ${index}`,
+        info: `Dato ${index}`,
+        imageQuery: `Flag ${index}`,
+      })),
+    };
+  }
+
+  it('busca una imagen por tarjeta con el imageQuery del modelo, la sube y la asigna en orden', async () => {
+    const results = Object.fromEntries(
+      Array.from({ length: 12 }, (_, index) => [`Flag ${index}`, [`https://img.test/flag-${index}.png`]]),
+    );
+    const finder = fakeImageFinder(results);
+    const imageStorage = fakeImageStorage();
+
+    const result = await buildUseCase(fakeAssistant(flagsDraft(12)), imageStorage, finder).execute({
+      gameType: 'GUESS_WHO',
+      message: 'Banderas.',
+      files: [],
+    });
+
+    const cards = result.content as Array<Record<string, unknown>>;
+    expect(cards).toHaveLength(12);
+    for (const card of cards) {
+      expect(card.imageUrl).toMatch(/^https:\/\/cdn\.test\/image-\d+\.png$/);
+      expect(card).not.toHaveProperty('imageQuery');
+    }
+    // Cada tarjeta recibe la imagen que se descargó para SU búsqueda.
+    const uploads = vi.mocked(imageStorage.upload).mock.calls.map(([buffer]) => buffer.toString());
+    expect(uploads).toHaveLength(12);
+    expect(new Set(cards.map((card) => card.imageUrl)).size).toBe(12);
+    expect(vi.mocked(imageStorage.upload).mock.calls[0][1]).toBe('guess-who-cards');
+    expect(finder.search).toHaveBeenCalledWith('Flag 0', 'País 0');
+    expect(result.notice).toMatch(/consiguió las 12 imágenes/);
+  });
+
+  it('nunca repite la misma imagen en dos tarjetas: usa el siguiente candidato libre', async () => {
+    const finder = fakeImageFinder({
+      'Flag 0': ['https://img.test/shared.png'],
+      'Flag 1': ['https://img.test/shared.png?v=2', 'https://img.test/other.png'],
+    });
+
+    const result = await buildUseCase(fakeAssistant(flagsDraft(12)), fakeImageStorage(), finder).execute({
+      gameType: 'GUESS_WHO',
+      message: 'Banderas.',
+      files: [],
+    });
+
+    const downloaded = vi.mocked(finder.download).mock.calls.map(([candidate]) => candidate.url);
+    expect(downloaded).toEqual(['https://img.test/shared.png', 'https://img.test/other.png']);
+    const cards = result.content as Array<Record<string, unknown>>;
+    expect(cards[0].imageUrl).not.toBeNull();
+    expect(cards[1].imageUrl).not.toBeNull();
+    expect(cards[0].imageUrl).not.toBe(cards[1].imageUrl);
+  });
+
+  it('deja sin imagen solo las que no encontró (o no pudo descargar) y lo avisa', async () => {
+    const finder = fakeImageFinder({
+      'Flag 0': ['https://img.test/flag-0.png'],
+      'Flag 1': ['https://img.test/broken.png'],
+    });
+
+    const result = await buildUseCase(fakeAssistant(flagsDraft(12)), fakeImageStorage(), finder).execute({
+      gameType: 'GUESS_WHO',
+      message: 'Banderas.',
+      files: [],
+    });
+
+    const cards = result.content as Array<Record<string, unknown>>;
+    expect(cards[0].imageUrl).not.toBeNull();
+    expect(cards[1].imageUrl).toBeNull();
+    expect(cards.slice(2).every((card) => card.imageUrl === null)).toBe(true);
+    expect(result.notice).toMatch(/1 de 12 imágenes/);
+  });
+
+  it('si el almacenamiento falla, el borrador se genera igual (sin imágenes), no se cae', async () => {
+    const finder = fakeImageFinder({ 'Flag 0': ['https://img.test/flag-0.png'] });
+    const imageStorage = fakeImageStorage();
+    vi.mocked(imageStorage.upload).mockRejectedValue(new Error('Cloudinary no configurado'));
+
+    const result = await buildUseCase(fakeAssistant(flagsDraft(12)), imageStorage, finder).execute({
+      gameType: 'GUESS_WHO',
+      message: 'Banderas.',
+      files: [],
+    });
+
+    expect((result.content as Array<Record<string, unknown>>).every((card) => card.imageUrl === null)).toBe(true);
+  });
+
+  it('sin imageQuery del modelo, busca por el label', async () => {
+    const finder = fakeImageFinder({ Cubo: ['https://img.test/cube.png'] });
+    const assistant = fakeAssistant({
+      config: { mode: 'PAIRS' },
+      content: [{ label: 'Cubo' }, { label: 'Esfera' }, { label: 'Cono' }, { label: 'Cilindro' }],
+    });
+
+    const result = await buildUseCase(assistant, fakeImageStorage(), finder).execute({
+      gameType: 'MEMORY_MATCH',
+      mode: 'PAIRS',
+      message: 'Sólidos geométricos.',
+      files: [],
+    });
+
+    expect(finder.search).toHaveBeenCalledWith('Cubo', 'Cubo');
+    expect((result.content as Array<Record<string, unknown>>)[0].imageUrl).not.toBeNull();
+  });
+
+  it('no busca imágenes cuando el usuario sí subió las suyas', async () => {
+    const finder = fakeImageFinder();
+    await buildUseCase(fakeAssistant(guessWhoDraftWithImages(12)), fakeImageStorage(), finder).execute({
+      gameType: 'GUESS_WHO',
+      files: Array.from({ length: 12 }, (_, index) => imageFile(`foto-${index}`)),
+    });
+
+    expect(finder.search).not.toHaveBeenCalled();
   });
 });
 

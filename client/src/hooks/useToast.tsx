@@ -11,7 +11,8 @@ type Toast = {
 }
 
 type ToastContextValue = {
-  showToast: (message: string, variant?: ToastVariant) => void
+  /** `durationMs` (por defecto 3,5 s): más tiempo para avisos largos que hay que alcanzar a leer. */
+  showToast: (message: string, variant?: ToastVariant, durationMs?: number) => void
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
@@ -33,12 +34,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const nextId = useRef(0)
 
-  const showToast = useCallback((message: string, variant: ToastVariant = 'success') => {
+  const showToast = useCallback((message: string, variant: ToastVariant = 'success', durationMs = 3500) => {
     const id = nextId.current++
     setToasts((current) => [...current, { id, message, variant }])
     setTimeout(() => {
       setToasts((current) => current.filter((toast) => toast.id !== id))
-    }, 3500)
+    }, durationMs)
   }, [])
 
   function dismiss(id: number) {

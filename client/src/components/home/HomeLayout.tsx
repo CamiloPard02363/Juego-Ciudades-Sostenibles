@@ -13,6 +13,7 @@ import { listMyOrganizations } from '../../services/organization.service'
 import { KidsHomeShell } from './kids/KidsHomeShell'
 import { WelcomeTour } from './WelcomeTour'
 import { isKidsMode } from '../../utils/kidsMode'
+import { ScrollMoreHint } from '../ScrollMoreHint'
 
 export function HomeLayout() {
   const { user, token, signOut } = useAuth()
@@ -82,6 +83,7 @@ export function HomeLayout() {
           >
             <Outlet />
           </HomeSearchContext.Provider>
+          <ScrollMoreHint />
         </main>
       </div>
 

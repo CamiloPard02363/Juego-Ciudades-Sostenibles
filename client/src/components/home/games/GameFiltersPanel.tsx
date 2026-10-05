@@ -120,7 +120,7 @@ export function GameFiltersPanel({
           {typeOptions.length > 0 && (
             <div>
               <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-text/70">Tipo de juego</h3>
-              <div className="flex max-h-[260px] flex-col gap-2 overflow-y-auto pr-1">
+              <div className="scroll-fade flex max-h-[260px] flex-col gap-2 overflow-y-auto pr-1">
                 {typeOptions.map((option) => (
                   <FilterCheckbox
                     key={option.gameType}
