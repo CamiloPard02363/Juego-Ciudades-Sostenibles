@@ -371,6 +371,8 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
+        gameKind="DUAL_QUEST"
+        gameTitle={title.trim()}
       />
     )
   }
