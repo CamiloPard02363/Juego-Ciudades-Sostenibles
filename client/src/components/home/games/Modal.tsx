@@ -11,6 +11,9 @@ type ModalProps = {
   /** Borde con el degradado de acento de la app (mismo truco que `WelcomeCard`) en vez del borde plano de siempre. */
   accentBorder?: boolean
   ariaLabel?: string
+  /** Id del título visible del diálogo; preferible a `ariaLabel` cuando el título ya está en pantalla. */
+  ariaLabelledBy?: string
+  ariaDescribedBy?: string
   ariaModal?: boolean
 }
 
@@ -21,6 +24,8 @@ export function Modal({
   maxHeightClassName = 'max-h-[85vh]',
   accentBorder = false,
   ariaLabel,
+  ariaLabelledBy,
+  ariaDescribedBy,
   ariaModal = true,
 }: ModalProps) {
   useEffect(() => {
@@ -51,6 +56,8 @@ export function Modal({
         }
         role="dialog"
         aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
         aria-modal={ariaModal}
         onClick={(event) => event.stopPropagation()}
       >

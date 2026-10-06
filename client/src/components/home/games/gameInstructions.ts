@@ -62,3 +62,44 @@ export const gameInstructions: Record<InstructionKind, Instruction> = {
     caption: 'Ambos personajes deben llegar al portal.',
   },
 }
+
+/** Claves de instrucciones que corresponden a un formulario de creación (sin variantes de partida como el torneo o el motor PixiJS). */
+export type CreationInstructionKind = Exclude<InstructionKind, 'GUESS_WHO_GROUP' | 'DUAL_QUEST_PIXI'>
+
+/**
+ * Versión corta de las instrucciones para la pantalla de éxito tras crear un
+ * juego (issue #245): una frase de para qué sirve y otra de cómo se juega,
+ * ambas de ≈140 caracteres como máximo para que quepan sin scroll en móvil.
+ * Vive junto a `gameInstructions` para que el contenido de cada tipo tenga
+ * una sola fuente de verdad: si cambia la mecánica, se ajustan ambos aquí.
+ */
+export const gameInstructionSummaries: Record<CreationInstructionKind, { purpose: string; howTo: string }> = {
+  DOMINO: {
+    purpose: 'Une conceptos iguales para vaciar tu mano.',
+    howTo: 'Conecta una ficha con el mismo concepto en uno de los extremos. Si no puedes jugar, roba una ficha.',
+  },
+  GUESS_WHO: {
+    purpose: 'Adivina la tarjeta secreta de tu rival por eliminación.',
+    howTo: 'Pregunta, descarta tarjetas y adivina tras descartar el mínimo.',
+  },
+  OPPOSITES: {
+    purpose: 'Practica reconocer conceptos contrarios.',
+    howTo: 'Destapa dos cartas y une cada concepto con su opuesto antes de que termine el tiempo.',
+  },
+  PAIRS: {
+    purpose: 'Entrena la memoria con imágenes iguales.',
+    howTo: 'Destapa dos cartas y encuentra las imágenes iguales antes de que termine el tiempo.',
+  },
+  DUAL_QUEST: {
+    purpose: 'Dos jugadores resuelven el reto en equipo.',
+    howTo: 'Fuego y Agua se mueven, activan mecanismos, responden preguntas y se reúnen en el núcleo.',
+  },
+  MAZE_COLLECTOR: {
+    purpose: 'Recoge todos los elementos y esquiva a los enemigos.',
+    howTo: 'Muévete con flechas o WASD. Si un enemigo te alcanza, pierdes una vida.',
+  },
+  SNAKES_LADDERS: {
+    purpose: 'Avanza por el tablero respondiendo retos.',
+    howTo: 'Tira el dado, responde los retos y llega primero a la última casilla.',
+  },
+}

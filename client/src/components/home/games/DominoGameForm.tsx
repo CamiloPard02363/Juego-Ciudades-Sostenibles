@@ -283,6 +283,8 @@ export function DominoGameForm({
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
+        gameKind="DOMINO"
+        gameTitle={title.trim()}
       />
     )
   }

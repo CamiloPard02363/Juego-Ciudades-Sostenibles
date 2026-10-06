@@ -250,6 +250,8 @@ export function GuessWhoGameForm({
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
+        gameKind="GUESS_WHO"
+        gameTitle={title.trim()}
       />
     )
   }

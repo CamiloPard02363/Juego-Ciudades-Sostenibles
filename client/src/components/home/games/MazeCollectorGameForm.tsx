@@ -241,6 +241,8 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
+        gameKind="MAZE_COLLECTOR"
+        gameTitle={title.trim()}
       />
     )
   }

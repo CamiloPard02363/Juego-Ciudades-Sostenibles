@@ -216,6 +216,8 @@ export function SimplePairsGameForm({
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
+        gameKind="PAIRS"
+        gameTitle={title.trim()}
       />
     )
   }
