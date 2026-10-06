@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
+import { playGameSound } from '../../../utils/gameSounds'
 import type { AccusationResult, GuessWhoChatMessage, RoomStateView } from './guessWhoTypes'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000'
@@ -9,7 +10,9 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  * montaje del hook: se crea al entrar a la pantalla de sala y se cierra al
  * salir, así que no hace falta reconectar entre create/join/start/discard.
  */
-export function useGuessWhoRoom(token: string | null) {
+export function useGuessWhoRoom(token: string | null, selfUserId?: string) {
+  const [correctAccusation, setCorrectAccusation] = useState<string | null>(null)
+  useEffect(() => { if (correctAccusation) playGameSound('applause') }, [correctAccusation])
   const socketRef = useRef<Socket | null>(null)
   const waitingCodeRef = useRef<string | null>(null)
   const [room, setRoom] = useState<RoomStateView | null>(null)
@@ -48,6 +51,7 @@ export function useGuessWhoRoom(token: string | null) {
     // dispara la animación de barajado/countdown en el cliente antes de que
     // llegue el room:state con las cartas ya repartidas.
     socket.on('room:dealing', (payload: { countdownMs: number }) => {
+      setCorrectAccusation(null)
       setDealCountdownMs(payload.countdownMs)
     })
     // El rival votó "no" a la revancha: el servidor ya cerró la sala, así
@@ -63,7 +67,10 @@ export function useGuessWhoRoom(token: string | null) {
     // "esa no es la tarjeta de X" para quien acusó, "X intentó adivinar tu
     // tarjeta" para el otro jugador.
     socket.on('room:accusation-result', (payload: AccusationResult) => {
-      if (payload.correct) return
+      if (payload.correct) {
+        if (payload.accuserUserId === selfUserId) setCorrectAccusation(payload.cardId)
+        return
+      }
       setLastFailedAccusation(payload)
     })
     socket.on('room:chat-message', (message: GuessWhoChatMessage) => {
@@ -74,7 +81,7 @@ export function useGuessWhoRoom(token: string | null) {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [token])
+  }, [token, selfUserId])
 
   const createRoom = useCallback((gameId: string) => {
     socketRef.current?.emit('room:create', { gameId })

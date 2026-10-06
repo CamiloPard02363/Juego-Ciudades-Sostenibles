@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { GameSoundControl } from './GameSoundControl'
+import { playGameSound } from '../../../utils/gameSounds'
 import { GameInstructionsGate } from './GameInstructionsGate'
 import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
@@ -60,6 +62,14 @@ function MemoryMatchSession({
   // conexión de un juego real a `POST /me/game-results`). `reportedRef` evita
   // un doble POST si el componente re-renderiza estando ya en esa fase.
   const reportedRef = useRef(false)
+  const previousPhase = useRef(game.phase)
+  useEffect(() => {
+    if (previousPhase.current !== game.phase) {
+      if (game.phase === 'finished') playGameSound('complete')
+      if (game.phase === 'time-up') playGameSound('error')
+    }
+    previousPhase.current = game.phase
+  }, [game.phase])
   useEffect(() => {
     if (game.phase !== 'finished' || reportedRef.current || !token || !gameId) return
     reportedRef.current = true
@@ -101,6 +111,7 @@ function MemoryMatchSession({
             Zona {game.zoneIndex + 1} de {game.zones.length}
           </h1>
         </header>
+        <div className="mb-3 flex justify-end"><GameSoundControl musicActive={game.phase === 'playing'} /></div>
 
         <div className="mx-auto mb-5 flex flex-wrap justify-center gap-4 rounded-2xl border border-border bg-code-bg px-6 py-3">
           <Stat label="Parejas" value={`${game.matchedInZone} / ${game.totalPairsInZone}`} />

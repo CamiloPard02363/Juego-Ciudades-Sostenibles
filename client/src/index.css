@@ -1097,6 +1097,39 @@ code {
 }
 
 /* La partida y el chat comparten la pantalla, nunca se apilan. */
+.guess-instructions-compact > :first-child { padding: 8px 12px; }
+@media (max-width: 380px) {
+  .guess-instructions-compact [data-guess-who-demo] { display: flex; flex-direction: column; gap: 4px; }
+  .guess-instructions-compact [data-guess-who-demo] > * { margin-block: 0 !important; }
+  .guess-instructions-compact [data-guess-who-demo] p[role='status'] { padding: 6px; font-size: 12px; line-height: 1.3; }
+  .guess-instructions-compact [aria-label='Opciones del ejemplo'] { margin-top: 8px; gap: 4px; }
+  .guess-instructions-compact > :first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px; }
+  .guess-instructions-compact [data-guess-who-demo] .aspect-\[3\/2\] { max-width: 48px !important; }
+  .guess-instructions-compact [data-guess-who-demo] svg[viewBox='0 0 100 100'] { width: 36px; height: 36px; }
+  .guess-instructions-compact [data-guess-who-demo] .rounded-2xl.px-3.py-2 { padding: 6px; }
+}
+.guess-instructions-compact p { margin-block: 0; }
+.guess-instructions-compact h3 { margin-block: 0 8px; }
+.guess-instructions-compact nav { flex-wrap: nowrap; }
+.guess-instructions-compact nav > .w-full { width: auto; flex: 1; font-size: 12px; padding-inline: 8px; }
+.guess-instructions-compact [data-guess-who-demo] > .rounded-2xl > :first-child > .mt-3 { margin-top: 8px; }
+.guess-instructions-compact [data-guess-who-demo] > .rounded-2xl > :first-child > .mt-3 > :not(:last-child) { margin-bottom: 6px; }
+.guess-instructions-compact [data-guess-who-demo] .min-h-8 { min-height: 16px; }
+@media (max-width: 639px), (max-height: 700px) {
+  .guess-instructions-compact svg[viewBox='0 0 100 100'] { width: 48px; height: 48px; }
+  .guess-instructions-compact [data-guess-who-demo] > .rounded-2xl .grid-cols-\[1fr_auto_1fr\] > div > .p-2 { padding: 4px; }
+  .guess-instructions-compact [data-guess-who-demo] .aspect-\[3\/2\] { max-width: 75px; }
+  .guess-instructions-compact [data-guess-who-demo] .sm\:p-5 { padding: 8px; }
+  .guess-instructions-compact [data-guess-who-demo] .sm\:text-\[20px\] { font-size: 16px; line-height: 1.4; }
+}
+.guess-instructions-compact > :first-child h2 { margin-top: 0; font-size: 20px; }
+.guess-instructions-compact [data-guess-who-demo] { --demo-gap: 6px; }
+.guess-instructions-compact [data-guess-who-demo] > :not(:last-child) { margin-block-end: var(--demo-gap); }
+.guess-instructions-compact [data-guess-who-demo] > .rounded-2xl { padding: 10px; }
+@media (min-width: 640px) {
+  .guess-instructions-compact [data-guess-who-demo] > .rounded-2xl { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 20px; }
+  .guess-instructions-compact [aria-label='Opciones del ejemplo'] { margin-top: 0; }
+}
 .guess-who-play-shell {
   display: flex;
   flex-direction: column;

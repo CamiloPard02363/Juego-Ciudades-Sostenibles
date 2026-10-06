@@ -8,6 +8,8 @@ type ModalProps = {
   maxWidthClassName?: string
   /** Alto máximo antes de que el contenido interno haga scroll (clase `max-h-*`). */
   maxHeightClassName?: string
+  paddingClassName?: string
+  backdropPaddingClassName?: string
   /** Borde con el degradado de acento de la app (mismo truco que `WelcomeCard`) en vez del borde plano de siempre. */
   accentBorder?: boolean
   ariaLabel?: string
@@ -22,6 +24,8 @@ export function Modal({
   children,
   maxWidthClassName = 'max-w-[480px]',
   maxHeightClassName = 'max-h-[85vh]',
+  paddingClassName = 'p-6 sm:p-8',
+  backdropPaddingClassName = 'p-5',
   accentBorder = false,
   ariaLabel,
   ariaLabelledBy,
@@ -38,12 +42,12 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5 backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out]"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 ${backdropPaddingClassName} backdrop-blur-sm animate-[modal-backdrop-in_0.2s_ease-out]`}
       onClick={onClose}
       role="presentation"
     >
       <div
-        className={`w-full ${maxWidthClassName} ${maxHeightClassName} overflow-y-auto rounded-2xl bg-surface p-6 shadow-[var(--shadow)] animate-[modal-panel-in_0.25s_cubic-bezier(0.16,1,0.3,1)] sm:p-8 ${
+        className={`w-full ${maxWidthClassName} ${maxHeightClassName} ${paddingClassName} overflow-y-auto rounded-2xl bg-surface shadow-[var(--shadow)] animate-[modal-panel-in_0.25s_cubic-bezier(0.16,1,0.3,1)] ${
           accentBorder ? 'border-[3px] border-transparent' : 'border border-border'
         }`}
         style={

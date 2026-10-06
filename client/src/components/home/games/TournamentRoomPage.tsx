@@ -51,7 +51,7 @@ function TournamentSession() {
     discardMatchCard,
     accuseMatchCard,
     passMatchTurn,
-  } = useGuessWhoTournament(token)
+  } = useGuessWhoTournament(token, user?.id)
 
   const startedRef = useRef(false)
   const [joinCodeInput, setJoinCodeInput] = useState('')
