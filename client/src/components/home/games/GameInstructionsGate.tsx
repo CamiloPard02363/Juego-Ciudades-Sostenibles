@@ -15,8 +15,8 @@ export function GameInstructionsGate({ kind, children, guessWhoExample = flagsDe
   const onContinue = () => setAccepted(true)
   const isGuessWho = kind === 'GUESS_WHO' || kind === 'GUESS_WHO_GROUP'
   return (
-    <Modal onClose={onContinue} maxWidthClassName={isGuessWho ? 'max-w-[1120px]' : 'max-w-[520px]'} maxHeightClassName={isGuessWho ? 'max-h-[calc(100dvh-40px)]' : undefined} ariaLabel={isGuessWho ? 'Cómo jugar a Identidad Oculta' : undefined}>
-      <div className="space-y-5" data-game-instructions={kind}>
+    <Modal onClose={onContinue} backdropPaddingClassName={isGuessWho ? 'p-2 sm:p-5' : undefined} paddingClassName={isGuessWho ? 'p-3 sm:p-4' : undefined} maxWidthClassName={isGuessWho ? 'max-w-[1120px]' : 'max-w-[520px]'} maxHeightClassName={isGuessWho ? 'max-h-[calc(100dvh-16px)] sm:max-h-[calc(100dvh-40px)]' : undefined} ariaLabel={isGuessWho ? 'Cómo jugar a Identidad Oculta' : undefined}>
+      <div className={isGuessWho ? 'guess-instructions-compact space-y-3' : 'space-y-5'} data-game-instructions={kind}>
         <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
           <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Nexus Play</p>
           <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Cómo jugar</h2>

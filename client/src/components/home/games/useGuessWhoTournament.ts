@@ -1,6 +1,7 @@
 import type { GuessWhoChatMessage } from './guessWhoTypes'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
+import { playGameSound } from '../../../utils/gameSounds'
 import type { TournamentMatchStateView, TournamentPairingAnnouncement, TournamentStateView } from './guessWhoTypes'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000'
@@ -11,7 +12,9 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
  * habla los eventos `tournament:*` en vez de `room:*` — el servidor los
  * mantiene separados para no chocar con las salas 1v1 sueltas.
  */
-export function useGuessWhoTournament(token: string | null) {
+export function useGuessWhoTournament(token: string | null, selfUserId?: string) {
+  const [correctMatch, setCorrectMatch] = useState<string | null>(null)
+  useEffect(() => { if (correctMatch) playGameSound('applause') }, [correctMatch])
   const socketRef = useRef<Socket | null>(null)
   const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
   const waitingCodeRef = useRef<string | null>(null)
@@ -59,7 +62,10 @@ export function useGuessWhoTournament(token: string | null) {
     socket.on(
       'tournament:match-accusation-result',
       (payload: { matchCode: string; accuserUserId: string; correct: boolean }) => {
-        if (payload.correct) return
+        if (payload.correct) {
+          if (payload.accuserUserId === selfUserId) setCorrectMatch(payload.matchCode)
+          return
+        }
         setMatchAccusationFailedMessage('Bandera equivocada.')
       },
     )
@@ -68,7 +74,7 @@ export function useGuessWhoTournament(token: string | null) {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [token])
+  }, [token, selfUserId])
 
   const createTournament = useCallback((gameId: string, maxParticipants: number) => {
     socketRef.current?.emit('tournament:create', { gameId, maxParticipants })

@@ -3,6 +3,7 @@ import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
 import { DIFFICULTIES } from './PlayOptionsPopup'
 import { celebrateMatch, primeGameFeedback, signalMismatch } from '../../../utils/gameFeedback'
+import { canPlayGameSounds, gameSoundsEnabled, playGameSound } from '../../../utils/gameSounds'
 
 export type CardData = {
   cardId: string
@@ -127,6 +128,11 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
   const [correctCount, setCorrectCount] = useState(0)
   const [incorrectCount, setIncorrectCount] = useState(0)
   const startedAtRef = useRef(Date.now())
+  const soundSessionActive = useRef(true)
+  useEffect(() => {
+    soundSessionActive.current = true
+    return () => { soundSessionActive.current = false }
+  }, [])
 
   const currentZone = zones[zoneIndex]
   const totalPairsInZone = currentZone ? currentZone.cards.length / 2 : 0
@@ -162,10 +168,11 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
       // Se llama dentro del clic (gesto real del usuario) para que el
       // AudioContext ya esté listo cuando, ~550ms después, se resuelva el
       // acierto o fallo y toque reproducir el sonido.
-      primeGameFeedback()
+      if (gameSoundsEnabled()) primeGameFeedback()
 
       const card = currentZone?.cards.find((c) => c.cardId === cardId)
       if (!card || matchedPairIds.includes(card.pairId)) return
+      playGameSound('flip')
 
       const nextFlipped = [...flippedIds, cardId]
       setFlippedIds(nextFlipped)
@@ -182,7 +189,7 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
             const multiplier = nextCombo >= 4 ? 1.5 : nextCombo >= 2 ? 1.2 : 1
             const points = Math.round((100 + timeLeft * 4) * multiplier)
 
-            celebrateMatch()
+            if (soundSessionActive.current) celebrateMatch(canPlayGameSounds())
             setMatchedPairIds((current) => [...current, first.pairId])
             setCombo(nextCombo)
             setTotalScore((score) => score + points)
@@ -190,7 +197,7 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
             setFlippedIds([])
             lockRef.current = false
           } else {
-            signalMismatch()
+            if (soundSessionActive.current) signalMismatch(canPlayGameSounds())
             setShakingIds([firstId, secondId])
             setCombo(0)
             setTotalScore((score) => Math.max(0, score - 10))

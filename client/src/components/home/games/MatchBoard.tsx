@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { CircleHelp, Clock3, SkipForward, Sparkles, Volume2 } from 'lucide-react'
 import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoCard, type RoomPlayerView } from './guessWhoTypes'
 import { CardInfoBubble } from './CardInfoBubble'
+import { GameSoundControl } from './GameSoundControl'
+import { playGameSound } from '../../../utils/gameSounds'
 
 /**
  * Cuenta el tiempo restante hasta `deadline` (epoch ms) y se refresca cada
@@ -30,22 +32,20 @@ export function useCountdown(deadline: number | null): number {
  * misma mecánica (el deadline sigue viniendo del servidor):
  * - `floating` (default): flotante y fijo al lado derecho durante toda la
  *   partida, para juegos como Dominó donde vive suelto arriba del tablero.
- * - `inline`: más grande y vistoso, pensado para vivir DENTRO de una columna
- *   de acciones (ver el panel izquierdo de MatchBoard) en vez de flotar por
- *   su cuenta — mismo reloj, sin `sticky`/`self-end`, con un halo/pulso más
- *   marcado para que no se sienta un elemento menor al lado de la bandera y
- *   los botones de acción.
+ * - `inline`: franja compacta con segundos y progreso en la columna de acciones.
  */
 export function TurnBanner({
   isMyTurn,
   remainingMs,
   turnDurationSeconds,
   variant = 'floating',
+  onPassTurn,
 }: {
   isMyTurn: boolean
   remainingMs: number
   turnDurationSeconds: number
   variant?: 'floating' | 'inline'
+  onPassTurn?: () => void
 }) {
   const secondsLeft = Math.ceil(remainingMs / 1000)
   const urgent = secondsLeft <= 5
@@ -57,6 +57,32 @@ export function TurnBanner({
   const viewBox = isInline ? '0 0 80 80' : '0 0 52 52'
   const center = isInline ? 40 : 26
   const strokeWidth = isInline ? 6 : 4
+
+  if (isInline) return (
+    <div className={`w-full rounded-xl border px-3 py-2 ${isMyTurn ? 'border-accent/50 bg-accent/10' : 'border-border bg-surface/95'}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-text">
+          {isMyTurn ? 'Tu turno' : 'Turno del rival'}
+        </span>
+        <span role="timer" aria-label={`${secondsLeft} segundos restantes`} className={`flex items-center gap-1 text-lg font-bold leading-6 tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
+          <Clock3 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {secondsLeft}<span className="ml-0.5 text-xs font-medium">s</span>
+        </span>
+        </div>
+        {isMyTurn && onPassTurn && (
+          <button type="button" onClick={onPassTurn} title="Terminar tu turno y dar paso al rival"
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-1 rounded-lg border border-accent/40 bg-accent/10 px-2 text-xs font-semibold text-accent transition-colors hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-accent">
+            <SkipForward className="h-4 w-4" aria-hidden="true" />
+            Pasar turno
+          </button>
+        )}
+      </div>
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-border" aria-hidden="true">
+        <div className={`h-full rounded-full transition-[width] duration-200 ${urgent ? 'bg-danger' : 'bg-accent'}`} style={{ width: `${clockProgress * 100}%` }} />
+      </div>
+    </div>
+  )
 
   return (
     <div
@@ -291,6 +317,7 @@ export function AccusationOverlay({
 }
 
 type MatchBoardProps = {
+  showSoundControl?: boolean
   cards: GuessWhoCard[]
   self: RoomPlayerView
   opponent: RoomPlayerView
@@ -312,6 +339,7 @@ type MatchBoardProps = {
  * — es la misma mecánica de juego, solo cambia de dónde vienen los eventos.
  */
 export function MatchBoard({
+  showSoundControl = true,
   cards,
   self,
   opponent,
@@ -333,11 +361,20 @@ export function MatchBoard({
   const secretCard = cards.find((card) => card.cardId === self.secretCardId)
   const discardsMissing = Math.max(0, MIN_DISCARDS_TO_ACCUSE - self.discardedCardIds.length)
   const guessAvailable = canAccuse && isMyTurn && discardsMissing === 0
+  const previousSoundState = useRef({ isMyTurn, count: self.discardedCardIds.length, accusationMessage })
+  useEffect(() => {
+    const previous = previousSoundState.current
+    if (accusationMessage && accusationMessage !== previous.accusationMessage) playGameSound('error')
+    else if (self.discardedCardIds.length > previous.count) playGameSound('discard')
+    else if (isMyTurn && !previous.isMyTurn) playGameSound('turn')
+    previousSoundState.current = { isMyTurn, count: self.discardedCardIds.length, accusationMessage }
+  }, [isMyTurn, self.discardedCardIds.length, accusationMessage])
   // Invalida la selección al perder disponibilidad; no reaparece en el próximo turno.
   if (accusing && !guessAvailable) setAccusing(false)
 
   return (
     <div className="flex flex-col gap-5">
+      {showSoundControl && <div className="flex justify-end"><GameSoundControl /></div>}
       <TurnPopBanner
         isMyTurn={isMyTurn}
         opponentName={opponent.displayName}
@@ -413,21 +450,12 @@ export function MatchBoard({
 
           <TurnBanner
             variant="inline"
+            onPassTurn={onPassTurn}
             isMyTurn={isMyTurn}
             remainingMs={turnRemainingMs}
             turnDurationSeconds={turnDurationSeconds}
           />
 
-          {isMyTurn && (
-            <button
-              type="button"
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
-              onClick={onPassTurn}
-            >
-              <SkipForward className="h-3.5 w-3.5" strokeWidth={2} />
-              Pasar turno
-            </button>
-          )}
         </div>
 
         <div className={`guess-who-board-cards grid flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>

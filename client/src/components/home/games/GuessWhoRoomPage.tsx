@@ -1,9 +1,10 @@
 import { GameInstructionsGate } from './GameInstructionsGate'
+import { GameSoundControl } from './GameSoundControl'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { ChatPanel } from './ChatPanel'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Copy, Link, LogOut, Trophy, XCircle } from 'lucide-react'
+import { Copy, LogOut, Trophy, XCircle } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
 import { MIN_DISCARDS_TO_ACCUSE } from './guessWhoTypes'
@@ -49,7 +50,7 @@ function GuessWhoRoomSession() {
     askQuestion,
     answerQuestion,
     leaveRoom,
-  } = useGuessWhoRoom(token)
+  } = useGuessWhoRoom(token, user?.id)
 
   const startedRef = useRef(false)
   const [joinCodeInput, setJoinCodeInput] = useState('')
@@ -112,14 +113,6 @@ function GuessWhoRoomSession() {
   const accusationFailedMessage =
     lastFailedAccusation && `Bandera equivocada. Turno de ${nextTurnPlayer?.displayName ?? 'tu rival'}.`
 
-  function copyRoomLink() {
-    if (!room) return
-    const url = new URL(window.location.href)
-    void navigator.clipboard.writeText(url.toString()).then(() => {
-      setCopyFeedback('Enlace copiado')
-      setTimeout(() => setCopyFeedback(null), 1800)
-    })
-  }
 
   if (rematchRejectedMessage) {
     return (
@@ -209,57 +202,35 @@ function GuessWhoRoomSession() {
       {dealing && <DealCountdownOverlay remainingMs={dealRemainingMs} />}
 
       <div className="guess-who-play-shell">
-        <div className="mb-5 rounded-[24px] border border-border/80 bg-gradient-to-r from-accent/8 via-surface to-bg p-4 shadow-[var(--shadow)]">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Sala activa</p>
-              <h2 className="mt-1 text-[22px] font-bold tracking-tight text-text-h">{room.gameTitle}</h2>
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
-                onClick={handleExit}
-              >
-                <LogOut className="h-4 w-4" strokeWidth={2} />
-                Salir
-              </button>
-            </div>
+        <header className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="min-w-0 text-[18px] font-bold leading-tight tracking-tight text-text-h sm:text-[22px]">{room.gameTitle}</h2>
+          <div className="relative flex shrink-0 items-center gap-2">
+            <GameSoundControl musicActive={room.phase === 'PLAYING'} />
+            <button
+              type="button"
+              aria-label="Copiar código de sala"
+              title="Copiar código de sala"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-surface text-text-h focus-visible:outline-2 focus-visible:outline-accent"
+              onClick={() => {
+                void navigator.clipboard.writeText(room.code).then(() => {
+                  setCopyFeedback('Código copiado')
+                  setTimeout(() => setCopyFeedback(null), 1800)
+                }).catch(() => {
+                  setCopyFeedback('No se pudo copiar el código')
+                  setTimeout(() => setCopyFeedback(null), 1800)
+                })
+              }}
+            >
+              <Copy className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button type="button" onClick={handleExit}
+              className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-[13px] font-medium text-text-h">
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              Salir
+            </button>
+            {copyFeedback && <span role="status" className="absolute right-0 top-full z-10 mt-1 rounded-lg border border-border bg-surface px-2 py-1 text-xs text-text-h shadow-sm">{copyFeedback}</span>}
           </div>
-
-          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface/90 p-3">
-            <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-text">
-              <span className="font-medium text-text-h">Código de sala:</span>
-              <code className="rounded-lg border border-accent/30 bg-accent/5 px-2 py-1 text-[13px] font-semibold text-accent">
-                {room.code}
-              </code>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-xl border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
-                onClick={() => {
-                  void navigator.clipboard.writeText(room.code).then(() => {
-                    setCopyFeedback('Código copiado')
-                    setTimeout(() => setCopyFeedback(null), 1800)
-                  })
-                }}
-              >
-                <Copy className="h-3 w-3" strokeWidth={2} />
-                Copiar código
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-xl border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
-                onClick={copyRoomLink}
-              >
-                <Link className="h-3 w-3" strokeWidth={2} />
-                Copiar enlace
-              </button>
-              {copyFeedback && <span className="text-[11px] font-medium text-accent" role="status">{copyFeedback}</span>}
-            </div>
-          </div>
-        </div>
+        </header>
 
         {error && (
           <p
@@ -284,6 +255,7 @@ function GuessWhoRoomSession() {
         <div className="guess-who-play-board">
         {room.phase === 'PLAYING' && self && opponent && (
           <MatchBoard
+            showSoundControl={false}
             cards={room.cards}
             self={self}
             opponent={opponent}
