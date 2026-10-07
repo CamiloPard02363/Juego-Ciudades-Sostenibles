@@ -301,13 +301,14 @@ describe('partida', () => {
       const state = newGame()
       startPlaying(state)
       state.jellies.forEach((jelly) => (jelly.releaseAt = Infinity))
-      // Pasillo vertical de la izquierda: de la fila 2 a la 12 sin cruces que lo frenen.
-      state.player.pos = { row: 2, col: 6 }
-      state.player.next = { row: 2, col: 6 }
+      // Pasillo vertical de la izquierda (columna 4): de la fila 2 a la 10, sin obstáculos.
+      state.player.pos = { row: 2, col: 4 }
+      state.player.next = { row: 2, col: 4 }
       state.player.facing = 'DOWN'
       setTfDirection(state, 'DOWN')
       tickFor(state, 1000, step)
       const traveled = interpolatedPosition(state.player).row - 2
+      expect(state.player.pos.col).toBe(4)
       expect(traveled).toBeGreaterThan(PLAYER_SPEED - 0.15)
       expect(traveled).toBeLessThan(PLAYER_SPEED + 0.15)
     }

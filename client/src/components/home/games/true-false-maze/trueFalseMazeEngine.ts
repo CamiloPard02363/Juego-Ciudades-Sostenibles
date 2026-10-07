@@ -68,8 +68,13 @@ const JELLY_GROWTH_PER_QUESTION = 0.03
 const JELLY_MAX_GROWTH = 0.3
 const FRIGHTENED_SPEED_FACTOR = 0.55
 const RETURNING_SPEED_FACTOR = 2.6
-/** Distancia (en celdas) a la que el robot y una medusa se consideran en contacto. */
-const COLLISION_RADIUS = 0.55
+/**
+ * Distancia (en celdas) a la que el robot y una medusa se consideran en
+ * contacto. Los personajes se dibujan grandes (más de una celda de ancho),
+ * así que el contacto tiene que sentirse justo: ni "me atravesó y no pasó
+ * nada" ni "me atrapó sin tocarme".
+ */
+const COLLISION_RADIUS = 0.62
 /** Un frame con lag (pestaña en segundo plano) nunca mueve a nadie más de este tiempo. */
 const MAX_STEP_MS = 50
 

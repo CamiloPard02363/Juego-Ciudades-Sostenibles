@@ -24,20 +24,34 @@ import {
  * con sus sprites, y los efectos: partículas, anillos, textos flotantes,
  * sacudidas, destellos y el apagón.
  *
- * Todo se dibuja en coordenadas lógicas (CELL px por celda) y se escala al
- * tamaño real con `pixelRatio`, así se ve nítido en pantallas retina.
+ * El canvas ocupa toda la pantalla. Todo se dibuja en coordenadas lógicas
+ * (CELL unidades por celda) y se escala al tamaño real, así se ve nítido en
+ * pantallas retina; la nave se centra en el espacio que dejan los paneles
+ * (ver `resize`) y el fondo espacial cubre el resto.
  */
 
 export const CELL = 48
-/** Margen de espacio exterior alrededor de la nave; a la izquierda cabe el fuego de los motores. */
-export const PAD = { left: 76, right: 30, top: 28, bottom: 28 }
+/**
+ * Margen de la nave dentro de su propio sistema de coordenadas: a la
+ * izquierda caben las toberas y el fuego de los motores; en los demás lados
+ * solo el borde del casco. Es chico a propósito: el espacio que sobra en la
+ * pantalla lo llena el fondo, no márgenes vacíos alrededor del mapa.
+ */
+export const PAD = { left: 66, right: 14, top: 8, bottom: 14 }
+
+/** Espacio que ocupan los paneles encima del canvas (HUD, cruceta): la nave se centra en el resto. */
+export type Insets = { top: number; right: number; bottom: number; left: number }
+const NO_INSETS: Insets = { top: 0, right: 0, bottom: 0, left: 0 }
+/** Tope de píxeles por capa: en una pantalla 4K con ratio 2 serían ~33 MP y cada capa pesaría 130 MB. */
+const MAX_LAYER_PIXELS = 4_200_000
 
 const FONT = "'Space Grotesk', 'Manrope', system-ui, sans-serif"
 const ROBOT_SOURCE_HEIGHT = 98
 const JELLY_SOURCE_HEIGHT = 92
-const ROBOT_DRAW_HEIGHT = CELL * 1.32
-const JELLY_DRAW_HEIGHT = CELL * 1.2
-const ZONE_DRAW_WIDTH = CELL * 1.95
+/** Personajes y salas se dibujan grandes (más de una celda): lo importante tiene que verse de lejos. */
+const ROBOT_DRAW_HEIGHT = CELL * 1.75
+const JELLY_DRAW_HEIGHT = CELL * 1.55
+const ZONE_DRAW_WIDTH = CELL * 2.3
 
 const ZONE_STYLE: Record<ZoneKind, { main: string; light: string; dark: string; label: string; icon: string }> = {
   TRUE: { main: '#22c55e', light: '#86efac', dark: '#14532d', label: 'VERDADERO', icon: '✓' },
@@ -87,6 +101,8 @@ type Ring = {
 type FloatingText = { x: number; y: number; text: string; color: string; age: number; duration: number; size: number; delay: number }
 
 type Star = { x: number; y: number; size: number; phase: number; twinkle: number; color: string }
+
+const STAR_COLORS = ['#ffffff', '#e0e7ff', '#c7d2fe', '#fbcfe8', '#bae6fd']
 
 /** Las primeras estrellas titilan en vivo; el resto queda fijo en el fondo pre-dibujado (más barato por frame). */
 const TWINKLING_STARS = 32
@@ -150,8 +166,9 @@ function makeCanvas(width: number, height: number): HTMLCanvasElement {
 }
 
 export class TrueFalseMazeRenderer {
-  readonly width: number
-  readonly height: number
+  /** Tamaño de la nave en unidades lógicas (celdas + márgenes). */
+  readonly shipWidth: number
+  readonly shipHeight: number
 
   private readonly canvas: HTMLCanvasElement
   private readonly ctx: CanvasRenderingContext2D
@@ -159,7 +176,19 @@ export class TrueFalseMazeRenderer {
   private readonly map: ShipMap
   private readonly reducedMotion: boolean
 
-  private pixelRatio = 0
+  /**
+   * Dos sistemas de coordenadas. El "mundo" cubre todo el canvas (fondo,
+   * estrellas, viñeta, apagón, destellos) y mide `worldWidth x worldHeight`
+   * unidades. La nave se dibuja en su propio sistema (el de PAD/CELL) y se
+   * traslada a (shipX, shipY) dentro del mundo, centrada en el espacio que
+   * dejan los paneles. `k` son píxeles de canvas por unidad.
+   */
+  private worldWidth = 0
+  private worldHeight = 0
+  private shipX = 0
+  private shipY = 0
+  private k = 1
+  private layoutKey = ''
   private staticLayer: HTMLCanvasElement | null = null
   private background: HTMLCanvasElement | null = null
   /** Puntos de energía pre-dibujados; se rehace solo cuando cambia cuántos quedan. */
@@ -189,38 +218,61 @@ export class TrueFalseMazeRenderer {
     this.ctx = ctx
     this.assets = assets
     this.map = map
-    this.width = map.cols * CELL + PAD.left + PAD.right
-    this.height = map.rows * CELL + PAD.top + PAD.bottom
+    this.shipWidth = map.cols * CELL + PAD.left + PAD.right
+    this.shipHeight = map.rows * CELL + PAD.top + PAD.bottom
     this.reducedMotion =
       typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-    const palette = ['#ffffff', '#e0e7ff', '#c7d2fe', '#fbcfe8', '#bae6fd']
-    for (let i = 0; i < 170; i++) {
-      this.stars.push({
-        x: Math.random() * this.width,
-        y: Math.random() * this.height,
-        size: Math.random() < 0.85 ? 1 : 2,
-        phase: Math.random() * Math.PI * 2,
-        twinkle: 0.0015 + Math.random() * 0.004,
-        color: palette[Math.floor(Math.random() * palette.length)],
-      })
-    }
   }
 
-  /** Ajusta la resolución interna al tamaño en pantalla; redibuja las capas fijas si cambió. */
-  resize(cssWidth: number, devicePixelRatio: number) {
-    const ratio = Math.min(2.5, Math.max(1, (cssWidth / this.width) * devicePixelRatio))
-    if (Math.abs(ratio - this.pixelRatio) < 0.05 && this.staticLayer) return
-    this.pixelRatio = ratio
-    this.canvas.width = Math.round(this.width * ratio)
-    this.canvas.height = Math.round(this.height * ratio)
+  /**
+   * Ajusta el canvas a la pantalla: `cssWidth x cssHeight` es el tamaño en
+   * pantalla (el canvas ocupa todo) e `insets` el espacio tapado por paneles.
+   * La nave se escala al máximo que cabe en el resto y se centra ahí; el
+   * fondo cubre todo, así no quedan franjas vacías. Redibuja las capas fijas
+   * solo si algo cambió.
+   */
+  resize(cssWidth: number, cssHeight: number, devicePixelRatio: number, insets: Insets = NO_INSETS) {
+    const dpr = Math.max(1, Math.min(devicePixelRatio, 2, Math.sqrt(MAX_LAYER_PIXELS / Math.max(1, cssWidth * cssHeight))))
+    const key = [cssWidth, cssHeight, dpr.toFixed(3), insets.top, insets.right, insets.bottom, insets.left].join('|')
+    if (key === this.layoutKey && this.staticLayer) return
+    this.layoutKey = key
+
+    const availWidth = Math.max(120, cssWidth - insets.left - insets.right)
+    const availHeight = Math.max(120, cssHeight - insets.top - insets.bottom)
+    const scale = Math.min(availWidth / this.shipWidth, availHeight / this.shipHeight)
+
+    this.canvas.width = Math.max(1, Math.round(cssWidth * dpr))
+    this.canvas.height = Math.max(1, Math.round(cssHeight * dpr))
+    this.worldWidth = cssWidth / scale
+    this.worldHeight = cssHeight / scale
+    this.k = this.canvas.width / this.worldWidth
+    this.shipX = (insets.left + (availWidth - this.shipWidth * scale) / 2) / scale
+    this.shipY = (insets.top + (availHeight - this.shipHeight * scale) / 2) / scale
+
     this.glowCache.clear()
+    this.buildStars()
     this.staticLayer = this.buildStaticLayer()
     this.background = this.buildBackground()
     this.vignette = this.buildVignette()
     this.darkness = makeCanvas(this.canvas.width, this.canvas.height)
-    this.dotsLayer = makeCanvas(this.canvas.width, this.canvas.height)
+    this.dotsLayer = makeCanvas(this.shipWidth * this.k, this.shipHeight * this.k)
     this.dotsLayerCount = -1
+  }
+
+  /** Estrellas repartidas por todo el mundo (se regeneran al cambiar el tamaño). */
+  private buildStars() {
+    this.stars.length = 0
+    const count = Math.round(Math.min(320, (this.worldWidth * this.worldHeight) / 4200))
+    for (let i = 0; i < count; i++) {
+      this.stars.push({
+        x: Math.random() * this.worldWidth,
+        y: Math.random() * this.worldHeight,
+        size: Math.random() < 0.85 ? 1 : 2,
+        phase: Math.random() * Math.PI * 2,
+        twinkle: 0.0015 + Math.random() * 0.004,
+        color: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+      })
+    }
   }
 
   /** Limpia efectos en curso (al reiniciar la partida). */
@@ -245,7 +297,7 @@ export class TrueFalseMazeRenderer {
 
   /** Línea del "suelo" de una celda: donde apoyan los pies los personajes. */
   private footY(row: number): number {
-    return PAD.top + (row + 0.5) * CELL + CELL * 0.3
+    return PAD.top + (row + 0.5) * CELL + CELL * 0.4
   }
 
   // ==================== Capas fijas ====================
@@ -268,11 +320,11 @@ export class TrueFalseMazeRenderer {
   }
 
   private buildStaticLayer(): HTMLCanvasElement {
-    const ratio = this.pixelRatio
-    const layer = makeCanvas(this.width * ratio, this.height * ratio)
+    const k = this.k
+    const layer = makeCanvas(this.shipWidth * k, this.shipHeight * k)
     const ctx = layer.getContext('2d')
     if (!ctx) return layer
-    ctx.scale(ratio, ratio)
+    ctx.scale(k, k)
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
 
@@ -282,6 +334,7 @@ export class TrueFalseMazeRenderer {
     this.drawFloors(ctx)
     this.drawFloorDecals(ctx)
     this.drawFloorShadows(ctx)
+    this.drawHullRim(ctx)
     this.drawWallFaces(ctx)
     this.drawWallTops(ctx)
     this.drawWallDecor(ctx)
@@ -423,36 +476,116 @@ export class TrueFalseMazeRenderer {
     }
   }
 
+  /** Borde de casco (chapa con remaches) donde el piso termina frente al espacio exterior. */
+  private drawHullRim(ctx: CanvasRenderingContext2D) {
+    const rim = 9
+    const strip = (x: number, y: number, w: number, h: number, horizontal: boolean) => {
+      const gradient = horizontal ? ctx.createLinearGradient(0, y, 0, y + h) : ctx.createLinearGradient(x, 0, x + w, 0)
+      gradient.addColorStop(0, '#c4cde0')
+      gradient.addColorStop(0.45, '#8a96ae')
+      gradient.addColorStop(1, '#4b566d')
+      ctx.fillStyle = gradient
+      ctx.fillRect(x, y, w, h)
+      ctx.fillStyle = 'rgba(8, 12, 24, 0.55)'
+      if (horizontal) ctx.fillRect(x, y + h - 1.5, w, 1.5)
+      else ctx.fillRect(x + w - 1.5, y, 1.5, h)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.28)'
+      if (horizontal) ctx.fillRect(x + w / 2 - 1, y + 2.5, 2, 2)
+      else ctx.fillRect(x + 2.5, y + h / 2 - 1, 2, 2)
+    }
+    for (let row = 0; row < this.map.rows; row++) {
+      for (let col = 0; col < this.map.cols; col++) {
+        if (!this.isFloorish(row, col)) continue
+        const x = col * CELL
+        const y = row * CELL
+        if (this.tileAt(row, col - 1) === 'void') strip(x - rim, y, rim, CELL, false)
+        if (this.tileAt(row, col + 1) === 'void') strip(x + CELL, y, rim, CELL, false)
+        if (this.tileAt(row + 1, col) === 'void') strip(x, y + CELL, CELL, rim, true)
+      }
+    }
+  }
+
+  /**
+   * Techo de los muros (los que no muestran su cara): chapa metálica con
+   * relieve, remaches y paneles de luz — no un bloque negro. Los muros son
+   * de una sola celda, así que son franjas finas con borde claro donde
+   * dan al piso.
+   */
   private drawWallTops(ctx: CanvasRenderingContext2D) {
-    const rim = '#5f6a80'
-    const hull = '#a5b0c5'
     for (let row = 0; row < this.map.rows; row++) {
       for (let col = 0; col < this.map.cols; col++) {
         if (!this.isWall(row, col) || this.isFace(row, col)) continue
         const x = col * CELL
         const y = row * CELL
-        ctx.fillStyle = '#121624'
+        const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL)
+        gradient.addColorStop(0, '#46526c')
+        gradient.addColorStop(1, '#2b3449')
+        ctx.fillStyle = gradient
         ctx.fillRect(x, y, CELL, CELL)
-        ctx.fillStyle = '#171c2c'
-        ctx.fillRect(x + 6, y + 6, CELL - 12, CELL - 12)
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)'
-        ctx.lineWidth = 1
-        ctx.strokeRect(x + 6.5, y + 6.5, CELL - 13, CELL - 13)
 
+        // Costura del panel y remaches.
+        ctx.strokeStyle = 'rgba(8, 12, 24, 0.5)'
+        ctx.lineWidth = 1.5
+        ctx.strokeRect(x + 5.5, y + 5.5, CELL - 11, CELL - 11)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.09)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(x + 7, y + 7, CELL - 14, CELL - 14)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.24)'
+        for (const [rx, ry] of [
+          [10, 10],
+          [CELL - 10, 10],
+          [10, CELL - 10],
+          [CELL - 10, CELL - 10],
+        ]) {
+          ctx.beginPath()
+          ctx.arc(x + rx, y + ry, 1.7, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        // Detalle según la celda: panel de luz, rejilla o nada (para no repetirse).
+        const variant = hashCell(row, col) % 7
+        if (variant === 0 || variant === 3) {
+          const color = variant === 0 ? '#22d3ee' : '#fbbf24'
+          ctx.fillStyle = 'rgba(8, 12, 24, 0.55)'
+          roundedRect(ctx, x + CELL / 2 - 10, y + CELL / 2 - 3.5, 20, 7, 3)
+          ctx.fill()
+          ctx.fillStyle = color
+          ctx.globalAlpha = 0.85
+          roundedRect(ctx, x + CELL / 2 - 8, y + CELL / 2 - 1.8, 16, 3.6, 1.8)
+          ctx.fill()
+          ctx.globalAlpha = 1
+        } else if (variant === 1) {
+          ctx.strokeStyle = 'rgba(8, 12, 24, 0.6)'
+          ctx.lineWidth = 2
+          for (let i = -2; i <= 2; i++) {
+            ctx.beginPath()
+            ctx.moveTo(x + CELL / 2 - 11, y + CELL / 2 + i * 4.5)
+            ctx.lineTo(x + CELL / 2 + 11, y + CELL / 2 + i * 4.5)
+            ctx.stroke()
+          }
+        }
+
+        // Borde claro hacia el piso (grosor del muro) y casco hacia el espacio.
         const sides: Array<[number, number, [number, number, number, number]]> = [
-          [-1, 0, [x, y, CELL, 3]],
-          [1, 0, [x, y + CELL - 3, CELL, 3]],
-          [0, -1, [x, y, 3, CELL]],
-          [0, 1, [x + CELL - 3, y, 3, CELL]],
+          [-1, 0, [x, y, CELL, 4]],
+          [1, 0, [x, y + CELL - 4, CELL, 4]],
+          [0, -1, [x, y, 4, CELL]],
+          [0, 1, [x + CELL - 4, y, 4, CELL]],
         ]
         for (const [dr, dc, rect] of sides) {
           const tile = this.tileAt(row + dr, col + dc)
           if (tile === 'void') {
-            ctx.fillStyle = hull
+            ctx.fillStyle = '#b5bfd3'
             ctx.fillRect(...rect)
           } else if (tile === 'floor' || tile === 'obstacle') {
-            ctx.fillStyle = rim
+            ctx.fillStyle = '#8f9cb6'
             ctx.fillRect(...rect)
+            ctx.fillStyle = 'rgba(8, 12, 24, 0.55)'
+            const [rx, ry, rw, rh] = rect
+            if (dr === 1) ctx.fillRect(rx, ry + rh, rw, 1.5)
+            else if (dr === -1) ctx.fillRect(rx, ry - 1.5, rw, 1.5)
+            else if (dc === 1) ctx.fillRect(rx + rw, ry, 1.5, rh)
+            else ctx.fillRect(rx - 1.5, ry, 1.5, rh)
           }
         }
       }
@@ -463,16 +596,16 @@ export class TrueFalseMazeRenderer {
     for (const row of this.engineRows()) {
       const y = PAD.top + (row + 0.5) * CELL
       const x = PAD.left
-      const gradient = ctx.createLinearGradient(0, y - 16, 0, y + 16)
+      const gradient = ctx.createLinearGradient(0, y - 20, 0, y + 20)
       gradient.addColorStop(0, '#94a3b8')
       gradient.addColorStop(0.5, '#475569')
       gradient.addColorStop(1, '#1e293b')
       ctx.fillStyle = gradient
       ctx.beginPath()
-      ctx.moveTo(x + 2, y - 13)
-      ctx.lineTo(x - 14, y - 18)
-      ctx.lineTo(x - 14, y + 18)
-      ctx.lineTo(x + 2, y + 13)
+      ctx.moveTo(x - 6, y - 16)
+      ctx.lineTo(x - 24, y - 23)
+      ctx.lineTo(x - 24, y + 23)
+      ctx.lineTo(x - 6, y + 16)
       ctx.closePath()
       ctx.fill()
       ctx.strokeStyle = '#0f172a'
@@ -514,38 +647,39 @@ export class TrueFalseMazeRenderer {
 
   private drawRoomLabels(ctx: CanvasRenderingContext2D) {
     ctx.save()
-    ctx.font = `700 8.5px ${FONT}`
+    ctx.font = `700 10px ${FONT}`
     ctx.textBaseline = 'top'
-    ctx.fillStyle = 'rgba(226, 232, 240, 0.32)'
+    ctx.fillStyle = 'rgba(226, 232, 240, 0.34)'
     for (const room of this.map.rooms) {
       if (room.id === 'questions') continue
-      ctx.fillText(room.label.toUpperCase(), room.left * CELL + 5, room.bottom * CELL + CELL - 12)
+      ctx.fillText(room.label.toUpperCase(), room.left * CELL + 6, room.bottom * CELL + CELL - 14)
     }
     ctx.restore()
   }
 
-  /** Degradado del espacio + nebulosas + estrellas fijas, dibujado una sola vez. */
+  /** Degradado del espacio + nebulosas + planeta + estrellas fijas de todo el mundo, dibujado una sola vez. */
   private buildBackground(): HTMLCanvasElement {
-    const ratio = this.pixelRatio
-    const canvas = makeCanvas(this.width * ratio, this.height * ratio)
+    const k = this.k
+    const { worldWidth: w, worldHeight: h } = this
+    const canvas = makeCanvas(w * k, h * k)
     const ctx = canvas.getContext('2d')
     if (!ctx) return canvas
-    ctx.scale(ratio, ratio)
-    const gradient = ctx.createLinearGradient(0, 0, 0, this.height)
+    ctx.scale(k, k)
+    const gradient = ctx.createLinearGradient(0, 0, 0, h)
     gradient.addColorStop(0, '#03040c')
     gradient.addColorStop(0.5, '#0a0e24')
     gradient.addColorStop(1, '#04050e')
     ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, this.width, this.height)
+    ctx.fillRect(0, 0, w, h)
     for (const [fx, fy, fr, color] of NEBULA_BLOBS) {
-      const x = fx * this.width
-      const y = fy * this.height
-      const r = fr * this.width
+      const x = fx * w
+      const y = fy * h
+      const r = fr * Math.max(w, h * 1.4)
       const blob = ctx.createRadialGradient(x, y, 0, x, y, r)
       blob.addColorStop(0, color)
       blob.addColorStop(1, 'rgba(0, 0, 0, 0)')
       ctx.fillStyle = blob
-      ctx.fillRect(0, 0, this.width, this.height)
+      ctx.fillRect(0, 0, w, h)
     }
     for (const star of this.stars.slice(TWINKLING_STARS)) {
       ctx.globalAlpha = 0.3 + 0.6 * (star.phase / (Math.PI * 2))
@@ -553,25 +687,50 @@ export class TrueFalseMazeRenderer {
       ctx.fillRect(star.x, star.y, star.size, star.size)
     }
     ctx.globalAlpha = 1
+    const base = Math.min(w, h)
+    this.paintPlanet(ctx, w * 0.97, h * 0.93, base * 0.3, ['#9a8cf5', '#4a3aa6', '#120d30'])
+    this.paintPlanet(ctx, w * 0.03, h * 0.18, base * 0.075, ['#7dd3fc', '#2563a8', '#0a1a38'])
     return canvas
   }
 
+  /** Planeta de fondo: esfera con bandas, sombra del lado opuesto al sol y halo de atmósfera. */
+  private paintPlanet(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, [light, mid, dark]: string[]) {
+    const halo = ctx.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.28)
+    halo.addColorStop(0, `${mid}66`)
+    halo.addColorStop(1, `${mid}00`)
+    ctx.fillStyle = halo
+    ctx.fillRect(cx - r * 1.3, cy - r * 1.3, r * 2.6, r * 2.6)
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.clip()
+    const body = ctx.createRadialGradient(cx - r * 0.4, cy - r * 0.4, r * 0.1, cx, cy, r)
+    body.addColorStop(0, light)
+    body.addColorStop(0.55, mid)
+    body.addColorStop(1, dark)
+    ctx.fillStyle = body
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)'
+    for (let i = 0; i < 4; i++) ctx.fillRect(cx - r, cy - r * 0.55 + i * r * 0.32, r * 2, r * 0.1)
+    const shade = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r)
+    shade.addColorStop(0.4, 'rgba(0, 0, 0, 0)')
+    shade.addColorStop(1, 'rgba(0, 0, 0, 0.7)')
+    ctx.fillStyle = shade
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
+    ctx.restore()
+  }
+
   private buildVignette(): HTMLCanvasElement {
-    const canvas = makeCanvas(this.width, this.height)
+    const { worldWidth: w, worldHeight: h } = this
+    const canvas = makeCanvas(w, h)
     const ctx = canvas.getContext('2d')
     if (!ctx) return canvas
-    const gradient = ctx.createRadialGradient(
-      this.width / 2,
-      this.height / 2,
-      this.height * 0.45,
-      this.width / 2,
-      this.height / 2,
-      this.width * 0.62,
-    )
+    const gradient = ctx.createRadialGradient(w / 2, h / 2, h * 0.5, w / 2, h / 2, Math.max(w, h) * 0.72)
     gradient.addColorStop(0, 'rgba(0, 0, 0, 0)')
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0.5)')
     ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, this.width, this.height)
+    ctx.fillRect(0, 0, w, h)
     return canvas
   }
 
@@ -642,7 +801,7 @@ export class TrueFalseMazeRenderer {
   }
 
   private text(x: number, y: number, text: string, color: string, size = 18, delay = 0) {
-    this.texts.push({ x, y, text, color, size, delay, age: 0, duration: 1300 })
+    this.texts.push({ x, y, text, color, size: size * 1.3, delay, age: 0, duration: 1300 })
   }
 
   private kick(amount: number) {
@@ -791,12 +950,12 @@ export class TrueFalseMazeRenderer {
           const point = interpolatedPosition(state.player)
           const x = this.cellX(point.col)
           const y = this.cellY(point.row)
-          this.ring(this.width / 2, this.height / 2, this.width * 0.7, '#fde047', { duration: 1100, width: 6 })
+          this.ring(this.shipWidth / 2, this.shipHeight / 2, this.shipWidth * 0.7, '#fde047', { duration: 1100, width: 6 })
           this.text(x, y - 50, `¡Nave impecable! +${event.points}`, '#fde047', 18)
           break
         }
         case 'ship-refill':
-          this.ring(this.width / 2, this.height / 2, this.width * 0.6, '#67e8f9', { duration: 1000, width: 3 })
+          this.ring(this.shipWidth / 2, this.shipHeight / 2, this.shipWidth * 0.6, '#67e8f9', { duration: 1000, width: 3 })
           break
         case 'lights-out':
           this.flashScreen('#000000', 0.5)
@@ -818,8 +977,9 @@ export class TrueFalseMazeRenderer {
         case 'finished':
           if (event.won) {
             for (let i = 0; i < 7; i++) {
-              const x = PAD.left + Math.random() * (this.width - PAD.left - PAD.right)
-              const y = PAD.top + Math.random() * this.height * 0.6
+              // Los fuegos artificiales cubren toda la pantalla, no solo la nave.
+              const x = -this.shipX + Math.random() * this.worldWidth
+              const y = -this.shipY + Math.random() * this.worldHeight * 0.6
               const delay = i * 260
               this.burst(x, y, {
                 count: 40,
@@ -850,7 +1010,7 @@ export class TrueFalseMazeRenderer {
     const dt = Math.min(dtMs, 64)
     this.update(state, dt)
 
-    ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0)
+    ctx.setTransform(this.k, 0, 0, this.k, 0, 0)
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
     ctx.globalCompositeOperation = 'source-over'
@@ -859,11 +1019,13 @@ export class TrueFalseMazeRenderer {
     const shakeX = this.shake > 0.2 ? (Math.random() - 0.5) * 2 * this.shake : 0
     const shakeY = this.shake > 0.2 ? (Math.random() - 0.5) * 2 * this.shake : 0
 
+    // Fondo y efectos de pantalla en coordenadas del mundo; la nave y todo lo
+    // que vive en ella, trasladados a su lugar.
     this.drawSpace(ctx, now)
     ctx.save()
-    ctx.translate(shakeX, shakeY)
+    ctx.translate(this.shipX + shakeX, this.shipY + shakeY)
     this.drawExhaust(ctx, now)
-    ctx.drawImage(this.staticLayer, 0, 0, this.width, this.height)
+    ctx.drawImage(this.staticLayer, 0, 0, this.shipWidth, this.shipHeight)
     this.drawAmbient(ctx, state)
     this.drawPickups(ctx, state)
     const zones = this.zoneVisuals(state)
@@ -878,7 +1040,7 @@ export class TrueFalseMazeRenderer {
     this.drawLightsOut(ctx, state)
 
     ctx.save()
-    ctx.translate(shakeX, shakeY)
+    ctx.translate(this.shipX + shakeX, this.shipY + shakeY)
     this.drawTexts(ctx)
     ctx.restore()
 
@@ -957,8 +1119,8 @@ export class TrueFalseMazeRenderer {
     }
     for (const row of this.engineRows()) {
       if (due(`exhaust-${row}`, [40, 90])) {
-        const y = this.cellY(row) + (Math.random() - 0.5) * 14
-        this.burst(PAD.left - 12, y, { count: 1, colors: ['#67e8f9', '#a5b4fc', '#ffffff'], speed: 160, life: 420, size: 6, angle: Math.PI, spread: 0.25, drag: 0.97 })
+        const y = this.cellY(row) + (Math.random() - 0.5) * 18
+        this.burst(PAD.left - 26, y, { count: 1, colors: ['#67e8f9', '#a5b4fc', '#ffffff'], speed: 160, life: 420, size: 6, angle: Math.PI, spread: 0.25, drag: 0.97 })
       }
     }
 
@@ -973,7 +1135,7 @@ export class TrueFalseMazeRenderer {
       }
       if (state.empUntil !== null && due('emp-aura', [90, 160])) {
         const angle = Math.random() * Math.PI * 2
-        this.burst(x + Math.cos(angle) * 22, y - 30 + Math.sin(angle) * 22, {
+        this.burst(x + Math.cos(angle) * 32, y - 42 + Math.sin(angle) * 32, {
           count: 2,
           colors: ['#a5f3fc', '#ffffff'],
           speed: 120,
@@ -999,7 +1161,7 @@ export class TrueFalseMazeRenderer {
   }
 
   private drawSpace(ctx: CanvasRenderingContext2D, now: number) {
-    if (this.background) ctx.drawImage(this.background, 0, 0, this.width, this.height)
+    if (this.background) ctx.drawImage(this.background, 0, 0, this.worldWidth, this.worldHeight)
 
     for (let i = 0; i < TWINKLING_STARS; i++) {
       const star = this.stars[i]
@@ -1011,8 +1173,8 @@ export class TrueFalseMazeRenderer {
 
     if (!this.shootingStar && now > this.nextShootingStarAt) {
       this.shootingStar = {
-        x: Math.random() * this.width,
-        y: Math.random() * this.height * 0.4,
+        x: Math.random() * this.worldWidth,
+        y: Math.random() * this.worldHeight * 0.4,
         vx: 0.55 + Math.random() * 0.3,
         vy: 0.22 + Math.random() * 0.15,
         startedAt: now,
@@ -1048,19 +1210,19 @@ export class TrueFalseMazeRenderer {
     for (const row of this.engineRows()) {
       const y = this.cellY(row)
       const flicker = 0.85 + 0.12 * Math.sin(now / 37 + row) + (Math.random() - 0.5) * 0.08
-      const length = 64 * flicker
-      const x = PAD.left - 14
+      const length = 84 * flicker
+      const x = PAD.left - 24
       ctx.save()
       ctx.translate(x - length * 0.45, y)
-      ctx.scale(length / 26, 0.62)
-      this.drawGlow(ctx, 0, 0, 26, '#3b82f6', 0.75)
+      ctx.scale(length / 32, 0.66)
+      this.drawGlow(ctx, 0, 0, 32, '#3b82f6', 0.75)
       ctx.restore()
       ctx.save()
       ctx.translate(x - length * 0.28, y)
-      ctx.scale((length * 0.55) / 16, 0.5)
-      this.drawGlow(ctx, 0, 0, 16, '#67e8f9', 0.9)
+      ctx.scale((length * 0.55) / 20, 0.52)
+      this.drawGlow(ctx, 0, 0, 20, '#67e8f9', 0.9)
       ctx.restore()
-      this.drawGlow(ctx, x - 4, y, 11, '#ffffff', 0.85)
+      this.drawGlow(ctx, x - 4, y, 15, '#ffffff', 0.85)
     }
     ctx.restore()
   }
@@ -1078,7 +1240,7 @@ export class TrueFalseMazeRenderer {
       const y = PAD.top + terminals.y + fy * terminals.height
       const flicker = boost > 0 ? (Math.sin(now / 40 + index) > 0 ? 1 : 0.6) : 1
       const alpha = (0.32 + 0.14 * Math.sin(now / 420 + index * 1.7) + boost * 0.6) * flicker
-      this.drawGlow(ctx, x, y, 16 + boost * 10, '#22d3ee', alpha)
+      this.drawGlow(ctx, x, y, 20 + boost * 12, '#22d3ee', alpha)
     })
 
     // Reactor (nido): latido violeta.
@@ -1086,13 +1248,13 @@ export class TrueFalseMazeRenderer {
     if (reactor) {
       const x = PAD.left + ((reactor.left + reactor.right + 1) / 2) * CELL
       const y = PAD.top + ((reactor.top + reactor.bottom + 1) / 2) * CELL
-      this.drawGlow(ctx, x, y, CELL * 1.9, '#a855f7', 0.2 + 0.1 * Math.sin(now / 520))
+      this.drawGlow(ctx, x, y, CELL * 2.2, '#a855f7', 0.22 + 0.1 * Math.sin(now / 520))
       ctx.strokeStyle = `rgba(216, 180, 254, ${0.25 + 0.15 * Math.sin(now / 300)})`
       ctx.lineWidth = 2
       ctx.setLineDash([8, 6])
       ctx.lineDashOffset = -now / 30
       ctx.beginPath()
-      ctx.ellipse(x, y + 6, CELL * 1.25, CELL * 0.6, 0, 0, Math.PI * 2)
+      ctx.ellipse(x, y + 6, CELL * 1.35, CELL * 0.7, 0, 0, Math.PI * 2)
       ctx.stroke()
       ctx.setLineDash([])
     }
@@ -1131,7 +1293,7 @@ export class TrueFalseMazeRenderer {
     if (blink(1400, 700) < 0.5) this.drawGlow(ctx, left, bottom, 9, '#22c55e', 0.95)
     const strobe = blink(1700, 0)
     if (strobe < 0.06 || (strobe > 0.12 && strobe < 0.18)) {
-      this.drawGlow(ctx, PAD.left + this.map.cols * CELL - 4, this.cellY(7), 12, '#ffffff', 1)
+      this.drawGlow(ctx, PAD.left + this.map.cols * CELL + 5, this.cellY(6), 14, '#ffffff', 1)
     }
 
     ctx.restore()
@@ -1143,16 +1305,16 @@ export class TrueFalseMazeRenderer {
     if (!ctx) return
     this.dotsLayerState = state
     this.dotsLayerCount = state.dotsLeft
-    ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0)
-    ctx.clearRect(0, 0, this.width, this.height)
+    ctx.setTransform(this.k, 0, 0, this.k, 0, 0)
+    ctx.clearRect(0, 0, this.shipWidth, this.shipHeight)
     ctx.globalCompositeOperation = 'lighter'
     for (let row = 0; row < this.map.rows; row++) {
       for (let col = 0; col < this.map.cols; col++) {
         if (!state.dotGrid[row][col]) continue
         const x = this.cellX(col)
         const y = this.cellY(row)
-        this.drawGlow(ctx, x, y, 8, '#0ea5e9', 0.5)
-        this.drawGlow(ctx, x, y, 3.2, '#e0f2fe', 0.95)
+        this.drawGlow(ctx, x, y, 11, '#0ea5e9', 0.5)
+        this.drawGlow(ctx, x, y, 4.4, '#e0f2fe', 0.95)
       }
     }
     ctx.globalCompositeOperation = 'source-over'
@@ -1165,7 +1327,7 @@ export class TrueFalseMazeRenderer {
     ctx.globalCompositeOperation = 'lighter'
     if (this.dotsLayer) {
       ctx.globalAlpha = 0.82 + 0.18 * Math.sin(now / 320)
-      ctx.drawImage(this.dotsLayer, 0, 0, this.width, this.height)
+      ctx.drawImage(this.dotsLayer, 0, 0, this.shipWidth, this.shipHeight)
       ctx.globalAlpha = 1
     }
     for (const core of state.cores) {
@@ -1173,13 +1335,13 @@ export class TrueFalseMazeRenderer {
       const x = this.cellX(core.pos.col)
       const y = this.cellY(core.pos.row)
       const pulse = 1 + 0.14 * Math.sin(now / 200)
-      this.drawGlow(ctx, x, y, 20 * pulse, '#06b6d4', 0.6)
-      this.drawGlow(ctx, x, y, 8 * pulse, '#ecfeff', 1)
-      ctx.strokeStyle = 'rgba(165, 243, 252, 0.85)'
-      ctx.lineWidth = 1.6
+      this.drawGlow(ctx, x, y, 28 * pulse, '#06b6d4', 0.62)
+      this.drawGlow(ctx, x, y, 11 * pulse, '#ecfeff', 1)
+      ctx.strokeStyle = 'rgba(165, 243, 252, 0.88)'
+      ctx.lineWidth = 2
       for (let i = 0; i < 2; i++) {
         ctx.beginPath()
-        ctx.ellipse(x, y, 13 * pulse, 5 * pulse, now / 500 + i * (Math.PI / 2), 0, Math.PI * 2)
+        ctx.ellipse(x, y, 18 * pulse, 7 * pulse, now / 500 + i * (Math.PI / 2), 0, Math.PI * 2)
         ctx.stroke()
       }
     }
@@ -1236,8 +1398,8 @@ export class TrueFalseMazeRenderer {
       const pulse = 1 + 0.08 * Math.sin(now / 260 + (zone.kind === 'TRUE' ? 0 : 1.5))
 
       // Haz de luz vertical, como un proyector holográfico.
-      const beamHeight = CELL * 2.6 * zone.scale
-      const beamWidth = CELL * 1.25 * zone.scale
+      const beamHeight = CELL * 3.2 * zone.scale
+      const beamWidth = CELL * 1.55 * zone.scale
       const beam = ctx.createLinearGradient(0, y, 0, y - beamHeight)
       beam.addColorStop(0, `${style.main}55`)
       beam.addColorStop(1, `${style.main}00`)
@@ -1249,16 +1411,16 @@ export class TrueFalseMazeRenderer {
       ctx.save()
       ctx.translate(x, y)
       ctx.scale(1, 0.42)
-      this.drawGlow(ctx, 0, 0, CELL * 1.05 * zone.scale * pulse, style.main, 0.55 * alpha * strong)
+      this.drawGlow(ctx, 0, 0, CELL * 1.35 * zone.scale * pulse, style.main, 0.58 * alpha * strong)
       ctx.restore()
 
       ctx.globalAlpha = alpha
       ctx.strokeStyle = style.light
-      ctx.lineWidth = 2
-      ctx.setLineDash([7, 6])
+      ctx.lineWidth = 2.5
+      ctx.setLineDash([9, 7])
       ctx.lineDashOffset = -now / 35
       ctx.beginPath()
-      ctx.ellipse(x, y, CELL * 0.82 * zone.scale * pulse, CELL * 0.34 * zone.scale * pulse, 0, 0, Math.PI * 2)
+      ctx.ellipse(x, y, CELL * 1.02 * zone.scale * pulse, CELL * 0.42 * zone.scale * pulse, 0, 0, Math.PI * 2)
       ctx.stroke()
       ctx.setLineDash([])
       ctx.globalAlpha = 1
@@ -1273,7 +1435,7 @@ export class TrueFalseMazeRenderer {
     if (!player.vent && !(state.phase === 'caught')) {
       const point = interpolatedPosition(player)
       ctx.beginPath()
-      ctx.ellipse(this.cellX(point.col), this.footY(point.row) + 1, CELL * 0.3, CELL * 0.11, 0, 0, Math.PI * 2)
+      ctx.ellipse(this.cellX(point.col), this.footY(point.row) + 1, CELL * 0.44, CELL * 0.15, 0, 0, Math.PI * 2)
       ctx.fill()
     }
     for (const jelly of state.jellies) {
@@ -1281,7 +1443,7 @@ export class TrueFalseMazeRenderer {
       const float = Math.sin(state.now / 280 + jelly.index * 1.3)
       ctx.globalAlpha = jelly.mode === 'RETURNING' ? 0.2 : 0.75 - float * 0.15
       ctx.beginPath()
-      ctx.ellipse(this.cellX(point.col), this.footY(point.row) + 2, CELL * (0.26 - float * 0.03), CELL * 0.09, 0, 0, Math.PI * 2)
+      ctx.ellipse(this.cellX(point.col), this.footY(point.row) + 2, CELL * (0.38 - float * 0.04), CELL * 0.13, 0, 0, Math.PI * 2)
       ctx.fill()
     }
     ctx.restore()
@@ -1292,7 +1454,7 @@ export class TrueFalseMazeRenderer {
 
     for (const obstacle of this.map.obstacles) {
       const sprite = obstacle.kind === 'crate' ? this.assets.decor.crate : this.assets.decor.barrels
-      const width = obstacle.kind === 'crate' ? CELL * 0.86 : CELL * 0.98
+      const width = obstacle.kind === 'crate' ? CELL * 1.0 : CELL * 1.12
       const bottom = PAD.top + (obstacle.pos.row + 1) * CELL - 3
       items.push({ y: bottom, draw: () => this.drawSpriteFit(ctx, sprite, this.cellX(obstacle.pos.col), bottom, width) })
     }
@@ -1328,7 +1490,7 @@ export class TrueFalseMazeRenderer {
     const sprite = zone.kind === 'TRUE' ? this.assets.decor['zone-true'] : this.assets.decor['zone-false']
     const now = state.now
     const x = this.cellX(zone.cell.col) + zone.jitter
-    const bob = Math.sin(now / 420 + (zone.kind === 'TRUE' ? 0 : 2)) * 2
+    const bob = Math.sin(now / 420 + (zone.kind === 'TRUE' ? 0 : 2)) * 3
     const width = ZONE_DRAW_WIDTH * zone.scale
     const height = (sprite.height / sprite.width) * width
     const top = bottom - height + bob
@@ -1346,18 +1508,18 @@ export class TrueFalseMazeRenderer {
     // Barrido holográfico que recorre el sprite.
     const sweep = ((now / 1600) % 1) * height
     ctx.globalCompositeOperation = 'lighter'
-    const band = ctx.createLinearGradient(0, top + sweep - 10, 0, top + sweep + 10)
+    const band = ctx.createLinearGradient(0, top + sweep - 14, 0, top + sweep + 14)
     band.addColorStop(0, `${style.light}00`)
     band.addColorStop(0.5, `${style.light}33`)
     band.addColorStop(1, `${style.light}00`)
     ctx.fillStyle = band
-    ctx.fillRect(x - width / 2 + shakeX, top + sweep - 10, width, 20)
+    ctx.fillRect(x - width / 2 + shakeX, top + sweep - 14, width, 28)
     ctx.globalCompositeOperation = 'source-over'
 
     if (zone.highlight === 'chosen-wrong') {
       // Una X grande sobre la sala equivocada.
       ctx.strokeStyle = '#fecaca'
-      ctx.lineWidth = 6
+      ctx.lineWidth = 8
       ctx.lineCap = 'round'
       const cx = x + shakeX
       const cy = top + height * 0.48
@@ -1373,20 +1535,20 @@ export class TrueFalseMazeRenderer {
     // Letrero sobre la sala: la palabra completa, grande y legible.
     if (zone.scale > 0.4) {
       const label = `${style.icon} ${style.label}`
-      ctx.font = `700 ${12.5 * Math.min(1, zone.scale)}px ${FONT}`
+      ctx.font = `700 ${16 * Math.min(1, zone.scale)}px ${FONT}`
       const textWidth = ctx.measureText(label).width
-      const pillW = textWidth + 16
-      const pillH = 20
+      const pillW = textWidth + 22
+      const pillH = 27
       const pillX = x - pillW / 2
       const pillY = Math.max(4, top - pillH - 2 + Math.sin(now / 300) * 1.5)
       ctx.shadowColor = style.main
-      ctx.shadowBlur = zone.highlight === 'answer' ? 18 + Math.sin(now / 120) * 8 : 10
+      ctx.shadowBlur = zone.highlight === 'answer' ? 22 + Math.sin(now / 120) * 9 : 12
       ctx.fillStyle = style.dark
-      roundedRect(ctx, pillX, pillY, pillW, pillH, 10)
+      roundedRect(ctx, pillX, pillY, pillW, pillH, 13.5)
       ctx.fill()
       ctx.shadowBlur = 0
       ctx.strokeStyle = style.light
-      ctx.lineWidth = 1.5
+      ctx.lineWidth = 2
       ctx.stroke()
       ctx.fillStyle = '#ffffff'
       ctx.textAlign = 'center'
@@ -1402,9 +1564,9 @@ export class TrueFalseMazeRenderer {
       ctx.globalCompositeOperation = 'lighter'
       ctx.strokeStyle = style.light
       ctx.globalAlpha = 1 - pulse
-      ctx.lineWidth = 3
+      ctx.lineWidth = 4
       ctx.beginPath()
-      ctx.ellipse(x, bottom - CELL * 0.2, CELL * (0.8 + pulse * 0.9), CELL * (0.34 + pulse * 0.38), 0, 0, Math.PI * 2)
+      ctx.ellipse(x, bottom - CELL * 0.2, CELL * (1.0 + pulse * 1.1), CELL * (0.42 + pulse * 0.46), 0, 0, Math.PI * 2)
       ctx.stroke()
       ctx.restore()
     }
@@ -1415,7 +1577,7 @@ export class TrueFalseMazeRenderer {
     const distance = Math.abs(point.row - cell.row) + Math.abs(point.col - cell.col)
     const near = distance < 3.5
     const sprite = this.assets.decor['arrow-up']
-    const width = CELL * (near ? 0.6 : 0.48)
+    const width = CELL * (near ? 0.74 : 0.6)
     const height = (sprite.height / sprite.width) * width
     const x = this.cellX(cell.col)
     const y = PAD.top + cell.row * CELL - 4 + Math.sin(state.now / 240 + cell.col) * 3
@@ -1440,14 +1602,14 @@ export class TrueFalseMazeRenderer {
     const breathe = jelly.mode === 'WAITING' ? 1 + Math.sin(now / 240 + jelly.index) * 0.04 : 1
     const width = frame.width * k
     const height = frame.height * k * breathe
-    const float = Math.sin(now / 280 + jelly.index * 1.3) * 3.2
+    const float = Math.sin(now / 280 + jelly.index * 1.3) * 4.5
     const x = this.cellX(point.col)
-    const feet = this.footY(point.row) - 7 - float
+    const feet = this.footY(point.row) - 10 - float
     const glow = stunned ? '#93c5fd' : JELLY_COLORS[jelly.index % JELLY_COLORS.length].glow
 
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    this.drawGlow(ctx, x, feet - height * 0.62, CELL * 0.85, glow, jelly.mode === 'RETURNING' ? 0.12 : 0.26 + 0.08 * Math.sin(now / 200 + jelly.index))
+    this.drawGlow(ctx, x, feet - height * 0.62, CELL * 1.15, glow, jelly.mode === 'RETURNING' ? 0.12 : 0.26 + 0.08 * Math.sin(now / 200 + jelly.index))
     ctx.restore()
 
     ctx.save()
@@ -1472,11 +1634,11 @@ export class TrueFalseMazeRenderer {
       if (t < 0.5) {
         point = player.vent.from
         scale = 1 - t * 2
-        offsetY = t * 2 * 10
+        offsetY = t * 2 * 14
       } else {
         point = player.vent.to
         scale = (t - 0.5) * 2
-        offsetY = (1 - (t - 0.5) * 2) * 10
+        offsetY = (1 - (t - 0.5) * 2) * 14
       }
     }
 
@@ -1491,9 +1653,9 @@ export class TrueFalseMazeRenderer {
 
     if (state.phase === 'feedback' && state.lastResult) {
       const since = now - (state.feedbackSkippableAt - FEEDBACK_MIN_MS)
-      if (state.lastResult.correct && since < 1100) offsetY -= Math.abs(Math.sin(since / 115)) * 9
+      if (state.lastResult.correct && since < 1100) offsetY -= Math.abs(Math.sin(since / 115)) * 13
       if (!state.lastResult.correct && since < 700) {
-        offsetX = Math.sin(since / 22) * 3
+        offsetX = Math.sin(since / 22) * 4
         if (Math.floor(since / 110) % 2 === 0) frames = this.assets.robotHurt
       }
     }
@@ -1506,7 +1668,7 @@ export class TrueFalseMazeRenderer {
     const k = (ROBOT_DRAW_HEIGHT / ROBOT_SOURCE_HEIGHT) * scale
     const width = frame.width * k
     const height = frame.height * k
-    const hover = moving ? -Math.abs(Math.sin(now / 95)) * 2.2 : -1.5 - Math.sin(now / 320) * 1.5
+    const hover = moving ? -Math.abs(Math.sin(now / 95)) * 3 : -2 - Math.sin(now / 320) * 2
     const x = this.cellX(point.col) + offsetX
     const feet = this.footY(point.row) + hover + offsetY
 
@@ -1515,9 +1677,9 @@ export class TrueFalseMazeRenderer {
 
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    this.drawGlow(ctx, x, feet - 2, CELL * 0.42 * scale, '#22d3ee', 0.32 + (moving ? 0.12 : 0))
+    this.drawGlow(ctx, x, feet - 2, CELL * 0.58 * scale, '#22d3ee', 0.34 + (moving ? 0.12 : 0))
     if (state.empUntil !== null && state.phase === 'playing') {
-      this.drawGlow(ctx, x, feet - height * 0.5, CELL * 1.0, '#22d3ee', 0.22 + 0.08 * Math.sin(now / 90))
+      this.drawGlow(ctx, x, feet - height * 0.5, CELL * 1.4, '#22d3ee', 0.22 + 0.08 * Math.sin(now / 90))
     }
     ctx.restore()
 
@@ -1607,7 +1769,7 @@ export class TrueFalseMazeRenderer {
     for (const text of this.texts) {
       if (text.delay > 0) continue
       const t = text.age / text.duration
-      const rise = 34 * (1 - Math.pow(1 - t, 2))
+      const rise = 46 * (1 - Math.pow(1 - t, 2))
       const pop = t < 0.15 ? 0.6 + (t / 0.15) * 0.4 : 1
       ctx.save()
       ctx.globalAlpha = t > 0.7 ? (1 - t) / 0.3 : 1
@@ -1615,11 +1777,11 @@ export class TrueFalseMazeRenderer {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.lineJoin = 'round'
-      ctx.lineWidth = 4
+      ctx.lineWidth = 5
       ctx.strokeStyle = 'rgba(2, 6, 23, 0.85)'
       ctx.strokeText(text.text, text.x, text.y - rise)
       ctx.shadowColor = text.color
-      ctx.shadowBlur = 12
+      ctx.shadowBlur = 14
       ctx.fillStyle = text.color
       ctx.fillText(text.text, text.x, text.y - rise)
       ctx.restore()
@@ -1632,12 +1794,16 @@ export class TrueFalseMazeRenderer {
     if (!dark) return
     const now = state.now
     const level = this.lightsLevel
-    dark.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0)
+    const { worldWidth: w, worldHeight: h } = this
+    dark.setTransform(this.k, 0, 0, this.k, 0, 0)
     dark.globalCompositeOperation = 'source-over'
-    dark.clearRect(0, 0, this.width, this.height)
+    dark.clearRect(0, 0, w, h)
     dark.fillStyle = `rgba(2, 4, 12, ${0.93 * level})`
-    dark.fillRect(0, 0, this.width, this.height)
+    dark.fillRect(0, 0, w, h)
 
+    // Los huecos de luz se calculan en coordenadas de la nave.
+    dark.save()
+    dark.translate(this.shipX, this.shipY)
     dark.globalCompositeOperation = 'destination-out'
     const cut = (x: number, y: number, radius: number, strength = 1) => {
       const gradient = dark.createRadialGradient(x, y, 0, x, y, radius)
@@ -1649,16 +1815,17 @@ export class TrueFalseMazeRenderer {
     }
     const player = interpolatedPosition(state.player)
     const flicker = 1 + Math.sin(now / 70) * 0.025 + (Math.random() - 0.5) * 0.02
-    cut(this.cellX(player.col), this.cellY(player.row) - 8, CELL * 2.8 * flicker)
+    cut(this.cellX(player.col), this.cellY(player.row) - 14, CELL * 3.4 * flicker)
     for (const kind of ['TRUE', 'FALSE'] as const) {
       const pos = state.zones[kind].pos
-      if (pos) cut(this.cellX(pos.col), this.cellY(pos.row) - 14, CELL * 1.35, 0.9)
+      if (pos) cut(this.cellX(pos.col), this.cellY(pos.row) - 18, CELL * 1.7, 0.9)
     }
-    for (const core of state.cores) if (!core.taken) cut(this.cellX(core.pos.col), this.cellY(core.pos.row), CELL * 0.55, 0.8)
+    for (const core of state.cores) if (!core.taken) cut(this.cellX(core.pos.col), this.cellY(core.pos.row), CELL * 0.7, 0.8)
     for (const jelly of state.jellies) {
       const point = interpolatedPosition(jelly)
-      cut(this.cellX(point.col), this.cellY(point.row) - 18, CELL * 0.62, 0.75)
+      cut(this.cellX(point.col), this.cellY(point.row) - 24, CELL * 0.85, 0.75)
     }
+    dark.restore()
     dark.globalCompositeOperation = 'source-over'
 
     ctx.save()
@@ -1670,17 +1837,18 @@ export class TrueFalseMazeRenderer {
     const pulse = 0.5 + 0.5 * Math.sin(now / 260)
     ctx.save()
     ctx.globalAlpha = 0.28 * level * pulse
-    const gradient = ctx.createRadialGradient(this.width / 2, this.height / 2, this.height * 0.35, this.width / 2, this.height / 2, this.width * 0.65)
+    const gradient = ctx.createRadialGradient(w / 2, h / 2, h * 0.35, w / 2, h / 2, Math.max(w, h) * 0.65)
     gradient.addColorStop(0, 'rgba(239, 68, 68, 0)')
     gradient.addColorStop(1, 'rgba(239, 68, 68, 1)')
     ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, this.width, this.height)
+    ctx.fillRect(0, 0, w, h)
     ctx.restore()
   }
 
   private drawScreenEffects(ctx: CanvasRenderingContext2D, state: TfState) {
     const now = state.now
-    if (this.vignette) ctx.drawImage(this.vignette, 0, 0, this.width, this.height)
+    const { worldWidth: w, worldHeight: h } = this
+    if (this.vignette) ctx.drawImage(this.vignette, 0, 0, w, h)
 
     const alarm =
       state.phase === 'caught' || (state.phase === 'feedback' && state.lastResult !== null && !state.lastResult.correct)
@@ -1689,11 +1857,11 @@ export class TrueFalseMazeRenderer {
       const color = alarm ? '239, 68, 68' : '34, 211, 238'
       const strength = alarm ? 0.32 * (0.6 + 0.4 * Math.sin(now / 140)) : 0.14 + 0.05 * Math.sin(now / 160)
       ctx.save()
-      const gradient = ctx.createRadialGradient(this.width / 2, this.height / 2, this.height * 0.38, this.width / 2, this.height / 2, this.width * 0.62)
+      const gradient = ctx.createRadialGradient(w / 2, h / 2, h * 0.38, w / 2, h / 2, Math.max(w, h) * 0.62)
       gradient.addColorStop(0, `rgba(${color}, 0)`)
       gradient.addColorStop(1, `rgba(${color}, ${strength})`)
       ctx.fillStyle = gradient
-      ctx.fillRect(0, 0, this.width, this.height)
+      ctx.fillRect(0, 0, w, h)
       ctx.restore()
     }
 
@@ -1701,7 +1869,7 @@ export class TrueFalseMazeRenderer {
       ctx.save()
       ctx.globalAlpha = this.flash.alpha
       ctx.fillStyle = this.flash.color
-      ctx.fillRect(0, 0, this.width, this.height)
+      ctx.fillRect(0, 0, w, h)
       ctx.restore()
     }
   }

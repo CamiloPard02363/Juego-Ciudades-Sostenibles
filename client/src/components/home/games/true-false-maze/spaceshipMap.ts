@@ -3,7 +3,10 @@ import type { CellPosition } from '../mazeCollectorTypes'
 /**
  * Mapa de la nave espacial (escenario NAVE_ESPACIAL). Es dato del motor,
  * no del contenido: quien crea un juego solo escribe afirmaciones, el mapa
- * es siempre este. Se dibuja en ASCII para poder leerlo y retocarlo a ojo:
+ * es siempre este. Se dibuja en ASCII para poder leerlo y retocarlo a ojo.
+ * Es compacto a propósito (21x12, muros de una sola celda): así cada celda
+ * se dibuja grande en pantalla y no quedan bloques de muro sin uso.
+ * Más allá del borde izquierdo, derecho e inferior está el espacio exterior.
  *
  *   ' ' espacio exterior        '#' muro
  *   '.' piso con punto de energía   ',' piso sin punto
@@ -17,21 +20,18 @@ import type { CellPosition } from '../mazeCollectorTypes'
  * es una trampa sin escapatoria).
  */
 export const SPACESHIP_ASCII: readonly string[] = [
-  '######################## ',
-  '#1.g.###........3###..2# ',
-  '#..A......c.A.c......A.# ',
-  '#o...#.#.........#.#..o# ',
-  '##.###.###########.###.# ',
-  ' #.###.#,,,,,,,,,#.###.##',
-  ' #,N,#.#,,c,,,b,,#.#....#',
-  ' #NN,...,,,,P,,,,......A#',
-  ' #,N,#.#,,b,,,c,,#.#....#',
-  ' #.###.#,,,,,,,,,#.###.##',
-  '##.###.#####.#####.###.# ',
-  '#o...#.#.........#.#..o# ',
-  '#..A......b.A.b......A.# ',
-  '#1.g.###3...x....###..2# ',
-  '######################## ',
+  '#####################',
+  '1.g###...c....3###..2',
+  '.A......A...A......A.',
+  'o..#.#......b..#.#..o',
+  '#.##.###########.##.#',
+  'N,,#.#,,c,,,b,,#.#...',
+  'NN,...,,,,P,,,,....A.',
+  'N,,#.#,,b,,,c,,#.#...',
+  '#.##.#####.#####.##.#',
+  'o..#.#..b......#.#..o',
+  '.A......A...A......A.',
+  '1..###3...x.c..###..2',
 ]
 
 export type FloorTileKey =
@@ -56,15 +56,15 @@ export type ShipRoom = {
 
 /** Salas de la nave: definen el piso que se dibuja y el letrero de cada una. */
 const ROOMS: ShipRoom[] = [
-  { id: 'engine-top', label: 'Motor superior', top: 1, left: 1, bottom: 3, right: 4, floor: 'floor-010' },
-  { id: 'engine-bottom', label: 'Motor inferior', top: 11, left: 1, bottom: 13, right: 4, floor: 'floor-010' },
-  { id: 'reactor', label: 'Reactor', top: 6, left: 2, bottom: 8, right: 4, floor: 'floor-014' },
-  { id: 'lab', label: 'Laboratorio', top: 1, left: 8, bottom: 3, right: 16, floor: 'floor-008' },
-  { id: 'electrical', label: 'Electricidad', top: 11, left: 8, bottom: 13, right: 16, floor: 'floor-009' },
-  { id: 'questions', label: 'Sala de preguntas', top: 5, left: 8, bottom: 9, right: 16, floor: 'floor-015' },
-  { id: 'comms', label: 'Comunicaciones', top: 1, left: 20, bottom: 3, right: 22, floor: 'floor-011' },
-  { id: 'shields', label: 'Escudos', top: 11, left: 20, bottom: 13, right: 22, floor: 'floor-011' },
-  { id: 'navigation', label: 'Navegación', top: 6, left: 20, bottom: 8, right: 23, floor: 'floor-015' },
+  { id: 'engine-top', label: 'Motor superior', top: 1, left: 0, bottom: 3, right: 2, floor: 'floor-010' },
+  { id: 'engine-bottom', label: 'Motor inferior', top: 9, left: 0, bottom: 11, right: 2, floor: 'floor-010' },
+  { id: 'reactor', label: 'Reactor', top: 5, left: 0, bottom: 7, right: 2, floor: 'floor-014' },
+  { id: 'lab', label: 'Laboratorio', top: 1, left: 6, bottom: 3, right: 14, floor: 'floor-008' },
+  { id: 'electrical', label: 'Electricidad', top: 9, left: 6, bottom: 11, right: 14, floor: 'floor-009' },
+  { id: 'questions', label: 'Sala de preguntas', top: 5, left: 6, bottom: 7, right: 14, floor: 'floor-015' },
+  { id: 'comms', label: 'Comunicaciones', top: 1, left: 18, bottom: 3, right: 20, floor: 'floor-011' },
+  { id: 'shields', label: 'Escudos', top: 9, left: 18, bottom: 11, right: 20, floor: 'floor-011' },
+  { id: 'navigation', label: 'Navegación', top: 5, left: 18, bottom: 7, right: 20, floor: 'floor-015' },
 ]
 
 export type ShipTile = 'void' | 'wall' | 'floor' | 'obstacle'
@@ -158,8 +158,9 @@ export function parseShipMap(
     vents.push({ pos: cells[0], target: cells[1] }, { pos: cells[1], target: cells[0] })
   }
 
-  // El reactor abre hacia el este: sale primero la medusa más al este y,
-  // entre las de la misma columna, la de la fila central del nido.
+  // El reactor abre hacia el este (puerta al pasillo): sale primero la
+  // medusa más al este y, entre las de la misma columna, la de la fila
+  // central del nido.
   const centerRow = nest.reduce((sum, cell) => sum + cell.row, 0) / Math.max(1, nest.length)
   nest.sort(
     (a, b) => b.col - a.col || Math.abs(a.row - centerRow) - Math.abs(b.row - centerRow) || a.row - b.row,
@@ -186,19 +187,19 @@ export function parseShipMap(
 export const SPACESHIP_MAP: ShipMap = parseShipMap(SPACESHIP_ASCII, {
   rooms: ROOMS,
   patrolPoints: [
-    { row: 2, col: 12 },
-    { row: 12, col: 12 },
-    { row: 7, col: 21 },
-    { row: 7, col: 6 },
+    { row: 2, col: 10 },
+    { row: 10, col: 10 },
+    { row: 6, col: 19 },
+    { row: 6, col: 8 },
   ],
   decor: {
-    terminals: { row: 4, centerCol: 12, widthCells: 6 },
+    terminals: { row: 4, centerCol: 10, widthCells: 6 },
     cameras: [
-      { row: 0, col: 11 },
-      { row: 5, col: 21 },
-      { row: 10, col: 3 },
+      { row: 0, col: 9 },
+      { row: 4, col: 14 },
+      { row: 8, col: 7 },
     ],
-    doors: [{ row: 5, col: 4 }],
+    doors: [{ row: 5, col: 3 }],
   },
 })
 

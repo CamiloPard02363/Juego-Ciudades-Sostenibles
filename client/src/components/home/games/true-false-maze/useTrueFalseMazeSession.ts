@@ -108,6 +108,8 @@ type Options = {
   config: TrueFalseMazeConfig
   assets: SpaceshipAssets | null
   canvasRef: RefObject<HTMLCanvasElement | null>
+  /** false mientras hay otra pantalla encima (la guía): el teclado y los toques no mueven al robot. */
+  inputEnabled?: boolean
 }
 
 /**
@@ -115,13 +117,17 @@ type Options = {
  * mueve el loop con requestAnimationFrame. El HUD de React solo se
  * actualiza cuando cambia algo visible (puntos, vidas, fase...).
  */
-export function useTrueFalseMazeSession({ questions, config, assets, canvasRef }: Options) {
+export function useTrueFalseMazeSession({ questions, config, assets, canvasRef, inputEnabled = true }: Options) {
   const [initialState] = useState(() => createTfState({ map: SPACESHIP_MAP, questions, config }))
   const [sfx] = useState(() => new TrueFalseMazeSfx(readMutedPreference()))
   const stateRef = useRef<TfState>(initialState)
   const rendererRef = useRef<TrueFalseMazeRenderer | null>(null)
   const pausedRef = useRef(false)
   const hudKeyRef = useRef('')
+  const inputEnabledRef = useRef(inputEnabled)
+  useEffect(() => {
+    inputEnabledRef.current = inputEnabled
+  }, [inputEnabled])
 
   const [renderer, setRenderer] = useState<TrueFalseMazeRenderer | null>(null)
   const [hud, setHud] = useState<TrueFalseMazeHud>(() => snapshot(initialState))
@@ -172,6 +178,8 @@ export function useTrueFalseMazeSession({ questions, config, assets, canvasRef }
       }
       const events = drainTfEvents(state)
       const current = rendererRef.current
+      // Solo en desarrollo (se elimina del build): deja el estado a mano para las pruebas en navegador.
+      if (import.meta.env.DEV) (window as unknown as { __tfMaze?: unknown }).__tfMaze = { state, renderer: current }
       if (events.length > 0) {
         current?.consume(events, state)
         sfx.play(events)
@@ -196,7 +204,7 @@ export function useTrueFalseMazeSession({ questions, config, assets, canvasRef }
 
   const move = useCallback(
     (direction: Direction) => {
-      if (pausedRef.current) return
+      if (pausedRef.current || !inputEnabledRef.current) return
       sfx.prime()
       setTfDirection(stateRef.current, direction)
     },
@@ -204,15 +212,24 @@ export function useTrueFalseMazeSession({ questions, config, assets, canvasRef }
   )
 
   const start = useCallback(() => {
+    if (!inputEnabledRef.current) return
     sfx.prime()
     startTfGame(stateRef.current)
   }, [sfx])
 
   const skip = useCallback(() => {
+    if (!inputEnabledRef.current) return
     skipTfFeedback(stateRef.current)
   }, [])
 
+  /** Vuelve a dibujar el último estado (si cambió el tamaño mientras el juego estaba en pausa, el canvas queda en blanco). */
+  const redraw = useCallback(() => {
+    rendererRef.current?.draw(stateRef.current, 0)
+  }, [])
+
   const togglePause = useCallback(() => setPausedBoth(!pausedRef.current), [setPausedBoth])
+  const pause = useCallback(() => setPausedBoth(true), [setPausedBoth])
+  const resume = useCallback(() => setPausedBoth(false), [setPausedBoth])
 
   const toggleMute = useCallback(() => {
     setMuted((current) => {
@@ -235,6 +252,7 @@ export function useTrueFalseMazeSession({ questions, config, assets, canvasRef }
   // Teclado: flechas/WASD mueven; Espacio/Enter empieza, salta el resultado o reanuda; P/Esc pausa; M silencia.
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (!inputEnabledRef.current) return
       if (event.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) return
       const state = stateRef.current
       const direction = KEY_TO_DIRECTION[event.key]
@@ -276,6 +294,16 @@ export function useTrueFalseMazeSession({ questions, config, assets, canvasRef }
     paused,
     muted,
     renderer,
-    actions: { move, start, skip, togglePause, toggleMute, restart, resume: () => setPausedBoth(false) },
+    actions: {
+      move,
+      start,
+      skip,
+      togglePause,
+      toggleMute,
+      restart,
+      redraw,
+      pause,
+      resume,
+    },
   }
 }

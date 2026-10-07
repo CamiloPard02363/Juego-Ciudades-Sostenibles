@@ -13,18 +13,33 @@ El contenido (las afirmaciones) lo escribe quien crea el juego. El mapa y los pe
 | Archivo | Qué hace |
 | --- | --- |
 | `trueFalseMazeTypes.ts` | Contenido, `config` y límites. Espeja `true-false-maze.content-validator.ts` del servidor. |
-| `spaceshipMap.ts` | Mapa de la nave en ASCII (salas, rejillas, núcleos, nido, lugares de las salas de respuesta). |
+| `spaceshipMap.ts` | Mapa de la nave en ASCII (21x12, muros de una celda): salas, rejillas, núcleos, nido, lugares de las salas de respuesta. |
 | `trueFalseMazeEngine.ts` | Motor puro: reglas, movimiento, IA de las medusas y eventos. Sin React ni canvas. |
-| `TrueFalseMazeRenderer.ts` | Dibuja el estado en un `<canvas>` 2D: nave, sprites, partículas, apagón y efectos de pantalla. |
+| `TrueFalseMazeRenderer.ts` | Dibuja el estado en un `<canvas>` 2D a pantalla completa: nave, sprites, partículas, apagón y efectos. |
 | `spaceshipAssets.ts` | Carga los sprites y genera las variantes de color (medusas de colores, aturdidas, robot herido). |
 | `trueFalseMazeSfx.ts` | Sonidos sintetizados con Web Audio, sin archivos. |
 | `useTrueFalseMazeSession.ts` | Loop de la partida: conecta motor, renderer, sonidos, teclado y HUD de React. |
-| `TrueFalseMazeGame.tsx` | Pantalla del juego: HUD, pregunta, mensajes, resultados y controles táctiles. |
+| `TrueFalseMazeGame.tsx` | Pantalla del juego: HUD flotante, pregunta, mensajes, resultados y controles táctiles. |
+| `TrueFalseMazeGuide.tsx` + `trueFalseMazeGuide.css` | Guía visual previa al juego: 5 pasos con escenas animadas. |
+| `FitScale.tsx` | Hace que un contenido quepa siempre en su recuadro (lo reduce) en vez de recortarse o usar scroll. |
 | `TrueFalseMazeGameForm.tsx` | Formulario de creación. |
 | `assets/spaceship/` | Sprites ya limpios (fondo transparente, recortados) de la carpeta "SpritesJuegoLaberinto". |
 
 Las reglas tienen pruebas en `trueFalseMazeEngine.spec.ts`: conectividad del mapa, salas
 "justas" desde cualquier celda, respuestas, vidas, pulso EMP, rejillas y velocidad exacta.
+
+## Diseño de pantalla
+
+- **El canvas cubre toda la pantalla.** Los paneles (HUD, pregunta, cruceta) flotan encima, se
+  miden, y `renderer.resize(ancho, alto, dpr, insets)` centra la nave en el espacio que queda. El
+  fondo espacial llena el resto, así no hay franjas vacías.
+- **El HUD nunca cambia de alto**: si lo hiciera, la nave se reescalaría entre pregunta y
+  pregunta. Por eso el panel de la afirmación tiene alto fijo y un texto largo se reduce (la
+  afirmación completa también se muestra grande al empezar cada ronda).
+- **Sin scroll en ninguna pantalla.** La guía, los resultados y los paneles usan `FitScale`. En
+  celular horizontal el HUD pasa a una columna lateral. Botón de pantalla completa (o tecla `F`).
+- Los personajes miden más de una celda (robot 1,75; medusa 1,55) y las salas 2,3: en
+  `TrueFalseMazeRenderer.ts` están `ROBOT_DRAW_HEIGHT`, `JELLY_DRAW_HEIGHT` y `ZONE_DRAW_WIDTH`.
 
 ## Probarlo
 
@@ -32,6 +47,8 @@ Las reglas tienen pruebas en `trueFalseMazeEngine.spec.ts`: conectividad del map
 - **Juego de ejemplo en el catálogo**: en `server/` corre `npm run db:seed:true-false-maze-demo`
   ("Misión Galáctica", en Ciencias Naturales).
 - **Crear uno propio**: Crear juego → Laberinto Verdadero o Falso.
+- En desarrollo (`npm run dev`) el estado del motor queda en `window.__tfMaze` para depurar o
+  automatizar pruebas en el navegador; no existe en el build de producción.
 
 ## Agregar un escenario nuevo
 
