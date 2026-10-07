@@ -359,6 +359,13 @@ code {
   }
 }
 
+@keyframes fade-away {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* Resaltado temporal de la tarjeta del juego recién creado (issue #218):
  * pulso suave del glow para que la mirada caiga ahí sin ser una animación
  * agresiva ni permanente — GamesSection la apaga por interacción o timeout. */
