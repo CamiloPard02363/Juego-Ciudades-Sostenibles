@@ -1178,3 +1178,44 @@ code {
     --scroll-fade-size: 0px;
   }
 }
+
+/*
+ * Nube de foco post-creación (JustCreatedFocus.tsx, issue #2). Solo usa los
+ * tokens de la plataforma, así que sigue los temas claro, oscuro y kids.
+ * Entrada: fade + scale desde la cola; después una leve flotación. El bloque
+ * global prefers-reduced-motion reduce ambas a ~0 sin ocultar información.
+ */
+.just-created-cloud {
+  animation:
+    just-created-cloud-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both,
+    just-created-cloud-float 4s ease-in-out 0.35s infinite;
+}
+
+.just-created-cloud[data-side='bottom'] { transform-origin: top center; }
+.just-created-cloud[data-side='top'] { transform-origin: bottom center; }
+.just-created-cloud[data-side='left'] { transform-origin: right center; }
+.just-created-cloud[data-side='right'] { transform-origin: left center; }
+
+.just-created-cloud-tail {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--surface);
+  border-style: solid;
+  border-color: var(--accent);
+  transform: rotate(45deg);
+}
+
+@keyframes just-created-cloud-in {
+  from { opacity: 0; scale: 0.92; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes just-created-cloud-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .just-created-cloud { animation: none; }
+}
