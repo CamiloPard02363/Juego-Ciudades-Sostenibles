@@ -19,6 +19,7 @@ import { MazeCollectorContentValidator } from '../application/content-validators
 import { SnakesLaddersContentValidator } from '../application/content-validators/snakes-ladders.content-validator.js';
 import { DualQuestContentValidator } from '../application/content-validators/dual-quest.content-validator.js';
 import { DualQuestPixiContentValidator } from '../application/content-validators/dual-quest-pixi.content-validator.js';
+import { TrueFalseMazeContentValidator } from '../application/content-validators/true-false-maze.content-validator.js';
 import { ContentValidatorRegistry } from '../application/content-validators/content-validator.registry.js';
 import { RequesterAdminResolver } from '../application/services/requester-admin-resolver.service.js';
 import { GameAuthorizationService } from '../application/services/game-authorization.service.js';
@@ -91,6 +92,7 @@ const DEFAULT_AI_PROVIDER_ORDER = ['gemini', 'groq'];
     SnakesLaddersContentValidator,
     DualQuestContentValidator,
     DualQuestPixiContentValidator,
+    TrueFalseMazeContentValidator,
     ContentValidatorRegistry,
     RequesterAdminResolver,
     GameAuthorizationService,

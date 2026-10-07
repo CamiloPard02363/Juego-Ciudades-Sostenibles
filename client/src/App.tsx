@@ -25,6 +25,7 @@ import { DominoGameFormPage } from './components/home/games/create/DominoGameFor
 import { MazeCollectorGameFormPage } from './components/home/games/create/MazeCollectorGameFormPage'
 import { SnakesLaddersGameFormPage } from './components/home/games/create/SnakesLaddersGameFormPage'
 import { DualQuestGameFormPage } from './components/home/games/create/DualQuestGameFormPage'
+import { TrueFalseMazeGameFormPage } from './components/home/games/create/TrueFalseMazeGameFormPage'
 import { DominoRoomPage } from './components/home/games/DominoRoomPage'
 import { SnakesLaddersRoomPage } from './components/home/games/SnakesLaddersRoomPage'
 import { DualQuestRoomPage } from './components/home/games/DualQuestRoomPage'
@@ -46,6 +47,14 @@ const DualQuestPixiDemoPage = lazy(() =>
 )
 const DualQuestPixiPlayPage = lazy(() =>
   import('./components/home/games/DualQuestPixiPlayPage').then((m) => ({ default: m.DualQuestPixiPlayPage })),
+)
+// Laberinto Verdadero o Falso: motor + renderer en canvas y ~60 sprites; se
+// descarga solo al entrar a jugarlo.
+const TrueFalseMazePlayPage = lazy(() =>
+  import('./components/home/games/true-false-maze/TrueFalseMazePlayPage').then((m) => ({ default: m.TrueFalseMazePlayPage })),
+)
+const TrueFalseMazeDemoPage = lazy(() =>
+  import('./components/home/games/true-false-maze/TrueFalseMazeDemoPage').then((m) => ({ default: m.TrueFalseMazeDemoPage })),
 )
 
 function App() {
@@ -117,12 +126,29 @@ function App() {
         <Route path="laberinto" element={<MazeCollectorGameFormPage />} />
         <Route path="escaleras-serpientes" element={<SnakesLaddersGameFormPage />} />
         <Route path="dual-quest" element={<DualQuestGameFormPage />} />
+        <Route path="laberinto-vf" element={<TrueFalseMazeGameFormPage />} />
       </Route>
       <Route path="/domino/sala/:code?" element={<DominoRoomPage />} />
       <Route path="/escaleras-serpientes/sala/:code?" element={<SnakesLaddersRoomPage />} />
       <Route path="/dual-quest/sala/:code?" element={<DualQuestRoomPage />} />
       <Route path="/jugar/memoria/:slug" element={<MemoryMatchPlayPage />} />
       <Route path="/jugar/laberinto/:slug" element={<MazeCollectorPlayPage />} />
+      <Route
+        path="/jugar/laberinto-vf/:slug"
+        element={
+          <Suspense fallback={<main className="flex flex-1 items-center justify-center">Cargando la nave…</main>}>
+            <TrueFalseMazePlayPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/jugar/laberinto-vf-demo"
+        element={
+          <Suspense fallback={<main className="flex flex-1 items-center justify-center">Cargando la nave…</main>}>
+            <TrueFalseMazeDemoPage />
+          </Suspense>
+        }
+      />
       <Route path="/quien-es/sala/:code?" element={<GuessWhoRoomPage />} />
       <Route path="/quien-es/torneo/:code?" element={<TournamentRoomPage />} />
       <Route

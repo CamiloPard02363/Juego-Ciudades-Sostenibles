@@ -12,6 +12,7 @@ const ROUTE_BY_CHOICE: Record<GameTypeChoice, string> = {
   MAZE_COLLECTOR: '/juegos/crear/laberinto',
   SNAKES_LADDERS: '/juegos/crear/escaleras-serpientes',
   DUAL_QUEST: '/juegos/crear/dual-quest',
+  TRUE_FALSE_MAZE: '/juegos/crear/laberinto-vf',
 }
 
 export function GameTypePickerPage() {

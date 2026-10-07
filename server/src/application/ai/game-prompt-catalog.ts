@@ -102,6 +102,28 @@ contaminación") y usa "star" también para "collectorIcon"/"enemyIcon". Deja "l
   imageRequirement: null,
 };
 
+const TRUE_FALSE_MAZE_SPEC: GamePromptSpec = {
+  instructions: `Genera el contenido de un laberinto de Verdadero o Falso educativo a partir del
+texto fuente. Escribe entre 8 y 15 afirmaciones ("statement", entre 5 y 160 caracteres) que se
+puedan juzgar como verdaderas o falsas solo con lo que dice el texto: cada una afirma UNA sola
+idea, sin dobles negaciones ni trampas de redacción. Mezcla verdaderas y falsas en proporción
+parecida (nunca todas iguales); las falsas deben ser errores plausibles que un estudiante podría
+creer, no absurdos. "answer" es true o false. Agrega "explanation" (máximo 240 caracteres) que
+explique por qué la afirmación es verdadera, o cuál es el dato correcto si es falsa. Deja el
+"config" con los valores del ejemplo salvo que el texto sugiera claramente otra cosa.`,
+  jsonShapeExample: `{
+  "config": {
+    "skin": "NAVE_ESPACIAL", "lives": 3, "enemyCount": 3, "enemySpeed": 2,
+    "relocateSeconds": 20, "shuffleQuestions": true, "lightsOut": true
+  },
+  "content": [
+    { "statement": "Las plantas producen oxígeno durante la fotosíntesis.", "answer": true, "explanation": "La fotosíntesis libera oxígeno como subproducto." },
+    { "statement": "La fotosíntesis ocurre en las mitocondrias.", "answer": false, "explanation": "Ocurre en los cloroplastos; las mitocondrias hacen la respiración celular." }
+  ]
+}`,
+  imageRequirement: null,
+};
+
 const SNAKES_LADDERS_SPEC: GamePromptSpec = {
   instructions: `Genera el contenido de un juego de Escaleras y Serpientes educativo a partir del
 texto fuente. Primero define "boardSize" (entero entre 25 y 40), y una lista de "ladders"
@@ -274,6 +296,7 @@ const CATALOG: Record<string, GamePromptSpec> = {
   [catalogKey('MEMORY_MATCH', 'PAIRS')]: MEMORY_MATCH_PAIRS_SPEC,
   [catalogKey('MEMORY_MATCH', 'OPPOSITES')]: MEMORY_MATCH_OPPOSITES_SPEC,
   [catalogKey('DUAL_QUEST')]: DUAL_QUEST_SPEC,
+  [catalogKey('TRUE_FALSE_MAZE')]: TRUE_FALSE_MAZE_SPEC,
 };
 
 export function resolveGamePromptSpec(gameType: string, mode?: string): GamePromptSpec | null {

@@ -499,6 +499,13 @@ export function GamesSection({
       navigate(`/jugar/laberinto/${selectedGame.slug}`)
       return
     }
+    // Laberinto Verdadero o Falso: un jugador contra las medusas, sin sala en
+    // vivo — vista dedicada con ruta propia (ver TrueFalseMazePlayPage.tsx).
+    if (selectedGame.gameType === 'TRUE_FALSE_MAZE') {
+      closeGame()
+      navigate(`/jugar/laberinto-vf/${selectedGame.slug}`)
+      return
+    }
     // Mismo criterio que Dominó: sala en tiempo real con página propia, no
     // un pop-up — acá de 2 a 4 jugadores en vez de 1v1.
     if (selectedGame.gameType === 'SNAKES_LADDERS') {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  Bot,
   Ghost,
   Layers,
   Puzzle,
@@ -33,6 +34,7 @@ const ICON_BY_GAME_TYPE: Record<string, LucideIcon> = {
   SNAKES_LADDERS: Dices,
   DUAL_QUEST: Flame,
   DUAL_QUEST_PIXI: Flame,
+  TRUE_FALSE_MAZE: Bot,
 }
 
 /**
