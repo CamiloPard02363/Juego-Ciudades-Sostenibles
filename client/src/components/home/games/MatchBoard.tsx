@@ -51,17 +51,17 @@ export function TurnBanner({
   const urgent = secondsLeft <= 5
   const clockProgress = Math.max(0, Math.min(1, remainingMs / (turnDurationSeconds * 1000)))
   const isInline = variant === 'inline'
-  const radius = isInline ? 34 : 22
+  const radius = isInline ? 19 : 22
   const circumference = 2 * Math.PI * radius
-  const boxSize = isInline ? 'h-24 w-24' : 'h-14 w-14'
-  const viewBox = isInline ? '0 0 80 80' : '0 0 52 52'
-  const center = isInline ? 40 : 26
-  const strokeWidth = isInline ? 6 : 4
+  const boxSize = isInline ? 'h-12 w-12' : 'h-14 w-14'
+  const viewBox = isInline ? '0 0 48 48' : '0 0 52 52'
+  const center = isInline ? 24 : 26
+  const strokeWidth = isInline ? 4 : 4
 
   return (
     <div
-      className={`flex flex-col items-center gap-2 rounded-2xl border p-4 shadow-[var(--shadow)] backdrop-blur-sm transition-colors ${
-        isInline ? 'w-full' : 'sticky top-2 z-[56] w-fit self-end p-3'
+      className={`flex items-center gap-2 rounded-xl border shadow-[var(--shadow)] backdrop-blur-sm transition-colors ${
+        isInline ? 'min-w-0 flex-1 p-2' : 'sticky top-2 z-[56] w-fit self-end flex-col p-3'
       } ${
         isMyTurn
           ? `border-accent/50 bg-accent/10 ${isInline ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite]' : ''}`
@@ -84,7 +84,7 @@ export function TurnBanner({
           />
         </svg>
         {isInline ? (
-          <span className={`text-[26px] font-bold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
+          <span className={`text-[16px] font-bold tabular-nums ${urgent ? 'text-danger' : 'text-text-h'}`}>
             {secondsLeft}
           </span>
         ) : (
@@ -99,9 +99,9 @@ export function TurnBanner({
         )}
       </div>
       <span
-        className={`flex items-center gap-1.5 font-medium whitespace-nowrap text-text ${isInline ? 'text-[13px]' : 'text-[11px]'}`}
+        className={`flex min-w-0 items-center gap-1.5 font-medium whitespace-nowrap text-text ${isInline ? 'text-[12px]' : 'text-[11px]'}`}
       >
-        {isInline && <Clock3 className={`h-3.5 w-3.5 ${urgent ? 'text-danger' : 'text-accent'}`} strokeWidth={2} />}
+        {isInline && <Clock3 className={`h-3.5 w-3.5 shrink-0 ${urgent ? 'text-danger' : 'text-accent'}`} strokeWidth={2} />}
         {isMyTurn ? 'Tu turno' : 'Turno del rival'}
       </span>
     </div>
@@ -326,8 +326,6 @@ export function MatchBoard({
 }: MatchBoardProps) {
   const [accusing, setAccusing] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
-  const helpId = useId()
-  const statusId = useId()
   const turnRemainingMs = useCountdown(turnDeadline)
   const remainingForSelf = cards.length - self.discardedCardIds.length
   const secretCard = cards.find((card) => card.cardId === self.secretCardId)
@@ -335,6 +333,12 @@ export function MatchBoard({
   const guessAvailable = canAccuse && isMyTurn && discardsMissing === 0
   // Invalida la selección al perder disponibilidad; no reaparece en el próximo turno.
   if (accusing && !guessAvailable) setAccusing(false)
+
+  useEffect(() => {
+    if (!showHelp) return
+    const timeout = window.setTimeout(() => setShowHelp(false), 4000)
+    return () => window.clearTimeout(timeout)
+  }, [showHelp])
 
   return (
     <div className="flex flex-col gap-5">
@@ -344,12 +348,6 @@ export function MatchBoard({
         accusationMessage={accusationMessage}
       />
 
-      {/* Acciones a la izquierda, tablero de cartas a la derecha: agrupa lo
-          que se puede HACER en un solo lugar fijo (bandera, acusar, reloj,
-          pasar turno) en vez de mezclarlo entre las cartas y el pie de
-          página — pedido explícito para que el juego se sienta más
-          intuitivo. En pantallas angostas se apila arriba de las cartas en
-          vez de al lado. */}
       <div className="guess-who-board-columns flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="guess-who-board-actions flex shrink-0 flex-col gap-3 sm:w-[210px]">
           <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
@@ -373,23 +371,12 @@ export function MatchBoard({
             </p>
           </div>
 
-          {/* El botón de acusar vive fijo justo debajo de la bandera, SIEMPRE
-              visible (no solo cuando ya se puede usar) — pedido explícito
-              para que se sepa desde el principio dónde va a aparecer esa
-              acción, en vez de que aparezca/desaparezca de golpe a mitad de
-              partida. Deshabilitado con una explicación clara de qué falta. */}
-          <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-[13px] font-bold text-text-h">Adivina la identidad</p>
-              <button type="button" aria-label="¿Cómo puedo adivinar?" aria-expanded={showHelp} aria-controls={helpId} onClick={() => setShowHelp(value => !value)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-accent"><CircleHelp className="h-6 w-6" aria-hidden="true" /></button>
-            </div>
-            <p className="mb-2 text-[12px] text-text">Descartes necesarios: <strong>{Math.min(self.discardedCardIds.length, MIN_DISCARDS_TO_ACCUSE)}/{MIN_DISCARDS_TO_ACCUSE}</strong></p>
-            <p id={helpId} hidden={!showHelp} className="mb-3 rounded-lg border border-border bg-surface p-3 text-[12px] leading-relaxed text-text">Acusar es intentar adivinar la tarjeta del rival. Puedes hacerlo en tu turno después de descartar al menos {MIN_DISCARDS_TO_ACCUSE} tarjetas. Si aciertas, ganas; si fallas, pierdes el turno.</p>
+          <div className="rounded-xl border border-accent/40 bg-accent/5 p-2.5">
+            <div className="relative flex items-center gap-2">
             <button
               type="button"
               disabled={!guessAvailable}
-              aria-describedby={statusId}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl border border-accent bg-accent px-3 py-3 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-accent bg-accent px-3 py-3 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 ${
                 guessAvailable && !accusing ? 'animate-[result-glow-pulse_1s_ease-in-out_2] motion-reduce:animate-none' : ''
               }`}
               onClick={() => setAccusing((current) => !current)}
@@ -397,37 +384,41 @@ export function MatchBoard({
               <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
               {accusing ? 'Cancelar selección' : '¡Creo que es esta!'}
             </button>
-              <p id={statusId} className="mt-2 text-[12px] text-text" role="status">
-                {!isMyTurn
-                  ? 'Espera tu turno para adivinar.'
-                  : discardsMissing > 0
-                    ? `Descarta ${discardsMissing} tarjeta${discardsMissing === 1 ? '' : 's'} más para poder adivinar.`
-                    : guessAvailable ? '¡Ya puedes adivinar! Elige una tarjeta cuando creas saber la respuesta.' : 'La adivinanza no está disponible ahora.'}
-              </p>
-            {accusing && (
-              <p className="mt-2 text-[11px] text-text animate-[fade-in-up_0.2s_ease-out]">
-                Elige una tarjeta y luego confirma tu respuesta.
-              </p>
-            )}
+              <button
+                type="button"
+                aria-label="Cómo usar el botón para adivinar"
+                onClick={() => setShowHelp(true)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <CircleHelp className="h-5 w-5" aria-hidden="true" />
+              </button>
+              {showHelp && (
+                <div className="absolute left-4 top-[calc(100%+0.5rem)] z-[80] w-[280px] rounded-xl border border-purple-500/80 bg-surface p-3 text-[12px] leading-relaxed text-text shadow-[var(--shadow)] animate-[fade-in-up_0.25s_ease-out,fade-away_0.35s_ease-in_3.65s_forwards]" role="status">
+                  Acusar es intentar adivinar la tarjeta del rival. Puedes hacerlo en tu turno después de descartar al menos {MIN_DISCARDS_TO_ACCUSE} tarjetas. Si aciertas, ganas; si fallas, pierdes el turno.
+                </div>
+              )}
+            </div>
           </div>
 
-          <TurnBanner
-            variant="inline"
-            isMyTurn={isMyTurn}
-            remainingMs={turnRemainingMs}
-            turnDurationSeconds={turnDurationSeconds}
-          />
+          <div className="flex flex-col gap-2">
+            <TurnBanner
+              variant="inline"
+              isMyTurn={isMyTurn}
+              remainingMs={turnRemainingMs}
+              turnDurationSeconds={turnDurationSeconds}
+            />
 
-          {isMyTurn && (
-            <button
-              type="button"
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2.5 text-[12.5px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
-              onClick={onPassTurn}
-            >
-              <SkipForward className="h-3.5 w-3.5" strokeWidth={2} />
-              Pasar turno
-            </button>
-          )}
+            {isMyTurn && (
+              <button
+                type="button"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2 text-[12px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
+                onClick={onPassTurn}
+              >
+                <SkipForward className="h-3.5 w-3.5" strokeWidth={2} />
+                Pasar turno
+              </button>
+            )}
+          </div>
         </div>
 
         <div className={`guess-who-board-cards grid flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>
