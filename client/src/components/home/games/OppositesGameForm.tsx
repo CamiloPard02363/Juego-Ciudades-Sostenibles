@@ -241,8 +241,6 @@ export function OppositesGameForm({
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
-        gameKind="OPPOSITES"
-        gameTitle={title.trim()}
       />
     )
   }

@@ -21,6 +21,8 @@ import {
 import { ApiError } from '../../utils/http'
 import { trackEvent } from '../../services/analytics.service'
 import { GameCard } from './games/GameCard'
+import { JustCreatedFocus } from './JustCreatedFocus'
+import { parseCreatedKind } from './games/create/justCreatedRedirect'
 import { GameDetailModal } from './games/GameDetailModal'
 import { Modal } from './games/Modal'
 import { JoinByCodeModal } from './games/JoinByCodeModal'
@@ -73,11 +75,13 @@ export function GamesSection({
   const navigate = useNavigate()
   const { slug: slugFromUrl } = useParams<{ slug?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
+  // Tipo de formulario que creó el juego (issue #2), para el resumen de la nube.
+  const justCreatedKind = parseCreatedKind(searchParams.get('kind'))
   // Id del juego recién creado (issue #218): llega por query param desde el
   // redirect post-creación en SaveVisibilityModal/GuessWhoGameFormPage, y se
   // usa para resaltar su tarjeta en este listado. Se limpia de la URL tras
-  // interactuar con el highlight o pasado un tiempo razonable, sin quedar
-  // permanente ni sobrevivir a un refresh manual de la página.
+  // cerrar la nube de foco (issue #2: sin timeout) o interactuar con la
+  // tarjeta, sin sobrevivir a un refresh manual de la página.
   const [justCreatedGameId, setJustCreatedGameId] = useState<string | null>(
     () => searchParams.get('justCreated'),
   )
@@ -87,16 +91,11 @@ export function GamesSection({
     if (searchParams.has('justCreated')) {
       const next = new URLSearchParams(searchParams)
       next.delete('justCreated')
+      next.delete('kind')
       setSearchParams(next, { replace: true })
     }
   }
 
-  useEffect(() => {
-    if (!justCreatedGameId) return
-    const timeout = setTimeout(dismissJustCreatedHighlight, 12000)
-    return () => clearTimeout(timeout)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [justCreatedGameId])
   // En modo 'game-type' la lista vive en /tipos-de-juego/:gameType, así que
   // el detalle debe anidarse ahí (/tipos-de-juego/:gameType/:slug) para no
   // perder el filtro de tipo al navegar de vuelta o al recargar (issue #156).
@@ -317,6 +316,22 @@ export function GamesSection({
     if (activeTypes.size > 0 && !activeTypes.has(game.gameType)) return false
     return true
   })
+
+  // Foco post-creación (issue #2): el juego recién creado debe poder verse.
+  // Si un filtro lo oculta se limpian los filtros; si ni siquiera está en el
+  // listado cargado, se descarta el efecto (fallback seguro, sin blur vacío).
+  const justCreatedGame = justCreatedGameId ? games.find((g) => g.id === justCreatedGameId) ?? null : null
+  const justCreatedFiltered = justCreatedGame !== null && !filteredGames.includes(justCreatedGame)
+  useEffect(() => {
+    if (justCreatedFiltered) {
+      setActiveModes(new Set())
+      setActiveTypes(new Set())
+    }
+  }, [justCreatedFiltered])
+  useEffect(() => {
+    if (justCreatedGameId && !loading && !justCreatedGame) dismissJustCreatedHighlight()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justCreatedGameId, loading, justCreatedGame])
 
   const typeFilterOptions: GameTypeFilterOption[] = Array.from(
     games.reduce((acc, game) => acc.set(game.gameType, (acc.get(game.gameType) ?? 0) + 1), new Map<string, number>()),
@@ -1188,6 +1203,15 @@ export function GamesSection({
           </div>
         )}
       </div>
+
+      {justCreatedGame && !loading && !justCreatedFiltered && (
+        <JustCreatedFocus
+          gameTitle={justCreatedGame.title}
+          kind={justCreatedKind}
+          visibility={mode === 'community' ? 'community' : 'private'}
+          onClose={dismissJustCreatedHighlight}
+        />
+      )}
 
       {joinByCodeOpen && (
         <JoinByCodeModal

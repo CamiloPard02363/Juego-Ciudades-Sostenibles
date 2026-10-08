@@ -283,8 +283,6 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
-        gameKind="SNAKES_LADDERS"
-        gameTitle={title.trim()}
       />
     )
   }
