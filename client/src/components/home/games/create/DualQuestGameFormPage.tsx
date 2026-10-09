@@ -8,7 +8,7 @@ export function DualQuestGameFormPage() {
     <DualQuestGameForm
       onClose={() => navigate('/')}
       onBack={() => navigate('/juegos/crear')}
-      onCreated={(gameId, visibility) => navigate(buildJustCreatedRedirect(gameId, visibility))}
+      onCreated={(gameId, visibility) => navigate(buildJustCreatedRedirect(gameId, visibility, 'DUAL_QUEST'))}
       onCategoryCreated={() => {}}
     />
   )

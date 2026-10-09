@@ -45,3 +45,29 @@ export function summarizeCreatedGame(kind: CreatedGameKind): CreatedGameSummary 
   const { purpose, howTo } = gameInstructionSummaries[instructionKind]
   return { typeLabel: label, gameType, isMultiplayer: isMultiplayerGameType(gameType), purpose, howTo }
 }
+
+export type SavedDestinationCopy = {
+  /** Nombre visible del destino (el mismo del menú lateral, no la ruta). */
+  destination: string
+  /** Título de éxito con el vocabulario del rol. */
+  heading: string
+  /** Texto del botón de cierre. */
+  ctaLabel: string
+}
+
+/**
+ * Textos de éxito según rol y visibilidad (issues #245 y #2): "actividad" para
+ * docentes y cuentas institucionales/administradoras, "juego" para
+ * estudiantes; "Mis actividades" es el nombre que el menú da a `/mis-juegos`
+ * para docentes.
+ */
+export function savedDestinationCopy(role: string | undefined, visibility: 'private' | 'community'): SavedDestinationCopy {
+  const upper = role?.toUpperCase()
+  const isStudent = upper === 'STUDENT'
+  const destination = visibility === 'community' ? 'Comunidad' : upper === 'TEACHER' ? 'Mis actividades' : 'Mis juegos privados'
+  return {
+    destination,
+    heading: isStudent ? `Juego guardado en ${destination}` : `Actividad guardada en ${destination}`,
+    ctaLabel: 'Entendido',
+  }
+}

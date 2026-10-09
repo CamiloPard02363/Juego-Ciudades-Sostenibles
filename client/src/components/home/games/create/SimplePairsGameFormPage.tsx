@@ -8,7 +8,7 @@ export function SimplePairsGameFormPage() {
     <SimplePairsGameForm
       onClose={() => navigate('/')}
       onBack={() => navigate('/juegos/crear/cartas')}
-      onCreated={(gameId, visibility) => navigate(buildJustCreatedRedirect(gameId, visibility))}
+      onCreated={(gameId, visibility) => navigate(buildJustCreatedRedirect(gameId, visibility, 'PAIRS'))}
       onCategoryCreated={() => {}}
     />
   )

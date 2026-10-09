@@ -424,15 +424,17 @@ export function MatchBoard({
         <div className={`guess-who-board-cards grid flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>
           {cards.map((card, index) => {
             const discarded = self.discardedCardIds.includes(card.cardId)
-            const locked = !isMyTurn || discarded
+            const locked = !isMyTurn
             return (
               <div key={card.cardId} className="relative">
                 <button
                   type="button"
                   disabled={locked}
+                  aria-pressed={discarded}
+                  title={discarded ? 'Restaurar tarjeta' : 'Descartar tarjeta'}
                   className={`group relative w-full overflow-hidden rounded-lg border text-left transition-[transform,border-color] duration-200 ${
                     discarded
-                      ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out]'
+                      ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out] hover:border-accent hover:opacity-70'
                       : locked
                         ? 'cursor-not-allowed border-border'
                         : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
