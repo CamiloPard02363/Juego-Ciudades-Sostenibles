@@ -11,13 +11,14 @@ import {
   ChevronRight,
   Footprints,
   LightbulbOff,
+  Pause,
   Rocket,
   Shuffle,
   X,
   Zap,
 } from 'lucide-react'
 import { FitScale } from './FitScale'
-import floorTile from './assets/spaceship/tiles/floor-013.png'
+import floorTile from './assets/spaceship/tiles/floor-plain.png'
 import robotDown from './assets/spaceship/robot/robot-down-0.png'
 import robotRight from './assets/spaceship/robot/robot-right-0.png'
 import robotLeft from './assets/spaceship/robot/robot-left-0.png'
@@ -447,6 +448,14 @@ const STEPS: Step[] = [
             </p>
           </div>
         </div>
+        <p className="flex items-center gap-2">
+          <span className="flex h-7 shrink-0 items-center gap-1 rounded-lg border border-cyan-300/50 bg-cyan-500/20 px-2 text-[0.8em] font-bold text-white">
+            <Pause className="h-3.5 w-3.5" fill="currentColor" strokeWidth={1.5} /> Pausa
+          </span>
+          <span>
+            ¿Necesitas un respiro? Toca <b className="text-white">Pausa</b>, arriba a la izquierda, o presiona <b className="text-white">Esc</b>.
+          </span>
+        </p>
       </>
     ),
   },

@@ -4,10 +4,11 @@ import type { FloorTileKey } from './spaceshipMap'
 /**
  * Sprites del escenario NAVE_ESPACIAL (robot, medusas galácticas y la nave
  * estilo Among Us). Vienen de la carpeta "SpritesJuegoLaberinto" del equipo,
- * ya limpios: fondo transparente y recortados al contenido. Las variantes
- * de color (medusa aturdida, robot herido, medusas de otros colores) no son
- * archivos aparte: se generan una sola vez al cargar, pintando píxel a
- * píxel sobre un canvas.
+ * ya limpios: fondo transparente y recortados al contenido. Los muros y pisos
+ * (`tiles/`) son de la subcarpeta "EscenearioPrueba2"; la decoración
+ * (`decor/`) sigue siendo la de "Escenario". Las variantes de color (medusa
+ * aturdida, robot herido, medusas de otros colores) no son archivos aparte:
+ * se generan una sola vez al cargar, pintando píxel a píxel sobre un canvas.
  */
 const SPRITE_URLS = import.meta.glob<string>('./assets/spaceship/**/*.png', {
   eager: true,
@@ -42,15 +43,21 @@ export function paintSprite(width: number, height: number, paint: (ctx: PaintCon
 }
 export type DirectionalFrames = Record<Direction, Sprite[]>
 
+/**
+ * Piezas de muro. Las `wall-face-*` son el frente de un muro con piso al sur
+ * (techo negro arriba, panel, franja de peligro abajo) y miden una celda;
+ * todas empiezan en la misma fase de la franja, así cualquier par empalma.
+ * Las `wall-side-*` son la franja lateral de un muro vertical, del lado que
+ * da al piso.
+ */
 export type WallTileKey =
-  | 'wall-001'
-  | 'wall-002'
-  | 'wall-003'
-  | 'wall-004'
-  | 'wall-005'
-  | 'wall-006'
-  | 'wall-007'
-  | 'wall-008'
+  | 'wall-face-plain'
+  | 'wall-face-bracket'
+  | 'wall-face-lamp'
+  | 'wall-face-lamp-alt'
+  | 'wall-face-panel'
+  | 'wall-side-east'
+  | 'wall-side-west'
 
 export type DecorKey =
   | 'question-terminals'
@@ -104,24 +111,21 @@ export const JELLY_COLORS: ReadonlyArray<{ hueShift: number; glow: string; label
 ]
 
 const FLOOR_KEYS: FloorTileKey[] = [
-  'floor-008',
-  'floor-009',
-  'floor-010',
-  'floor-011',
-  'floor-012',
-  'floor-013',
-  'floor-014',
-  'floor-015',
+  'floor-plain',
+  'floor-shine',
+  'floor-cross',
+  'floor-cross-alt',
+  'floor-grate',
+  'floor-grate-alt',
 ]
 const WALL_KEYS: WallTileKey[] = [
-  'wall-001',
-  'wall-002',
-  'wall-003',
-  'wall-004',
-  'wall-005',
-  'wall-006',
-  'wall-007',
-  'wall-008',
+  'wall-face-plain',
+  'wall-face-bracket',
+  'wall-face-lamp',
+  'wall-face-lamp-alt',
+  'wall-face-panel',
+  'wall-side-east',
+  'wall-side-west',
 ]
 const DECOR_KEYS: DecorKey[] = [
   'question-terminals',

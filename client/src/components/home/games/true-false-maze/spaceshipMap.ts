@@ -35,14 +35,12 @@ export const SPACESHIP_ASCII: readonly string[] = [
 ]
 
 export type FloorTileKey =
-  | 'floor-008'
-  | 'floor-009'
-  | 'floor-010'
-  | 'floor-011'
-  | 'floor-012'
-  | 'floor-013'
-  | 'floor-014'
-  | 'floor-015'
+  | 'floor-plain'
+  | 'floor-shine'
+  | 'floor-cross'
+  | 'floor-cross-alt'
+  | 'floor-grate'
+  | 'floor-grate-alt'
 
 export type ShipRoom = {
   id: string
@@ -56,15 +54,15 @@ export type ShipRoom = {
 
 /** Salas de la nave: definen el piso que se dibuja y el letrero de cada una. */
 const ROOMS: ShipRoom[] = [
-  { id: 'engine-top', label: 'Motor superior', top: 1, left: 0, bottom: 3, right: 2, floor: 'floor-010' },
-  { id: 'engine-bottom', label: 'Motor inferior', top: 9, left: 0, bottom: 11, right: 2, floor: 'floor-010' },
-  { id: 'reactor', label: 'Reactor', top: 5, left: 0, bottom: 7, right: 2, floor: 'floor-014' },
-  { id: 'lab', label: 'Laboratorio', top: 1, left: 6, bottom: 3, right: 14, floor: 'floor-008' },
-  { id: 'electrical', label: 'Electricidad', top: 9, left: 6, bottom: 11, right: 14, floor: 'floor-009' },
-  { id: 'questions', label: 'Sala de preguntas', top: 5, left: 6, bottom: 7, right: 14, floor: 'floor-015' },
-  { id: 'comms', label: 'Comunicaciones', top: 1, left: 18, bottom: 3, right: 20, floor: 'floor-011' },
-  { id: 'shields', label: 'Escudos', top: 9, left: 18, bottom: 11, right: 20, floor: 'floor-011' },
-  { id: 'navigation', label: 'Navegación', top: 5, left: 18, bottom: 7, right: 20, floor: 'floor-015' },
+  { id: 'engine-top', label: 'Motor superior', top: 1, left: 0, bottom: 3, right: 2, floor: 'floor-grate' },
+  { id: 'engine-bottom', label: 'Motor inferior', top: 9, left: 0, bottom: 11, right: 2, floor: 'floor-grate' },
+  { id: 'reactor', label: 'Reactor', top: 5, left: 0, bottom: 7, right: 2, floor: 'floor-grate-alt' },
+  { id: 'lab', label: 'Laboratorio', top: 1, left: 6, bottom: 3, right: 14, floor: 'floor-cross' },
+  { id: 'electrical', label: 'Electricidad', top: 9, left: 6, bottom: 11, right: 14, floor: 'floor-cross-alt' },
+  { id: 'questions', label: 'Sala de preguntas', top: 5, left: 6, bottom: 7, right: 14, floor: 'floor-cross' },
+  { id: 'comms', label: 'Comunicaciones', top: 1, left: 18, bottom: 3, right: 20, floor: 'floor-shine' },
+  { id: 'shields', label: 'Escudos', top: 9, left: 18, bottom: 11, right: 20, floor: 'floor-shine' },
+  { id: 'navigation', label: 'Navegación', top: 5, left: 18, bottom: 7, right: 20, floor: 'floor-cross-alt' },
 ]
 
 export type ShipTile = 'void' | 'wall' | 'floor' | 'obstacle'

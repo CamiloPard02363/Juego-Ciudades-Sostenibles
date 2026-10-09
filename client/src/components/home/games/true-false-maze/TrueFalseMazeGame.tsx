@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Flame,
   LightbulbOff,
+  LogOut,
   Maximize,
   Minimize,
   Pause,
@@ -45,6 +46,8 @@ export type TrueFalseMazeGameProps = {
 const SWIPE_THRESHOLD = 18
 /** Aire entre los paneles y la nave. */
 const EDGE_GAP = 8
+/** Cuánto se ve el aviso "pausa aquí" al despegar. */
+const PAUSE_HINT_MS = 6000
 
 /**
  * Laberinto Verdadero o Falso: el robot recorre la nave y responde cada
@@ -227,27 +230,26 @@ function TrueFalseMazeSession({
   const playing = hud.phase !== 'ready' && hud.phase !== 'finished'
   const relocateEnabled = config.relocateSeconds > 0
 
-  const exitButton = (
-    <button
-      type="button"
-      aria-label="Salir"
-      className={`flex shrink-0 items-center gap-1.5 rounded-2xl border border-white/10 bg-slate-950/70 text-[12.5px] font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/10 ${
-        compactLandscape ? 'h-9 w-9 justify-center' : 'max-sm:h-10 max-sm:w-10 max-sm:justify-center sm:self-stretch sm:px-3'
-      }`}
-      onClick={onExit}
-    >
-      <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
-      {!compactLandscape && <span className="max-sm:hidden">Salir</span>}
-    </button>
+  // Al despegar por primera vez, un aviso señala el botón de pausa unos
+  // segundos (se va antes si el jugador pausa o termina la ronda). Se ajusta
+  // durante el render, al cambiar la fase, sin un efecto de por medio.
+  const [pauseHint, setPauseHint] = useState<'pending' | 'showing' | 'done'>('pending')
+  if (pauseHint === 'pending' && hud.phase === 'playing' && !paused) setPauseHint('showing')
+  if (pauseHint === 'showing' && (paused || hud.phase !== 'playing')) setPauseHint('done')
+  useEffect(() => {
+    if (pauseHint !== 'showing') return
+    const timer = window.setTimeout(() => setPauseHint('done'), PAUSE_HINT_MS)
+    return () => window.clearTimeout(timer)
+  }, [pauseHint])
+
+  const pauseButton = (
+    <PauseButton compact={compactLandscape} disabled={!playing} highlight={pauseHint === 'showing'} onClick={actions.pause} />
   )
 
   const controls = (
-    <div className="flex shrink-0 items-center gap-1.5 self-center xl:grid xl:grid-cols-2">
+    <div className="flex shrink-0 items-center gap-1.5 self-center">
       <IconButton small={compactLandscape} label={muted ? 'Activar sonido' : 'Silenciar'} onClick={actions.toggleMute}>
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-      </IconButton>
-      <IconButton small={compactLandscape} label={paused ? 'Reanudar' : 'Pausar'} onClick={actions.togglePause} disabled={!playing}>
-        {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
       </IconButton>
       <IconButton small={compactLandscape} label="Ver la guía" onClick={onOpenGuide}>
         <BookOpen className="h-4 w-4" />
@@ -271,7 +273,7 @@ function TrueFalseMazeSession({
     >
       <FitScale className="h-full w-full" minScale={0.6} align="top" contentClassName="flex flex-col gap-1.5">
         <div className="pointer-events-auto flex items-center gap-1.5">
-          {exitButton}
+          {pauseButton}
           <div className="ml-auto">{controls}</div>
         </div>
         <HudBar hud={hud} compact className="pointer-events-auto w-full" />
@@ -288,7 +290,7 @@ function TrueFalseMazeSession({
     <>
       <div ref={hudRef} className="pointer-events-none absolute inset-x-0 top-0 z-10 px-2 pt-2 sm:px-3">
         <div className="pointer-events-auto flex flex-wrap items-stretch gap-2 xl:flex-nowrap">
-          <div className="order-1 flex">{exitButton}</div>
+          <div className="order-1 flex">{pauseButton}</div>
           <div className="order-2 ml-auto flex sm:order-3 sm:ml-0 xl:order-4">{controls}</div>
           <HudBar hud={hud} className="order-3 basis-full sm:order-2 sm:basis-0 sm:flex-1 xl:flex-none xl:basis-auto" />
           <QuestionPanel
@@ -303,6 +305,12 @@ function TrueFalseMazeSession({
           <p className="pointer-events-none mx-auto mt-2 w-fit max-w-full rounded-full border border-white/10 bg-slate-950/70 px-3 py-1 text-center text-[11.5px] text-slate-300 backdrop-blur">
             Gira el teléfono para ver la nave más grande
           </p>
+        )}
+        {/* Debajo de todo el HUD: así nunca tapa la afirmación. */}
+        {pauseHint === 'showing' && (
+          <div className="pointer-events-none absolute left-2 top-full mt-1 sm:left-3">
+            <PauseHint />
+          </div>
         )}
       </div>
       {coarsePointer && (
@@ -327,7 +335,14 @@ function TrueFalseMazeSession({
 
       {!assets && <LoadingOverlay error={loadError} onExit={onExit} />}
       {assets && hud.phase === 'ready' && (
-        <ReadyOverlay total={hud.totalQuestions} lives={hud.maxLives} compact={compactLandscape} onStart={actions.start} onGuide={onOpenGuide} />
+        <ReadyOverlay
+          total={hud.totalQuestions}
+          lives={hud.maxLives}
+          compact={compactLandscape}
+          onStart={actions.start}
+          onGuide={onOpenGuide}
+          onExit={onExit}
+        />
       )}
       {hud.phase === 'intro' && hud.statement && (
         <IntroCard key={hud.questionIndex} index={hud.questionIndex} total={hud.totalQuestions} statement={hud.statement} />
@@ -335,7 +350,20 @@ function TrueFalseMazeSession({
       {hud.phase === 'feedback' && hud.result && (
         <FeedbackCard hud={hud} top={layout.insets.top} onContinue={actions.skip} compact={compactLandscape} />
       )}
-      {paused && !guideOpen && <PauseOverlay onResume={actions.resume} onGuide={onOpenGuide} onExit={onExit} />}
+      {paused && !guideOpen && (
+        <PauseOverlay
+          hud={hud}
+          muted={muted}
+          fullscreen={fullscreen}
+          canFullscreen={canFullscreen}
+          onResume={actions.resume}
+          onGuide={onOpenGuide}
+          onToggleMute={actions.toggleMute}
+          onToggleFullscreen={toggleFullscreen}
+          onRestart={actions.restart}
+          onExit={onExit}
+        />
+      )}
       {hud.phase === 'finished' && <ResultsOverlay hud={hud} compact={compactLandscape} onRestart={actions.restart} onExit={onExit} />}
     </div>
   )
@@ -367,6 +395,60 @@ function IconButton({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * Botón de pausa: siempre arriba a la izquierda, con texto (no solo un
+ * ícono) y la tecla Esc a la vista, para que lo encuentre alguien que no
+ * suele jugar videojuegos. Abre el menú de pausa.
+ */
+function PauseButton({
+  compact,
+  disabled,
+  highlight,
+  onClick,
+}: {
+  compact: boolean
+  disabled: boolean
+  /** Mientras se ve el aviso "pausa aquí", el botón brilla para que se note de qué habla. */
+  highlight: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label="Pausa"
+      aria-keyshortcuts="Escape P"
+      title="Pausar el juego (Esc)"
+      disabled={disabled}
+      className={`flex shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-cyan-300/55 bg-cyan-500/20 font-bold text-white backdrop-blur transition-[background-color,box-shadow] hover:bg-cyan-500/35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 ${
+        highlight ? 'shadow-[0_0_0_3px_rgba(103,232,249,0.55),0_0_30px_-4px_rgba(34,211,238,1)]' : 'shadow-[0_0_24px_-8px_rgba(34,211,238,0.9)]'
+      } ${compact ? 'h-9 px-3 text-[13px]' : 'h-10 px-3.5 text-[14px] sm:h-auto sm:min-w-[5rem] sm:flex-col sm:gap-0.5 sm:self-stretch sm:px-3'}`}
+      onClick={onClick}
+    >
+      <Pause className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4 sm:h-5 sm:w-5'} fill="currentColor" strokeWidth={1.5} />
+      <span className="leading-none">Pausa</span>
+      {!compact && (
+        <kbd className="hidden rounded-md border border-white/20 bg-black/30 px-1.5 font-sans text-[10px] font-semibold leading-4 text-cyan-100/85 lg:block">
+          Esc
+        </kbd>
+      )}
+    </button>
+  )
+}
+
+/** Aviso que señala el botón de pausa al empezar la primera pregunta (va justo debajo del HUD). */
+function PauseHint() {
+  return (
+    <div
+      role="status"
+      className="relative mt-2 w-max max-w-[17rem] animate-[fade-in-up_0.4s_ease-out] rounded-2xl border border-cyan-300/50 bg-slate-950/95 px-3.5 py-2 text-[12.5px] leading-snug text-slate-100 shadow-[0_14px_34px_-12px_rgba(34,211,238,0.6)]"
+    >
+      <span className="absolute -top-1.5 left-6 h-3 w-3 rotate-45 border-l border-t border-cyan-300/50 bg-slate-950" aria-hidden />
+      ¿Necesitas un respiro? Toca <b className="text-cyan-200">Pausa</b>, arriba a la izquierda, o presiona{' '}
+      <b className="text-cyan-200">Esc</b>.
+    </div>
   )
 }
 
@@ -646,12 +728,14 @@ function ReadyOverlay({
   compact,
   onStart,
   onGuide,
+  onExit,
 }: {
   total: number
   lives: number
   compact: boolean
   onStart: () => void
   onGuide: () => void
+  onExit: () => void
 }) {
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden bg-[#04050d]/45 p-3 sm:p-6">
@@ -692,8 +776,19 @@ function ReadyOverlay({
           >
             <BookOpen className="h-4 w-4" /> Ver la guía
           </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-2xl px-3 py-3 text-[13.5px] font-medium text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            onClick={onExit}
+          >
+            <ArrowLeft className="h-4 w-4" /> Salir
+          </button>
         </div>
         <p className="mt-2 text-[11.5px] text-slate-400">o presiona cualquier flecha para despegar</p>
+        <p className="mt-1 text-[11.5px] text-slate-400">
+          ¿Necesitas parar? Usa el botón <b className="text-slate-200">Pausa</b> (arriba a la izquierda) o la tecla{' '}
+          <b className="text-slate-200">Esc</b>.
+        </p>
       </OverlayCard>
     </div>
   )
@@ -786,38 +881,165 @@ function FeedbackCard({ hud, top, compact, onContinue }: { hud: TrueFalseMazeHud
   )
 }
 
-function PauseOverlay({ onResume, onGuide, onExit }: { onResume: () => void; onGuide: () => void; onExit: () => void }) {
+/**
+ * Menú de pausa: todo lo que se puede hacer sin perder la partida, en botones
+ * grandes y con texto. "Empezar de nuevo" y "Salir" piden confirmación porque
+ * pierden el progreso.
+ */
+function PauseOverlay({
+  hud,
+  muted,
+  fullscreen,
+  canFullscreen,
+  onResume,
+  onGuide,
+  onToggleMute,
+  onToggleFullscreen,
+  onRestart,
+  onExit,
+}: {
+  hud: TrueFalseMazeHud
+  muted: boolean
+  fullscreen: boolean
+  canFullscreen: boolean
+  onResume: () => void
+  onGuide: () => void
+  onToggleMute: () => void
+  onToggleFullscreen: () => void
+  onRestart: () => void
+  onExit: () => void
+}) {
+  const [confirm, setConfirm] = useState<'restart' | 'exit' | null>(null)
+
+  // Con una confirmación abierta, Esc la cierra (y no reanuda el juego).
+  useEffect(() => {
+    if (!confirm) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      setConfirm(null)
+    }
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [confirm])
+
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden bg-[#04050d]/70 p-4 backdrop-blur-sm">
-      <OverlayCard className="w-full max-w-[360px]">
-        <Pause className="mx-auto h-8 w-8 text-cyan-300" />
-        <h2 className="mt-2 font-heading text-[22px] font-bold text-white">Pausa</h2>
-        <p className="mt-1 text-[13px] text-slate-300">La nave espera por ti.</p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          <button
-            type="button"
-            className="rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-4 py-2 text-[13.5px] font-bold text-white"
-            onClick={onResume}
-          >
-            Reanudar
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 px-4 py-2 text-[13.5px] font-medium text-slate-200"
-            onClick={onGuide}
-          >
-            <BookOpen className="h-4 w-4" /> Guía
-          </button>
-          <button
-            type="button"
-            className="rounded-xl border border-white/15 px-4 py-2 text-[13.5px] font-medium text-slate-200"
-            onClick={onExit}
-          >
-            Salir
-          </button>
-        </div>
-      </OverlayCard>
+    <div
+      className="absolute inset-0 z-30 bg-[#04050d]/75 p-3 backdrop-blur-sm sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tf-pause-title"
+    >
+      <FitScale className="h-full w-full" maxWidth={540} minScale={0.55} fitKey={confirm ?? 'menu'}>
+        <OverlayCard className="w-full animate-[maze-levelup-pop_0.35s_cubic-bezier(0.16,1,0.3,1)] text-left">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/15 text-cyan-300">
+              <Pause className="h-6 w-6" fill="currentColor" strokeWidth={1.5} />
+            </span>
+            <div className="min-w-0">
+              <h2 id="tf-pause-title" className="font-heading text-[24px] font-bold leading-tight text-white">
+                Juego en pausa
+              </h2>
+              <p className="text-[13px] text-slate-300">Todo está detenido. Continúa cuando quieras.</p>
+            </div>
+          </div>
+
+          {hud.statement && (
+            <div className="mt-4 rounded-2xl border border-violet-400/25 bg-violet-500/[0.08] px-4 py-3">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-cyan-300/90">
+                Pregunta {hud.questionIndex + 1} de {hud.totalQuestions}
+              </p>
+              <p className="mt-1 text-[15px] font-semibold leading-snug text-white">{hud.statement}</p>
+              <p className="mt-1.5 text-[12px] text-slate-400">
+                {hud.lives === 1 ? 'Te queda 1 batería' : `Te quedan ${hud.lives} baterías`} · {hud.score.toLocaleString('es')} puntos
+              </p>
+            </div>
+          )}
+
+          {confirm ? (
+            <div role="alertdialog" aria-labelledby="tf-pause-confirm" className="mt-4 rounded-2xl border border-amber-300/40 bg-amber-400/10 p-4">
+              <p id="tf-pause-confirm" className="text-[16px] font-bold text-white">
+                {confirm === 'restart' ? '¿Empezar de nuevo?' : '¿Salir del juego?'}
+              </p>
+              <p className="mt-1 text-[13px] text-slate-300">Se pierde lo que llevas de esta partida.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  autoFocus
+                  className="rounded-xl bg-rose-500 px-4 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-rose-400"
+                  onClick={confirm === 'restart' ? onRestart : onExit}
+                >
+                  {confirm === 'restart' ? 'Sí, empezar de nuevo' : 'Sí, salir'}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-xl border border-white/15 px-4 py-2.5 text-[14px] font-medium text-slate-200 transition-colors hover:bg-white/10"
+                  onClick={() => setConfirm(null)}
+                >
+                  No, volver
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                autoFocus
+                className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-violet-500 to-cyan-500 px-5 py-3.5 text-[16px] font-bold text-white shadow-[0_12px_30px_-10px_rgba(34,211,238,0.7)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                onClick={onResume}
+              >
+                <Play className="h-5 w-5" fill="currentColor" /> Continuar jugando
+              </button>
+              <div className="mt-2.5 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
+                <MenuButton icon={BookOpen} label="Cómo se juega" onClick={onGuide} />
+                <MenuButton icon={muted ? VolumeX : Volume2} label={muted ? 'Sonido: apagado' : 'Sonido: encendido'} onClick={onToggleMute} />
+                {canFullscreen && (
+                  <MenuButton
+                    icon={fullscreen ? Minimize : Maximize}
+                    label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                    onClick={onToggleFullscreen}
+                  />
+                )}
+                <MenuButton icon={RotateCcw} label="Empezar de nuevo" onClick={() => setConfirm('restart')} />
+              </div>
+              <button
+                type="button"
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-400/30 px-4 py-3 text-[14px] font-semibold text-rose-200 transition-colors hover:bg-rose-500/15"
+                onClick={() => setConfirm('exit')}
+              >
+                <LogOut className="h-4 w-4" /> Salir del juego
+              </button>
+            </>
+          )}
+
+          <p className="mt-3 text-center text-[11.5px] text-slate-400">
+            Atajo: <Key>Esc</Key> o <Key>P</Key> pausa y continúa · <Key>Espacio</Key> continúa
+          </p>
+        </OverlayCard>
+      </FitScale>
     </div>
+  )
+}
+
+function MenuButton({ icon: Icon, label, onClick }: { icon: typeof Play; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="flex min-h-[3rem] items-center gap-2.5 rounded-2xl border border-white/12 bg-white/[0.06] px-3.5 py-2.5 text-left text-[14px] font-semibold leading-tight text-slate-100 transition-colors hover:bg-white/[0.12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+      onClick={onClick}
+    >
+      <Icon className="h-5 w-5 shrink-0 text-cyan-300" />
+      {label}
+    </button>
+  )
+}
+
+function Key({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="rounded-md border border-white/20 bg-white/10 px-1.5 py-px font-sans text-[10.5px] font-semibold text-slate-200">
+      {children}
+    </kbd>
   )
 }
 

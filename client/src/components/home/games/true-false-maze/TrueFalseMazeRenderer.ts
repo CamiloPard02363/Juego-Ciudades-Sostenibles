@@ -37,13 +37,40 @@ export const CELL = 48
  * solo el borde del casco. Es chico a propósito: el espacio que sobra en la
  * pantalla lo llena el fondo, no márgenes vacíos alrededor del mapa.
  */
-export const PAD = { left: 66, right: 14, top: 8, bottom: 14 }
+export const PAD = { left: 66, right: 14, top: 12, bottom: 14 }
 
 /** Espacio que ocupan los paneles encima del canvas (HUD, cruceta): la nave se centra en el resto. */
 export type Insets = { top: number; right: number; bottom: number; left: number }
 const NO_INSETS: Insets = { top: 0, right: 0, bottom: 0, left: 0 }
 /** Tope de píxeles por capa: en una pantalla 4K con ratio 2 serían ~33 MP y cada capa pesaría 130 MB. */
 const MAX_LAYER_PIXELS = 4_200_000
+/**
+ * Cuánto más grande que "cabe entera" puede verse la nave. Si la pantalla
+ * tiene otra proporción que la nave, en vez de dejar franjas vacías a los
+ * lados la nave se agranda hasta cubrir el espacio libre y la cámara sigue
+ * al robot; el tope evita que quede demasiado mapa fuera de la vista.
+ */
+export const MAX_ZOOM = 2.1
+/** Retraso de la cámara al seguir al robot (ms): se desliza, no salta. */
+const CAMERA_LAG_MS = 170
+
+/** Escala (px por unidad) de la nave en el espacio libre: cubre todo el espacio, con el tope de MAX_ZOOM. */
+export function fitShipScale(availWidth: number, availHeight: number, shipWidth: number, shipHeight: number, maxZoom = MAX_ZOOM): number {
+  const contain = Math.min(availWidth / shipWidth, availHeight / shipHeight)
+  const cover = Math.max(availWidth / shipWidth, availHeight / shipHeight)
+  return Math.min(cover, contain * maxZoom)
+}
+
+/**
+ * Centro de la cámara en un eje (en unidades de la nave): sigue al objetivo
+ * pero nunca muestra más allá del borde de la nave. Si en ese eje la nave
+ * cabe entera, queda centrada.
+ */
+export function clampCameraAxis(target: number, viewSize: number, shipSize: number): number {
+  if (shipSize <= viewSize) return shipSize / 2
+  const half = viewSize / 2
+  return Math.min(shipSize - half, Math.max(half, target))
+}
 
 const FONT = "'Space Grotesk', 'Manrope', system-ui, sans-serif"
 const ROBOT_SOURCE_HEIGHT = 98
@@ -52,6 +79,18 @@ const JELLY_SOURCE_HEIGHT = 92
 const ROBOT_DRAW_HEIGHT = CELL * 1.75
 const JELLY_DRAW_HEIGHT = CELL * 1.55
 const ZONE_DRAW_WIDTH = CELL * 2.3
+
+/**
+ * Techo de los muros, con los colores de los sprites de "EscenearioPrueba2":
+ * negro, con un borde azul metido un poco hacia adentro (el contorno queda
+ * afuera) y el contorno negro grueso donde termina un tramo de muro.
+ */
+const WALL_TOP = '#030408'
+const WALL_RIM = '#252c3c'
+const WALL_OUTLINE = '#000000'
+const WALL_RIM_INSET = 0.85
+const WALL_RIM_WIDTH = 1.7
+const WALL_END = 2.2
 
 const ZONE_STYLE: Record<ZoneKind, { main: string; light: string; dark: string; label: string; icon: string }> = {
   TRUE: { main: '#22c55e', light: '#86efac', dark: '#14532d', label: 'VERDADERO', icon: '✓' },
@@ -180,14 +219,21 @@ export class TrueFalseMazeRenderer {
    * Dos sistemas de coordenadas. El "mundo" cubre todo el canvas (fondo,
    * estrellas, viñeta, apagón, destellos) y mide `worldWidth x worldHeight`
    * unidades. La nave se dibuja en su propio sistema (el de PAD/CELL) y se
-   * traslada a (shipX, shipY) dentro del mundo, centrada en el espacio que
-   * dejan los paneles. `k` son píxeles de canvas por unidad.
+   * traslada a (shipX, shipY) dentro del mundo: la cámara la mueve para
+   * seguir al robot dentro de `view`, el rectángulo que dejan libre los
+   * paneles. `scale` son px de pantalla por unidad y `k` px de canvas por unidad.
    */
   private worldWidth = 0
   private worldHeight = 0
   private shipX = 0
   private shipY = 0
+  private scale = 1
   private k = 1
+  private view = { x: 0, y: 0, width: 0, height: 0 }
+  /** Centro de la cámara en unidades de la nave; `cameraReady` en false hace que el próximo frame salte directo al robot. */
+  private camX = 0
+  private camY = 0
+  private cameraReady = false
   private layoutKey = ''
   private staticLayer: HTMLCanvasElement | null = null
   private background: HTMLCanvasElement | null = null
@@ -227,27 +273,33 @@ export class TrueFalseMazeRenderer {
   /**
    * Ajusta el canvas a la pantalla: `cssWidth x cssHeight` es el tamaño en
    * pantalla (el canvas ocupa todo) e `insets` el espacio tapado por paneles.
-   * La nave se escala al máximo que cabe en el resto y se centra ahí; el
-   * fondo cubre todo, así no quedan franjas vacías. Redibuja las capas fijas
-   * solo si algo cambió.
+   * La nave llena el resto sin dejar franjas vacías (ver fitShipScale) y la
+   * cámara la recorre siguiendo al robot. Redibuja las capas fijas solo si
+   * algo cambió.
    */
   resize(cssWidth: number, cssHeight: number, devicePixelRatio: number, insets: Insets = NO_INSETS) {
-    const dpr = Math.max(1, Math.min(devicePixelRatio, 2, Math.sqrt(MAX_LAYER_PIXELS / Math.max(1, cssWidth * cssHeight))))
+    const availWidth = Math.max(120, cssWidth - insets.left - insets.right)
+    const availHeight = Math.max(120, cssHeight - insets.top - insets.bottom)
+    const scale = fitShipScale(availWidth, availHeight, this.shipWidth, this.shipHeight)
+    // La capa de la nave puede ser más grande que la pantalla: el tope de píxeles cuenta las dos.
+    const largest = Math.max(1, cssWidth * cssHeight, this.shipWidth * this.shipHeight * scale * scale)
+    const dpr = Math.max(1, Math.min(devicePixelRatio, 2, Math.sqrt(MAX_LAYER_PIXELS / largest)))
     const key = [cssWidth, cssHeight, dpr.toFixed(3), insets.top, insets.right, insets.bottom, insets.left].join('|')
     if (key === this.layoutKey && this.staticLayer) return
     this.layoutKey = key
 
-    const availWidth = Math.max(120, cssWidth - insets.left - insets.right)
-    const availHeight = Math.max(120, cssHeight - insets.top - insets.bottom)
-    const scale = Math.min(availWidth / this.shipWidth, availHeight / this.shipHeight)
-
     this.canvas.width = Math.max(1, Math.round(cssWidth * dpr))
     this.canvas.height = Math.max(1, Math.round(cssHeight * dpr))
+    this.scale = scale
     this.worldWidth = cssWidth / scale
     this.worldHeight = cssHeight / scale
     this.k = this.canvas.width / this.worldWidth
-    this.shipX = (insets.left + (availWidth - this.shipWidth * scale) / 2) / scale
-    this.shipY = (insets.top + (availHeight - this.shipHeight * scale) / 2) / scale
+    this.view = { x: insets.left / scale, y: insets.top / scale, width: availWidth / scale, height: availHeight / scale }
+    if (!this.cameraReady) {
+      this.camX = this.shipWidth / 2
+      this.camY = this.shipHeight / 2
+    }
+    this.applyCamera()
 
     this.glowCache.clear()
     this.buildStars()
@@ -283,6 +335,54 @@ export class TrueFalseMazeRenderer {
     this.shake = 0
     this.flash = null
     this.lightsLevel = 0
+    this.cameraReady = false
+  }
+
+  // ==================== Cámara ====================
+
+  /** Lo que sigue la cámara: el robot donde se dibuja (también viajando por una rejilla o atrapado). */
+  private cameraTarget(state: TfState): { x: number; y: number } {
+    const player = state.player
+    let point: { row: number; col: number } = interpolatedPosition(player)
+    if (player.vent) {
+      const t = Math.min(1, (state.worldTime - player.vent.startedAt) / VENT_TRAVEL_MS)
+      point = t < 0.5 ? player.vent.from : player.vent.to
+    }
+    if (state.phase === 'caught' && state.caught) point = state.caught.cell
+    // Un poco sobre los pies: el cuerpo del robot sube más de una celda.
+    return { x: this.cellX(point.col), y: this.cellY(point.row) - CELL * 0.35 }
+  }
+
+  private updateCamera(state: TfState, dt: number) {
+    const target = this.cameraTarget(state)
+    const x = clampCameraAxis(target.x, this.view.width, this.shipWidth)
+    const y = clampCameraAxis(target.y, this.view.height, this.shipHeight)
+    if (!this.cameraReady) {
+      this.camX = x
+      this.camY = y
+      this.cameraReady = true
+    } else {
+      const follow = 1 - Math.exp(-dt / (this.reducedMotion ? 60 : CAMERA_LAG_MS))
+      this.camX += (x - this.camX) * follow
+      this.camY += (y - this.camY) * follow
+    }
+    this.applyCamera()
+  }
+
+  /** ¿Se ve la sala? Cuenta el centro del sprite (que es más alto que su celda) dentro de la vista. */
+  private zoneOnScreen(cell: CellPosition): boolean {
+    const x = this.shipX + this.cellX(cell.col)
+    const y = this.shipY + this.cellY(cell.row) - CELL * 0.45
+    const { view } = this
+    return x >= view.x && x <= view.x + view.width && y >= view.y && y <= view.y + view.height
+  }
+
+  /** Traslada la nave para que el centro de la cámara quede en el centro de la vista. */
+  private applyCamera() {
+    this.camX = clampCameraAxis(this.camX, this.view.width, this.shipWidth)
+    this.camY = clampCameraAxis(this.camY, this.view.height, this.shipHeight)
+    this.shipX = this.view.x + this.view.width / 2 - this.camX
+    this.shipY = this.view.y + this.view.height / 2 - this.camY
   }
 
   // ==================== Coordenadas ====================
@@ -335,8 +435,7 @@ export class TrueFalseMazeRenderer {
     this.drawFloorDecals(ctx)
     this.drawFloorShadows(ctx)
     this.drawHullRim(ctx)
-    this.drawWallFaces(ctx)
-    this.drawWallTops(ctx)
+    this.drawWalls(ctx)
     this.drawWallDecor(ctx)
     this.drawRoomLabels(ctx)
     ctx.restore()
@@ -345,24 +444,21 @@ export class TrueFalseMazeRenderer {
 
   private drawFloors(ctx: CanvasRenderingContext2D) {
     const { map } = this
+    // Base oscura bajo toda la nave: entre dos tiles escalados queda a veces
+    // un borde semitransparente, y así no se cuela el espacio por la costura.
+    ctx.fillStyle = WALL_TOP
+    for (let row = 0; row < map.rows; row++) {
+      for (let col = 0; col < map.cols; col++) {
+        if (this.tileAt(row, col) !== 'void') ctx.fillRect(col * CELL - 0.5, row * CELL - 0.5, CELL + 1, CELL + 1)
+      }
+    }
     for (let row = 0; row < map.rows; row++) {
       for (let col = 0; col < map.cols; col++) {
         if (!this.isFloorish(row, col)) continue
-        const x = col * CELL
-        const y = row * CELL
+        // Un panel por celda: cada sala tiene su piso y los pasillos alternan dos.
         const room = roomAt(map, { row, col })
-        if (room) {
-          // Placas grandes de 2x2 celdas: el piso de las salas se ve menos cuadriculado.
-          const tile = this.assets.floors[room.floor]
-          const sw = tile.width / 2
-          const sh = tile.height / 2
-          const sx = ((col - room.left) % 2) * sw
-          const sy = ((row - room.top) % 2) * sh
-          ctx.drawImage(tile, sx, sy, sw, sh, x, y, CELL, CELL)
-        } else {
-          const tile = this.assets.floors[hashCell(row, col) % 7 === 0 ? 'floor-012' : 'floor-013']
-          ctx.drawImage(tile, x, y, CELL, CELL)
-        }
+        const key = room ? room.floor : hashCell(row, col) % 9 === 0 ? 'floor-shine' : 'floor-plain'
+        ctx.drawImage(this.assets.floors[key], col * CELL, row * CELL, CELL, CELL)
       }
     }
   }
@@ -440,43 +536,58 @@ export class TrueFalseMazeRenderer {
   }
 
   /**
-   * Caras de muro (muros con piso al sur), estilo 3/4 de Among Us: en cada
-   * tramo horizontal, los extremos que doblan hacia abajo usan las piezas de
-   * esquina y el medio alterna las rectas (tuberías, rejilla, cables).
+   * Muros con las piezas de "EscenearioPrueba2", en 3/4 como en Among Us.
+   * Un muro con piso al sur muestra su frente (techo negro arriba, panel y
+   * franja de peligro abajo); el resto es techo negro con borde azul, y si da
+   * a un piso por el este o el oeste, lleva la franja lateral de peligro.
    */
-  private drawWallFaces(ctx: CanvasRenderingContext2D) {
+  private drawWalls(ctx: CanvasRenderingContext2D) {
     const { walls } = this.assets
+    const faces: WallTileKey[] = ['wall-face-plain', 'wall-face-bracket', 'wall-face-plain', 'wall-face-lamp', 'wall-face-plain', 'wall-face-lamp-alt']
     for (let row = 0; row < this.map.rows; row++) {
-      let col = 0
-      while (col < this.map.cols) {
-        if (!this.isFace(row, col)) {
-          col++
+      for (let col = 0; col < this.map.cols; col++) {
+        if (!this.isWall(row, col)) continue
+        const x = col * CELL
+        const y = row * CELL
+        if (this.isFace(row, col)) {
+          // Un muro de una sola celda usa el panel con lámpara (sin tubería cortada a los dos lados).
+          const single = !this.isWall(row, col - 1) && !this.isWall(row, col + 1)
+          ctx.drawImage(walls[single ? 'wall-face-panel' : faces[(row * 5 + col) % faces.length]], x, y, CELL, CELL)
+          // Si el muro sigue hacia el norte, el techo continúa sin el borde superior del sprite.
+          if (this.isWall(row - 1, col)) {
+            ctx.fillStyle = WALL_TOP
+            ctx.fillRect(x, y, CELL, CELL * 0.12)
+          }
+          // Donde termina el tramo, el contorno negro grueso de los sprites.
+          for (const side of [-1, 1]) {
+            if (this.isFace(row, col + side)) continue
+            const top = this.isWall(row, col + side) ? y + CELL * 0.22 : y
+            ctx.fillStyle = WALL_OUTLINE
+            ctx.fillRect(side < 0 ? x : x + CELL - WALL_END, top, WALL_END, y + CELL - top)
+          }
           continue
         }
-        const start = col
-        while (col < this.map.cols && this.isFace(row, col)) col++
-        const end = col - 1
-        for (let c = start; c <= end; c++) {
-          const leftWall = this.isWall(row, c - 1) && !this.isFace(row, c - 1)
-          const rightWall = this.isWall(row, c + 1) && !this.isFace(row, c + 1)
-          let key: WallTileKey
-          if (start === end && this.isWall(row, c - 1) && this.isWall(row, c + 1)) {
-            key = (row + c) % 2 === 0 ? 'wall-004' : 'wall-006'
-          } else if (c === start && leftWall) {
-            key = 'wall-005'
-          } else if (c === end && rightWall) {
-            key = (row + c) % 2 === 0 ? 'wall-003' : 'wall-008'
-          } else {
-            const options: WallTileKey[] = ['wall-001', 'wall-002', 'wall-001', 'wall-007']
-            key = options[(row * 7 + c * 3) % options.length]
-          }
-          ctx.drawImage(walls[key], c * CELL, row * CELL, CELL, CELL)
+        ctx.fillStyle = WALL_TOP
+        ctx.fillRect(x, y, CELL, CELL)
+        ctx.fillStyle = WALL_RIM
+        if (!this.isWall(row - 1, col)) ctx.fillRect(x, y + WALL_RIM_INSET, CELL, WALL_RIM_WIDTH)
+        if (!this.isWall(row + 1, col)) ctx.fillRect(x, y + CELL - WALL_RIM_INSET - WALL_RIM_WIDTH, CELL, WALL_RIM_WIDTH)
+        if (!this.isWall(row, col - 1)) ctx.fillRect(x + WALL_RIM_INSET, y, WALL_RIM_WIDTH, CELL)
+        if (!this.isWall(row, col + 1)) ctx.fillRect(x + CELL - WALL_RIM_INSET - WALL_RIM_WIDTH, y, WALL_RIM_WIDTH, CELL)
+        if (this.isFloorish(row, col + 1)) {
+          const strip = walls['wall-side-east']
+          const width = (strip.width / strip.height) * CELL
+          ctx.drawImage(strip, x + CELL - width, y, width, CELL)
+        }
+        if (this.isFloorish(row, col - 1)) {
+          const strip = walls['wall-side-west']
+          ctx.drawImage(strip, x, y, (strip.width / strip.height) * CELL, CELL)
         }
       }
     }
   }
 
-  /** Borde de casco (chapa con remaches) donde el piso termina frente al espacio exterior. */
+  /** Borde de casco (chapa con remaches) donde la nave termina frente al espacio exterior. */
   private drawHullRim(ctx: CanvasRenderingContext2D) {
     const rim = 9
     const strip = (x: number, y: number, w: number, h: number, horizontal: boolean) => {
@@ -495,99 +606,23 @@ export class TrueFalseMazeRenderer {
     }
     for (let row = 0; row < this.map.rows; row++) {
       for (let col = 0; col < this.map.cols; col++) {
-        if (!this.isFloorish(row, col)) continue
+        if (this.tileAt(row, col) === 'void') continue
         const x = col * CELL
         const y = row * CELL
-        if (this.tileAt(row, col - 1) === 'void') strip(x - rim, y, rim, CELL, false)
-        if (this.tileAt(row, col + 1) === 'void') strip(x + CELL, y, rim, CELL, false)
-        if (this.tileAt(row + 1, col) === 'void') strip(x, y + CELL, CELL, rim, true)
-      }
-    }
-  }
-
-  /**
-   * Techo de los muros (los que no muestran su cara): chapa metálica con
-   * relieve, remaches y paneles de luz — no un bloque negro. Los muros son
-   * de una sola celda, así que son franjas finas con borde claro donde
-   * dan al piso.
-   */
-  private drawWallTops(ctx: CanvasRenderingContext2D) {
-    for (let row = 0; row < this.map.rows; row++) {
-      for (let col = 0; col < this.map.cols; col++) {
-        if (!this.isWall(row, col) || this.isFace(row, col)) continue
-        const x = col * CELL
-        const y = row * CELL
-        const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL)
-        gradient.addColorStop(0, '#46526c')
-        gradient.addColorStop(1, '#2b3449')
-        ctx.fillStyle = gradient
-        ctx.fillRect(x, y, CELL, CELL)
-
-        // Costura del panel y remaches.
-        ctx.strokeStyle = 'rgba(8, 12, 24, 0.5)'
-        ctx.lineWidth = 1.5
-        ctx.strokeRect(x + 5.5, y + 5.5, CELL - 11, CELL - 11)
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.09)'
-        ctx.lineWidth = 1
-        ctx.strokeRect(x + 7, y + 7, CELL - 14, CELL - 14)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.24)'
-        for (const [rx, ry] of [
-          [10, 10],
-          [CELL - 10, 10],
-          [10, CELL - 10],
-          [CELL - 10, CELL - 10],
-        ]) {
-          ctx.beginPath()
-          ctx.arc(x + rx, y + ry, 1.7, 0, Math.PI * 2)
-          ctx.fill()
-        }
-
-        // Detalle según la celda: panel de luz, rejilla o nada (para no repetirse).
-        const variant = hashCell(row, col) % 7
-        if (variant === 0 || variant === 3) {
-          const color = variant === 0 ? '#22d3ee' : '#fbbf24'
-          ctx.fillStyle = 'rgba(8, 12, 24, 0.55)'
-          roundedRect(ctx, x + CELL / 2 - 10, y + CELL / 2 - 3.5, 20, 7, 3)
-          ctx.fill()
-          ctx.fillStyle = color
-          ctx.globalAlpha = 0.85
-          roundedRect(ctx, x + CELL / 2 - 8, y + CELL / 2 - 1.8, 16, 3.6, 1.8)
-          ctx.fill()
-          ctx.globalAlpha = 1
-        } else if (variant === 1) {
-          ctx.strokeStyle = 'rgba(8, 12, 24, 0.6)'
-          ctx.lineWidth = 2
-          for (let i = -2; i <= 2; i++) {
-            ctx.beginPath()
-            ctx.moveTo(x + CELL / 2 - 11, y + CELL / 2 + i * 4.5)
-            ctx.lineTo(x + CELL / 2 + 11, y + CELL / 2 + i * 4.5)
-            ctx.stroke()
-          }
-        }
-
-        // Borde claro hacia el piso (grosor del muro) y casco hacia el espacio.
-        const sides: Array<[number, number, [number, number, number, number]]> = [
-          [-1, 0, [x, y, CELL, 4]],
-          [1, 0, [x, y + CELL - 4, CELL, 4]],
-          [0, -1, [x, y, 4, CELL]],
-          [0, 1, [x + CELL - 4, y, 4, CELL]],
-        ]
-        for (const [dr, dc, rect] of sides) {
-          const tile = this.tileAt(row + dr, col + dc)
-          if (tile === 'void') {
-            ctx.fillStyle = '#b5bfd3'
-            ctx.fillRect(...rect)
-          } else if (tile === 'floor' || tile === 'obstacle') {
-            ctx.fillStyle = '#8f9cb6'
-            ctx.fillRect(...rect)
-            ctx.fillStyle = 'rgba(8, 12, 24, 0.55)'
-            const [rx, ry, rw, rh] = rect
-            if (dr === 1) ctx.fillRect(rx, ry + rh, rw, 1.5)
-            else if (dr === -1) ctx.fillRect(rx, ry - 1.5, rw, 1.5)
-            else if (dc === 1) ctx.fillRect(rx + rw, ry, 1.5, rh)
-            else ctx.fillRect(rx - 1.5, ry, 1.5, rh)
-          }
-        }
+        const left = this.tileAt(row, col - 1) === 'void'
+        const right = this.tileAt(row, col + 1) === 'void'
+        const below = this.tileAt(row + 1, col) === 'void'
+        const above = this.tileAt(row - 1, col) === 'void'
+        if (left) strip(x - rim, y, rim, CELL, false)
+        if (right) strip(x + CELL, y, rim, CELL, false)
+        if (below) strip(x, y + CELL, CELL, rim, true)
+        if (above) strip(x, y - rim, CELL, rim, true)
+        // Esquinas del casco: el cuadradito donde se juntan dos bordes.
+        ctx.fillStyle = '#6b7791'
+        if (left && above) ctx.fillRect(x - rim, y - rim, rim, rim)
+        if (right && above) ctx.fillRect(x + CELL, y - rim, rim, rim)
+        if (left && below) ctx.fillRect(x - rim, y + CELL, rim, rim)
+        if (right && below) ctx.fillRect(x + CELL, y + CELL, rim, rim)
       }
     }
   }
@@ -1009,6 +1044,7 @@ export class TrueFalseMazeRenderer {
     const now = state.now
     const dt = Math.min(dtMs, 64)
     this.update(state, dt)
+    this.updateCamera(state, dt)
 
     ctx.setTransform(this.k, 0, 0, this.k, 0, 0)
     ctx.imageSmoothingEnabled = true
@@ -1045,6 +1081,86 @@ export class TrueFalseMazeRenderer {
     ctx.restore()
 
     this.drawScreenEffects(ctx, state)
+    this.drawZoneIndicators(ctx, state)
+  }
+
+  /**
+   * Si la cámara deja una sala fuera de la vista, un letrero en el borde
+   * apunta hacia ella: nunca hay que buscar a ciegas dónde responder.
+   */
+  private drawZoneIndicators(ctx: CanvasRenderingContext2D, state: TfState) {
+    if (state.phase !== 'playing' && state.phase !== 'intro') return
+    const { view } = this
+    // Tamaños en px de pantalla convertidos a unidades: se leen igual con cualquier zoom.
+    const px = 1 / this.scale
+    const fontSize = Math.min(19, Math.max(13, 14 * this.scale)) * px
+    const edge = 10 * px
+    const placed: Array<{ x: number; y: number; w: number; h: number }> = []
+    ctx.save()
+    ctx.font = `700 ${fontSize}px ${FONT}`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    for (const kind of ['TRUE', 'FALSE'] as const) {
+      const zone = state.zones[kind]
+      if (!zone.pos || state.now < zone.shownAt || this.zoneOnScreen(zone.pos)) continue
+      // Centro del sprite de la sala, en coordenadas del mundo.
+      const zx = this.shipX + this.cellX(zone.pos.col)
+      const zy = this.shipY + this.cellY(zone.pos.row) - CELL * 0.45
+
+      const style = ZONE_STYLE[kind]
+      const label = `${style.icon} ${style.label}`
+      const w = ctx.measureText(label).width + fontSize * 1.6
+      const h = fontSize * 2
+      // Margen para la flecha, que va por fuera del letrero.
+      const room = edge + fontSize * 1.4
+      let x = Math.min(view.x + view.width - room - w / 2, Math.max(view.x + room + w / 2, zx))
+      let y = Math.min(view.y + view.height - room - h / 2, Math.max(view.y + room + h / 2, zy))
+      // Si las dos salas quedan del mismo lado, la segunda se corre para no tapar a la primera.
+      for (const other of placed) {
+        if (Math.abs(other.x - x) < (other.w + w) / 2 + edge && Math.abs(other.y - y) < (other.h + h) / 2 + edge / 2) {
+          const onSide = x <= view.x + room + w / 2 + 1 || x >= view.x + view.width - room - w / 2 - 1
+          if (onSide) y = other.y + (y >= other.y ? 1 : -1) * (other.h / 2 + h / 2 + edge / 2)
+          else x = other.x + (x >= other.x ? 1 : -1) * (other.w / 2 + w / 2 + edge)
+        }
+      }
+      placed.push({ x, y, w, h })
+
+      const angle = Math.atan2(zy - y, zx - x)
+      const bob = this.reducedMotion ? 0 : Math.sin(state.now / 190) * 3 * px
+      const bx = x + Math.cos(angle) * bob
+      const by = y + Math.sin(angle) * bob
+      ctx.shadowColor = style.main
+      ctx.shadowBlur = 14 * px
+      ctx.fillStyle = style.dark
+      roundedRect(ctx, bx - w / 2, by - h / 2, w, h, h / 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.strokeStyle = style.light
+      ctx.lineWidth = 2 * px
+      ctx.stroke()
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(label, bx, by + 0.5 * px)
+
+      // Flecha fuera del letrero, apuntando a la sala.
+      const reach = Math.min(w, h) / 2 + Math.abs(Math.cos(angle)) * (w - h) / 2 + 5 * px
+      const ax = bx + Math.cos(angle) * reach
+      const ay = by + Math.sin(angle) * reach
+      const size = fontSize * 0.75
+      ctx.save()
+      ctx.translate(ax, ay)
+      ctx.rotate(angle)
+      ctx.beginPath()
+      ctx.moveTo(size, 0)
+      ctx.lineTo(-size * 0.55, -size * 0.75)
+      ctx.lineTo(-size * 0.55, size * 0.75)
+      ctx.closePath()
+      ctx.fillStyle = style.light
+      ctx.shadowColor = style.main
+      ctx.shadowBlur = 10 * px
+      ctx.fill()
+      ctx.restore()
+    }
+    ctx.restore()
   }
 
   private update(state: TfState, dt: number) {
@@ -1532,15 +1648,20 @@ export class TrueFalseMazeRenderer {
       ctx.stroke()
     }
 
-    // Letrero sobre la sala: la palabra completa, grande y legible.
-    if (zone.scale > 0.4) {
+    // Letrero sobre la sala: la palabra completa, grande y legible. Si la sala
+    // queda fuera de la vista no se dibuja (lo reemplaza el letrero del borde,
+    // ver drawZoneIndicators); si está cerca del borde, se corre hacia adentro.
+    if (zone.scale > 0.4 && this.zoneOnScreen(zone.cell)) {
       const label = `${style.icon} ${style.label}`
       ctx.font = `700 ${16 * Math.min(1, zone.scale)}px ${FONT}`
       const textWidth = ctx.measureText(label).width
       const pillW = textWidth + 22
       const pillH = 27
-      const pillX = x - pillW / 2
-      const pillY = Math.max(4, top - pillH - 2 + Math.sin(now / 300) * 1.5)
+      const viewLeft = this.view.x - this.shipX + 6
+      const viewRight = this.view.x + this.view.width - this.shipX - 6
+      const viewTop = this.view.y - this.shipY + 6
+      const pillX = Math.min(viewRight - pillW, Math.max(viewLeft, x - pillW / 2))
+      const pillY = Math.max(viewTop, 4, top - pillH - 2 + Math.sin(now / 300) * 1.5)
       ctx.shadowColor = style.main
       ctx.shadowBlur = zone.highlight === 'answer' ? 22 + Math.sin(now / 120) * 9 : 12
       ctx.fillStyle = style.dark
@@ -1553,7 +1674,7 @@ export class TrueFalseMazeRenderer {
       ctx.fillStyle = '#ffffff'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(label, x, pillY + pillH / 2 + 0.5)
+      ctx.fillText(label, pillX + pillW / 2, pillY + pillH / 2 + 0.5)
     }
     ctx.restore()
 
