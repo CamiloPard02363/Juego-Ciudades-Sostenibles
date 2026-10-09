@@ -20,6 +20,7 @@ import { listSubjects, type SubjectWithGameCount } from '../../../services/subje
 import { iconForCategory } from '../gamesCatalogVisuals'
 import { Modal } from '../games/Modal'
 import { ClassHomeMetrics } from '../metrics/ClassHomeMetrics'
+import { InviteStudentToClassModal } from '../metrics/InviteStudentToClassModal'
 
 export function MyClassesPage() {
   const { token, user } = useAuth()
@@ -140,7 +141,14 @@ export function MyClassesPage() {
   const activeClass = classId ? classes.find((c) => c.id === classId) ?? null : null
 
   if (classId) {
-    return <ClassDetail classId={classId} classInfo={activeClass} onBack={() => navigate('/mis-clases')} />
+    return (
+      <ClassDetail
+        classId={classId}
+        classInfo={activeClass}
+        onBack={() => navigate('/mis-clases')}
+        onReload={reloadClasses}
+      />
+    )
   }
 
   return (
@@ -362,10 +370,12 @@ function ClassDetail({
   classId,
   classInfo,
   onBack,
+  onReload,
 }: {
   classId: string
   classInfo: TeacherClassDetail | null
   onBack: () => void
+  onReload: () => void
 }) {
   const { token } = useAuth()
   const { showToast } = useToast()
@@ -375,6 +385,7 @@ function ClassDetail({
   const [error, setError] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   function reload() {
     if (!token) return
@@ -471,9 +482,19 @@ function ClassDetail({
       </div>
 
       <div className="rounded-2xl border border-border p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Users className="h-[18px] w-[18px] text-text" strokeWidth={2} />
-          <h3 className="text-[15px] font-semibold text-text-h">Estudiantes matriculados</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-[18px] w-[18px] text-text" strokeWidth={2} />
+            <h3 className="text-[15px] font-semibold text-text-h">Estudiantes matriculados</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowInviteModal(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-text-h hover:border-accent"
+          >
+            <Plus className="h-[15px] w-[15px]" strokeWidth={2} />
+            Invitar estudiante
+          </button>
         </div>
         {!classInfo || classInfo.students.length === 0 ? (
           <p className="text-[14px] text-text">Todavía no hay estudiantes matriculados en esta clase.</p>
@@ -555,6 +576,15 @@ function ClassDetail({
             setShowAddModal(false)
             reload()
           }}
+        />
+      )}
+
+      {showInviteModal && (
+        <InviteStudentToClassModal
+          classId={classId}
+          className={classInfo?.name ?? 'esta clase'}
+          onClose={() => setShowInviteModal(false)}
+          onLinked={onReload}
         />
       )}
     </section>

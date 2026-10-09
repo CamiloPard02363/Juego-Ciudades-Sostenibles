@@ -76,5 +76,6 @@ export function useClassStudentsManagement(classId: string) {
     loading,
     error,
     removeStudent,
+    reload,
   }
 }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { UserModule } from './user.module.js';
 import { OrganizationCoreModule } from './organization-core.module.js';
 import { ClassCoreModule } from './class-core.module.js';
+import { InvitationCoreModule } from './invitation-core.module.js';
 import { GAME_REPOSITORY } from '../domain/ports/game.repository.port.js';
 import { MongoService } from './persistence/mongo/mongo.service.js';
 import { MongoGameRepository } from './persistence/mongo/mongo-game.repository.js';
@@ -23,11 +24,13 @@ import { RequesterAdminResolver } from '../application/services/requester-admin-
 import { ClassAccessResolver } from '../application/services/class-access-resolver.service.js';
 import { SetClassGameArchivedUseCase } from '../application/use-cases/set-class-game-archived.use-case.js';
 import { GetClassStudentsUseCase } from '../application/use-cases/get-class-students.use-case.js';
+import { InviteStudentToClassUseCase } from '../application/use-cases/invite-student-to-class.use-case.js';
+import { ListClassInvitationsUseCase } from '../application/use-cases/list-class-invitations.use-case.js';
 import { RolesGuard } from './http/guards/roles.guard.js';
 import { ClassController } from './http/controllers/class.controller.js';
 
 @Module({
-  imports: [UserModule, OrganizationCoreModule, ClassCoreModule],
+  imports: [UserModule, OrganizationCoreModule, ClassCoreModule, InvitationCoreModule],
   controllers: [ClassController],
   providers: [
     MongoService,
@@ -51,6 +54,8 @@ import { ClassController } from './http/controllers/class.controller.js';
     ReactivateClassUseCase,
     SetClassGameArchivedUseCase,
     GetClassStudentsUseCase,
+    InviteStudentToClassUseCase,
+    ListClassInvitationsUseCase,
   ],
 })
 export class ClassModule {}

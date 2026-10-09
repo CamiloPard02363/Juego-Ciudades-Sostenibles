@@ -88,6 +88,13 @@ import { AuthController } from './http/controllers/auth.controller.js';
     ResetUserPasswordUseCase,
     UpdateUserProfileByAdminUseCase,
   ],
-  exports: [JwtModule, USER_REPOSITORY, ID_GENERATOR],
+  exports: [
+    JwtModule,
+    USER_REPOSITORY,
+    ID_GENERATOR,
+    PASSWORD_HASHER,
+    OPAQUE_TOKEN_GENERATOR,
+    TokenPairIssuer,
+  ],
 })
 export class UserModule {}

@@ -52,6 +52,7 @@ model UserModel {
   subjectsCreated          SubjectModel[]
   identityProviderAccounts IdentityProviderAccountModel[]
   gamePlayResults          GamePlayResultModel[]
+  invitationsSent          InvitationModel[]
 
   @@map("users")
 }
@@ -116,6 +117,7 @@ model OrganizationModel {
 
   memberships OrganizationMembershipModel[]
   classes     ClassModel[]
+  invitations InvitationModel[]
 
   @@index([createdByUserId])
   @@map("organizations")
@@ -159,6 +161,7 @@ model ClassModel {
   games       ClassGameModel[]
   enrollments ClassEnrollmentModel[]
   playResults GamePlayResultModel[]
+  invitations InvitationModel[]
 
   @@index([teacherUserId, createdAt(sort: Desc)])
   @@index([organizationId])
@@ -313,6 +316,37 @@ model GamePlayResultModel {
   @@index([studentUserId, subjectId])
   @@index([gameId])
   @@map("game_play_results")
+}
+
+/// Invitación nominal de un estudiante a una organización y/o clase (issue
+/// #232). MVP sin envío de email real: el admin/profesor copia el link
+/// `/invitations/:token` y lo distribuye manualmente. `tokenHash` guarda el
+/// hash SHA-256 del token opaco (mismo patrón que `RefreshTokenModel`,
+/// `CryptoOpaqueTokenGenerator`) — el token en claro nunca se persiste.
+/// `classId` es opcional: una invitación puede ser solo a la organización
+/// (`classId` null) o a una clase específica (en cuyo caso `organizationId`
+/// es la organización dueña de esa clase, para matricular en ambas al
+/// aceptar). Un solo uso: `acceptedAt` no nulo bloquea reprocesar el token.
+model InvitationModel {
+  id              String            @id @default(uuid())
+  tokenHash       String            @unique @map("token_hash")
+  email           String
+  firstName       String            @map("first_name")
+  lastName        String            @map("last_name")
+  organizationId  String            @map("organization_id")
+  organization    OrganizationModel @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  classId         String?           @map("class_id")
+  class           ClassModel?       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  invitedByUserId String            @map("invited_by_user_id")
+  invitedBy       UserModel         @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  expiresAt       DateTime          @map("expires_at")
+  acceptedAt      DateTime?         @map("accepted_at")
+
+  @@index([organizationId])
+  @@index([classId])
+  @@index([email])
+  @@map("invitations")
 }
 
 model RefreshTokenModel {

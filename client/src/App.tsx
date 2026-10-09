@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { LoginPage } from './components/LoginPage'
 import { RegisterPage } from './components/RegisterPage'
+import { AcceptInvitationPage } from './components/AcceptInvitationPage'
 import { HomeLayout } from './components/home/HomeLayout'
 import { HomePage } from './components/home/sections/HomePage'
 import { CategoriesPage } from './components/home/sections/CategoriesPage'
@@ -68,6 +69,7 @@ function App() {
         <Route path="/inicio" element={<PublicHomePage />} />
         <Route path="/privacidad" element={<PrivacyPolicyPage />} />
         <Route path="/terminos" element={<TermsOfServicePage />} />
+        <Route path="/invitaciones/:token" element={<AcceptInvitationPage />} />
         <Route
           path="/login"
           element={
@@ -105,6 +107,7 @@ function App() {
       <Route path="/inicio" element={<PublicHomePage />} />
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />
       <Route path="/terminos" element={<TermsOfServicePage />} />
+      <Route path="/invitaciones/:token" element={<AcceptInvitationPage />} />
       <Route path="/login" element={<Navigate to={returnTo ?? '/'} replace />} />
       <Route path="/register" element={<Navigate to={returnTo ?? '/'} replace />} />
       <Route path="/juegos/crear" element={<CreateGameLayout />}>

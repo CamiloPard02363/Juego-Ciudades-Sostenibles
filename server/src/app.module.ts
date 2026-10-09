@@ -8,6 +8,7 @@ import { RoomsModule } from './infrastructure/rooms.module.js';
 import { AnalyticsModule } from './infrastructure/analytics.module.js';
 import { ClassModule } from './infrastructure/class.module.js';
 import { MetricsModule } from './infrastructure/metrics.module.js';
+import { InvitationModule } from './infrastructure/invitation.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { MetricsModule } from './infrastructure/metrics.module.js';
     RoomsModule,
     AnalyticsModule,
     MetricsModule,
+    InvitationModule,
   ],
 })
 export class AppModule {}

@@ -200,3 +200,30 @@ export class TargetUserNotMemberOfOrganizationError extends ApplicationError {
     super(`El usuario no es miembro de la organización "${organizationId}".`);
   }
 }
+
+/**
+ * Issue #232: el token del link de invitación no coincide con ninguna
+ * invitación registrada (nunca existió, o el link está mal copiado).
+ */
+export class InvitationNotFoundError extends ApplicationError {
+  constructor() {
+    super('El link de invitación no es válido.');
+  }
+}
+
+/**
+ * Issue #232: la invitación ya fue consumida — un token es de un solo uso,
+ * reusarlo no reprocesa ni duplica la membresía/matrícula.
+ */
+export class InvitationAlreadyAcceptedError extends ApplicationError {
+  constructor() {
+    super('Esta invitación ya fue utilizada.');
+  }
+}
+
+/** Issue #232: el TTL de la invitación venció antes de completarse el registro. */
+export class InvitationExpiredError extends ApplicationError {
+  constructor() {
+    super('Esta invitación ha expirado. Pide un nuevo link de invitación.');
+  }
+}

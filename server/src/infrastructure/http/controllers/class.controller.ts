@@ -26,6 +26,8 @@ import { DeactivateClassUseCase } from '../../../application/use-cases/deactivat
 import { ReactivateClassUseCase } from '../../../application/use-cases/reactivate-class.use-case.js';
 import { SetClassGameArchivedUseCase } from '../../../application/use-cases/set-class-game-archived.use-case.js';
 import { GetClassStudentsUseCase } from '../../../application/use-cases/get-class-students.use-case.js';
+import { InviteStudentToClassUseCase } from '../../../application/use-cases/invite-student-to-class.use-case.js';
+import { ListClassInvitationsUseCase } from '../../../application/use-cases/list-class-invitations.use-case.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { RolesGuard } from '../guards/roles.guard.js';
 import { Roles } from '../decorators/roles.decorator.js';
@@ -35,6 +37,7 @@ import { AddGameToClassDto } from '../dtos/add-game-to-class.dto.js';
 import { JoinClassDto } from '../dtos/join-class.dto.js';
 import { EnrollStudentDto } from '../dtos/enroll-student.dto.js';
 import { ListClassesQueryDto } from '../dtos/list-classes-query.dto.js';
+import { InviteStudentDto } from '../dtos/invite-student.dto.js';
 
 @Controller('classes')
 @UseGuards(JwtAuthGuard)
@@ -55,6 +58,8 @@ export class ClassController {
     private readonly reactivateClassUseCase: ReactivateClassUseCase,
     private readonly setClassGameArchivedUseCase: SetClassGameArchivedUseCase,
     private readonly getClassStudentsUseCase: GetClassStudentsUseCase,
+    private readonly inviteStudentToClassUseCase: InviteStudentToClassUseCase,
+    private readonly listClassInvitationsUseCase: ListClassInvitationsUseCase,
   ) {}
 
   @Get('mine')
@@ -202,6 +207,36 @@ export class ClassController {
       userId: dto.userId,
       requestingUserId,
     });
+  }
+
+  /**
+   * Alta manual de un estudiante a la clase (issue #232): si el email ya
+   * tiene cuenta y ya es miembro de la organización dueña, matricula directo
+   * (`status: 'LINKED'`); si no tiene cuenta, genera una invitación con link
+   * de un solo uso (`status: 'PENDING'`) que al aceptarse matricula en la
+   * clase Y en la organización. Autorización vía `ClassAccessResolver`
+   * (profesor dueño, admin de la institución, o admin global).
+   */
+  @Post(':classId/invitations')
+  @HttpCode(HttpStatus.CREATED)
+  inviteStudent(
+    @CurrentUserId() requestingUserId: string,
+    @Param('classId') classId: string,
+    @Body() dto: InviteStudentDto,
+  ) {
+    return this.inviteStudentToClassUseCase.execute({
+      classId,
+      requestingUserId,
+      email: dto.email,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+    });
+  }
+
+  /** Invitaciones pendientes de la clase (issue #232), mismo criterio de autorización que `inviteStudent`. */
+  @Get(':id/invitations')
+  listInvitations(@CurrentUserId() requestingUserId: string, @Param('id') classId: string) {
+    return this.listClassInvitationsUseCase.execute({ classId, requestingUserId });
   }
 
   /** Soft-delete de la clase (issue #133, Frente E, CA-E2). */

@@ -43,7 +43,9 @@ export function ClassDrilldownTabs({ classId, className }: { classId: string; cl
 
       {activeTab === 'home' && <ClassHomeMetrics classId={classId} />}
       {activeTab === 'games' && <ClassGamesManagement classId={classId} />}
-      {activeTab === 'students' && <ClassStudentsManagement classId={classId} />}
+      {activeTab === 'students' && (
+        <ClassStudentsManagement classId={classId} className={className} />
+      )}
     </div>
   )
 }

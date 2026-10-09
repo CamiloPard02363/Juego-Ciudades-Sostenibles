@@ -1,12 +1,21 @@
+import { useState } from 'react'
+import { Mail } from 'lucide-react'
 import { useClassStudentsManagement } from './useClassStudentsManagement'
+import { InviteStudentToClassModal } from './InviteStudentToClassModal'
 
 /**
  * "Estudiantes de la clase" del drill-down (issue #226): listado paginado con
  * búsqueda y opción de sacar a un estudiante. Toda la lógica de filtro,
  * paginado y mutación vive en `useClassStudentsManagement` — este componente
- * solo pinta.
+ * solo pinta. Issue #232: agrega el botón de alta manual por invitación.
  */
-export function ClassStudentsManagement({ classId }: { classId: string }) {
+export function ClassStudentsManagement({
+  classId,
+  className,
+}: {
+  classId: string
+  className: string
+}) {
   const {
     students,
     total,
@@ -18,20 +27,32 @@ export function ClassStudentsManagement({ classId }: { classId: string }) {
     loading,
     error,
     removeStudent,
+    reload,
   } = useClassStudentsManagement(classId)
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   if (loading) return <p className="text-[14px] text-text">Cargando estudiantes…</p>
   if (error) return <p className="text-[14px] text-red-600">{error}</p>
 
   return (
     <div className="flex flex-col gap-4">
-      <input
-        type="search"
-        placeholder="Buscar por nombre o correo…"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        className="w-full max-w-sm rounded-md border border-border px-3 py-2 text-[14px]"
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <input
+          type="search"
+          placeholder="Buscar por nombre o correo…"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="w-full max-w-sm rounded-md border border-border px-3 py-2 text-[14px]"
+        />
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-text-h hover:border-accent"
+          onClick={() => setShowInviteModal(true)}
+        >
+          <Mail className="h-[15px] w-[15px]" strokeWidth={2} />
+          Invitar estudiante
+        </button>
+      </div>
 
       {students.length === 0 ? (
         <p className="text-[14px] text-text/70">No hay estudiantes que coincidan con la búsqueda.</p>
@@ -90,6 +111,15 @@ export function ClassStudentsManagement({ classId }: { classId: string }) {
             Siguiente
           </button>
         </div>
+      )}
+
+      {showInviteModal && (
+        <InviteStudentToClassModal
+          classId={classId}
+          className={className}
+          onClose={() => setShowInviteModal(false)}
+          onLinked={reload}
+        />
       )}
     </div>
   )
