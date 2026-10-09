@@ -36,6 +36,8 @@ export type TrueFalseMazeHud = {
   answers: TfAnswerRecord[]
   /** 0 a 1, lo que queda del pulso EMP (redondeado a pasos de 5%). */
   empFraction: number
+  /** Segundos que le quedan al pulso EMP; null si no hay pulso. */
+  empSeconds: number | null
   /** Segundos hasta que las salas cambien de lugar; null si no aplica ahora. */
   relocateSeconds: number | null
   zonesWarning: boolean
@@ -61,6 +63,7 @@ function snapshot(state: TfState): TrueFalseMazeHud {
     bestStreak: state.bestStreak,
     answers: state.answers.slice(),
     empFraction: Math.round((empRemaining / EMP_MS) * 20) / 20,
+    empSeconds: state.empUntil !== null ? Math.ceil(empRemaining / 1000) : null,
     relocateSeconds: relocateRemaining === null ? null : Math.ceil(relocateRemaining / 1000),
     zonesWarning: relocateRemaining !== null && relocateRemaining < ZONE_WARNING_MS,
     lightsOut: state.lightsOutUntil !== null && state.phase === 'playing',
@@ -79,6 +82,7 @@ function hudKey(hud: TrueFalseMazeHud): string {
     hud.streak,
     hud.answers.length,
     hud.empFraction,
+    hud.empSeconds,
     hud.relocateSeconds,
     hud.zonesWarning,
     hud.lightsOut,
@@ -110,6 +114,12 @@ type Options = {
   canvasRef: RefObject<HTMLCanvasElement | null>
   /** false mientras hay otra pantalla encima (la guía): el teclado y los toques no mueven al robot. */
   inputEnabled?: boolean
+  /**
+   * Se llama justo antes de que arranque la partida, dentro del mismo gesto del
+   * jugador (clic, tecla o toque). Es el único momento en que el navegador deja
+   * pedir la pantalla completa sin que el jugador lo haga a mano.
+   */
+  onBeforeStart?: () => void
 }
 
 /**
@@ -117,7 +127,7 @@ type Options = {
  * mueve el loop con requestAnimationFrame. El HUD de React solo se
  * actualiza cuando cambia algo visible (puntos, vidas, fase...).
  */
-export function useTrueFalseMazeSession({ questions, config, assets, canvasRef, inputEnabled = true }: Options) {
+export function useTrueFalseMazeSession({ questions, config, assets, canvasRef, inputEnabled = true, onBeforeStart }: Options) {
   const [initialState] = useState(() => createTfState({ map: SPACESHIP_MAP, questions, config }))
   const [sfx] = useState(() => new TrueFalseMazeSfx(readMutedPreference()))
   const stateRef = useRef<TfState>(initialState)
@@ -128,6 +138,10 @@ export function useTrueFalseMazeSession({ questions, config, assets, canvasRef, 
   useEffect(() => {
     inputEnabledRef.current = inputEnabled
   }, [inputEnabled])
+  const onBeforeStartRef = useRef(onBeforeStart)
+  useEffect(() => {
+    onBeforeStartRef.current = onBeforeStart
+  }, [onBeforeStart])
 
   const [renderer, setRenderer] = useState<TrueFalseMazeRenderer | null>(null)
   const [hud, setHud] = useState<TrueFalseMazeHud>(() => snapshot(initialState))
@@ -206,6 +220,8 @@ export function useTrueFalseMazeSession({ questions, config, assets, canvasRef, 
     (direction: Direction) => {
       if (pausedRef.current || !inputEnabledRef.current) return
       sfx.prime()
+      // Mover la primera vez también despega: es el mismo gesto que "Despegar".
+      if (stateRef.current.phase === 'ready') onBeforeStartRef.current?.()
       setTfDirection(stateRef.current, direction)
     },
     [sfx],
@@ -214,6 +230,7 @@ export function useTrueFalseMazeSession({ questions, config, assets, canvasRef, 
   const start = useCallback(() => {
     if (!inputEnabledRef.current) return
     sfx.prime()
+    if (stateRef.current.phase === 'ready') onBeforeStartRef.current?.()
     startTfGame(stateRef.current)
   }, [sfx])
 

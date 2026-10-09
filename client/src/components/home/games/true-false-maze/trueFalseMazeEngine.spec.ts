@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isOpen, manhattan, samePos } from '../mazeEngine'
-import { SPACESHIP_MAP } from './spaceshipMap'
+import { cellKey, SPACESHIP_MAP } from './spaceshipMap'
 import {
   CAUGHT_MS,
   createSeededRandom,
@@ -270,6 +270,96 @@ describe('partida', () => {
 
     tickFor(state, EMP_MS + 100)
     expect(state.empUntil).toBeNull()
+  })
+
+  it('mientras dura el pulso EMP las salas siguen abiertas: desde cada núcleo se puede contestar en cada sala', () => {
+    // Camino más corto sobre la grilla, sin pasar por las rejillas (que teletransportan).
+    const ventCells = new Set(SPACESHIP_MAP.vents.map((vent) => cellKey(vent.pos)))
+    const deltas = [
+      { dir: 'UP', row: -1, col: 0 },
+      { dir: 'DOWN', row: 1, col: 0 },
+      { dir: 'LEFT', row: 0, col: -1 },
+      { dir: 'RIGHT', row: 0, col: 1 },
+    ] as const
+    /** Camino más corto (incluye origen y destino); null si no hay. */
+    const shortestPath = (from: CellPosition, to: CellPosition): CellPosition[] | null => {
+      const cameFrom = new Map<string, CellPosition | null>([[cellKey(from), null]])
+      const queue: CellPosition[] = [from]
+      for (let i = 0; i < queue.length; i++) {
+        const cell = queue[i]
+        if (samePos(cell, to)) {
+          const path: CellPosition[] = []
+          for (let cursor: CellPosition | null = cell; cursor; cursor = cameFrom.get(cellKey(cursor)) ?? null) path.unshift(cursor)
+          return path
+        }
+        for (const delta of deltas) {
+          const next = { row: cell.row + delta.row, col: cell.col + delta.col }
+          const key = cellKey(next)
+          if (cameFrom.has(key) || !isOpen(SPACESHIP_MAP.grid, next.row, next.col) || ventCells.has(key)) continue
+          cameFrom.set(key, cell)
+          queue.push(next)
+        }
+      }
+      return null
+    }
+    const directionTo = (from: CellPosition, to: CellPosition) =>
+      deltas.find((delta) => delta.row === to.row - from.row && delta.col === to.col - from.col)?.dir ?? null
+
+    const checked: string[] = []
+    for (const core of SPACESHIP_MAP.powerCores) {
+      for (const slot of SPACESHIP_MAP.answerSlots) {
+        const state = newGame({ relocateSeconds: 0 })
+        startPlaying(state)
+        state.jellies.forEach((jelly) => (jelly.releaseAt = Infinity))
+
+        walk(state, openNeighbor(core), core)
+        expect(state.empUntil, 'tomar el núcleo debe lanzar el pulso').not.toBeNull()
+        // El pulso no es el límite de esta prueba: se alarga para que siga activo al llegar.
+        state.empUntil = state.worldTime + 120_000
+
+        // La otra sala se pone fuera del camino: pasar por una sala ya cuenta como contestar.
+        const route = shortestPath(state.player.pos, slot)!
+        const other = SPACESHIP_MAP.answerSlots.find(
+          (candidate) => !samePos(candidate, slot) && !route.some((cell) => samePos(cell, candidate)),
+        )!
+        state.zones.TRUE.pos = { ...slot }
+        state.zones.TRUE.shownAt = state.now - 5000
+        state.zones.FALSE.pos = { ...other }
+        state.zones.FALSE.shownAt = state.now - 5000
+
+        let heading: string | null = null
+        for (let i = 0; i < 2000 && state.phase === 'playing'; i++) {
+          const path = shortestPath(state.player.next, slot)
+          const direction = path && path.length > 1 ? directionTo(path[0], path[1]) : null
+          if (direction && direction !== heading) {
+            setTfDirection(state, direction)
+            heading = direction
+          }
+          tickTf(state, 16)
+        }
+        expect(state.phase, `núcleo ${cellKey(core)} → sala ${cellKey(slot)}`).toBe('feedback')
+        expect(state.lastResult?.zoneCell).toEqual(slot)
+        expect(state.empUntil, 'el pulso seguía activo al contestar').not.toBeNull()
+        checked.push(`${cellKey(core)}>${cellKey(slot)}`)
+      }
+    }
+    expect(checked).toHaveLength(SPACESHIP_MAP.powerCores.length * SPACESHIP_MAP.answerSlots.length)
+  })
+
+  it('el pulso EMP no frena la cuenta de la pregunta: contestar con el pulso activo también da bonus de tiempo', () => {
+    const state = newGame({ relocateSeconds: 0 })
+    startPlaying(state)
+    state.jellies.forEach((jelly) => (jelly.releaseAt = Infinity))
+    const core = SPACESHIP_MAP.powerCores[0]
+    walk(state, openNeighbor(core), core)
+    expect(state.empUntil).not.toBeNull()
+
+    const zone = state.zones.TRUE.pos!
+    walk(state, openNeighbor(zone), zone)
+    expect(state.phase).toBe('feedback')
+    expect(state.empUntil).not.toBeNull()
+    expect(state.lastResult?.correct).toBe(true)
+    expect(state.lastResult?.points).toBeGreaterThanOrEqual(POINTS.CORRECT)
   })
 
   it('la rejilla de ventilación lleva al robot a su pareja', () => {

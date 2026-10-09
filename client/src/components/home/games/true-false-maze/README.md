@@ -63,13 +63,43 @@ cámara, en `trueFalseMazeCamera.spec.ts`.
 - Los personajes miden más de una celda (robot 1,75; medusa 1,55) y las salas 2,3: en
   `TrueFalseMazeRenderer.ts` están `ROBOT_DRAW_HEIGHT`, `JELLY_DRAW_HEIGHT` y `ZONE_DRAW_WIDTH`.
 
+## Pantalla completa
+
+En ventana, la nave se recorta (la cámara la recorre) y el navegador le quita espacio al juego, así
+que la pantalla completa es la forma recomendada de jugar. Para que se encuentre sin buscarla:
+
+- La pantalla de inicio tiene el interruptor **"Jugar en pantalla completa (recomendado)"**, activado
+  por defecto. La elección se recuerda (`localStorage`, clave `nexusplay-tf-maze-fullscreen`). Al
+  activarlo se aplica en el momento; si queda activado, **despegar** (botón, flecha, Espacio o toque)
+  entra a pantalla completa. Es el único momento posible: el navegador solo la permite dentro de un
+  gesto del jugador, por eso el hook llama a `onBeforeStart` dentro del mismo evento.
+- Si la eligió y se sale (Esc, por ejemplo), la partida **se pausa sola** (la pantalla cambia de
+  tamaño de golpe) y, al seguir, un aviso ofrece volver con un clic. Si eligió jugar en ventana, no
+  se le insiste.
+- El botón del HUD y la tecla `F` también la activan y la quitan, y recuerdan esa elección.
+- **La guía vive dentro del elemento que se pone en pantalla completa** (`rootRef`), no a su lado: el
+  navegador solo muestra lo que está dentro de ese elemento, y una guía de afuera quedaba invisible
+  pero capturando el teclado (el juego parecía trabado). Todo lo que se superponga al juego debe
+  renderizarse dentro de ese contenedor.
+- En pantalla completa el navegador se queda con `Esc`, así que ahí el atajo de pausa que se muestra
+  es `P` (en ventana, `Esc`).
+
+## Pulso EMP
+
+Tomar un núcleo lanza un pulso de 7 s: las medusas se aturden y se pueden atrapar (+200, +400…).
+**Las salas VERDADERO y FALSO siguen abiertas durante el pulso**: se puede contestar en cualquier
+momento, y el pulso no detiene la pregunta ni el reloj (el bonus de tiempo sigue bajando). Está
+cubierto por una prueba que recorre todas las combinaciones de núcleo y sala
+(`trueFalseMazeEngine.spec.ts`). El aviso del HUD muestra los segundos que quedan y lo recuerda
+("Atrápalas o responde: ¡las salas siguen abiertas!"), y la guía lo explica en el paso 4.
+
 ## Pausa
 
 Pensada para quien no suele jugar videojuegos:
 
-- El botón **Pausa** está siempre arriba a la izquierda, con texto (no solo un ícono) y la tecla
-  `Esc` a la vista. También pausan `Esc` y `P`, y la partida se pausa sola si la pestaña queda en
-  segundo plano.
+- El botón **Pausa** está siempre arriba a la izquierda, con texto (no solo un ícono) y la tecla a la
+  vista. También pausan `Esc` y `P`, y la partida se pausa sola si la pestaña queda en segundo plano
+  o si se sale de pantalla completa.
 - Al despegar por primera vez, un aviso debajo del HUD señala el botón unos segundos.
 - El menú de pausa muestra la afirmación actual, las baterías y los puntos, y tiene botones
   grandes: continuar, cómo se juega (la guía), sonido, pantalla completa, empezar de nuevo y

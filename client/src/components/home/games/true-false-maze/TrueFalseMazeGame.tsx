@@ -48,6 +48,28 @@ const SWIPE_THRESHOLD = 18
 const EDGE_GAP = 8
 /** Cuánto se ve el aviso "pausa aquí" al despegar. */
 const PAUSE_HINT_MS = 6000
+const FULLSCREEN_PREF_KEY = 'nexusplay-tf-maze-fullscreen'
+
+/**
+ * "Jugar en pantalla completa": viene activado y se recuerda lo último que
+ * eligió el jugador. El navegador solo deja pasar a pantalla completa dentro
+ * de un gesto (clic, tecla, toque), así que se aplica al despegar.
+ */
+function readFullscreenPreference(): boolean {
+  try {
+    return window.localStorage.getItem(FULLSCREEN_PREF_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function saveFullscreenPreference(value: boolean) {
+  try {
+    window.localStorage.setItem(FULLSCREEN_PREF_KEY, value ? 'on' : 'off')
+  } catch {
+    // Sin almacenamiento (modo privado): la elección vale solo para esta partida.
+  }
+}
 
 /**
  * Laberinto Verdadero o Falso: el robot recorre la nave y responde cada
@@ -61,11 +83,17 @@ const PAUSE_HINT_MS = 6000
  */
 export function TrueFalseMazeGame(props: TrueFalseMazeGameProps) {
   const [guideOpen, setGuideOpen] = useState(true)
+  // La guía se dibuja DENTRO de la sesión (no al lado): en pantalla completa el
+  // navegador solo muestra lo que está dentro del elemento que la pidió, y una
+  // guía de afuera quedaba invisible pero capturando el teclado (el juego
+  // parecía trabado hasta salir de pantalla completa).
   return (
-    <>
-      <TrueFalseMazeSession {...props} guideOpen={guideOpen} onOpenGuide={() => setGuideOpen(true)} />
-      {guideOpen && <TrueFalseMazeGuide onClose={() => setGuideOpen(false)} />}
-    </>
+    <TrueFalseMazeSession
+      {...props}
+      guideOpen={guideOpen}
+      onOpenGuide={() => setGuideOpen(true)}
+      onCloseGuide={() => setGuideOpen(false)}
+    />
   )
 }
 
@@ -102,7 +130,8 @@ function TrueFalseMazeSession({
   onExit,
   guideOpen,
   onOpenGuide,
-}: TrueFalseMazeGameProps & { guideOpen: boolean; onOpenGuide: () => void }) {
+  onCloseGuide,
+}: TrueFalseMazeGameProps & { guideOpen: boolean; onOpenGuide: () => void; onCloseGuide: () => void }) {
   const [assets, setAssets] = useState<SpaceshipAssets | null>(null)
   const [loadError, setLoadError] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -113,19 +142,48 @@ function TrueFalseMazeSession({
   const pointerStart = useRef<{ x: number; y: number } | null>(null)
   const [layout, setLayout] = useState<Layout>({ width: 0, height: 0, insets: { top: 0, right: 0, bottom: 0, left: 0 } })
   const [fullscreen, setFullscreen] = useState(false)
+  const [wantFullscreen, setWantFullscreen] = useState(readFullscreenPreference)
+  const [fullscreenHintClosed, setFullscreenHintClosed] = useState(false)
+  const canFullscreen = typeof document !== 'undefined' && document.fullscreenEnabled
+
+  function enterFullscreen() {
+    const root = rootRef.current
+    if (!canFullscreen || !root || document.fullscreenElement) return
+    void root.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {})
+  }
+
+  function leaveFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+  }
+
+  /** Elección explícita del jugador (interruptor, botón o tecla F): se aplica ya y se recuerda. */
+  function chooseFullscreen(value: boolean) {
+    setWantFullscreen(value)
+    saveFullscreenPreference(value)
+    if (value) enterFullscreen()
+    else leaveFullscreen()
+  }
+
+  function toggleFullscreen() {
+    chooseFullscreen(!document.fullscreenElement)
+  }
+
   const { hud, paused, muted, renderer, actions } = useTrueFalseMazeSession({
     questions,
     config,
     assets,
     canvasRef,
     inputEnabled: !guideOpen,
+    // Despegar es un gesto del jugador: ahí se puede pasar a pantalla completa sin que tenga que buscar el botón.
+    onBeforeStart: () => {
+      if (wantFullscreen) enterFullscreen()
+    },
   })
   // Celular en horizontal: el HUD pasa a una columna lateral para que la nave use toda la altura.
   const compactLandscape = useMediaQuery('(orientation: landscape) and (max-height: 520px)')
   // La cruceta aparece en cualquier pantalla táctil, no según el ancho.
   const coarsePointer = useMediaQuery('(pointer: coarse)')
   const portraitPhone = useMediaQuery('(orientation: portrait) and (max-width: 600px)')
-  const canFullscreen = typeof document !== 'undefined' && document.fullscreenEnabled
 
   useEffect(() => {
     let cancelled = false
@@ -187,23 +245,33 @@ function TrueFalseMazeSession({
   }, [renderer, layout, redraw])
 
   useEffect(() => {
-    const onChange = () => setFullscreen(!!document.fullscreenElement)
-    document.addEventListener('fullscreenchange', onChange)
-    return () => {
-      document.removeEventListener('fullscreenchange', onChange)
-      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    const onChange = () => {
+      const active = !!document.fullscreenElement
+      setFullscreen(active)
+      // Al salir (con Esc, por ejemplo) la pantalla cambia de tamaño de golpe: la partida se pausa para no perder el hilo.
+      if (!active) pause()
     }
-  }, [])
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [pause])
 
-  function toggleFullscreen() {
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
-    else void rootRef.current?.requestFullscreen?.().catch(() => {})
-  }
+  // Al salir del juego no se deja la pantalla completa puesta.
+  useEffect(
+    () => () => {
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    },
+    [],
+  )
 
+  // El manejador de teclas vive entre renders: lee siempre la versión más reciente de la función.
+  const toggleFullscreenRef = useRef(toggleFullscreen)
+  useEffect(() => {
+    toggleFullscreenRef.current = toggleFullscreen
+  })
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (guideOpen || (event.key !== 'f' && event.key !== 'F')) return
-      toggleFullscreen()
+      if (guideOpen || event.ctrlKey || event.metaKey || event.altKey || (event.key !== 'f' && event.key !== 'F')) return
+      toggleFullscreenRef.current()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -242,9 +310,33 @@ function TrueFalseMazeSession({
     return () => window.clearTimeout(timer)
   }, [pauseHint])
 
+  // En pantalla completa el navegador se queda con Esc (sale de pantalla completa): ahí el atajo es P.
+  const pauseKey = fullscreen ? 'P' : 'Esc'
+
   const pauseButton = (
-    <PauseButton compact={compactLandscape} disabled={!playing} highlight={pauseHint === 'showing'} onClick={actions.pause} />
+    <PauseButton
+      compact={compactLandscape}
+      disabled={!playing}
+      highlight={pauseHint === 'showing'}
+      shortcut={pauseKey}
+      onClick={actions.pause}
+    />
   )
+
+  // Si había elegido pantalla completa y se salió (Esc, por ejemplo), se ofrece volver con un clic. No se
+  // muestra encima de otros avisos ni si eligió jugar en ventana.
+  const showFullscreenHint =
+    canFullscreen &&
+    wantFullscreen &&
+    !fullscreen &&
+    !fullscreenHintClosed &&
+    !compactLandscape &&
+    pauseHint === 'done' &&
+    hud.phase === 'playing' &&
+    !paused &&
+    hud.empSeconds === null &&
+    !hud.zonesWarning &&
+    !hud.lightsOut
 
   const controls = (
     <div className="flex shrink-0 items-center gap-1.5 self-center">
@@ -306,10 +398,15 @@ function TrueFalseMazeSession({
             Gira el teléfono para ver la nave más grande
           </p>
         )}
-        {/* Debajo de todo el HUD: así nunca tapa la afirmación. */}
+        {/* Debajo de todo el HUD: así nunca tapan la afirmación. */}
         {pauseHint === 'showing' && (
           <div className="pointer-events-none absolute left-2 top-full mt-1 sm:left-3">
-            <PauseHint />
+            <PauseHint shortcut={pauseKey} />
+          </div>
+        )}
+        {showFullscreenHint && (
+          <div className="pointer-events-none absolute right-2 top-full mt-1 flex justify-end sm:right-3">
+            <FullscreenHint onEnter={() => chooseFullscreen(true)} onClose={() => setFullscreenHintClosed(true)} />
           </div>
         )}
       </div>
@@ -339,6 +436,7 @@ function TrueFalseMazeSession({
           total={hud.totalQuestions}
           lives={hud.maxLives}
           compact={compactLandscape}
+          fullscreen={canFullscreen ? { wanted: wantFullscreen, active: fullscreen, onChange: chooseFullscreen } : null}
           onStart={actions.start}
           onGuide={onOpenGuide}
           onExit={onExit}
@@ -365,6 +463,7 @@ function TrueFalseMazeSession({
         />
       )}
       {hud.phase === 'finished' && <ResultsOverlay hud={hud} compact={compactLandscape} onRestart={actions.restart} onExit={onExit} />}
+      {guideOpen && <TrueFalseMazeGuide onClose={onCloseGuide} />}
     </div>
   )
 }
@@ -407,20 +506,23 @@ function PauseButton({
   compact,
   disabled,
   highlight,
+  shortcut,
   onClick,
 }: {
   compact: boolean
   disabled: boolean
   /** Mientras se ve el aviso "pausa aquí", el botón brilla para que se note de qué habla. */
   highlight: boolean
+  /** Tecla que pausa en este momento (ver `pauseKey`). */
+  shortcut: string
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       aria-label="Pausa"
-      aria-keyshortcuts="Escape P"
-      title="Pausar el juego (Esc)"
+      aria-keyshortcuts={shortcut === 'Esc' ? 'Escape P' : 'P'}
+      title={`Pausar el juego (${shortcut})`}
       disabled={disabled}
       className={`flex shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-cyan-300/55 bg-cyan-500/20 font-bold text-white backdrop-blur transition-[background-color,box-shadow] hover:bg-cyan-500/35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 ${
         highlight ? 'shadow-[0_0_0_3px_rgba(103,232,249,0.55),0_0_30px_-4px_rgba(34,211,238,1)]' : 'shadow-[0_0_24px_-8px_rgba(34,211,238,0.9)]'
@@ -431,7 +533,7 @@ function PauseButton({
       <span className="leading-none">Pausa</span>
       {!compact && (
         <kbd className="hidden rounded-md border border-white/20 bg-black/30 px-1.5 font-sans text-[10px] font-semibold leading-4 text-cyan-100/85 lg:block">
-          Esc
+          {shortcut}
         </kbd>
       )}
     </button>
@@ -439,7 +541,7 @@ function PauseButton({
 }
 
 /** Aviso que señala el botón de pausa al empezar la primera pregunta (va justo debajo del HUD). */
-function PauseHint() {
+function PauseHint({ shortcut }: { shortcut: string }) {
   return (
     <div
       role="status"
@@ -447,7 +549,34 @@ function PauseHint() {
     >
       <span className="absolute -top-1.5 left-6 h-3 w-3 rotate-45 border-l border-t border-cyan-300/50 bg-slate-950" aria-hidden />
       ¿Necesitas un respiro? Toca <b className="text-cyan-200">Pausa</b>, arriba a la izquierda, o presiona{' '}
-      <b className="text-cyan-200">Esc</b>.
+      <b className="text-cyan-200">{shortcut}</b>.
+    </div>
+  )
+}
+
+/** Ofrece volver a pantalla completa con un clic (la eligió y se salió, o el navegador no la dejó). */
+function FullscreenHint({ onEnter, onClose }: { onEnter: () => void; onClose: () => void }) {
+  return (
+    <div className="pointer-events-auto mt-2 flex w-max max-w-[18rem] animate-[fade-in-up_0.4s_ease-out] items-center rounded-2xl border border-cyan-300/50 bg-slate-950/95 text-[12.5px] shadow-[0_14px_34px_-12px_rgba(34,211,238,0.6)]">
+      <button
+        type="button"
+        className="flex min-w-0 items-center gap-2 rounded-l-2xl py-2 pl-3 pr-2 text-left leading-snug font-semibold text-slate-100 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-cyan-300"
+        onClick={onEnter}
+      >
+        <Maximize className="h-4 w-4 shrink-0 text-cyan-300" />
+        <span>
+          Ver toda la nave: <b className="text-cyan-200">pantalla completa</b>
+        </span>
+      </button>
+      <button
+        type="button"
+        aria-label="Cerrar este aviso"
+        title="Cerrar este aviso"
+        className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+        onClick={onClose}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   )
 }
@@ -633,11 +762,15 @@ function StatusStack({ hud, lightsEnabled, compact }: { hud: TrueFalseMazeHud; l
     )
   }
   if (hud.phase === 'playing') {
-    if (hud.empFraction > 0) {
+    if (hud.empSeconds !== null) {
       pills.push(
-        <Pill key="emp" tone="emp">
-          <Zap className="h-4 w-4" /> Pulso EMP: ¡atrápalas!
-          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-white/15">
+        <Pill key="emp" tone="emp" multiline>
+          <Zap className="h-5 w-5 shrink-0" />
+          <span className="flex min-w-0 flex-col gap-0.5 text-left leading-tight">
+            <span className="text-[14px]">Pulso EMP · {hud.empSeconds} s</span>
+            <span className="text-[12.5px] font-medium text-cyan-100/95">Atrápalas o responde: ¡las salas siguen abiertas!</span>
+          </span>
+          <span className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-white/15">
             <span className="block h-full rounded-full bg-cyan-300 transition-[width] duration-150" style={{ width: `${hud.empFraction * 100}%` }} />
           </span>
         </Pill>,
@@ -669,7 +802,16 @@ function StatusStack({ hud, lightsEnabled, compact }: { hud: TrueFalseMazeHud; l
   )
 }
 
-function Pill({ tone, children }: { tone: 'danger' | 'emp' | 'warn' | 'alert'; children: ReactNode }) {
+function Pill({
+  tone,
+  multiline = false,
+  children,
+}: {
+  tone: 'danger' | 'emp' | 'warn' | 'alert'
+  /** Dos líneas de texto: esquinas menos redondas para que la forma no se deforme. */
+  multiline?: boolean
+  children: ReactNode
+}) {
   const colors = {
     danger: 'border-rose-400/60 bg-rose-950/85 text-rose-100',
     emp: 'border-cyan-300/60 bg-cyan-950/85 text-cyan-100',
@@ -679,7 +821,9 @@ function Pill({ tone, children }: { tone: 'danger' | 'emp' | 'warn' | 'alert'; c
   return (
     <p
       role="status"
-      className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold shadow-lg backdrop-blur ${colors}`}
+      className={`flex max-w-[min(94vw,32rem)] items-center gap-2 border px-3.5 py-1.5 text-[12.5px] font-semibold shadow-lg backdrop-blur ${
+        multiline ? 'rounded-2xl' : 'rounded-full'
+      } ${colors}`}
     >
       {children}
     </p>
@@ -722,10 +866,52 @@ function LoadingOverlay({ error, onExit }: { error: boolean; onExit: () => void 
   )
 }
 
+type FullscreenChoiceProps = { wanted: boolean; active: boolean; onChange: (value: boolean) => void }
+
+/**
+ * Interruptor "Jugar en pantalla completa" de la pantalla de inicio. Sin él, la
+ * pantalla completa solo estaba en un ícono (tapado por esta misma pantalla) y
+ * en la tecla F: nadie sabía que existía y, en ventana, la nave se recorta.
+ * Al activarlo se aplica en el momento (el clic es el gesto que el navegador
+ * pide), así se ve el cambio; si se deja activado, se aplica al despegar.
+ */
+function FullscreenChoice({ wanted, active, onChange }: FullscreenChoiceProps) {
+  const detail = active
+    ? 'Activada: ves toda la nave.'
+    : wanted
+      ? 'Se activa al despegar. Así ves toda la nave.'
+      : 'Jugarás en ventana: parte de la nave puede quedar fuera.'
+  return (
+    <label className="mx-auto mt-4 flex max-w-[440px] cursor-pointer items-center gap-3 rounded-2xl border border-cyan-300/30 bg-cyan-400/[0.07] px-3.5 py-3 text-left transition-colors hover:bg-cyan-400/[0.12] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cyan-300">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-300">
+        <Maximize className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14.5px] font-bold leading-tight text-white">
+          Jugar en pantalla completa <span className="font-medium text-cyan-300">(recomendado)</span>
+        </span>
+        <span className="mt-0.5 block text-[12.5px] leading-snug text-slate-300">{detail}</span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        className="peer sr-only"
+        checked={wanted}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span
+        aria-hidden
+        className="relative h-7 w-12 shrink-0 rounded-full bg-slate-600 transition-colors peer-checked:bg-cyan-400 after:absolute after:left-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-5"
+      />
+    </label>
+  )
+}
+
 function ReadyOverlay({
   total,
   lives,
   compact,
+  fullscreen,
   onStart,
   onGuide,
   onExit,
@@ -733,6 +919,8 @@ function ReadyOverlay({
   total: number
   lives: number
   compact: boolean
+  /** null si el navegador no permite pantalla completa (por ejemplo, iPhone). */
+  fullscreen: FullscreenChoiceProps | null
   onStart: () => void
   onGuide: () => void
   onExit: () => void
@@ -761,6 +949,7 @@ function ReadyOverlay({
           Son <b className="text-white">{total} afirmaciones</b> y tienes <b className="text-white">{lives}</b>{' '}
           {lives === 1 ? 'batería' : 'baterías'}. Muévete con las <b className="text-white">flechas del teclado</b> (o W A S D).
         </p>
+        {fullscreen && <FullscreenChoice {...fullscreen} />}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <button
             type="button"
@@ -784,11 +973,16 @@ function ReadyOverlay({
             <ArrowLeft className="h-4 w-4" /> Salir
           </button>
         </div>
-        <p className="mt-2 text-[11.5px] text-slate-400">o presiona cualquier flecha para despegar</p>
-        <p className="mt-1 text-[11.5px] text-slate-400">
-          ¿Necesitas parar? Usa el botón <b className="text-slate-200">Pausa</b> (arriba a la izquierda) o la tecla{' '}
-          <b className="text-slate-200">Esc</b>.
-        </p>
+        {/* En celular horizontal no sobra alto: estos consejos están en la guía y el botón Pausa ya se ve. */}
+        {!compact && (
+          <>
+            <p className="mt-2 text-[11.5px] text-slate-400">o presiona cualquier flecha para despegar</p>
+            <p className="mt-1 text-[11.5px] text-slate-400">
+              ¿Necesitas parar? Usa el botón <b className="text-slate-200">Pausa</b> (arriba a la izquierda) o la tecla{' '}
+              <b className="text-slate-200">P</b>.
+            </p>
+          </>
+        )}
       </OverlayCard>
     </div>
   )
@@ -1013,8 +1207,16 @@ function PauseOverlay({
             </>
           )}
 
-          <p className="mt-3 text-center text-[11.5px] text-slate-400">
-            Atajo: <Key>Esc</Key> o <Key>P</Key> pausa y continúa · <Key>Espacio</Key> continúa
+          <p className="mt-3 text-center text-[11.5px] leading-relaxed text-slate-400">
+            {fullscreen ? (
+              <>
+                Atajos: <Key>P</Key> pausa y continúa · <Key>Espacio</Key> continúa · <Key>Esc</Key> sale de pantalla completa
+              </>
+            ) : (
+              <>
+                Atajos: <Key>Esc</Key> o <Key>P</Key> pausan y continúan · <Key>Espacio</Key> continúa
+              </>
+            )}
           </p>
         </OverlayCard>
       </FitScale>

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Footprints,
   LightbulbOff,
+  Maximize,
   Pause,
   Rocket,
   Shuffle,
@@ -321,6 +322,13 @@ function SceneCore() {
       <At style={{ left: '66%', top: '40%', width: '15cqw' }}>
         <Sprite src={robotLeft} alt="El robot" className="tfg-float" style={{ width: '100%' }} />
       </At>
+      {/* La sala sigue abierta mientras dura el pulso. */}
+      <At style={{ left: '4%', top: '70%', width: '12cqw' }}>
+        <Sprite src={zoneTrue} alt="Sala VERDADERO, abierta" className="tfg-float" style={{ width: '100%', animationDelay: '-1.1s' }} />
+      </At>
+      <Tag tone="true" style={{ left: '17%', top: '78%' }}>
+        ✓ Sala abierta
+      </Tag>
       <Tag tone="info" style={{ left: '8%', top: '8%', opacity: 0, animation: 'tfg-score-rise 5s linear infinite' }}>
         +200
       </Tag>
@@ -453,7 +461,18 @@ const STEPS: Step[] = [
             <Pause className="h-3.5 w-3.5" fill="currentColor" strokeWidth={1.5} /> Pausa
           </span>
           <span>
-            ¿Necesitas un respiro? Toca <b className="text-white">Pausa</b>, arriba a la izquierda, o presiona <b className="text-white">Esc</b>.
+            ¿Necesitas un respiro? Toca <b className="text-white">Pausa</b>, arriba a la izquierda, o presiona{' '}
+            <b className="text-white">Esc</b> o <b className="text-white">P</b>.
+          </span>
+        </p>
+        {/* En celular horizontal no cabe otro renglón sin encoger el texto: ahí la pantalla completa se ofrece al despegar. */}
+        <p className="flex items-center gap-2 [@media(orientation:landscape)_and_(max-height:520px)]:hidden">
+          <span className="flex h-7 shrink-0 items-center gap-1 rounded-lg border border-white/25 bg-white/10 px-2 text-[0.8em] font-bold text-white">
+            <Maximize className="h-3.5 w-3.5" /> Completa
+          </span>
+          <span>
+            Para ver <b className="text-white">toda la nave</b>, juega en <b className="text-white">pantalla completa</b>: se activa al despegar (o con la
+            tecla <b className="text-white">F</b>).
           </span>
         </p>
       </>
@@ -507,11 +526,15 @@ const STEPS: Step[] = [
     body: (
       <>
         <p>
-          Los <b className="text-cyan-300">núcleos brillantes</b> de las esquinas lanzan un <b className="text-white">pulso EMP</b>: las medusas se aturden y se ponen azules unos segundos.
+          Los <b className="text-cyan-300">núcleos brillantes</b> de las esquinas lanzan un <b className="text-white">pulso EMP</b> de 7 segundos: las medusas se aturden y se ponen azules.
         </p>
         <ul className="flex flex-col gap-2.5">
           <Item icon={<Zap className="h-4 w-4" />} tone="cyan">
             ¡Atrápalas aturdidas para ganar <b className="text-white">+200, +400, +800…</b> puntos!
+          </Item>
+          <Item icon={<Check className="h-4 w-4" strokeWidth={3} />} tone="emerald">
+            <b className="text-white">Las salas siguen abiertas durante el pulso:</b> puedes responder cuando quieras. El pulso no detiene la pregunta ni el
+            reloj, y con las medusas aturdidas es el momento más seguro para ir a una sala.
           </Item>
           <Item icon={<span className="text-[15px] font-bold leading-none">·</span>} tone="violet">
             Los puntitos de luz del camino suman 10 puntos cada uno.
