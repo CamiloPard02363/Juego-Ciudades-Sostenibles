@@ -1034,8 +1034,11 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (!player) throw new Error('No estás en esta sala.');
     if (player.userId !== room.activePlayerUserId) throw new Error('No es tu turno.');
 
-    if (!player.discardedCardIds.includes(body.cardId)) {
+    const discardedIndex = player.discardedCardIds.indexOf(body.cardId);
+    if (discardedIndex === -1) {
       player.discardedCardIds.push(body.cardId);
+    } else {
+      player.discardedCardIds.splice(discardedIndex, 1);
     }
 
     this.roomStore.set(room);
@@ -1473,8 +1476,11 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (!player) throw new Error('No estás en este match.');
     if (player.userId !== match.activePlayerUserId) throw new Error('No es tu turno.');
 
-    if (!player.discardedCardIds.includes(body.cardId)) {
+    const discardedIndex = player.discardedCardIds.indexOf(body.cardId);
+    if (discardedIndex === -1) {
       player.discardedCardIds.push(body.cardId);
+    } else {
+      player.discardedCardIds.splice(discardedIndex, 1);
     }
     this.tournamentStore.set(tournament);
     this.broadcastMatchState(tournament, match);
