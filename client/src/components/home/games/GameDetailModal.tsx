@@ -4,6 +4,7 @@ import { donateGame, updateGame, type GameDetail } from '../../../services/game.
 import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { useAuth } from '../../../hooks/useAuth'
 import { ApiError } from '../../../utils/http'
+import { AdaptGameModal } from './AdaptGameModal'
 import { ImageUploadField } from './ImageUploadField'
 import { Modal } from './Modal'
 import { resolveRoomCode, LIVE_ROOM_GAME_TYPES, type ResolvedRoom } from './resolveRoomCode'
@@ -56,6 +57,7 @@ export function GameDetailModal({
   const joinHeading = isGuessWho ? 'Únete a una partida ya creada' : '¿Ya tienes un código de sala de este juego?'
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
+  const [adapting, setAdapting] = useState(false)
   const [editingTheme, setEditingTheme] = useState(false)
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(game.theme.coverImageUrl ?? null)
   const [savingTheme, setSavingTheme] = useState(false)
@@ -171,6 +173,7 @@ export function GameDetailModal({
   }
 
   return (
+    <>
     <Modal onClose={onClose}>
       <div
         className="mb-5 flex h-32 items-center justify-center rounded-xl text-4xl"
@@ -412,6 +415,23 @@ export function GameDetailModal({
             </div>
           )}
 
+          {/* Adaptar a otro tipo de juego (issue #8): cualquier juego
+              publicado, o uno propio/administrable aunque sea borrador. */}
+          {(game.status === 'PUBLISHED' || isCreator || isAdmin) && (
+            <div className="rounded-lg border border-border p-3">
+              <p className="mb-2 text-[12px] font-medium text-text-h">
+                ¿Quieres este mismo tema en otro tipo de juego?
+              </p>
+              <button
+                type="button"
+                className="w-full rounded-lg border border-border px-3.5 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent"
+                onClick={() => setAdapting(true)}
+              >
+                Adaptar a otro tipo de juego
+              </button>
+            </div>
+          )}
+
           {/* Donar a una organización: solo el creador de un juego personal
               que sea miembro de alguna organización (ver canDonate arriba). */}
           {canDonate && organizations.length > 0 && (
@@ -450,5 +470,7 @@ export function GameDetailModal({
         </div>
       )}
     </Modal>
+    {adapting && <AdaptGameModal game={game} onClose={() => setAdapting(false)} />}
+    </>
   )
 }

@@ -11,6 +11,8 @@ import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { CategorySelectField } from './create/CategorySelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
+import type { AdaptedGameDraft } from '../../../services/game-adaptation.service'
+import { useApplyAdaptation } from './useApplyAdaptation'
 import { createGame, publishGame } from '../../../services/game.service'
 import {
   listSubjects as listCategories,
@@ -65,6 +67,8 @@ function emptyItem(index: number): ItemDraft {
 }
 
 type MazeCollectorGameFormProps = {
+  /** Borrador de adaptación desde otro juego (issue #8); pre-llena el formulario al montar. */
+  adaptation?: AdaptedGameDraft
   onClose: () => void
   onCreated: (gameId: string, visibility: 'private' | 'community') => void
   onBack: () => void
@@ -77,7 +81,7 @@ type MazeCollectorGameFormProps = {
  * quien crea el juego — el motor (laberinto, movimiento, colisiones) es el
  * mismo sin importar el tema.
  */
-export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCreated }: MazeCollectorGameFormProps) {
+export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCreated, adaptation }: MazeCollectorGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
   const [title, setTitle] = useState('')
@@ -116,6 +120,14 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
         console.error('No se pudieron cargar las organizaciones del usuario:', err)
       })
   }, [token])
+
+  useApplyAdaptation(adaptation, (adapted) => {
+    setTitle(adapted.title)
+    setDescription(adapted.description)
+    setCoverImageUrl(adapted.theme.coverImageUrl)
+    setCategoryId(adapted.categoryId)
+    applyAiDraft(adapted)
+  })
 
   function applyAiDraft(draft: GameDraft) {
     const items = Array.isArray(draft.content) ? draft.content : []
@@ -201,6 +213,7 @@ export function MazeCollectorGameForm({ onClose, onCreated, onBack, onCategoryCr
         title: title.trim(),
         description: description.trim(),
         gameType: 'MAZE_COLLECTOR',
+        sourceGameId: adaptation?.sourceGameId ?? undefined,
         categoryId,
         organizationId: organizationId || undefined,
         theme: coverImageUrl ? { coverImageUrl } : undefined,

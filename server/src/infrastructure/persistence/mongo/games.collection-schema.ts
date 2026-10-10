@@ -38,6 +38,7 @@ export const GAMES_COLLECTION_JSON_SCHEMA = {
       categoryId: { bsonType: 'string' },
       creatorUserId: { bsonType: 'string' },
       organizationId: { bsonType: ['string', 'null'] },
+      sourceGameId: { bsonType: ['string', 'null'] },
       status: { bsonType: 'string' },
       config: { bsonType: 'object' },
       content: { bsonType: 'array' },

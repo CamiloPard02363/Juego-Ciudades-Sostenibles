@@ -39,6 +39,7 @@ import { ListGameTypeSettingsUseCase } from '../application/use-cases/list-game-
 import { ArchiveGameTypeUseCase } from '../application/use-cases/archive-game-type.use-case.js';
 import { UnarchiveGameTypeUseCase } from '../application/use-cases/unarchive-game-type.use-case.js';
 import { UpdateGameTypeSettingUseCase } from '../application/use-cases/update-game-type-setting.use-case.js';
+import { AdaptGameUseCase } from '../application/use-cases/adapt-game.use-case.js';
 import { GenerateGameDraftUseCase } from '../application/use-cases/generate-game-draft.use-case.js';
 import { ListAiProviderAttemptsUseCase } from '../application/use-cases/list-ai-provider-attempts.use-case.js';
 import { AiProviderAttemptTracker } from '../application/services/ai-provider-attempt-tracker.service.js';
@@ -137,6 +138,7 @@ const DEFAULT_AI_PROVIDER_ORDER = ['gemini', 'groq'];
     { provide: CONTENT_IMAGE_FINDER, useClass: WikimediaContentImageFinder },
     FileTextExtractor,
     GenerateGameDraftUseCase,
+    AdaptGameUseCase,
     ListAiProviderAttemptsUseCase,
   ],
 })

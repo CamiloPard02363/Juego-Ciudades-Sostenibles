@@ -37,6 +37,13 @@ export interface GenerateGameDraftInput {
    * generar sin imágenes o directamente sin ninguna fuente visual.
    */
   files: SourceFile[];
+  /**
+   * Texto fuente ya extraído, que se suma al de los archivos. Lo usa la
+   * adaptación de un juego existente a otro tipo (issue #8): el contenido del
+   * juego origen entra como fuente en vez de un archivo. Cuenta como fuente
+   * suficiente, igual que `files` o `message`.
+   */
+  sourceText?: string;
 }
 
 export interface GenerateGameDraftOutput {
@@ -123,22 +130,34 @@ export class GenerateGameDraftUseCase
       // Sin archivos NI mensaje no hay nada de dónde partir — con mensaje
       // (issue #238), `executeWithContentImages` genera igual sin ninguna
       // imagen si no encuentra ninguna entre los archivos.
-      if (input.files.length === 0 && !input.message?.trim()) {
+      if (input.files.length === 0 && !input.message?.trim() && !input.sourceText?.trim()) {
         throw new InvalidGameContentError(
           'sube al menos un archivo o escribe el tema para generar el juego.',
         );
       }
-      return this.executeWithContentImages(gameType.getName(), spec, input.files, input.message);
+      return this.executeWithContentImages(
+        gameType.getName(),
+        spec,
+        input.files,
+        input.message,
+        input.sourceText,
+      );
     }
 
     // Sin imagen obligatoria (issue #234): basta con UNA de las dos fuentes
     // — archivos o un mensaje de texto — nunca ninguna de las dos.
-    if (input.files.length === 0 && !input.message?.trim()) {
+    if (input.files.length === 0 && !input.message?.trim() && !input.sourceText?.trim()) {
       throw new InvalidGameContentError(
         'sube al menos un archivo o escribe el tema/instrucciones para generar el juego.',
       );
     }
-    return this.executeTextOnly(gameType.getName(), spec, input.files, input.message);
+    return this.executeTextOnly(
+      gameType.getName(),
+      spec,
+      input.files,
+      input.message,
+      input.sourceText,
+    );
   }
 
   /**
@@ -153,8 +172,10 @@ export class GenerateGameDraftUseCase
     spec: GamePromptSpec,
     files: SourceFile[],
     message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
-    const sourceText = files.length > 0 ? await this.fileTextExtractor.extractAll(files) : '';
+    const extractedText = files.length > 0 ? await this.fileTextExtractor.extractAll(files) : '';
+    const sourceText = joinSourceTexts(extractedText, extraSourceText);
     if (!sourceText.trim() && !message?.trim()) {
       throw new InvalidGameContentError(
         'no se pudo extraer texto de los archivos subidos y no escribiste ningún tema.',
@@ -180,6 +201,7 @@ export class GenerateGameDraftUseCase
     spec: GamePromptSpec,
     files: SourceFile[],
     message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
     const { min, max, enforceMinimum } = spec.imageRequirement!;
     const directImageFiles = files.filter((file) => file.mimeType.startsWith('image/'));
@@ -207,8 +229,14 @@ export class GenerateGameDraftUseCase
       // usuario escribió un tema, la IA genera igual el contenido completo
       // sin imágenes, para que él las agregue a mano después. Sin mensaje,
       // no hay nada de dónde partir.
-      if (message?.trim()) {
-        return this.executeImageRequirementTextOnly(gameTypeName, spec, documentFiles, message);
+      if (message?.trim() || extraSourceText?.trim()) {
+        return this.executeImageRequirementTextOnly(
+          gameTypeName,
+          spec,
+          documentFiles,
+          message,
+          extraSourceText,
+        );
       }
       throw new InvalidGameContentError(
         'sube al menos una imagen — suelta, o dentro de un PDF/Word (la IA las extrae automáticamente) — o escribe el tema para que la IA arme el contenido y lo completes con imágenes después.',
@@ -233,10 +261,12 @@ export class GenerateGameDraftUseCase
       ),
       documentFiles.length > 0 ? this.fileTextExtractor.extractAll(documentFiles) : Promise.resolve(''),
     ]);
+    const combinedSourceText = joinSourceTexts(sourceText, extraSourceText);
 
     const draft = await this.aiContentAssistant.generateGameDraft({
       gameType: gameTypeName,
-      sourceText: sourceText.trim() || '(el usuario no adjuntó texto de referencia — usa solo las imágenes.)',
+      sourceText:
+        combinedSourceText.trim() || '(el usuario no adjuntó texto de referencia — usa solo las imágenes.)',
       instructions: buildInstructions(spec, message),
       imageDescriptions,
     });
@@ -263,9 +293,12 @@ export class GenerateGameDraftUseCase
     gameTypeName: GameTypeName,
     spec: GamePromptSpec,
     documentFiles: SourceFile[],
-    message: string,
+    message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
-    const sourceText = documentFiles.length > 0 ? await this.fileTextExtractor.extractAll(documentFiles) : '';
+    const extractedText =
+      documentFiles.length > 0 ? await this.fileTextExtractor.extractAll(documentFiles) : '';
+    const sourceText = joinSourceTexts(extractedText, extraSourceText);
 
     const draft = await this.aiContentAssistant.generateGameDraft({
       gameType: gameTypeName,
@@ -359,6 +392,14 @@ export class GenerateGameDraftUseCase
     const validatedContent = validator.validateContent(content, validatedConfig, { isDraft: true });
     return { config: validatedConfig, content: validatedContent };
   }
+}
+
+/** Une el texto extraído de archivos con el texto fuente adicional, sin vacíos. */
+function joinSourceTexts(...parts: Array<string | undefined>): string {
+  return parts
+    .map((part) => part?.trim() ?? '')
+    .filter((part) => part.length > 0)
+    .join('\n\n');
 }
 
 /**

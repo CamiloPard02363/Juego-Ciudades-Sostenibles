@@ -38,6 +38,11 @@ export class CreateGameDto {
   @IsString()
   slug?: string;
 
+  /** Juego del que se adaptó este (issue #8); solo trazabilidad. */
+  @IsOptional()
+  @IsString()
+  sourceGameId?: string | null;
+
   @IsOptional()
   @IsObject()
   theme?: GameThemeDto;
