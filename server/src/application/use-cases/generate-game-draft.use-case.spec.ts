@@ -14,6 +14,7 @@ import { MazeCollectorContentValidator } from '../content-validators/maze-collec
 import { SnakesLaddersContentValidator } from '../content-validators/snakes-ladders.content-validator.js';
 import { DualQuestContentValidator } from '../content-validators/dual-quest.content-validator.js';
 import { DualQuestPixiContentValidator } from '../content-validators/dual-quest-pixi.content-validator.js';
+import { TrueFalseMazeContentValidator } from '../content-validators/true-false-maze.content-validator.js';
 import { FileTextExtractor, type SourceFile } from '../../infrastructure/ai/file-text-extractor.js';
 import { GenerateGameDraftUseCase } from './generate-game-draft.use-case.js';
 
@@ -26,6 +27,7 @@ function buildRegistry(): ContentValidatorRegistry {
     new SnakesLaddersContentValidator(),
     new DualQuestContentValidator(),
     new DualQuestPixiContentValidator(),
+    new TrueFalseMazeContentValidator(),
   );
 }
 

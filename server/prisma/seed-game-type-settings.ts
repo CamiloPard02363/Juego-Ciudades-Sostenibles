@@ -3,7 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 
 /**
- * Siembra idempotente (upsert por `gameType`) de los 7 tipos de juego del
+ * Siembra idempotente (upsert por `gameType`) de los 8 tipos de juego del
  * catálogo (`VALID_GAME_TYPES`, ver domain/value-objects/game-type.vo.ts) en
  * `game_type_settings`. `MAZE_COLLECTOR` y `DUAL_QUEST` nacen ARCHIVED por
  * decisión de producto (issue #156); el resto nace ACTIVE.
@@ -59,6 +59,12 @@ const GAME_TYPE_SEEDS: GameTypeSeed[] = [
     gameType: 'DUAL_QUEST_PIXI',
     displayName: 'Fuego y Agua (Pixi)',
     description: 'Versión con motor gráfico Pixi del cooperativo Fuego y Agua.',
+    archived: false,
+  },
+  {
+    gameType: 'TRUE_FALSE_MAZE',
+    displayName: 'Laberinto Verdadero o Falso',
+    description: 'Lee la afirmación y corre por la nave a la sala VERDADERO o FALSO mientras esquivas medusas galácticas.',
     archived: false,
   },
 ];

@@ -1,8 +1,15 @@
-import { Ghost, Layers, Puzzle, UserRoundSearch, Dices, Flame, User, Users } from 'lucide-react'
+import { Bot, Ghost, Layers, Puzzle, UserRoundSearch, Dices, Flame, User, Users } from 'lucide-react'
 import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
 import { modeColorForGameType } from './gameModeVisuals'
 
-export type GameTypeChoice = 'CARDS' | 'GUESS_WHO' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS' | 'DUAL_QUEST'
+export type GameTypeChoice =
+  | 'CARDS'
+  | 'GUESS_WHO'
+  | 'DOMINO'
+  | 'MAZE_COLLECTOR'
+  | 'SNAKES_LADDERS'
+  | 'DUAL_QUEST'
+  | 'TRUE_FALSE_MAZE'
 
 /** Tipo de juego real (`GameType`) que corresponde a cada opción del picker. */
 const GAME_TYPE_BY_CHOICE: Record<GameTypeChoice, string> = {
@@ -12,6 +19,7 @@ const GAME_TYPE_BY_CHOICE: Record<GameTypeChoice, string> = {
   MAZE_COLLECTOR: 'MAZE_COLLECTOR',
   SNAKES_LADDERS: 'SNAKES_LADDERS',
   DUAL_QUEST: 'DUAL_QUEST',
+  TRUE_FALSE_MAZE: 'TRUE_FALSE_MAZE',
 }
 
 type GameTypePickerProps = {
@@ -70,6 +78,13 @@ const TYPE_OPTIONS: Array<{
     description:
       'Cooperativo de 2 jugadores en tiempo real: Fuego y Agua recorren el mismo mapa, cada uno bloqueado por casillas del otro, y arman juntos un concepto al final.',
     icon: Flame,
+  },
+  {
+    choice: 'TRUE_FALSE_MAZE',
+    title: 'Laberinto Verdadero o Falso',
+    description:
+      'Un robot recorre una nave espacial y responde cada afirmación entrando a la sala VERDADERO o FALSO, mientras esquiva medusas galácticas. Tú escribes las afirmaciones.',
+    icon: Bot,
   },
 ]
 

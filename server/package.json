@@ -27,7 +27,8 @@
     "db:seed:snakes-ladders-demo": "npm run build:seed && node dist-seed/prisma/seed-snakes-ladders-demo.js",
     "db:seed:dual-quest-demo": "npm run build:seed && node dist-seed/prisma/seed-dual-quest-demo.js",
     "db:seed:dual-quest-pixi-demo": "npm run build:seed && node dist-seed/prisma/seed-dual-quest-pixi-demo.js",
-    "db:seed:game-type-settings": "npm run build:seed && node dist-seed/prisma/seed-game-type-settings.js"
+    "db:seed:game-type-settings": "npm run build:seed && node dist-seed/prisma/seed-game-type-settings.js",
+    "db:seed:true-false-maze-demo": "npm run build:seed && node dist-seed/prisma/seed-game-type-settings.js && node dist-seed/prisma/seed-true-false-maze-demo.js"
   },
   "prisma": {
     "seed": "npm run build:seed && node dist-seed/prisma/seed.js"

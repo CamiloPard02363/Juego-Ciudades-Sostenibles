@@ -138,6 +138,13 @@ export type SnakesLaddersQuestionInput = {
   difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
 }
 
+export type TrueFalseMazeQuestionInput = {
+  questionId?: string
+  statement: string
+  answer: boolean
+  explanation?: string
+}
+
 export type CreateGameInput =
   | {
       title: string
@@ -224,6 +231,24 @@ export type CreateGameInput =
         triggers: DualQuestTriggerInput[]
       }
       content: DualQuestGemInput[]
+    }
+  | {
+      title: string
+      description: string
+      gameType: 'TRUE_FALSE_MAZE'
+      categoryId: string
+      organizationId?: string | null
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config: {
+        skin: 'NAVE_ESPACIAL'
+        lives: number
+        enemyCount: number
+        enemySpeed: number
+        relocateSeconds: number
+        shuffleQuestions: boolean
+        lightsOut: boolean
+      }
+      content: TrueFalseMazeQuestionInput[]
     }
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */

@@ -593,6 +593,16 @@ code {
   }
 }
 
+/* Laberinto Verdadero o Falso: barra que se vacía mientras se presenta cada pregunta. */
+@keyframes tf-maze-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 @keyframes maze-levelup-pop {
   0% {
     opacity: 0;
