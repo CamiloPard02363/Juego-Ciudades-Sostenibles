@@ -128,24 +128,34 @@ function useFitScale(
           Number.parseFloat(style.borderBottomWidth)
         const available = limit - chrome - FIT_SAFETY_PX
         setScale((current) => {
-          // Alto del contenido a escala 1. `offsetHeight` no se ve afectado por la
-          // animación de entrada del panel (transform), a diferencia de getBoundingClientRect.
-          const natural = content.offsetHeight / current
-          if (natural <= 0) return current
-          const next = Math.max(MIN_FIT_SCALE, Math.min(1, Math.floor((available / natural) * 1000) / 1000))
-          return Math.abs(next - current) < 0.005 ? current : next
+          // Alto del contenido a la escala actual. `offsetHeight` no se ve afectado por
+          // la animación de entrada del panel (transform), a diferencia de getBoundingClientRect.
+          const height = content.offsetHeight
+          if (height <= 0 || height <= available) return current
+          const next = Math.max(MIN_FIT_SCALE, Math.floor(current * (available / height) * 1000) / 1000)
+          // SOLO se achica: al reducir, el texto gana ancho y se parte en menos
+          // líneas, el contenido mide menos y, si se dejara volver a crecer, se
+          // volvería a partir y a desbordar — un vaivén infinito entre dos
+          // tamaños que se veía como el modal "doble" y distorsionado.
+          return next < current ? next : current
         })
       })
+    }
+
+    // Al cambiar el tamaño de la ventana sí se recalcula desde cero (puede caber más).
+    const handleResize = () => {
+      setScale(1)
+      update()
     }
 
     update()
     const observer = new ResizeObserver(update)
     observer.observe(content)
-    window.addEventListener('resize', update)
+    window.addEventListener('resize', handleResize)
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
-      window.removeEventListener('resize', update)
+      window.removeEventListener('resize', handleResize)
     }
   }, [enabled, panelRef, contentRef])
 
