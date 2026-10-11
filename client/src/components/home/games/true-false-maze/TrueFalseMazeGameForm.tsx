@@ -224,8 +224,6 @@ export function TrueFalseMazeGameForm({ onClose, onCreated, onBack, onCategoryCr
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
-        gameKind="TRUE_FALSE_MAZE"
-        gameTitle={title.trim()}
       />
     )
   }

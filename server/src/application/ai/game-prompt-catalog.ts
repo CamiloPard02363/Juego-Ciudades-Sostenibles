@@ -13,11 +13,13 @@ export interface GamePromptSpec {
   /** Ejemplo de la forma exacta de JSON esperada (se incluye literal en el prompt). */
   jsonShapeExample: string;
   /**
-   * Cuando el tipo de juego necesita una imagen real por elemento (Quién Es,
-   * Parejas), la IA no puede inventarlas: el usuario SIEMPRE sube las
-   * imágenes él mismo y la IA solo las organiza — les asigna un concepto y
-   * arma el contenido, referenciándolas por índice (`imageIndex`) en vez de
-   * por URL, para no depender de que el modelo "recuerde" URLs reales.
+   * Cuando el tipo de juego necesita una imagen por elemento (Quién Es,
+   * Parejas): si el usuario sube sus imágenes, SON ESAS las que se usan y la
+   * IA solo las organiza — les asigna un concepto y arma el contenido,
+   * referenciándolas por índice (`imageIndex`) en vez de por URL, para no
+   * depender de que el modelo "recuerde" URLs reales. Si no sube ninguna, la
+   * IA arma el contenido con el tema y se le consigue o crea una imagen por
+   * elemento (ver `textOnlyInstructions` y `ContentImageResolver`).
    * `null` significa que el juego no necesita este flujo (o porque no usa
    * imágenes, o porque son opcionales y se agregan a mano después, como en
    * Opuestos).
@@ -36,9 +38,10 @@ export interface GamePromptSpec {
      * estricto de siempre.
      *
      * Sin NINGUNA imagen (issue #238) ya no es un error si el usuario
-     * escribió el tema en `message`: la IA genera el contenido completo con
-     * `textOnlyInstructions`/`textOnlyJsonShapeExample` de abajo y consigue
-     * ella misma las imágenes (issue #240) — sin mensaje, sigue siendo
+     * escribió el tema en `message` (o subió un documento con texto): la IA
+     * genera el contenido completo con `textOnlyInstructions`/
+     * `textOnlyJsonShapeExample` de abajo y consigue o crea ella misma las
+     * imágenes (issues #240/#21) — sin mensaje ni documento, sigue siendo
      * obligatorio al menos un archivo.
      */
     enforceMinimum?: boolean;
@@ -48,15 +51,16 @@ export interface GamePromptSpec {
   /**
    * Solo relevante cuando `imageRequirement` no es `null`: instrucciones
    * alternativas para cuando el usuario no subió NINGUNA imagen (ni suelta
-   * ni incrustada en un PDF/Word) pero sí escribió un tema en `message`
-   * (issue #238). La IA genera el contenido completo (labels/info/config)
-   * solo con ese texto, sin `imageIndex` ni `imageUrl`, y con un
-   * `imageQuery` por elemento que el caso de uso resuelve en una imagen real
-   * (issue #240); las que no se encuentren las agrega el usuario a mano.
-   * `undefined` en tipos sin `imageRequirement` (nunca se usa ahí).
+   * ni incrustada en un PDF/Word) pero sí escribió un tema en `message` o
+   * subió un documento con texto (issue #238). La IA genera el contenido
+   * completo (labels/info/config) solo con ese texto, sin `imageIndex` ni
+   * `imageUrl`, y con un `imageQuery` (búsqueda de una foto libre), un
+   * `emoji` y un `color` por elemento: el caso de uso busca la foto (issue
+   * #240) y, si no hay, crea una ilustración básica con ese emoji y color
+   * (issue #21). `undefined` en tipos sin `imageRequirement` (nunca se usa ahí).
    */
   textOnlyInstructions?: string;
-  /** Forma de JSON esperada junto con `textOnlyInstructions` (con `imageQuery`, sin `imageIndex`/`imageUrl`). */
+  /** Forma de JSON esperada junto con `textOnlyInstructions` (con `imageQuery`/`emoji`/`color`, sin `imageIndex`/`imageUrl`). */
   textOnlyJsonShapeExample?: string;
 }
 
@@ -103,14 +107,34 @@ contaminación") y usa "star" también para "collectorIcon"/"enemyIcon". Deja "l
 };
 
 const TRUE_FALSE_MAZE_SPEC: GamePromptSpec = {
-  instructions: `Genera el contenido de un laberinto de Verdadero o Falso educativo a partir del
-texto fuente. Escribe entre 8 y 15 afirmaciones ("statement", entre 5 y 160 caracteres) que se
-puedan juzgar como verdaderas o falsas solo con lo que dice el texto: cada una afirma UNA sola
+  instructions: `Genera un laberinto de Verdadero o Falso educativo. La fuente puede ser un texto, la
+descripción de imágenes que subió el usuario, o solo el tema que escribió: si no hay texto fuente,
+apóyate en las instrucciones del usuario y en hechos bien establecidos del tema.
+
+CONTENIDO ("content"): escribe entre 8 y 15 afirmaciones ("statement", entre 5 y 160 caracteres)
+que se puedan juzgar como verdaderas o falsas con lo que dice la fuente: cada una afirma UNA sola
 idea, sin dobles negaciones ni trampas de redacción. Mezcla verdaderas y falsas en proporción
 parecida (nunca todas iguales); las falsas deben ser errores plausibles que un estudiante podría
-creer, no absurdos. "answer" es true o false. Agrega "explanation" (máximo 240 caracteres) que
-explique por qué la afirmación es verdadera, o cuál es el dato correcto si es falsa. Deja el
-"config" con los valores del ejemplo salvo que el texto sugiera claramente otra cosa.`,
+creer, no absurdos. "answer" es true o false (booleano, nunca texto). Agrega "explanation"
+(máximo 240 caracteres) que explique por qué la afirmación es verdadera, o cuál es el dato
+correcto si es falsa. Si el usuario pide una cantidad concreta de afirmaciones, respétala (mínimo
+3, máximo 30).
+
+PARÁMETROS DE LA PARTIDA ("config"): ajústalos a lo que pida el usuario (nivel, edad o
+dificultad); si no dice nada, usa los valores del ejemplo.
+- "lives": vidas del robot, entero de 1 a 5 (más vidas = más fácil).
+- "enemyCount": medusas en la nave, entero de 1 a 4.
+- "enemySpeed": velocidad de las medusas, entero de 1 (lenta) a 3 (rápida).
+- "relocateSeconds": cada cuánto cambian de lugar las salas VERDADERO/FALSO. SOLO uno de estos
+  valores: 0 (solo al cambiar de pregunta), 30 (tranquilo), 20 (recomendado) o 12 (frenético).
+- "shuffleQuestions": true para barajar el orden de las preguntas en cada partida.
+- "lightsOut": true activa apagones donde solo se ve alrededor del robot; ponlo en false para
+  niños pequeños o nivel fácil.
+- "skin": siempre "NAVE_ESPACIAL".
+Guía de dificultad. FÁCIL (primaria, "fácil", "para niños"): lives 5, enemyCount 1, enemySpeed 1,
+relocateSeconds 0, lightsOut false. MEDIO (por defecto): los valores del ejemplo. DIFÍCIL
+(bachillerato, universidad, "difícil", "reto"): lives 2, enemyCount 4, enemySpeed 3,
+relocateSeconds 12, lightsOut true.`,
   jsonShapeExample: `{
   "config": {
     "skin": "NAVE_ESPACIAL", "lives": 3, "enemyCount": 3, "enemySpeed": 2,
@@ -180,15 +204,21 @@ precisión un elemento concreto y distinto del tema (ej. si el tema es "banderas
 el nombre de un país distinto de esa región) y un "info" (dato breve y curioso, máximo 280 caracteres) sobre
 ese elemento puntual — mismo criterio que si hubiera imágenes. Elige elementos que tengan una imagen
 reconocible (personas, lugares, animales, objetos, banderas…), porque cada tarjeta se juega viendo su imagen.
-Además, para cada elemento escribe un "imageQuery": una búsqueda corta EN INGLÉS (2 a 6 palabras) para
-encontrar en Wikipedia/Wikimedia Commons una foto o ilustración real que represente ese elemento concreto sin
-ambigüedad (ej. "Flag of Argentina", "Bald eagle", "Eiffel Tower", "Right triangle diagram") — se usa para
-conseguir la imagen automáticamente. NO incluyas "imageIndex" ni "imageUrl" en ningún elemento.`,
+Si el usuario pide una cantidad concreta de tarjetas, respétala (mínimo 12 recomendado, máximo 60).
+Además, para cada elemento escribe tres campos para conseguirle su imagen automáticamente:
+(1) "imageQuery": una búsqueda corta EN INGLÉS (2 a 6 palabras) para encontrar en Wikipedia/Wikimedia Commons
+una foto o ilustración real que represente ese elemento concreto sin ambigüedad (ej. "Flag of Argentina",
+"Bald eagle", "Eiffel Tower", "Right triangle diagram");
+(2) "emoji": UN solo emoji que represente ese elemento (ej. 🦅, 🗼, 📐; para una bandera, el emoji de esa bandera).
+Cada elemento debe llevar un emoji DISTINTO (nunca repitas uno), porque las tarjetas no deben verse iguales;
+(3) "color": un color hexadecimal claro y agradable (ej. "#bae6fd") para el fondo de su ilustración.
+Si no se encuentra una foto real, se crea una ilustración básica con ese emoji y ese color.
+NO incluyas "imageIndex" ni "imageUrl" en ningún elemento.`,
   textOnlyJsonShapeExample: `{
   "config": { "maxAccusationCount": 6, "turnDurationSeconds": 15 },
   "content": [
-    { "label": "Argentina", "info": "Su capital es Buenos Aires y es el país de habla hispana más grande del mundo.", "imageQuery": "Flag of Argentina" },
-    { "label": "Brasil", "info": "Es el único país de Sudamérica cuyo idioma oficial es el portugués.", "imageQuery": "Flag of Brazil" }
+    { "label": "Argentina", "info": "Su capital es Buenos Aires y es el país de habla hispana más grande del mundo.", "imageQuery": "Flag of Argentina", "emoji": "🇦🇷", "color": "#bae6fd" },
+    { "label": "Brasil", "info": "Es el único país de Sudamérica cuyo idioma oficial es el portugués.", "imageQuery": "Flag of Brazil", "emoji": "🇧🇷", "color": "#bbf7d0" }
   ]
 }`,
 };
@@ -215,16 +245,22 @@ solo "imageIndex" y "label".`,
 ÚNICAMENTE del tema que describe el usuario — el usuario no subió imágenes. Genera entre 4 y 10 conceptos razonables para
 ese tema, cada uno con un "label" corto (máximo 120 caracteres) que nombre con precisión un concepto concreto
 y distinto del tema, y que sea algo representable con una imagen real (ej. si el tema es "geometría
-básica": "Triángulo", "Cubo", "Círculo" — no ideas abstractas sin forma visual clara).
-Además, para cada elemento escribe un "imageQuery": una búsqueda corta EN INGLÉS (2 a 6 palabras) para
-encontrar en Wikipedia/Wikimedia Commons una foto o ilustración real que represente ese elemento concreto sin
-ambigüedad (ej. "Flag of Argentina", "Bald eagle", "Eiffel Tower", "Right triangle diagram") — se usa para
-conseguir la imagen automáticamente. NO incluyas "imageIndex" ni "imageUrl" en ningún elemento.`,
+básica": "Triángulo", "Cubo", "Círculo" — no ideas abstractas sin forma visual clara). Si el usuario pide una
+cantidad concreta de parejas, respétala (mínimo 4, máximo 40).
+Además, para cada elemento escribe tres campos para conseguirle su imagen automáticamente:
+(1) "imageQuery": una búsqueda corta EN INGLÉS (2 a 6 palabras) para encontrar en Wikipedia/Wikimedia Commons
+una foto o ilustración real que represente ese elemento concreto sin ambigüedad (ej. "Flag of Argentina",
+"Bald eagle", "Eiffel Tower", "Right triangle diagram");
+(2) "emoji": UN solo emoji que represente ese elemento (ej. 🔺, 🧊, ⚪). Cada elemento debe llevar un
+emoji DISTINTO (nunca repitas uno), porque las tarjetas no deben verse iguales;
+(3) "color": un color hexadecimal claro y agradable (ej. "#fde68a") para el fondo de su ilustración.
+Si no se encuentra una foto real, se crea una ilustración básica con ese emoji y ese color.
+NO incluyas "imageIndex" ni "imageUrl" en ningún elemento.`,
   textOnlyJsonShapeExample: `{
   "config": { "mode": "PAIRS", "perZone": 8, "timePerZoneSeconds": 90, "previewSeconds": 5 },
   "content": [
-    { "label": "Triángulo", "imageQuery": "Triangle geometry" },
-    { "label": "Cubo", "imageQuery": "Cube geometric solid" }
+    { "label": "Triángulo", "imageQuery": "Triangle geometry", "emoji": "🔺", "color": "#fecaca" },
+    { "label": "Cubo", "imageQuery": "Cube geometric solid", "emoji": "🧊", "color": "#bae6fd" }
   ]
 }`,
 };

@@ -210,7 +210,8 @@ function toMatchClientView(match: TournamentMatch, tournament: TournamentState, 
         userId: player.userId,
         displayName: participant?.displayName ?? '???',
         discardedCardIds: player.discardedCardIds,
-        secretCardId: player.userId === forUserId ? player.secretCardId : null,
+        // Al terminar el partido se revelan ambas (pantalla "Tarjeta de …"); antes, solo la propia.
+        secretCardId: player.userId === forUserId || match.phase === 'FINISHED' ? player.secretCardId : null,
         isSelf: player.userId === forUserId,
       };
     }),
@@ -385,7 +386,7 @@ function toDualQuestClientView(room: DualQuestRoomState, forSocketId: string) {
 }
 
 /** Vista pública de la sala que se envía a un jugador dado: oculta la carta secreta ajena. */
-function toClientView(room: RoomState, forSocketId: string) {
+export function toClientView(room: RoomState, forSocketId: string) {
   return {
     ...guidedView(room, room.players.find(p => p.socketId === forSocketId)?.userId ?? ''),
     code: room.code,
@@ -403,8 +404,8 @@ function toClientView(room: RoomState, forSocketId: string) {
       ready: player.ready === true,
       discardedCardIds: player.discardedCardIds,
       // La carta secreta propia sí se revela al dueño (para que sepa qué le preguntan);
-      // la del rival nunca viaja a este socket.
-      secretCardId: player.socketId === forSocketId ? player.secretCardId : null,
+      // la del rival solo viaja cuando la partida ya terminó (para mostrar cuál era).
+      secretCardId: player.socketId === forSocketId || room.phase === 'FINISHED' ? player.secretCardId : null,
       isSelf: player.socketId === forSocketId,
       hasVotedRematch: room.rematchVotes[player.userId] !== undefined,
       isHost: player.userId === room.hostUserId,

@@ -25,12 +25,19 @@ export interface GenerateGameDraftInput {
 export interface GenerateGameDraftOutput {
   config: unknown;
   content: unknown;
+  /**
+   * `true` cuando el proveedor tuvo que recortar `sourceText` para que
+   * cupiera en el límite de tokens del modelo — el caso de uso se lo avisa
+   * al usuario ("la IA usó solo la primera parte de tu texto"). Opcional:
+   * un proveedor sin ese límite nunca lo manda.
+   */
+  sourceTruncated?: boolean;
 }
 
 /**
  * Puerto hacia el proveedor de IA que arma el borrador de un juego a partir
  * de los archivos que sube el usuario. Ningún caso de uso ni controller
- * conoce el proveedor real (hoy Gemini, ver `infrastructure/ai/`) — cambiarlo
+ * conoce el proveedor real (hoy Groq, ver `infrastructure/ai/`) — cambiarlo
  * es escribir un adaptador nuevo y una línea en el módulo, nada más.
  */
 export interface AiContentAssistant {
