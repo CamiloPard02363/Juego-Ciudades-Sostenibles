@@ -40,6 +40,7 @@ import { ListGameTypeSettingsUseCase } from '../application/use-cases/list-game-
 import { ArchiveGameTypeUseCase } from '../application/use-cases/archive-game-type.use-case.js';
 import { UnarchiveGameTypeUseCase } from '../application/use-cases/unarchive-game-type.use-case.js';
 import { UpdateGameTypeSettingUseCase } from '../application/use-cases/update-game-type-setting.use-case.js';
+import { ContentImageResolver } from '../application/services/content-image-resolver.service.js';
 import { GenerateGameDraftUseCase } from '../application/use-cases/generate-game-draft.use-case.js';
 import { ListAiProviderAttemptsUseCase } from '../application/use-cases/list-ai-provider-attempts.use-case.js';
 import { AiProviderAttemptTracker } from '../application/services/ai-provider-attempt-tracker.service.js';
@@ -61,13 +62,12 @@ import { GameTypeSettingController } from './http/controllers/game-type-setting.
 import { AiProviderAttemptsController } from './http/controllers/ai-provider-attempts.controller.js';
 
 /**
- * Orden por defecto de la cadena de fallback (issue #204): Gemini primero
- * (mejor calidad de visión hoy), Groq como respaldo. Un ADMIN puede
- * reordenar o quitar un proveedor sin redeploy de código vía la variable de
- * entorno `AI_PROVIDER_ORDER` (ej. "groq,gemini"), siempre que el nombre
- * exista en `AI_PROVIDER_REGISTRY_NAMES` de abajo.
+ * Orden por defecto de la cadena de proveedores de IA: ahora solo Groq.
+ * Gemini sigue registrado y se puede reactivar sin tocar código con la
+ * variable de entorno `AI_PROVIDER_ORDER` (ej. "groq,gemini"), siempre que
+ * el nombre exista en el `registry` de abajo.
  */
-const DEFAULT_AI_PROVIDER_ORDER = ['gemini', 'groq'];
+const DEFAULT_AI_PROVIDER_ORDER = ['groq'];
 
 @Module({
   imports: [UserModule, OrganizationCoreModule, ClassCoreModule],
@@ -138,6 +138,7 @@ const DEFAULT_AI_PROVIDER_ORDER = ['gemini', 'groq'];
     { provide: IMAGE_STORAGE, useClass: CloudinaryImageStorage },
     { provide: CONTENT_IMAGE_FINDER, useClass: WikimediaContentImageFinder },
     FileTextExtractor,
+    ContentImageResolver,
     GenerateGameDraftUseCase,
     ListAiProviderAttemptsUseCase,
   ],
