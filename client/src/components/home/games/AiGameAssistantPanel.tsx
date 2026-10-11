@@ -12,6 +12,59 @@ const DEFAULT_MAX_FILES = 5
 /** Documentos de referencia extra permitidos además del cupo de imágenes. */
 const EXTRA_REFERENCE_FILES = 5
 
+type AiGameHint = {
+  /** Qué arma la IA para este juego, en una o dos frases. */
+  summary: string
+  /** Ejemplo de lo que se puede escribir en el cuadro de texto. */
+  placeholder: string
+}
+
+/**
+ * Lo que hace la IA en cada juego (clave: tipo de juego, o "TIPO:MODO" para
+ * Memoria), para que el usuario sepa qué pedirle y qué recibe a cambio.
+ */
+const AI_GAME_HINTS: Record<string, AiGameHint> = {
+  TRUE_FALSE_MAZE: {
+    summary:
+      'La IA escribe de 8 a 15 afirmaciones de verdadero o falso con su explicación, y ajusta las vidas, las medusas y la velocidad según la dificultad que pidas.',
+    placeholder: 'Ej.: "La fotosíntesis, nivel fácil para primaria" o "Segunda Guerra Mundial, difícil, 12 afirmaciones"…',
+  },
+  GUESS_WHO: {
+    summary: 'La IA arma las tarjetas con su nombre y un dato curioso de cada una.',
+    placeholder: 'Ej.: "Animales de la selva amazónica" o "Banderas de Sudamérica"…',
+  },
+  'MEMORY_MATCH:PAIRS': {
+    summary: 'La IA arma las parejas imagen-concepto con el nombre de cada concepto.',
+    placeholder: 'Ej.: "Figuras y sólidos geométricos básicos" o "Partes de la célula"…',
+  },
+  'MEMORY_MATCH:OPPOSITES': {
+    summary: 'La IA arma parejas de conceptos opuestos, cada lado con su descripción.',
+    placeholder: 'Ej.: "Ácidos y bases" o "Causas y consecuencias de la Revolución Francesa"…',
+  },
+  DOMINO: {
+    summary: 'La IA elige de 6 a 10 conceptos clave del tema y les asigna un color.',
+    placeholder: 'Ej.: "Energías renovables" o "Personajes de la Independencia"…',
+  },
+  MAZE_COLLECTOR: {
+    summary:
+      'La IA elige los objetos que se recolectan, con un dato educativo de cada uno, y los nombres del recolector y del enemigo.',
+    placeholder: 'Ej.: "Reciclaje: qué va en cada caneca" o "Animales en peligro de extinción"…',
+  },
+  SNAKES_LADDERS: {
+    summary:
+      'La IA diseña el tablero (escaleras y serpientes) y escribe una pregunta de opción múltiple para cada casilla clave.',
+    placeholder: 'Ej.: "El sistema solar" o "Tablas de multiplicar del 6 al 9"…',
+  },
+  DUAL_QUEST: {
+    summary: 'La IA diseña el mapa, las compuertas, las preguntas y las gemas que arman la pregunta final.',
+    placeholder: 'Ej.: "El ciclo del agua" o "Estados de la materia"…',
+  },
+}
+
+function hintFor(gameType: string, mode?: string): AiGameHint | undefined {
+  return (mode ? AI_GAME_HINTS[`${gameType}:${mode}`] : undefined) ?? AI_GAME_HINTS[gameType]
+}
+
 type AiGameAssistantPanelProps = {
   gameType: string
   /** Solo para MEMORY_MATCH: 'PAIRS' u 'OPPOSITES'. */
@@ -43,11 +96,12 @@ type AiGameAssistantPanelProps = {
  *
  * Nunca es obligatorio adjuntar un archivo para enviar (issues #234/#238):
  * el usuario puede escribir solo el tema y la IA genera el borrador
- * completo con eso. Para tipos de juego CON imagen obligatoria por elemento
- * (`imagesRequired`, Quién Es/Parejas), eso sí, cada elemento del borrador
- * queda sin imagen cuando no se adjuntó ninguna — la IA no puede inventar
- * fotos reales, así que el usuario la agrega a mano después en el
- * formulario de siempre (que también admite arrastrar y soltar).
+ * completo con eso. Para tipos de juego CON imagen por elemento
+ * (`imagesRequired`, Quién Es/Parejas): si el usuario sube sus imágenes se
+ * usan esas; si no sube ninguna, la IA consigue una foto libre o crea una
+ * ilustración básica para cada elemento (issue #21), y el usuario puede
+ * reemplazarlas después en el formulario de siempre (que también admite
+ * arrastrar y soltar).
  */
 export function AiGameAssistantPanel({
   gameType,
@@ -65,6 +119,7 @@ export function AiGameAssistantPanel({
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const hint = hintFor(gameType, mode)
   const maxFiles = imagesRequired ? imagesRequired.max + EXTRA_REFERENCE_FILES : DEFAULT_MAX_FILES
   const imageCount = files.filter((file) => file.type.startsWith('image/')).length
   // Con enforceMinimum: false no se puede saber client-side cuántas imágenes
@@ -199,31 +254,31 @@ export function AiGameAssistantPanel({
           </div>
 
           <p className="mb-3 text-[12px] leading-relaxed text-text">
+            {hint && <span className="font-medium text-text-h">{hint.summary} </span>}
             {imagesRequired ? (
               enforcesMinimum ? (
                 <>
-                  Este juego necesita una imagen por elemento. Si tienes las tuyas,
-                  arrástralas aquí o súbelas con el clip y la IA las organiza: le asigna a cada imagen el
-                  concepto que le corresponde. También puedes agregar PDF/Word/Excel/CSV de referencia
-                  (opcional). O escribe solo el tema, sin ningún archivo: la IA arma el contenido completo y
-                  consigue ella misma las imágenes (fotos libres de Wikimedia Commons); las que no encuentre las
-                  agregas tú después.
+                  Si tienes tus imágenes, arrástralas aquí o súbelas con el clip (al menos {imagesRequired.min}): se
+                  usan esas, y la IA le asigna a cada una el concepto que le corresponde. También puedes agregar
+                  PDF/Word/Excel/CSV de referencia (opcional). O escribe solo el tema, sin ninguna imagen: la IA arma
+                  el contenido completo y consigue las imágenes ella misma — busca una foto libre en Wikimedia Commons
+                  y, si no encuentra, crea una ilustración básica — para que ninguna tarjeta quede vacía.
                 </>
               ) : (
                 <>
-                  Este juego necesita una imagen por elemento. Si tienes las tuyas, arrástralas aquí o súbelas
-                  como prefieras: cada imagen suelta, o un solo PDF/Word con varias fotos adentro (la IA las
-                  extrae automáticamente) — y la IA las organiza. Recomendamos al menos {imagesRequired.min}, pero
-                  no es obligatorio. O escribe solo el tema, sin ningún archivo: la IA arma el contenido completo y
-                  consigue ella misma las imágenes (fotos libres de Wikimedia Commons); las que no encuentre las
-                  agregas tú después.
+                  Si tienes tus imágenes, arrástralas aquí o súbelas como prefieras: cada imagen suelta, o un solo
+                  PDF/Word con varias fotos adentro (la IA las extrae automáticamente). Se usan esas, y la IA les
+                  asigna el concepto. Recomendamos al menos {imagesRequired.min}, pero no es obligatorio. O escribe
+                  solo el tema, sin ninguna imagen: la IA arma el contenido completo y consigue las imágenes ella
+                  misma — busca una foto libre en Wikimedia Commons y, si no encuentra, crea una ilustración básica —
+                  para que ninguna tarjeta quede vacía.
                 </>
               )
             ) : (
               <>
-                Adjunta PDF, Word, Excel, CSV o imágenes con tu propio material — la IA extrae la información y
-                llena el resto del formulario con ese tema. También puedes escribir el tema directamente en el
-                cuadro de texto, sin adjuntar nada: la IA genera el juego completo solo con eso.
+                Adjunta PDF, Word, Excel, CSV o imágenes con tu propio material (incluso una foto de tus apuntes): la
+                IA lee la información y llena el resto del formulario con ese tema. También puedes escribir el tema
+                directamente en el cuadro de texto, sin adjuntar nada.
               </>
             )}{' '}
             No se aceptan links, solo archivos que subas tú (o el texto que escribas, sin ningún archivo).
@@ -304,7 +359,7 @@ export function AiGameAssistantPanel({
                 onChange={(event) => setMessage(event.target.value)}
                 onKeyDown={handleMessageKeyDown}
                 disabled={disabled || generating}
-                placeholder='Escribe instrucciones, o directamente el tema del juego (ej. "La Revolución Francesa")…'
+                placeholder={hint?.placeholder ?? 'Escribe instrucciones, o directamente el tema del juego (ej. "La Revolución Francesa")…'}
                 className="max-h-28 min-h-9 flex-1 resize-none rounded-2xl border border-border bg-surface px-3.5 py-2 text-[13px] text-text-h outline-none placeholder:text-text focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
               />
 
