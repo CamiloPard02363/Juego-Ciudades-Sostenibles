@@ -6,6 +6,7 @@ import { useToast } from '../../../hooks/useToast'
 import { generateGameDraft, type GameDraft } from '../../../services/ai-game-assistant.service'
 import { ApiError } from '../../../utils/http'
 import { Modal } from './Modal'
+import { useMarkAiDraftApplied } from './aiDraftContext'
 
 const ACCEPTED = '.pdf,.doc,.docx,.xls,.xlsx,.csv,image/*'
 const DEFAULT_MAX_FILES = 5
@@ -112,6 +113,7 @@ export function AiGameAssistantPanel({
 }: AiGameAssistantPanelProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
+  const markAiDraftApplied = useMarkAiDraftApplied()
   const inputRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
   const [files, setFiles] = useState<File[]>([])
@@ -188,12 +190,14 @@ export function AiGameAssistantPanel({
     try {
       const draft = await generateGameDraft(token, gameType, files, mode, message)
       onDraftReady(draft)
+      // El formulario muestra un aviso fijo con lo que falta llenar a mano (nombre, descripción, materia).
+      markAiDraftApplied?.()
       showToast(
         draft.notice
-          ? `Juego configurado con IA. ${draft.notice}`
-          : 'Juego configurado con IA — revisa y ajusta lo que necesites',
+          ? `Juego configurado con IA. ${draft.notice} Ahora escribe tú el nombre y la descripción, y elige la materia.`
+          : 'Juego configurado con IA — ahora escribe tú el nombre y la descripción, y elige la materia.',
         'success',
-        draft.notice ? 8000 : undefined,
+        8000,
       )
       setFiles([])
       setMessage('')
