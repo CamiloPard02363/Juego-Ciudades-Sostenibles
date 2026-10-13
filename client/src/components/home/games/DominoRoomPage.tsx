@@ -2,7 +2,7 @@ import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { LogOut, RotateCcw, Trophy } from 'lucide-react'
+import { Hand, LogOut, PackageOpen, RotateCcw, SkipForward, Trophy } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
@@ -50,6 +50,7 @@ function DominoRoomPageSession() {
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null)
   const [joinCodeInput, setJoinCodeInput] = useState('')
   const [boardScale, setBoardScale] = useState(1)
+  const [boardNeedsScroll, setBoardNeedsScroll] = useState(false)
   const [draggedTileId, setDraggedTileId] = useState<string | null>(null)
   const boardViewportRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
@@ -122,18 +123,25 @@ function DominoRoomPageSession() {
     const updateScale = () => {
       if (!board.length) {
         setBoardScale(1)
+        setBoardNeedsScroll(false)
         return
       }
-      const availableWidth = viewport.clientWidth - 24
-      const estimatedWidth = board.length * 136 + 80
-      setBoardScale(Math.min(1, Math.max(0.1, availableWidth / estimatedWidth)))
+      const availableWidth = Math.max(1, viewport.clientWidth - 48)
+      const tileWidth = board.reduce((total, tile) => total + (tile.isDouble ? 68 : 136), 0)
+      const chainWidth = tileWidth + Math.max(0, board.length - 1) * 2 + 80
+      const preferredScale = board.length === 1 ? 1.26 : board.length <= 3 ? 1.16 : board.length <= 5 ? 1.08 : 1
+      const fitScale = availableWidth / chainWidth
+      const nextScale = Math.min(preferredScale, Math.max(0.62, fitScale))
+
+      setBoardScale((current) => Math.abs(current - nextScale) < 0.015 ? current : nextScale)
+      setBoardNeedsScroll(fitScale < 0.62)
     }
 
     updateScale()
     const observer = new ResizeObserver(updateScale)
     observer.observe(viewport)
     return () => observer.disconnect()
-  }, [board.length])
+  }, [board])
 
   useEffect(() => {
     if (!rematchRejectedMessage) return
@@ -198,25 +206,36 @@ function DominoRoomPageSession() {
   >{dealCountdownMs !== null && <DealCountdownOverlay remainingMs={dealCountdownMs} />}</MultiplayerLobby>
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
+    <div className="domino-premium-room fixed inset-0 z-50 overflow-y-auto bg-[#080F24]">
       {dealCountdownMs !== null && <DealCountdownOverlay remainingMs={dealCountdownMs} />}
 
-      <div className="mx-auto flex min-h-full w-full max-w-[1600px] flex-col p-5 sm:p-8">
-        <header className="mb-5 flex items-center justify-between gap-3">
+      <div className="domino-premium-shell mx-auto flex min-h-full w-full max-w-[1600px] flex-col p-3 sm:p-5">
+        <header className="domino-premium-header mb-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 sm:flex-nowrap">
           <div>
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-accent">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-accent">
               {room?.gameTitle ?? 'Dominó'}
             </p>
-            <h1 className="text-[20px] tracking-tight text-text-h">Sala en vivo</h1>
+            <div className="mt-1 flex items-center gap-2">
+              <h1 className="text-[17px] font-bold tracking-tight text-text-h">Sala en vivo</h1>
+              {room && <span className="domino-premium-status rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">{room.phase === 'PLAYING' ? 'En partida' : room.phase === 'FINISHED' ? 'Finalizada' : 'Esperando'}</span>}
+            </div>
           </div>
+          <div className="flex items-center gap-2">
+          {room?.phase === 'PLAYING' && (
+            <div className={`domino-premium-turn ${isMyTurn ? 'domino-premium-turn--self' : 'domino-premium-turn--rival'}`}>
+              <span className="domino-premium-turn-dot" aria-hidden="true" />
+              <TurnBanner isMyTurn={isMyTurn} remainingMs={remainingMs} turnDurationSeconds={room.turnDurationSeconds} variant="inline" />
+            </div>
+          )}
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-medium text-text-h"
+            className="domino-premium-exit flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-semibold"
             onClick={handleExit}
           >
             <LogOut className="h-4 w-4" strokeWidth={2} />
             Salir
           </button>
+          </div>
         </header>
 
         {error && (
@@ -257,30 +276,33 @@ function DominoRoomPageSession() {
 
 
         {room && room.phase === 'PLAYING' && opponent && (
-          <div className="flex flex-col gap-5">
+          <div className="domino-premium-game flex min-h-0 flex-1 flex-col gap-2">
             <TurnPopBanner isMyTurn={isMyTurn} opponentName={opponent.displayName} />
-            <TurnBanner isMyTurn={isMyTurn} remainingMs={remainingMs} turnDurationSeconds={room.turnDurationSeconds} />
 
-            <div className="flex items-center justify-between text-[12.5px] text-text">
-              <span>
-                {opponent.displayName}: <strong className="text-text-h">{opponent.handCount}</strong> ficha
+            <section className="domino-premium-stage flex min-h-0 flex-1 flex-col">
+            <div className="domino-premium-table-meta mb-3 flex items-center justify-between gap-2 text-[12px] text-text">
+              <span className="domino-premium-rival-card rounded-xl border px-3 py-2">
+                <strong className="block text-[10px] uppercase tracking-wide text-text">Rival</strong>
+                <span className="domino-premium-rival-name text-text-h" title={opponent.displayName}>{opponent.displayName}</span> · <strong className="text-text-h">{opponent.handCount}</strong> ficha
                 {opponent.handCount === 1 ? '' : 's'}
               </span>
-              <span>
-                Pozo: <strong className="text-text-h">{room.boneyardCount}</strong>
+              <span className="domino-premium-boneyard rounded-xl border px-3 py-2 text-right">
+                <strong className="block text-[10px] uppercase tracking-wide text-text">Pozo</strong>
+                <strong className="text-text-h">{room.boneyardCount}</strong> fichas
               </span>
             </div>
 
             {/* Tablero */}
-            <div ref={boardViewportRef} className="overflow-hidden rounded-xl border border-border bg-code-bg p-3 sm:p-4">
+            <div ref={boardViewportRef} className="domino-premium-board flex min-h-[260px] flex-1 overflow-hidden rounded-2xl border p-3 sm:min-h-[340px] sm:p-5">
+              <span className="domino-premium-board-mark" aria-hidden="true" />
               {board.length === 0 ? (
-                <p className="py-10 text-center text-[13px] text-text">
+                <p className="m-auto text-center text-[13px] text-text">
                   {isMyTurn ? 'Toca una ficha de tu mano para abrir la partida.' : 'Esperando la primera jugada…'}
                 </p>
               ) : (
-                <div className="flex min-h-[82px] items-center justify-center overflow-hidden">
+                <div className={`domino-premium-chain-viewport flex min-h-[82px] w-full items-center ${boardNeedsScroll ? 'justify-start overflow-x-auto' : 'justify-center overflow-hidden'}`}>
                   <div
-                    className="flex w-max items-center gap-2"
+                    className={`domino-premium-chain flex w-max items-center gap-[2px] ${boardNeedsScroll ? 'domino-premium-chain--scroll mx-5' : ''}`}
                     style={{ transform: `scale(${boardScale})`, transformOrigin: 'center center' }}
                   >
                     <EndDropZone
@@ -305,15 +327,26 @@ function DominoRoomPageSession() {
                 </div>
               )}
             </div>
+            </section>
 
             {/* Acciones: robar / pasar, solo tienen efecto en tu turno */}
-            <div className="flex items-center justify-end gap-2">
+            <section className="domino-premium-hand-dock rounded-2xl border p-3 sm:p-4">
+            <div className="domino-premium-hand-layout">
+            <div className={`domino-premium-local-player ${isMyTurn ? 'domino-premium-local-player--active' : ''}`}>
+              <span className="domino-premium-local-avatar" aria-hidden="true"><Hand className="h-3.5 w-3.5" strokeWidth={2} /></span>
+              <span>
+                <strong>Tú</strong>
+                <small>{hand.length} fichas</small>
+              </span>
+            </div>
+            <div className="domino-premium-actions flex items-center justify-end gap-2">
               <button
                 type="button"
                 className="rounded-lg border border-border px-3.5 py-1.5 text-[12.5px] font-medium text-text-h disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!isMyTurn || room.boneyardCount === 0 || hasValidMove}
                 onClick={drawTile}
               >
+                <PackageOpen className="h-4 w-4" strokeWidth={1.8} />
                 Robar del pozo
               </button>
               <button
@@ -322,17 +355,16 @@ function DominoRoomPageSession() {
                 disabled={!isMyTurn || room.boneyardCount > 0 || hasValidMove}
                 onClick={passTurn}
               >
+                <SkipForward className="h-4 w-4" strokeWidth={1.8} />
                 Pasar turno
               </button>
             </div>
 
             {/* Mano propia — fichas grandes y visualmente diferenciadas por
                 concepto (ícono + color propios), animadas al entrar/jugar. */}
-            <div>
-              <p className="mb-3 text-[11.5px] font-semibold tracking-wide text-text/70 uppercase">
-                Tu mano ({hand.length})
-              </p>
-              <div className="flex flex-wrap gap-3">
+            <div className="domino-premium-hand-area">
+              <div className="domino-premium-hand-scroll">
+              <div className="domino-premium-hand-tiles flex gap-3">
                 {hand.map((tile) => {
                   const playable = board.length === 0 || tileMatchesEnd(tile, leftEnd) || tileMatchesEnd(tile, rightEnd)
                   return (
@@ -351,7 +383,10 @@ function DominoRoomPageSession() {
                   )
                 })}
               </div>
+              </div>
             </div>
+            </div>
+            </section>
           </div>
         )}
 
@@ -419,7 +454,7 @@ function ConceptHalf({ concept, size = 'md' }: { concept: DominoConcept; size?: 
 
   return (
     <div
-      className={`flex flex-1 flex-col items-center justify-center ${sizing}`}
+      className={`domino-tile-half flex flex-1 flex-col items-center justify-center ${sizing}`}
       style={{ background: `color-mix(in srgb, ${concept.color} 10%, transparent)` }}
     >
       <Icon className={iconSize} style={{ color: concept.color }} strokeWidth={2} />
@@ -438,24 +473,24 @@ function BoardTileView({
   conceptOf: (id: number) => DominoConcept
   justPlaced: boolean
 }) {
-  const animation = justPlaced ? 'animate-[domino-tile-play-in_0.35s_cubic-bezier(0.16,1,0.3,1)_backwards]' : ''
+  const animation = justPlaced ? 'animate-[domino-tile-play-in_0.22s_cubic-bezier(0.16,1,0.3,1)_backwards]' : ''
   if (placed.isDouble) {
     return (
       <div
-        className={`flex h-[124px] w-[68px] shrink-0 flex-col overflow-hidden rounded-lg border-[3px] border-border bg-surface shadow-[var(--shadow)] ${animation}`}
+        className={`domino-premium-tile domino-board-tile flex h-[124px] w-[68px] shrink-0 flex-col overflow-hidden rounded-lg border-[3px] ${animation}`}
       >
         <ConceptHalf concept={conceptOf(placed.left)} />
-        <div className="h-[3px] w-full bg-border" />
+        <div className="domino-tile-divider h-[3px] w-full" />
         <ConceptHalf concept={conceptOf(placed.right)} />
       </div>
     )
   }
   return (
     <div
-      className={`flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] border-border bg-surface shadow-[var(--shadow)] ${animation}`}
+      className={`domino-premium-tile domino-board-tile flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] ${animation}`}
     >
       <ConceptHalf concept={conceptOf(placed.left)} />
-      <div className="h-full w-[3px] bg-border" />
+      <div className="domino-tile-divider h-full w-[3px]" />
       <ConceptHalf concept={conceptOf(placed.right)} />
     </div>
   )
@@ -506,10 +541,10 @@ function HandTileView({
   const a = conceptOf(tile.a)
   const b = conceptOf(tile.b)
   const stateStyles = {
-    waiting: 'border-border opacity-75',
-    playable: 'border-accent/60 shadow-[0_8px_24px_-14px_var(--accent)]',
-    selected: 'z-10 -translate-y-2 border-accent ring-2 ring-accent/35 shadow-[0_18px_30px_-12px_var(--accent)]',
-    unavailable: 'border-border opacity-35 grayscale-[0.35]',
+    waiting: 'domino-tile--waiting',
+    playable: 'domino-tile--playable',
+    selected: 'domino-tile--selected',
+    unavailable: 'domino-tile--unavailable',
   }[state]
 
   return (
@@ -526,10 +561,10 @@ function HandTileView({
         // The board keeps the click selection when a drag is cancelled.
       }}
       aria-pressed={selected}
-      className={`flex h-[104px] w-[196px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-surface shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1.5 ${stateStyles}`}
+      className={`domino-premium-tile domino-hand-tile flex h-[104px] w-[196px] shrink-0 overflow-hidden rounded-xl border-[3px] transition-all duration-200 ${stateStyles}`}
     >
       <ConceptHalf concept={a} size="lg" />
-      <div className="h-full w-[3px]" style={{ background: `linear-gradient(${a.color}, ${b.color})` }} />
+      <div className="domino-tile-divider h-full w-[3px]" style={{ background: `linear-gradient(${a.color}, ${b.color})` }} />
       <ConceptHalf concept={b} size="lg" />
     </button>
   )
