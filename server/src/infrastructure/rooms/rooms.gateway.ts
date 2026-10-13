@@ -254,6 +254,8 @@ function toDominoClientView(room: DominoRoomState, forSocketId: string) {
     turnDurationSeconds: room.turnDurationSeconds,
     phase: room.phase,
     board: room.board,
+    // Las salas creadas antes de este metadato siguen siendo válidas.
+    openingTileId: room.openingTileId ?? null,
     boneyardCount: room.boneyard.length,
     winnerUserId: room.winnerUserId,
     endedByBlock: room.endedByBlock,
@@ -1627,6 +1629,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       ],
       boneyard: [],
       board: [],
+      openingTileId: null,
       activePlayerUserId: null,
       turnDeadline: null,
       winnerUserId: null,
@@ -1760,6 +1763,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     room.players[1].hand = shuffled.slice(handSize, handSize * 2);
     room.boneyard = shuffled.slice(handSize * 2);
     room.board = [];
+    room.openingTileId = null;
     room.phase = 'PLAYING';
     room.winnerUserId = null;
     room.endedByBlock = false;
@@ -1792,6 +1796,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (room.board.length === 0) {
       placed = { id: tile.id, left: tile.a, right: tile.b, isDouble: tile.a === tile.b, placedByUserId: player.userId };
       room.board = [placed];
+      room.openingTileId = placed.id;
     } else if (body.side === 'right') {
       if (!dominoTileMatchesEnd(tile, right)) throw new Error('Esa ficha no encaja en ese extremo.');
       placed =

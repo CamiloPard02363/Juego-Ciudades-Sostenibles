@@ -1,14 +1,19 @@
 import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Hand, LogOut, PackageOpen, RotateCcw, SkipForward, Trophy } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
 import type { DominoPlacedTileView, DominoTileView } from './dominoRoomTypes'
+import type { DominoVisualOrientation, Point } from './dominoChainLayout'
+import { resolveDominoBoardPresentation, type DominoBoardRenderMode } from './dominoBoardRenderMode'
 import { DealCountdownOverlay, TurnBanner, TurnPopBanner, useCountdown } from './MatchBoard'
 import { Modal } from './Modal'
+
+/** Selector interno: cambiar a 'linear' permite comparar ambas vistas durante desarrollo. */
+const DOMINO_DEVELOPMENT_BOARD_MODE: DominoBoardRenderMode = import.meta.env.DEV ? 'serpentine' : 'linear'
 
 /**
  * Sala de Dominó 1v1 en tiempo real: página propia (ruta `/domino/sala/:code?`,
@@ -51,6 +56,7 @@ function DominoRoomPageSession() {
   const [joinCodeInput, setJoinCodeInput] = useState('')
   const [boardScale, setBoardScale] = useState(1)
   const [boardNeedsScroll, setBoardNeedsScroll] = useState(false)
+  const [boardViewport, setBoardViewport] = useState({ width: 0, height: 0 })
   const [draggedTileId, setDraggedTileId] = useState<string | null>(null)
   const boardViewportRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
@@ -103,6 +109,10 @@ function DominoRoomPageSession() {
   const leftEnd = board[0]?.left
   const rightEnd = board[board.length - 1]?.right
   const hand: DominoTileView[] = self?.hand ?? []
+  const boardPresentation = useMemo(
+    () => resolveDominoBoardPresentation(DOMINO_DEVELOPMENT_BOARD_MODE, board, boardViewport),
+    [board, boardViewport],
+  )
 
   function tileMatchesEnd(tile: DominoTileView, end: number | undefined): boolean {
     if (end === undefined) return true
@@ -121,6 +131,7 @@ function DominoRoomPageSession() {
     if (!viewport) return
 
     const updateScale = () => {
+      setBoardViewport({ width: viewport.clientWidth, height: viewport.clientHeight })
       if (!board.length) {
         setBoardScale(1)
         setBoardNeedsScroll(false)
@@ -299,6 +310,41 @@ function DominoRoomPageSession() {
                 <p className="m-auto text-center text-[13px] text-text">
                   {isMyTurn ? 'Toca una ficha de tu mano para abrir la partida.' : 'Esperando la primera jugada…'}
                 </p>
+              ) : boardPresentation.kind === 'serpentine' ? (
+                <div className="domino-serpentine-stage">
+                  {boardPresentation.layout.tiles.map((placement) => {
+                    const placed = board[placement.index]
+                    return (
+                      <div
+                        key={placement.id}
+                        className="domino-serpentine-tile"
+                        style={{ left: placement.x, top: placement.y }}
+                      >
+                        <BoardTileView
+                          placed={placed}
+                          conceptOf={conceptOf}
+                          justPlaced={placed.id === lastPlacedTileId}
+                          orientation={placement.orientation}
+                          articulation={placed.isDouble && placement.orientation === 'double-vertical'}
+                        />
+                      </div>
+                    )
+                  })}
+                  <EndDropZone
+                    active={isMyTurn && Boolean(selectedTile) && canPlaceLeft}
+                    onClick={() => handleEndClick('left')}
+                    onDrop={() => handleEndClick('left')}
+                    visualPosition={{ x: boardPresentation.layout.leftEnd.x - 20, y: boardPresentation.layout.leftEnd.y - 34 }}
+                    className="domino-serpentine-end"
+                  />
+                  <EndDropZone
+                    active={isMyTurn && Boolean(selectedTile) && canPlaceRight}
+                    onClick={() => handleEndClick('right')}
+                    onDrop={() => handleEndClick('right')}
+                    visualPosition={{ x: boardPresentation.layout.rightEnd.x - 20, y: boardPresentation.layout.rightEnd.y - 34 }}
+                    className="domino-serpentine-end"
+                  />
+                </div>
               ) : (
                 <div className={`domino-premium-chain-viewport flex min-h-[82px] w-full items-center ${boardNeedsScroll ? 'justify-start overflow-x-auto' : 'justify-center overflow-hidden'}`}>
                   <div
@@ -463,40 +509,69 @@ function ConceptHalf({ concept, size = 'md' }: { concept: DominoConcept; size?: 
   )
 }
 
-/** Fichas más grandes que el modo un-jugador, y con la animación "recién jugada" al colocarse. */
-function BoardTileView({
+export type BoardTilePresentation = {
+  orientation: DominoVisualOrientation
+  width: number
+  height: number
+  axis: 'row' | 'column'
+}
+
+/** Datos de presentación independientes del DOM; el valor predeterminado conserva la sala lineal. */
+export function boardTilePresentation(
+  isDouble: boolean,
+  requested?: DominoVisualOrientation,
+): BoardTilePresentation {
+  const orientation = requested ?? (isDouble ? 'double-vertical' : 'horizontal')
+  switch (orientation) {
+    case 'vertical': return { orientation, width: 68, height: 136, axis: 'column' }
+    case 'double-horizontal': return { orientation, width: 124, height: 68, axis: 'row' }
+    case 'double-vertical': return { orientation, width: 68, height: 124, axis: 'column' }
+    default: return { orientation: 'horizontal', width: 136, height: 68, axis: 'row' }
+  }
+}
+
+/** Fichas de tablero orientables. No rota el contenido: reordena mitades y divisor. */
+export function BoardTileView({
   placed,
   conceptOf,
   justPlaced,
+  orientation,
+  articulation = false,
 }: {
   placed: DominoPlacedTileView
   conceptOf: (id: number) => DominoConcept
   justPlaced: boolean
+  orientation?: DominoVisualOrientation
+  articulation?: boolean
 }) {
   const animation = justPlaced ? 'animate-[domino-tile-play-in_0.22s_cubic-bezier(0.16,1,0.3,1)_backwards]' : ''
-  if (placed.isDouble) {
-    return (
-      <div
-        className={`domino-premium-tile domino-board-tile flex h-[124px] w-[68px] shrink-0 flex-col overflow-hidden rounded-lg border-[3px] ${animation}`}
-      >
-        <ConceptHalf concept={conceptOf(placed.left)} />
-        <div className="domino-tile-divider h-[3px] w-full" />
-        <ConceptHalf concept={conceptOf(placed.right)} />
-      </div>
-    )
-  }
+  const presentation = boardTilePresentation(placed.isDouble, orientation)
+  const vertical = presentation.axis === 'column'
   return (
     <div
-      className={`domino-premium-tile domino-board-tile flex h-[68px] w-[136px] shrink-0 overflow-hidden rounded-lg border-[3px] ${animation}`}
+      className={`domino-premium-tile domino-board-tile ${placed.isDouble ? 'domino-board-tile--double' : ''} ${articulation ? 'domino-board-tile--articulation' : ''} flex shrink-0 overflow-hidden rounded-lg border-[3px] ${vertical ? 'flex-col' : ''} ${animation}`}
+      style={{ width: presentation.width, height: presentation.height }}
     >
       <ConceptHalf concept={conceptOf(placed.left)} />
-      <div className="domino-tile-divider h-full w-[3px]" />
+      <div className={`domino-tile-divider ${vertical ? 'h-[3px] w-full' : 'h-full w-[3px]'}`} />
       <ConceptHalf concept={conceptOf(placed.right)} />
     </div>
   )
 }
 
-function EndDropZone({ active, onClick, onDrop }: { active: boolean; onClick: () => void; onDrop: () => void }) {
+export function EndDropZone({
+  active,
+  onClick,
+  onDrop,
+  visualPosition,
+  className = '',
+}: {
+  active: boolean
+  onClick: () => void
+  onDrop: () => void
+  visualPosition?: Point
+  className?: string
+}) {
   return (
     <button
       type="button"
@@ -509,11 +584,12 @@ function EndDropZone({ active, onClick, onDrop }: { active: boolean; onClick: ()
         if (active) onDrop()
       }}
       aria-label="Colocar ficha en este extremo"
-      className={`flex h-[68px] w-10 shrink-0 items-center justify-center rounded-lg border-2 border-dashed text-[13px] font-semibold transition-all ${
+      className={`flex h-[68px] w-10 shrink-0 items-center justify-center rounded-lg border-2 border-dashed text-[13px] font-semibold transition-all ${className} ${
         active
           ? 'animate-[result-glow-pulse_2s_ease-in-out_infinite] border-accent bg-accent/10 text-accent hover:scale-105'
           : 'border-transparent text-transparent'
       }`}
+      style={visualPosition ? { position: 'absolute', left: visualPosition.x, top: visualPosition.y } : undefined}
     >
       +
     </button>

@@ -2,8 +2,10 @@
 
 export const DOMINO_LAYOUT = {
   margin: 20,
-  turnLane: 24,
-  tileGap: 2,
+  turnLane: 52,
+  turnApproach: 40,
+  // Separación corta: conserva la lectura de cadena sin hacer que las fichas se monten.
+  tileGap: 4,
   rowGap: 28,
   endZoneGap: 10,
   normal: { width: 136, height: 68 },
@@ -64,8 +66,12 @@ type Direction = 'right' | 'left'
 
 const EPSILON = 0.001
 
-function dimensions(tile: DominoChainTile) {
+function horizontalDimensions(tile: DominoChainTile) {
   return tile.isDouble ? DOMINO_LAYOUT.double : DOMINO_LAYOUT.normal
+}
+
+function verticalDimensions(tile: DominoChainTile) {
+  return tile.isDouble ? DOMINO_LAYOUT.doubleVertical : DOMINO_LAYOUT.normalVertical
 }
 
 /** Dimensiones disponibles para una futura capa de fichas orientables. */
@@ -83,19 +89,18 @@ function pointsEqual(a: Point, b: Point) {
 }
 
 /**
- * Distribuye la cadena en filas alternadas. Las fichas continúan siendo
- * horizontales; al terminar una fila, un conector en U cruza por el carril de
- * giro reservado. Esto hace explícita la continuidad sin superponer piezas.
+ * Distribuye la cadena en tramos alternados. Al terminar una fila, la siguiente
+ * ficha se vuelve vertical y forma el giro físico hacia el siguiente tramo.
+ * No necesita líneas externas ni superpone rectángulos de fichas.
  */
 export function layoutDominoChain(
   board: readonly DominoChainTile[],
   viewport: DominoViewport,
 ): DominoChainLayoutResult {
-  const { margin, turnLane, tileGap, rowGap } = DOMINO_LAYOUT
+  const { margin, turnLane, tileGap } = DOMINO_LAYOUT
   const usableLeft = margin + turnLane
   const usableRight = viewport.width - margin - turnLane
   const rowHeight = DOMINO_LAYOUT.normal.height
-  const rowStep = rowHeight + rowGap
 
   if (viewport.width <= 0 || viewport.height <= 0) return { viable: false, reason: 'invalid-viewport' }
   if (usableRight - usableLeft < DOMINO_LAYOUT.normal.width) return { viable: false, reason: 'insufficient-width' }
@@ -114,25 +119,57 @@ export function layoutDominoChain(
   const placements: DominoTilePlacement[] = []
   const connections: DominoConnection[] = []
   let direction: Direction = 'right'
-  let row = 0
   let cursor = usableLeft
-  let y = margin
+  let y: number = margin
+  let pendingEntry: Point | null = null
 
   for (let index = 0; index < board.length; index += 1) {
     const tile = board[index]
-    const size = dimensions(tile)
+    const size = horizontalDimensions(tile)
+    if (y + size.height > viewport.height - margin) return { viable: false, reason: 'insufficient-height' }
     const fits = direction === 'right' ? cursor + size.width <= usableRight : cursor - size.width >= usableLeft
+    const remainingAfterTile = direction === 'right' ? usableRight - (cursor + size.width) : (cursor - size.width) - usableLeft
+    const turnsEarly = Boolean(placements.length) && index < board.length - 1 && fits && remainingAfterTile > 0 && remainingAfterTile < DOMINO_LAYOUT.turnApproach
 
-    if (!fits) {
-      row += 1
-      y = margin + row * rowStep
-      if (y + rowHeight > viewport.height - margin) return { viable: false, reason: 'insufficient-height' }
+    if (!fits || turnsEarly) {
+      const previous = placements[index - 1]
+      const turnSize = verticalDimensions(tile)
+      if (!previous || previous.orientation === 'vertical' || previous.orientation === 'double-vertical') {
+        return { viable: false, reason: 'insufficient-width' }
+      }
+
+      // La ficha de giro se centra sobre el extremo de salida. Esto hace que una
+      // doble vertical se lea como articulación del recorrido, no como otra ficha
+      // apilada al final de la fila.
+      const turnCenterX = direction === 'right' ? previous.x + previous.width : previous.x
+      const turnX = turnCenterX - turnSize.width / 2
+      const turnY = previous.y + previous.height + tileGap
+      if (turnY + turnSize.height > viewport.height - margin) return { viable: false, reason: 'insufficient-height' }
+
+      const join = { x: turnCenterX, y: previous.y + previous.height + tileGap / 2 }
+      previous.exit = join
+      const turnPlacement: DominoTilePlacement = {
+        id: tile.id,
+        index,
+        x: turnX,
+        y: turnY,
+        width: turnSize.width,
+        height: turnSize.height,
+        orientation: tile.isDouble ? 'double-vertical' : 'vertical',
+        entry: join,
+        exit: { x: turnCenterX, y: turnY + turnSize.height + tileGap / 2 },
+      }
+      connections.push({ fromIndex: previous.index, toIndex: index, points: [join], kind: 'turn' })
+      placements.push(turnPlacement)
       direction = direction === 'right' ? 'left' : 'right'
-      cursor = direction === 'right' ? usableLeft : usableRight
+      y = turnY + turnSize.height + tileGap
+      cursor = turnCenterX
+      pendingEntry = turnPlacement.exit
+      continue
     }
 
     const x = direction === 'right' ? cursor : cursor - size.width
-    const entry = direction === 'right' ? { x, y: y + rowHeight / 2 } : { x: x + size.width, y: y + rowHeight / 2 }
+    const entry = pendingEntry ?? (direction === 'right' ? { x, y: y + rowHeight / 2 } : { x: x + size.width, y: y + rowHeight / 2 })
     const exit = direction === 'right' ? { x: x + size.width, y: y + rowHeight / 2 } : { x, y: y + rowHeight / 2 }
     const placement: DominoTilePlacement = {
       id: tile.id,
@@ -148,35 +185,268 @@ export function layoutDominoChain(
 
     const previous = placements[index - 1]
     if (previous) {
-      const sameRow = previous.y === placement.y
-      const laneX = previous.exit.x > viewport.width / 2 ? viewport.width - margin : margin
-      const points = sameRow
-        ? [previous.exit, placement.entry]
-        : [previous.exit, { x: laneX, y: previous.exit.y }, { x: laneX, y: placement.entry.y }, placement.entry]
-      connections.push({ fromIndex: previous.index, toIndex: index, points, kind: sameRow ? 'straight' : 'turn' })
+      const isTurn = previous.orientation === 'vertical' || previous.orientation === 'double-vertical'
+      connections.push({ fromIndex: previous.index, toIndex: index, points: [previous.exit, placement.entry], kind: isTurn ? 'turn' : 'straight' })
     }
 
     placements.push(placement)
     cursor = direction === 'right' ? x + size.width + tileGap : x - tileGap
+    pendingEntry = null
   }
 
   const minX = Math.min(...placements.map((tile) => tile.x))
   const minY = Math.min(...placements.map((tile) => tile.y))
   const maxX = Math.max(...placements.map((tile) => tile.x + tile.width))
   const maxY = Math.max(...placements.map((tile) => tile.y + tile.height))
-  const first = placements[0]
-  const last = placements[placements.length - 1]
+  const offset = {
+    x: (viewport.width - (maxX - minX)) / 2 - minX,
+    y: (viewport.height - (maxY - minY)) / 2 - minY,
+  }
+  const translatePoint = (point: Point): Point => ({ x: point.x + offset.x, y: point.y + offset.y })
+  const centeredTiles = placements.map((tile) => ({
+    ...tile,
+    x: tile.x + offset.x,
+    y: tile.y + offset.y,
+    entry: translatePoint(tile.entry),
+    exit: translatePoint(tile.exit),
+  }))
+  const centeredConnections = connections.map((connection) => ({
+    ...connection,
+    points: connection.points.map(translatePoint),
+  }))
+  const first = centeredTiles[0]
+  const last = centeredTiles[centeredTiles.length - 1]
 
   return {
     viable: true,
-    tiles: placements,
-    connections,
+    tiles: centeredTiles,
+    connections: centeredConnections,
     leftEnd: { x: first.entry.x + (first.entry.x < first.exit.x ? -DOMINO_LAYOUT.endZoneGap : DOMINO_LAYOUT.endZoneGap), y: first.entry.y },
     rightEnd: { x: last.exit.x + (last.exit.x > last.entry.x ? DOMINO_LAYOUT.endZoneGap : -DOMINO_LAYOUT.endZoneGap), y: last.exit.y },
-    bounds: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
+    bounds: { x: minX + offset.x, y: minY + offset.y, width: maxX - minX, height: maxY - minY },
   }
 }
 
 export function connectionIsContinuous(connection: DominoConnection, from: DominoTilePlacement, to: DominoTilePlacement) {
   return pointsEqual(connection.points[0], from.exit) && pointsEqual(connection.points[connection.points.length - 1], to.entry)
+}
+
+export type DominoFlowDirection = 'left' | 'right' | 'up' | 'down'
+
+export type BidirectionalDominoTilePlacement = DominoTilePlacement & {
+  /** Orientación física de la ficha, independiente del avance lógico de la cadena. */
+  visualOrientation: DominoVisualOrientation
+  flowDirection: DominoFlowDirection
+}
+
+export type BidirectionalDominoChainLayout = {
+  viable: true
+  tiles: readonly BidirectionalDominoTilePlacement[]
+  connections: readonly DominoConnection[]
+  leftEnd: Point
+  rightEnd: Point
+  bounds: { x: number; y: number; width: number; height: number }
+  openingTileId: string
+}
+
+export type BidirectionalDominoChainLayoutFailure = {
+  viable: false
+  reason: 'missing-opening-tile' | 'invalid-viewport' | 'insufficient-width' | 'insufficient-height' | 'collision'
+}
+
+export type BidirectionalDominoChainLayoutResult = BidirectionalDominoChainLayout | BidirectionalDominoChainLayoutFailure
+
+type RoutePlacement = {
+  placement: BidirectionalDominoTilePlacement
+  inward: Point
+  outward: Point
+}
+
+type RouteSide = 'left' | 'right'
+
+function visualDimensions(tile: DominoChainTile, flowDirection: DominoFlowDirection) {
+  const horizontalFlow = flowDirection === 'left' || flowDirection === 'right'
+  if (tile.isDouble) {
+    return horizontalFlow
+      ? { ...DOMINO_LAYOUT.doubleVertical, orientation: 'double-vertical' as const }
+      : { ...DOMINO_LAYOUT.double, orientation: 'double-horizontal' as const }
+  }
+  return horizontalFlow
+    ? { ...DOMINO_LAYOUT.normal, orientation: 'horizontal' as const }
+    : { ...DOMINO_LAYOUT.normalVertical, orientation: 'vertical' as const }
+}
+
+function pointAtFlowEdge(x: number, y: number, width: number, height: number, direction: DominoFlowDirection, outward: boolean): Point {
+  const sign = outward ? 1 : -1
+  switch (direction) {
+    case 'left': return { x: x + width / 2 - sign * width / 2, y: y + height / 2 }
+    case 'right': return { x: x + width / 2 + sign * width / 2, y: y + height / 2 }
+    case 'up': return { x: x + width / 2, y: y + height / 2 - sign * height / 2 }
+    case 'down': return { x: x + width / 2, y: y + height / 2 + sign * height / 2 }
+  }
+}
+
+function rectsOverlap(a: DominoTilePlacement, b: DominoTilePlacement) {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
+}
+
+function extendsPoint(point: Point, toward: Point, distance: number): Point {
+  const dx = point.x - toward.x
+  const dy = point.y - toward.y
+  const length = Math.hypot(dx, dy) || 1
+  return { x: point.x + (dx / length) * distance, y: point.y + (dy / length) * distance }
+}
+
+/**
+ * Distribuye una cadena desde la ficha inaugural real. Los dos extremos se
+ * calculan por separado: el izquierdo asciende al girar y el derecho desciende.
+ * Así el ancla no se desplaza al añadir fichas a cualquiera de los extremos.
+ */
+export function layoutBidirectionalDominoChain(
+  board: readonly DominoChainTile[],
+  viewport: DominoViewport,
+  openingTileId: string | null | undefined,
+): BidirectionalDominoChainLayoutResult {
+  if (viewport.width <= 0 || viewport.height <= 0) return { viable: false, reason: 'invalid-viewport' }
+  if (!openingTileId) return { viable: false, reason: 'missing-opening-tile' }
+  const openingIndex = board.findIndex((tile) => tile.id === openingTileId)
+  if (openingIndex < 0) return { viable: false, reason: 'missing-opening-tile' }
+
+  const { margin, turnLane, tileGap } = DOMINO_LAYOUT
+  const usableLeft = margin + turnLane
+  const usableRight = viewport.width - margin - turnLane
+  if (usableRight - usableLeft < DOMINO_LAYOUT.normal.width) return { viable: false, reason: 'insufficient-width' }
+
+  const anchorTile = board[openingIndex]
+  const anchorVisual = visualDimensions(anchorTile, 'right')
+  const anchor: BidirectionalDominoTilePlacement = {
+    id: anchorTile.id,
+    index: openingIndex,
+    width: anchorVisual.width,
+    height: anchorVisual.height,
+    x: viewport.width / 2 - anchorVisual.width / 2,
+    y: viewport.height / 2 - anchorVisual.height / 2,
+    orientation: anchorVisual.orientation,
+    visualOrientation: anchorVisual.orientation,
+    flowDirection: 'right',
+    entry: { x: 0, y: 0 },
+    exit: { x: 0, y: 0 },
+  }
+  if (anchor.x < margin || anchor.x + anchor.width > viewport.width - margin || anchor.y < margin || anchor.y + anchor.height > viewport.height - margin) {
+    return { viable: false, reason: 'insufficient-height' }
+  }
+
+  const anchorLeft = pointAtFlowEdge(anchor.x, anchor.y, anchor.width, anchor.height, 'left', true)
+  const anchorRight = pointAtFlowEdge(anchor.x, anchor.y, anchor.width, anchor.height, 'right', true)
+  anchor.entry = anchorLeft
+  anchor.exit = anchorRight
+
+  const allPlacements: BidirectionalDominoTilePlacement[] = [anchor]
+
+  const buildRoute = (side: RouteSide): RoutePlacement[] | BidirectionalDominoChainLayoutFailure => {
+    const indexes = side === 'left'
+      ? Array.from({ length: openingIndex }, (_, offset) => openingIndex - offset - 1)
+      : Array.from({ length: board.length - openingIndex - 1 }, (_, offset) => openingIndex + offset + 1)
+    const route: RoutePlacement[] = []
+    let flowDirection: DominoFlowDirection = side
+    let cursor = side === 'left' ? anchor.x - tileGap : anchor.x + anchor.width + tileGap
+    let rowCenter = viewport.height / 2
+    let rowTop = anchor.y
+    let rowBottom = anchor.y + anchor.height
+
+    for (const index of indexes) {
+      const tile = board[index]
+      let visual = visualDimensions(tile, flowDirection)
+      const horizontalFlow = flowDirection === 'left' || flowDirection === 'right'
+      let x = horizontalFlow && flowDirection === 'left' ? cursor - visual.width : cursor
+      let y = horizontalFlow ? rowCenter - visual.height / 2 : rowCenter - visual.height / 2
+      const fits = horizontalFlow && x >= usableLeft && x + visual.width <= usableRight
+
+      if (!fits) {
+        const turnDirection: DominoFlowDirection = side === 'left' ? 'up' : 'down'
+        visual = visualDimensions(tile, turnDirection)
+        const boundary = flowDirection === 'left' ? cursor + tileGap : cursor - tileGap
+        x = boundary - visual.width / 2
+        y = turnDirection === 'up' ? rowTop - tileGap - visual.height : rowBottom + tileGap
+        if (x < margin || x + visual.width > viewport.width - margin || y < margin || y + visual.height > viewport.height - margin) {
+          return { viable: false, reason: 'insufficient-height' }
+        }
+        const inward = pointAtFlowEdge(x, y, visual.width, visual.height, turnDirection, false)
+        const outward = pointAtFlowEdge(x, y, visual.width, visual.height, turnDirection, true)
+        const placement: BidirectionalDominoTilePlacement = {
+          id: tile.id, index, x, y, width: visual.width, height: visual.height,
+          orientation: visual.orientation, visualOrientation: visual.orientation, flowDirection: turnDirection,
+          entry: inward, exit: outward,
+        }
+        if (allPlacements.some((other) => rectsOverlap(placement, other))) return { viable: false, reason: 'collision' }
+        allPlacements.push(placement)
+        route.push({ placement, inward, outward })
+        flowDirection = flowDirection === 'left' ? 'right' : 'left'
+        rowCenter = turnDirection === 'up'
+          ? y - tileGap - DOMINO_LAYOUT.normal.height / 2
+          : y + visual.height + tileGap + DOMINO_LAYOUT.normal.height / 2
+        rowTop = rowCenter - DOMINO_LAYOUT.normal.height / 2
+        rowBottom = rowCenter + DOMINO_LAYOUT.normal.height / 2
+        cursor = flowDirection === 'right' ? x + visual.width / 2 + tileGap : x + visual.width / 2 - tileGap
+        continue
+      }
+
+      const inward = pointAtFlowEdge(x, y, visual.width, visual.height, flowDirection, false)
+      const outward = pointAtFlowEdge(x, y, visual.width, visual.height, flowDirection, true)
+      const placement: BidirectionalDominoTilePlacement = {
+        id: tile.id, index, x, y, width: visual.width, height: visual.height,
+        orientation: visual.orientation, visualOrientation: visual.orientation, flowDirection,
+        entry: inward, exit: outward,
+      }
+      if (y < margin || y + visual.height > viewport.height - margin || allPlacements.some((other) => rectsOverlap(placement, other))) {
+        return { viable: false, reason: 'collision' }
+      }
+      allPlacements.push(placement)
+      route.push({ placement, inward, outward })
+      rowTop = Math.min(rowTop, y)
+      rowBottom = Math.max(rowBottom, y + visual.height)
+      cursor = flowDirection === 'left' ? x - tileGap : x + visual.width + tileGap
+    }
+    return route
+  }
+
+  const leftRoute = buildRoute('left')
+  if (!Array.isArray(leftRoute)) return leftRoute
+  const rightRoute = buildRoute('right')
+  if (!Array.isArray(rightRoute)) return rightRoute
+
+  const tiles = Array<BidirectionalDominoTilePlacement>(board.length)
+  tiles[openingIndex] = anchor
+  for (const item of leftRoute) {
+    // En el lado izquierdo, el extremo lógico hacia el ancla es la salida.
+    item.placement.entry = item.outward
+    item.placement.exit = item.inward
+    tiles[item.placement.index] = item.placement
+  }
+  for (const item of rightRoute) {
+    item.placement.entry = item.inward
+    item.placement.exit = item.outward
+    tiles[item.placement.index] = item.placement
+  }
+
+  const connections = tiles.slice(0, -1).map((tile, index) => ({
+    fromIndex: index,
+    toIndex: index + 1,
+    points: [tile.exit, tiles[index + 1].entry],
+    kind: tile.flowDirection === 'up' || tile.flowDirection === 'down' || tiles[index + 1].flowDirection === 'up' || tiles[index + 1].flowDirection === 'down' ? 'turn' as const : 'straight' as const,
+  }))
+  const minX = Math.min(...tiles.map((tile) => tile.x))
+  const minY = Math.min(...tiles.map((tile) => tile.y))
+  const maxX = Math.max(...tiles.map((tile) => tile.x + tile.width))
+  const maxY = Math.max(...tiles.map((tile) => tile.y + tile.height))
+
+  return {
+    viable: true,
+    tiles,
+    connections,
+    leftEnd: extendsPoint(tiles[0].entry, tiles[0].exit, DOMINO_LAYOUT.endZoneGap),
+    rightEnd: extendsPoint(tiles[tiles.length - 1].exit, tiles[tiles.length - 1].entry, DOMINO_LAYOUT.endZoneGap),
+    bounds: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
+    openingTileId,
+  }
 }
