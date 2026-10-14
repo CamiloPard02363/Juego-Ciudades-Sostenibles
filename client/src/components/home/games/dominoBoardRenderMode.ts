@@ -9,6 +9,9 @@ import {
 
 export type DominoBoardRenderMode = 'linear' | 'serpentine' | 'bidirectional'
 
+/** El modo solicitado es el mismo en desarrollo y en el build publicado. */
+export const DEFAULT_DOMINO_BOARD_RENDER_MODE: DominoBoardRenderMode = 'bidirectional'
+
 export type DominoBoardPresentation =
   | { kind: 'linear' }
   | { kind: 'serpentine'; layout: DominoChainLayout }
