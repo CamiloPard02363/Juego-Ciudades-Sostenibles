@@ -24,7 +24,7 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "@types/matter-js": "^0.19.8",
+    "@types/matter-js": "^0.20.2",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
