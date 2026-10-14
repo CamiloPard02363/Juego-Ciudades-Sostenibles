@@ -470,6 +470,68 @@ code {
   box-shadow: 0 14px 32px -26px rgba(0, 0, 0, 0.9);
 }
 
+.domino-premium-header {
+  min-height: 48px;
+}
+
+.domino-premium-match-facts {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.domino-premium-match-fact {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 220px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(137, 163, 211, 0.2);
+  border-radius: 999px;
+  background: rgba(8, 15, 36, 0.46);
+  padding: 4px 7px;
+  color: #aab8cf;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.domino-premium-match-fact small {
+  color: #8292ae;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.domino-premium-match-fact strong {
+  min-width: 0;
+  max-width: 104px;
+  overflow: hidden;
+  color: #e4edff;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.domino-premium-match-fact b {
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(52, 135, 255, 0.16);
+  color: #cfe2ff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.domino-premium-match-fact--boneyard b {
+  background: rgba(129, 60, 255, 0.2);
+  color: #e4d5ff;
+}
+
 .domino-premium-status {
   color: #bfa6ff;
   border: 1px solid rgba(129, 60, 255, 0.38);
@@ -738,7 +800,18 @@ code {
 
 .domino-tile-half {
   min-width: 0;
+  min-height: 0;
   color: #26354f;
+}
+
+.domino-tile-half--board {
+  overflow: hidden;
+}
+
+.domino-tile-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .domino-premium-tile .text-text-h {
@@ -930,7 +1003,7 @@ code {
 .domino-premium-hand-scroll {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 30px 16px 22px;
+  padding: 14px 12px 10px;
   scrollbar-width: thin;
   scrollbar-color: rgba(129, 60, 255, 0.48) transparent;
 }
@@ -988,6 +1061,17 @@ code {
   border-color: rgba(52, 135, 255, 0.75);
 }
 
+@media (max-width: 960px) {
+  .domino-premium-header { flex-wrap: wrap; }
+
+  .domino-premium-match-facts {
+    order: 3;
+    width: 100%;
+  }
+
+  .domino-premium-match-fact { max-width: calc(50vw - 28px); }
+}
+
 @media (max-width: 760px) {
   .domino-premium-hand-layout {
     grid-template-areas:
@@ -997,7 +1081,7 @@ code {
     gap: 8px;
   }
 
-  .domino-premium-hand-scroll { padding-top: 30px; }
+  .domino-premium-hand-scroll { padding-top: 18px; }
 }
 
 @media (max-width: 470px) {

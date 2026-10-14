@@ -4,6 +4,10 @@ export const DOMINO_LAYOUT = {
   margin: 20,
   turnLane: 52,
   turnApproach: 40,
+  // Una fila usa cerca de cuatro quintas partes de su tramo disponible antes de
+  // doblar. El l\u00edmite depende solo del carril actual y del viewport, no de
+  // fichas futuras.
+  bidirectionalTurnRatio: 0.8,
   // Separación corta: conserva la lectura de cadena sin hacer que las fichas se monten.
   tileGap: 4,
   rowGap: 28,
@@ -353,42 +357,114 @@ export function layoutBidirectionalDominoChain(
     let rowCenter = viewport.height / 2
     let rowTop = anchor.y
     let rowBottom = anchor.y + anchor.height
+    let rowStartCursor = cursor
 
-    for (const index of indexes) {
+    for (let routeIndex = 0; routeIndex < indexes.length; routeIndex += 1) {
+      const index = indexes[routeIndex]
       const tile = board[index]
       let visual = visualDimensions(tile, flowDirection)
       const horizontalFlow = flowDirection === 'left' || flowDirection === 'right'
       let x = horizontalFlow && flowDirection === 'left' ? cursor - visual.width : cursor
       let y = horizontalFlow ? rowCenter - visual.height / 2 : rowCenter - visual.height / 2
       const fits = horizontalFlow && x >= usableLeft && x + visual.width <= usableRight
+      const turnDirection: DominoFlowDirection = side === 'left' ? 'up' : 'down'
+      const turnVisual = visualDimensions(tile, turnDirection)
+      const rowCapacity = flowDirection === 'left' ? rowStartCursor - usableLeft : usableRight - rowStartCursor
+      const rowUsageAfterTile = Math.abs(cursor - rowStartCursor) + visual.width + tileGap
+      const reachesCompositionThreshold = rowUsageAfterTile > rowCapacity * DOMINO_LAYOUT.bidirectionalTurnRatio
+      const turnBoundary = flowDirection === 'left' ? cursor + tileGap : cursor - tileGap
+      const turnX = turnBoundary - turnVisual.width / 2
+      const turnY = turnDirection === 'up' ? rowTop - tileGap - turnVisual.height : rowBottom + tileGap
+      const nextFlowDirection: DominoFlowDirection = flowDirection === 'left' ? 'right' : 'left'
+      const nextLaneHeight = Math.max(DOMINO_LAYOUT.normal.height, DOMINO_LAYOUT.doubleVertical.height)
+      const nextRowCenter = turnDirection === 'up'
+        ? turnY - tileGap - nextLaneHeight / 2
+        : turnY + turnVisual.height + tileGap + nextLaneHeight / 2
+      const nextCursor = nextFlowDirection === 'right'
+        ? turnX + turnVisual.width / 2 + tileGap
+        : turnX + turnVisual.width / 2 - tileGap
+      const turnPrototype: DominoTilePlacement = {
+        id: tile.id, index, x: turnX, y: turnY, width: turnVisual.width, height: turnVisual.height,
+        orientation: turnVisual.orientation, entry: { x: 0, y: 0 }, exit: { x: 0, y: 0 },
+      }
+      const isInsideBoard = (placement: DominoTilePlacement) => (
+        placement.x >= margin
+        && placement.x + placement.width <= viewport.width - margin
+        && placement.y >= margin
+        && placement.y + placement.height <= viewport.height - margin
+      )
+      const continuationPrototypes = [false, true].map((isDouble) => {
+        const continuationVisual = visualDimensions({ id: 'reserved-continuation', isDouble }, nextFlowDirection)
+        const continuationX = nextFlowDirection === 'right' ? nextCursor : nextCursor - continuationVisual.width
+        return {
+          id: 'reserved-continuation', index: -1, x: continuationX,
+          y: nextRowCenter - continuationVisual.height / 2,
+          width: continuationVisual.width, height: continuationVisual.height,
+          orientation: continuationVisual.orientation, entry: { x: 0, y: 0 }, exit: { x: 0, y: 0 },
+        } satisfies DominoTilePlacement
+      })
+      const turnFits = isInsideBoard(turnPrototype) && !allPlacements.some((other) => rectsOverlap(turnPrototype, other))
+      const canCompleteTurn = turnFits && continuationPrototypes.every((continuation) => (
+        isInsideBoard(continuation)
+        && !rectsOverlap(continuation, turnPrototype)
+        && !allPlacements.some((other) => rectsOverlap(continuation, other))
+      ))
+      // La decisi\u00f3n depende solo del carril actual. As\u00ed, extender una ruta
+      // no cambia las coordenadas ni los giros de su prefijo ya colocado.
+      const shouldTurnEarly = fits
+        && horizontalFlow
+        && canCompleteTurn
+        && rowUsageAfterTile > DOMINO_LAYOUT.normal.width + DOMINO_LAYOUT.tileGap
+        && reachesCompositionThreshold
 
-      if (!fits) {
-        const turnDirection: DominoFlowDirection = side === 'left' ? 'up' : 'down'
-        visual = visualDimensions(tile, turnDirection)
+      if (!fits || shouldTurnEarly) {
+        if (!canCompleteTurn) {
+          const continuationExceedsHeight = continuationPrototypes.some((continuation) => (
+            continuation.y < margin || continuation.y + continuation.height > viewport.height - margin
+          ))
+          return { viable: false, reason: continuationExceedsHeight ? 'insufficient-height' : 'collision' }
+        }
+        visual = turnVisual
         const boundary = flowDirection === 'left' ? cursor + tileGap : cursor - tileGap
         x = boundary - visual.width / 2
         y = turnDirection === 'up' ? rowTop - tileGap - visual.height : rowBottom + tileGap
         if (x < margin || x + visual.width > viewport.width - margin || y < margin || y + visual.height > viewport.height - margin) {
-          return { viable: false, reason: 'insufficient-height' }
+          // El giro anticipado es opcional: si no hay altura o el carril se
+          // cruza, se conserva el tramo actual mientras la ficha siga cabiendo.
+          if (shouldTurnEarly) {
+            visual = visualDimensions(tile, flowDirection)
+            x = flowDirection === 'left' ? cursor - visual.width : cursor
+            y = rowCenter - visual.height / 2
+          } else {
+            return { viable: false, reason: 'insufficient-height' }
+          }
         }
-        const inward = pointAtFlowEdge(x, y, visual.width, visual.height, turnDirection, false)
-        const outward = pointAtFlowEdge(x, y, visual.width, visual.height, turnDirection, true)
-        const placement: BidirectionalDominoTilePlacement = {
+        if (shouldTurnEarly && allPlacements.some((other) => rectsOverlap({
           id: tile.id, index, x, y, width: visual.width, height: visual.height,
-          orientation: visual.orientation, visualOrientation: visual.orientation, flowDirection: turnDirection,
-          entry: inward, exit: outward,
+          orientation: visual.orientation, entry: { x: 0, y: 0 }, exit: { x: 0, y: 0 },
+        }, other))) {
+          visual = visualDimensions(tile, flowDirection)
+          x = flowDirection === 'left' ? cursor - visual.width : cursor
+          y = rowCenter - visual.height / 2
+        } else if (shouldTurnEarly || !fits) {
+          const inward = pointAtFlowEdge(x, y, visual.width, visual.height, turnDirection, false)
+          const outward = pointAtFlowEdge(x, y, visual.width, visual.height, turnDirection, true)
+          const placement: BidirectionalDominoTilePlacement = {
+            id: tile.id, index, x, y, width: visual.width, height: visual.height,
+            orientation: visual.orientation, visualOrientation: visual.orientation, flowDirection: turnDirection,
+            entry: inward, exit: outward,
+          }
+          if (allPlacements.some((other) => rectsOverlap(placement, other))) return { viable: false, reason: 'collision' }
+          allPlacements.push(placement)
+          route.push({ placement, inward, outward })
+          flowDirection = flowDirection === 'left' ? 'right' : 'left'
+          rowCenter = nextRowCenter
+          rowTop = rowCenter - nextLaneHeight / 2
+          rowBottom = rowCenter + nextLaneHeight / 2
+          cursor = flowDirection === 'right' ? x + visual.width / 2 + tileGap : x + visual.width / 2 - tileGap
+          rowStartCursor = cursor
+          continue
         }
-        if (allPlacements.some((other) => rectsOverlap(placement, other))) return { viable: false, reason: 'collision' }
-        allPlacements.push(placement)
-        route.push({ placement, inward, outward })
-        flowDirection = flowDirection === 'left' ? 'right' : 'left'
-        rowCenter = turnDirection === 'up'
-          ? y - tileGap - DOMINO_LAYOUT.normal.height / 2
-          : y + visual.height + tileGap + DOMINO_LAYOUT.normal.height / 2
-        rowTop = rowCenter - DOMINO_LAYOUT.normal.height / 2
-        rowBottom = rowCenter + DOMINO_LAYOUT.normal.height / 2
-        cursor = flowDirection === 'right' ? x + visual.width / 2 + tileGap : x + visual.width / 2 - tileGap
-        continue
       }
 
       const inward = pointAtFlowEdge(x, y, visual.width, visual.height, flowDirection, false)

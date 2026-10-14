@@ -59,7 +59,7 @@ describe('layoutBidirectionalDominoChain', () => {
     }
   })
 
-  it.each([3, 8, 15, 25])('preserva orden, geometría y extremos con %i fichas', (count) => {
+  it.each([7, 14, 21])('preserva orden, geometría y extremos con %i fichas', (count) => {
     const result = expectLayout(chain(count, Math.floor(count / 2)))
     if (!result) return
     expect(result.leftEnd).not.toEqual(result.rightEnd)
@@ -68,12 +68,84 @@ describe('layoutBidirectionalDominoChain', () => {
   })
 
   it('permite giros independientes en los dos extremos', () => {
-    const result = expectLayout(chain(25, 12))
+    const result = expectLayout(chain(21, 10))
     if (!result) return
-    const leftFlows = result.tiles.slice(0, 12).map((tile) => tile.flowDirection)
-    const rightFlows = result.tiles.slice(13).map((tile) => tile.flowDirection)
+    const leftFlows = result.tiles.slice(0, 10).map((tile) => tile.flowDirection)
+    const rightFlows = result.tiles.slice(11).map((tile) => tile.flowDirection)
     expect(leftFlows).toContain('up')
     expect(rightFlows).toContain('down')
+  })
+
+  it('gira antes del borde cuando ambas rutas necesitan otra fila', () => {
+    const result = expectLayout(chain(19, 9))
+    if (!result) return
+
+    const leftTurn = result.tiles.slice(0, 9).find((tile) => tile.flowDirection === 'up')
+    const rightTurn = result.tiles.slice(10).find((tile) => tile.flowDirection === 'down')
+    expect(leftTurn?.index).toBe(5)
+    expect(rightTurn?.index).toBe(13)
+
+    expect(leftTurn!.x).toBeGreaterThan(DOMINO_LAYOUT.margin + DOMINO_LAYOUT.turnLane)
+    expect(rightTurn!.x + rightTurn!.width).toBeLessThan(viewport.width - DOMINO_LAYOUT.margin - DOMINO_LAYOUT.turnLane)
+  })
+
+  it('mantiene las fichas y giros existentes al extender ambos extremos', () => {
+    const state = (leftCount: number, rightCount: number): DominoChainTile[] => [
+      ...Array.from({ length: leftCount }, (_, offset) => ({ id: `left-${leftCount - offset}`, isDouble: false })),
+      { id: 'opening', isDouble: false },
+      ...Array.from({ length: rightCount }, (_, offset) => ({ id: `right-${offset + 1}`, isDouble: false })),
+    ]
+    const states = [state(0, 0), state(1, 0), state(1, 1), state(2, 1), state(2, 2), state(3, 2), state(3, 3), state(4, 3), state(4, 4)]
+    let previous = expectLayout(states[0])
+    if (!previous) return
+
+    for (const board of states.slice(1)) {
+      const current = expectLayout(board)
+      if (!current) return
+      for (const previousTile of previous.tiles) {
+        const currentTile = current.tiles.find((tile) => tile.id === previousTile.id)
+        expect(currentTile).toMatchObject({
+          x: previousTile.x,
+          y: previousTile.y,
+          visualOrientation: previousTile.visualOrientation,
+          flowDirection: previousTile.flowDirection,
+        })
+      }
+      previous = current
+    }
+  })
+
+  it('declara inviable una cadena de 28 fichas cuando el tablero no puede contener otra fila segura', () => {
+    const result = layoutBidirectionalDominoChain(chain(28, 14), viewport, 'opening')
+    expect(result).toMatchObject({ viable: false })
+  })
+
+  it.each([
+    ['izquierda', [{ id: 'left-1', isDouble: false }, { id: 'opening', isDouble: false }], [{ id: 'left-2', isDouble: false }, { id: 'left-1', isDouble: false }, { id: 'opening', isDouble: false }]],
+    ['derecha', [{ id: 'opening', isDouble: false }, { id: 'right-1', isDouble: false }], [{ id: 'opening', isDouble: false }, { id: 'right-1', isDouble: false }, { id: 'right-2', isDouble: false }]],
+  ])('rechaza el giro forzado sin continuación completa a 700 × 500 por %s', (_side, beforeTurn, turn) => {
+    expect(layoutBidirectionalDominoChain(beforeTurn, { width: 700, height: 500 }, 'opening')).toMatchObject({ viable: true })
+    expect(layoutBidirectionalDominoChain(turn, { width: 700, height: 500 }, 'opening')).toMatchObject({ viable: false, reason: 'insufficient-height' })
+  })
+
+  it.each([
+    ['izquierda', [{ id: 'left-3', isDouble: false }, { id: 'left-2', isDouble: false }, { id: 'left-1', isDouble: false }, { id: 'opening', isDouble: false }]],
+    ['derecha', [{ id: 'opening', isDouble: false }, { id: 'right-1', isDouble: false }, { id: 'right-2', isDouble: false }, { id: 'right-3', isDouble: false }]],
+  ])('permite A → B → C cuando el carril completo cabe a 700 × 700 por %s', (_side, board) => {
+    const result = expectLayout(board, 'opening', { width: 700, height: 700 })
+    if (!result) return
+    expect(result.tiles.some((tile) => tile.flowDirection === 'up' || tile.flowDirection === 'down')).toBe(true)
+  })
+
+  it.each([
+    [[{ id: 'left-3', isDouble: false }, { id: 'left-2', isDouble: true }, { id: 'left-1', isDouble: false }, { id: 'opening', isDouble: false }]],
+    [[{ id: 'opening', isDouble: false }, { id: 'right-1', isDouble: false }, { id: 'right-2', isDouble: true }, { id: 'right-3', isDouble: false }]],
+  ])('permite que una doble de giro continúe en 700 × 560', (board) => {
+    const result = expectLayout(board, 'opening', { width: 700, height: 560 })
+    if (!result) return
+    const turn = result.tiles.find((tile) => tile.id.endsWith('-2'))
+    expect(turn?.visualOrientation).toBe('double-horizontal')
+    expect(['up', 'down']).toContain(turn?.flowDirection)
   })
 
   it('orienta las dobles perpendicularmente al flujo horizontal y vertical', () => {

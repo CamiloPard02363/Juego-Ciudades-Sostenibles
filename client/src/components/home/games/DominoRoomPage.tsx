@@ -12,8 +12,8 @@ import { resolveDominoBoardPresentation, type DominoBoardRenderMode } from './do
 import { DealCountdownOverlay, TurnBanner, TurnPopBanner, useCountdown } from './MatchBoard'
 import { Modal } from './Modal'
 
-/** Selector interno: cambiar a 'linear' permite comparar ambas vistas durante desarrollo. */
-const DOMINO_DEVELOPMENT_BOARD_MODE: DominoBoardRenderMode = import.meta.env.DEV ? 'serpentine' : 'linear'
+/** Selector interno: en desarrollo se puede cambiar entre bidirectional, serpentine y linear. */
+const DOMINO_DEVELOPMENT_BOARD_MODE: DominoBoardRenderMode = import.meta.env.DEV ? 'bidirectional' : 'linear'
 
 /**
  * Sala de Dominó 1v1 en tiempo real: página propia (ruta `/domino/sala/:code?`,
@@ -110,8 +110,8 @@ function DominoRoomPageSession() {
   const rightEnd = board[board.length - 1]?.right
   const hand: DominoTileView[] = self?.hand ?? []
   const boardPresentation = useMemo(
-    () => resolveDominoBoardPresentation(DOMINO_DEVELOPMENT_BOARD_MODE, board, boardViewport),
-    [board, boardViewport],
+    () => resolveDominoBoardPresentation(DOMINO_DEVELOPMENT_BOARD_MODE, board, boardViewport, room?.openingTileId),
+    [board, boardViewport, room?.openingTileId],
   )
 
   function tileMatchesEnd(tile: DominoTileView, end: number | undefined): boolean {
@@ -221,16 +221,29 @@ function DominoRoomPageSession() {
       {dealCountdownMs !== null && <DealCountdownOverlay remainingMs={dealCountdownMs} />}
 
       <div className="domino-premium-shell mx-auto flex min-h-full w-full max-w-[1600px] flex-col p-3 sm:p-5">
-        <header className="domino-premium-header mb-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 sm:flex-nowrap">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-accent">
+        <header className="domino-premium-header mb-1.5 flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-3 py-1.5 sm:flex-nowrap">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
               {room?.gameTitle ?? 'Dominó'}
             </p>
-            <div className="mt-1 flex items-center gap-2">
-              <h1 className="text-[17px] font-bold tracking-tight text-text-h">Sala en vivo</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-[15px] font-bold tracking-tight text-text-h">Sala en vivo</h1>
               {room && <span className="domino-premium-status rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">{room.phase === 'PLAYING' ? 'En partida' : room.phase === 'FINISHED' ? 'Finalizada' : 'Esperando'}</span>}
             </div>
           </div>
+          {room && room.phase === 'PLAYING' && opponent && (
+            <div className="domino-premium-match-facts" aria-label={`Rival: ${opponent.displayName}, ${opponent.handCount} fichas. Pozo: ${room.boneyardCount} fichas`}>
+              <span className="domino-premium-match-fact">
+                <small>Rival</small>
+                <strong title={opponent.displayName}>{opponent.displayName}</strong>
+                <b>{opponent.handCount}</b>
+              </span>
+              <span className="domino-premium-match-fact domino-premium-match-fact--boneyard">
+                <small>Pozo</small>
+                <b>{room.boneyardCount}</b>
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
           {room?.phase === 'PLAYING' && (
             <div className={`domino-premium-turn ${isMyTurn ? 'domino-premium-turn--self' : 'domino-premium-turn--rival'}`}>
@@ -291,18 +304,6 @@ function DominoRoomPageSession() {
             <TurnPopBanner isMyTurn={isMyTurn} opponentName={opponent.displayName} />
 
             <section className="domino-premium-stage flex min-h-0 flex-1 flex-col">
-            <div className="domino-premium-table-meta mb-3 flex items-center justify-between gap-2 text-[12px] text-text">
-              <span className="domino-premium-rival-card rounded-xl border px-3 py-2">
-                <strong className="block text-[10px] uppercase tracking-wide text-text">Rival</strong>
-                <span className="domino-premium-rival-name text-text-h" title={opponent.displayName}>{opponent.displayName}</span> · <strong className="text-text-h">{opponent.handCount}</strong> ficha
-                {opponent.handCount === 1 ? '' : 's'}
-              </span>
-              <span className="domino-premium-boneyard rounded-xl border px-3 py-2 text-right">
-                <strong className="block text-[10px] uppercase tracking-wide text-text">Pozo</strong>
-                <strong className="text-text-h">{room.boneyardCount}</strong> fichas
-              </span>
-            </div>
-
             {/* Tablero */}
             <div ref={boardViewportRef} className="domino-premium-board flex min-h-[260px] flex-1 overflow-hidden rounded-2xl border p-3 sm:min-h-[340px] sm:p-5">
               <span className="domino-premium-board-mark" aria-hidden="true" />
@@ -310,10 +311,13 @@ function DominoRoomPageSession() {
                 <p className="m-auto text-center text-[13px] text-text">
                   {isMyTurn ? 'Toca una ficha de tu mano para abrir la partida.' : 'Esperando la primera jugada…'}
                 </p>
-              ) : boardPresentation.kind === 'serpentine' ? (
+              ) : boardPresentation.kind !== 'linear' ? (
                 <div className="domino-serpentine-stage">
                   {boardPresentation.layout.tiles.map((placement) => {
                     const placed = board[placement.index]
+                    const visualOrientation = 'visualOrientation' in placement
+                      ? placement.visualOrientation
+                      : placement.orientation
                     return (
                       <div
                         key={placement.id}
@@ -324,8 +328,8 @@ function DominoRoomPageSession() {
                           placed={placed}
                           conceptOf={conceptOf}
                           justPlaced={placed.id === lastPlacedTileId}
-                          orientation={placement.orientation}
-                          articulation={placed.isDouble && placement.orientation === 'double-vertical'}
+                          orientation={visualOrientation}
+                          articulation={placed.isDouble && visualOrientation === 'double-vertical'}
                         />
                       </div>
                     )
@@ -376,7 +380,7 @@ function DominoRoomPageSession() {
             </section>
 
             {/* Acciones: robar / pasar, solo tienen efecto en tu turno */}
-            <section className="domino-premium-hand-dock rounded-2xl border p-3 sm:p-4">
+            <section className="domino-premium-hand-dock rounded-2xl border p-2.5 sm:p-2.5">
             <div className="domino-premium-hand-layout">
             <div className={`domino-premium-local-player ${isMyTurn ? 'domino-premium-local-player--active' : ''}`}>
               <span className="domino-premium-local-avatar" aria-hidden="true"><Hand className="h-3.5 w-3.5" strokeWidth={2} /></span>
@@ -491,12 +495,12 @@ function DominoRoomPageSession() {
   )
 }
 
-function ConceptHalf({ concept, size = 'md' }: { concept: DominoConcept; size?: 'sm' | 'md' | 'lg' }) {
+function ConceptHalf({ concept, size = 'md' }: { concept: DominoConcept; size?: 'board' | 'sm' | 'md' | 'lg' }) {
   const Icon = iconForConcept(concept.icon)
   const sizing =
-    size === 'lg' ? 'px-2 py-3.5 gap-1.5' : size === 'sm' ? 'px-1.5 py-2 gap-1' : 'px-1.5 py-2.5 gap-1'
-  const iconSize = size === 'lg' ? 'h-8 w-8' : size === 'sm' ? 'h-4.5 w-4.5' : 'h-6 w-6'
-  const textSize = size === 'lg' ? 'text-[11px]' : size === 'sm' ? 'text-[8.5px]' : 'text-[9.5px]'
+    size === 'lg' ? 'px-2 py-3.5 gap-1.5' : size === 'board' ? 'domino-tile-half--board px-1 py-1 gap-0.5' : size === 'sm' ? 'px-1.5 py-2 gap-1' : 'px-1.5 py-2.5 gap-1'
+  const iconSize = size === 'lg' ? 'h-8 w-8' : size === 'board' ? 'h-4 w-4 shrink-0' : size === 'sm' ? 'h-4.5 w-4.5' : 'h-6 w-6'
+  const textSize = size === 'lg' ? 'text-[11px]' : size === 'board' ? 'text-[8px] leading-[0.58rem]' : size === 'sm' ? 'text-[8.5px]' : 'text-[9.5px]'
 
   return (
     <div
@@ -504,7 +508,7 @@ function ConceptHalf({ concept, size = 'md' }: { concept: DominoConcept; size?: 
       style={{ background: `color-mix(in srgb, ${concept.color} 10%, transparent)` }}
     >
       <Icon className={iconSize} style={{ color: concept.color }} strokeWidth={2} />
-      <span className={`text-center leading-tight font-semibold text-text-h ${textSize}`}>{concept.label}</span>
+      <span className={`domino-tile-label w-full text-center font-semibold text-text-h ${size === 'board' ? '' : 'leading-tight'} ${textSize}`}>{concept.label}</span>
     </div>
   )
 }
@@ -514,6 +518,31 @@ export type BoardTilePresentation = {
   width: number
   height: number
   axis: 'row' | 'column'
+}
+
+export const BOARD_TILE_CONTENT = {
+  padding: 4,
+  icon: 16,
+  gap: 2,
+  textFont: 8,
+  textLineHeight: 9.28,
+} as const
+
+/** Espacio interno útil por mitad; permite validar etiquetas sin tocar la geometría. */
+export function boardTileContentPresentation(orientation: DominoVisualOrientation) {
+  const tile = boardTilePresentation(orientation.startsWith('double'), orientation)
+  const vertical = orientation === 'vertical' || orientation === 'double-vertical'
+  const contentHeight = vertical
+    ? (tile.height - 6 - 3) / 2 - BOARD_TILE_CONTENT.padding * 2
+    : tile.height - 6 - BOARD_TILE_CONTENT.padding * 2
+  const contentWidth = vertical
+    ? tile.width - 6 - BOARD_TILE_CONTENT.padding * 2
+    : (tile.width - 6 - 3) / 2 - BOARD_TILE_CONTENT.padding * 2
+  return {
+    contentWidth,
+    contentHeight,
+    maxLines: Math.floor((contentHeight - BOARD_TILE_CONTENT.icon - BOARD_TILE_CONTENT.gap) / BOARD_TILE_CONTENT.textLineHeight),
+  }
 }
 
 /** Datos de presentación independientes del DOM; el valor predeterminado conserva la sala lineal. */
@@ -552,9 +581,9 @@ export function BoardTileView({
       className={`domino-premium-tile domino-board-tile ${placed.isDouble ? 'domino-board-tile--double' : ''} ${articulation ? 'domino-board-tile--articulation' : ''} flex shrink-0 overflow-hidden rounded-lg border-[3px] ${vertical ? 'flex-col' : ''} ${animation}`}
       style={{ width: presentation.width, height: presentation.height }}
     >
-      <ConceptHalf concept={conceptOf(placed.left)} />
+      <ConceptHalf concept={conceptOf(placed.left)} size="board" />
       <div className={`domino-tile-divider ${vertical ? 'h-[3px] w-full' : 'h-full w-[3px]'}`} />
-      <ConceptHalf concept={conceptOf(placed.right)} />
+      <ConceptHalf concept={conceptOf(placed.right)} size="board" />
     </div>
   )
 }
