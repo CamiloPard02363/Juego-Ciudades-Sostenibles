@@ -41,6 +41,8 @@ export type DominoRoomStateView = {
   turnDurationSeconds: number
   phase: DominoRoomPhase
   board: DominoPlacedTileView[]
+  /** Puede faltar en estados emitidos por servidores anteriores. */
+  openingTileId?: string | null
   boneyardCount: number
   winnerUserId: string | null
   /** true si terminó por bloqueo (nadie podía jugar) en vez de por mano vacía. */
