@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { resolveDominoBoardPresentation } from './dominoBoardRenderMode'
+import { DEFAULT_DOMINO_BOARD_RENDER_MODE, resolveDominoBoardPresentation } from './dominoBoardRenderMode'
 
 const board = Array.from({ length: 15 }, (_, index) => ({ id: `tile-${index}`, isDouble: index === 4 }))
 
 describe('resolveDominoBoardPresentation', () => {
+  it('solicita bidirectional por defecto, sin depender del entorno de build', () => {
+    expect(DEFAULT_DOMINO_BOARD_RENDER_MODE).toBe('bidirectional')
+  })
+
   it('conserva el modo lineal cuando se solicita explícitamente', () => {
     expect(resolveDominoBoardPresentation('linear', board, { width: 800, height: 600 })).toEqual({ kind: 'linear' })
   })

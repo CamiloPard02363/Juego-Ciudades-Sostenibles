@@ -8,12 +8,9 @@ import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
 import type { DominoPlacedTileView, DominoTileView } from './dominoRoomTypes'
 import type { DominoVisualOrientation, Point } from './dominoChainLayout'
-import { resolveDominoBoardPresentation, type DominoBoardRenderMode } from './dominoBoardRenderMode'
+import { DEFAULT_DOMINO_BOARD_RENDER_MODE, resolveDominoBoardPresentation } from './dominoBoardRenderMode'
 import { DealCountdownOverlay, TurnBanner, TurnPopBanner, useCountdown } from './MatchBoard'
 import { Modal } from './Modal'
-
-/** Selector interno: en desarrollo se puede cambiar entre bidirectional, serpentine y linear. */
-const DOMINO_DEVELOPMENT_BOARD_MODE: DominoBoardRenderMode = import.meta.env.DEV ? 'bidirectional' : 'linear'
 
 /**
  * Sala de Dominó 1v1 en tiempo real: página propia (ruta `/domino/sala/:code?`,
@@ -110,7 +107,7 @@ function DominoRoomPageSession() {
   const rightEnd = board[board.length - 1]?.right
   const hand: DominoTileView[] = self?.hand ?? []
   const boardPresentation = useMemo(
-    () => resolveDominoBoardPresentation(DOMINO_DEVELOPMENT_BOARD_MODE, board, boardViewport, room?.openingTileId),
+    () => resolveDominoBoardPresentation(DEFAULT_DOMINO_BOARD_RENDER_MODE, board, boardViewport, room?.openingTileId),
     [board, boardViewport, room?.openingTileId],
   )
 
