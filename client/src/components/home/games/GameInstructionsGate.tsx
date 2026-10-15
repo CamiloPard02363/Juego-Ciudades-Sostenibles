@@ -7,6 +7,7 @@ import { gameInstructions, type InstructionKind } from './gameInstructions'
 import { GuessWhoVisualDemo } from './GuessWhoVisualDemo'
 import { flagsDemoExample, type GuessWhoDemoExample } from './guessWhoDemoExamples'
 import { DominoVisualDemo } from './DominoVisualDemo'
+import { MemoryMatchDemo } from './MemoryMatchFlash'
 
 const SEEN_KEY_PREFIX = 'nexusplay:guia-vista:'
 
@@ -47,6 +48,8 @@ export function GameInstructionsGate({ kind, children, guessWhoExample = flagsDe
   const isGuessWho = kind === 'GUESS_WHO' || kind === 'GUESS_WHO_GROUP'
   const isDomino = kind === 'DOMINO'
   const hasVisualDemo = isGuessWho || isDomino
+  // MatchMente: demostración animada en vez de párrafo (issue #30).
+  const isMemory = kind === 'PAIRS' || kind === 'OPPOSITES'
   return (
     <Modal onClose={onContinue} fitContent maxWidthClassName={hasVisualDemo ? 'max-w-[1120px]' : 'max-w-[520px]'} maxHeightClassName="max-h-[calc(100dvh-40px)]" ariaLabel={isGuessWho ? 'Cómo jugar a Identidad Oculta' : isDomino ? 'Cómo jugar a Dominexo' : undefined}>
       <div className="space-y-4" data-game-instructions={kind}>
@@ -66,6 +69,7 @@ export function GameInstructionsGate({ kind, children, guessWhoExample = flagsDe
           </button>
         </div>
         {isGuessWho ? <GuessWhoVisualDemo example={guessWhoExample} onContinue={onContinue} /> : isDomino ? <DominoVisualDemo onContinue={onContinue} /> : <>
+        {isMemory ? <MemoryMatchDemo opposites={kind === 'OPPOSITES'} /> : <>
         <p className="text-[13.5px] leading-relaxed text-text">{content.text}</p>
         <div className="rounded-2xl border border-border bg-code-bg p-4">
           <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-accent">{content.exampleTitle}</p>
@@ -84,6 +88,7 @@ export function GameInstructionsGate({ kind, children, guessWhoExample = flagsDe
           </div>
           <p className="mt-3 text-center text-[12px] text-text">{content.caption}</p>
         </div>
+        </>}
         <button type="button"
           className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[14.5px] font-semibold text-white shadow-[0_12px_24px_-12px_var(--accent)] transition-all hover:-translate-y-0.5"
           style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }} onClick={onContinue}>

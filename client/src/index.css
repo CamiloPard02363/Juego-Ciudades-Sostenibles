@@ -2145,3 +2145,74 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .just-created-cloud { animation: none; }
 }
+
+/* MatchMente (issue #30): destello que explica cada acierto. Entra con un
+ * rebote, se sostiene y se desvanece solo, sin frenar el juego. */
+@keyframes match-flash {
+  0% { opacity: 0; transform: scale(0.6); }
+  15% { opacity: 1; transform: scale(1.06); }
+  25% { transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.92) translateY(-12px); }
+}
+
+/* Racha visible: el contador late cada vez que crece. */
+@keyframes streak-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* Demostración de la guía de MatchMente: carta A, luego carta B, brillo y ✓. */
+@keyframes memory-demo-flip-a {
+  0%, 10% { transform: rotateY(0deg); }
+  20%, 85% { transform: rotateY(180deg); }
+  95%, 100% { transform: rotateY(0deg); }
+}
+@keyframes memory-demo-flip-b {
+  0%, 30% { transform: rotateY(0deg); }
+  40%, 85% { transform: rotateY(180deg); }
+  95%, 100% { transform: rotateY(0deg); }
+}
+@keyframes memory-demo-glow {
+  0%, 45% { box-shadow: none; }
+  55%, 80% { box-shadow: 0 0 0 4px #22c55e; }
+  90%, 100% { box-shadow: none; }
+}
+@keyframes memory-demo-check {
+  0%, 48% { opacity: 0; transform: scale(0.3); }
+  56% { opacity: 1; transform: scale(1.2); }
+  62%, 80% { opacity: 1; transform: scale(1); }
+  90%, 100% { opacity: 0; transform: scale(0.3); }
+}
+
+/* MatchMente en Opuestos: la explicación entra y se queda hasta "¡Seguir!". */
+@keyframes match-flash-in {
+  0% { opacity: 0; transform: scale(0.7); }
+  70% { opacity: 1; transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* Nubes del fondo de ciudad de MatchMente: vaivén lento de lado a lado. */
+@keyframes memory-city-clouds {
+  from { transform: translateX(-60px); }
+  to { transform: translateX(60px); }
+}
+
+/* Fondo de MatchMente: estrellas, antenas y luciérnagas que titilan. */
+@keyframes memory-city-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Estrella fugaz: cruza el cielo en ~1 s y descansa el resto del ciclo. */
+@keyframes memory-city-shooting-star {
+  0% { opacity: 0; transform: translate(200px, 40px); }
+  2% { opacity: 1; }
+  12% { opacity: 0; transform: translate(900px, 280px); }
+  100% { opacity: 0; transform: translate(900px, 280px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*='memory-city-'] { animation: none !important; }
+}

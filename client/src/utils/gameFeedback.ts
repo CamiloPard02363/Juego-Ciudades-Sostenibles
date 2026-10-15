@@ -101,13 +101,20 @@ export function primeGameFeedback(): void {
   if (ctx && ctx.state === 'suspended') void ctx.resume()
 }
 
-/** Pareja acertada: dos notas ascendentes (arpegio corto) + vibración breve. */
-export function celebrateMatch(): void {
+/**
+ * Pareja acertada: arpegio ascendente + vibración breve. Con racha (`streak`)
+ * el arpegio sube de tono y suma una nota, para que encadenar aciertos se
+ * oiga como progreso y no como el mismo tono repetido.
+ */
+export function celebrateMatch(streak = 1): void {
   const ctx = getAudioContext()
   if (ctx) {
+    const lift = Math.pow(2, Math.min(Math.max(streak - 1, 0), 5) / 12)
     playWhenReady(ctx, (readyCtx) => {
-      playTone(readyCtx, 523.25, 0, 0.14, 'sine', 0.15) // C5
-      playTone(readyCtx, 783.99, 0.09, 0.18, 'sine', 0.15) // G5
+      playTone(readyCtx, 523.25 * lift, 0, 0.14, 'sine', 0.15) // C5
+      playTone(readyCtx, 659.25 * lift, 0.08, 0.14, 'sine', 0.14) // E5
+      playTone(readyCtx, 783.99 * lift, 0.16, 0.22, 'sine', 0.15) // G5
+      if (streak >= 3) playSoftChime(readyCtx, 1046.5 * lift, 0.26, 0.08) // C6: brillo de racha
     })
   }
   vibrate(35)
@@ -118,7 +125,8 @@ export function signalMismatch(): void {
   const ctx = getAudioContext()
   if (ctx) {
     playWhenReady(ctx, (readyCtx) => {
-      playTone(readyCtx, 196, 0, 0.22, 'sawtooth', 0.09) // G3
+      playTone(readyCtx, 220, 0, 0.12, 'sawtooth', 0.08) // A3
+      playTone(readyCtx, 174.61, 0.11, 0.22, 'sawtooth', 0.08) // F3: baja, "uh-oh"
     })
   }
   vibrate([40, 60, 40])
