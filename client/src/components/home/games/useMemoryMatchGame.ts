@@ -123,6 +123,9 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
   const [previewSecondsLeft, setPreviewSecondsLeft] = useState(previewSeconds)
   const [lastMatch, setLastMatch] = useState<LastMatch | null>(null)
   const [bestStreak, setBestStreak] = useState(0)
+  // En Opuestos, cada acierto pausa el reloj hasta que se cierra la explicación
+  // (los conceptos merecen leerse). Los puntos ya se sumaron al acertar.
+  const [pausedForInfo, setPausedForInfo] = useState(false)
   const lockRef = useRef(false)
 
   // Tracking para métricas (issue #226): aciertos/errores de toda la
@@ -150,18 +153,18 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
 
   // Timer de la zona activa.
   useEffect(() => {
-    if (phase !== 'playing') return
+    if (phase !== 'playing' || pausedForInfo) return
     if (timeLeft <= 0) {
       setPhase('time-up')
       return
     }
     const timeout = setTimeout(() => setTimeLeft((t) => t - 1), 1000)
     return () => clearTimeout(timeout)
-  }, [phase, timeLeft])
+  }, [phase, timeLeft, pausedForInfo])
 
   const flipCard = useCallback(
     (cardId: string) => {
-      if (phase !== 'playing' || lockRef.current) return
+      if (phase !== 'playing' || pausedForInfo || lockRef.current) return
       if (flippedIds.includes(cardId) || flippedIds.length === 2) return
 
       // Se llama dentro del clic (gesto real del usuario) para que el
@@ -190,6 +193,7 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
             celebrateMatch(nextCombo)
             setLastMatch({ key: Date.now(), first, second, streak: nextCombo })
             setBestStreak((best) => Math.max(best, nextCombo))
+            if (first.badge !== null) setPausedForInfo(true)
             setMatchedPairIds((current) => [...current, first.pairId])
             setCombo(nextCombo)
             setTotalScore((score) => score + points)
@@ -211,15 +215,18 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
         }, 550)
       }
     },
-    [phase, flippedIds, currentZone, matchedPairIds, combo, timeLeft],
+    [phase, pausedForInfo, flippedIds, currentZone, matchedPairIds, combo, timeLeft],
   )
 
   // Zona completada.
   useEffect(() => {
-    if (phase === 'playing' && totalPairsInZone > 0 && matchedInZone === totalPairsInZone) {
+    // Espera a que se cierre la explicación del último acierto antes de cerrar la zona.
+    if (phase === 'playing' && !pausedForInfo && totalPairsInZone > 0 && matchedInZone === totalPairsInZone) {
       setPhase('zone-cleared')
     }
-  }, [phase, matchedInZone, totalPairsInZone])
+  }, [phase, pausedForInfo, matchedInZone, totalPairsInZone])
+
+  const resumeAfterInfo = useCallback(() => setPausedForInfo(false), [])
 
   const advanceZone = useCallback(() => {
     const nextIndex = zoneIndex + 1
@@ -230,6 +237,7 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
     setZoneIndex(nextIndex)
     setMatchedPairIds([])
     setFlippedIds([])
+    setPausedForInfo(false)
     setShakingIds([])
     setCombo(0)
     setTimeLeft(timePerZone)
@@ -240,6 +248,7 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
   const retryZone = useCallback(() => {
     setMatchedPairIds([])
     setFlippedIds([])
+    setPausedForInfo(false)
     setShakingIds([])
     setCombo(0)
     setTimeLeft(timePerZone)
@@ -259,6 +268,8 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
     combo,
     bestStreak,
     lastMatch,
+    pausedForInfo,
+    resumeAfterInfo,
     timeLeft,
     previewSecondsLeft,
     totalPairsInZone,

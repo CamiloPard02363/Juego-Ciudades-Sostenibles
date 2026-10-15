@@ -5,6 +5,7 @@ import type { Difficulty } from './PlayOptionsPopup'
 import { useMemoryMatchGame } from './useMemoryMatchGame'
 import { ConfettiBurst } from '../../kids/ConfettiBurst'
 import { MemoryMatchFlash } from './MemoryMatchFlash'
+import { MemoryCityBackdrop } from './MemoryCityBackdrop'
 import { useAuth } from '../../../hooks/useAuth'
 import { recordGamePlayResult } from '../../../services/metrics.service'
 
@@ -88,11 +89,13 @@ function MemoryMatchSession({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
-      <div className="mx-auto flex min-h-full w-full max-w-[1200px] flex-col p-5 sm:p-8">
-        <header className="relative mb-5 text-center">
+      <MemoryCityBackdrop />
+      <div className="relative mx-auto flex min-h-full w-full max-w-[1200px] flex-col p-5 sm:p-8">
+        {/* Encabezado sobre una placa: el texto se lee bien encima del cielo. */}
+        <header className="relative mx-auto mb-5 w-full max-w-[560px] rounded-2xl bg-bg/85 px-4 py-2 text-center shadow-[var(--shadow)] backdrop-blur-sm">
           <button
             type="button"
-            className="absolute left-0 top-0 rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-text-h"
+            className="absolute left-2 top-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg px-3 py-1.5 text-[12px] font-medium text-text-h"
             onClick={onExit}
           >
             ← Salir
@@ -103,12 +106,14 @@ function MemoryMatchSession({
           </h1>
         </header>
 
-        <div className="mx-auto mb-5 flex flex-wrap justify-center gap-4 rounded-2xl border border-border bg-code-bg px-6 py-3">
+        <div className="mx-auto mb-5 flex flex-wrap justify-center gap-4 rounded-2xl border border-border bg-code-bg/90 px-6 py-3 shadow-[var(--shadow)] backdrop-blur-sm">
           <Stat label="Parejas" value={`${game.matchedInZone} / ${game.totalPairsInZone}`} />
           <Stat
             label="Tiempo"
             value={
-              game.phase === 'preview' ? `👁️ ${game.previewSecondsLeft}s` : `${minutes}:${seconds}`
+              game.phase === 'preview'
+                ? `👁️ ${game.previewSecondsLeft}s`
+                : `${game.pausedForInfo ? '⏸ ' : ''}${minutes}:${seconds}`
             }
           />
           <Stat label="Puntos" value={String(game.totalScore)} />
@@ -220,7 +225,11 @@ function MemoryMatchSession({
           })}
         </div>
 
-        <MemoryMatchFlash match={game.lastMatch} primaryColor={primaryColor} />
+        <MemoryMatchFlash
+          match={game.lastMatch}
+          primaryColor={primaryColor}
+          onContinue={game.pausedForInfo ? game.resumeAfterInfo : undefined}
+        />
 
         {game.phase === 'zone-cleared' && (
           <GameEndOverlay
