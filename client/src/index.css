@@ -2124,3 +2124,21 @@ code {
   from { transform: translateX(-60px); }
   to { transform: translateX(60px); }
 }
+
+/* Fondo de MatchMente: estrellas, antenas y luciérnagas que titilan. */
+@keyframes memory-city-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Estrella fugaz: cruza el cielo en ~1 s y descansa el resto del ciclo. */
+@keyframes memory-city-shooting-star {
+  0% { opacity: 0; transform: translate(200px, 40px); }
+  2% { opacity: 1; }
+  12% { opacity: 0; transform: translate(900px, 280px); }
+  100% { opacity: 0; transform: translate(900px, 280px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*='memory-city-'] { animation: none !important; }
+}

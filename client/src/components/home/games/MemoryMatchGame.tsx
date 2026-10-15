@@ -8,7 +8,7 @@ import { MemoryMatchFlash } from './MemoryMatchFlash'
 import { MemoryCityBackdrop } from './MemoryCityBackdrop'
 import { bestBoardGrid } from './memoryMatchLayout'
 
-const BOARD_GAP = 10
+const BOARD_GAP = 8
 import { useAuth } from '../../../hooks/useAuth'
 import { recordGamePlayResult } from '../../../services/metrics.service'
 
@@ -113,7 +113,7 @@ function MemoryMatchSession({
     // el resto; las cartas se dimensionan para caber (ver memoryMatchLayout).
     <div className="fixed inset-0 z-50 flex h-dvh flex-col overflow-hidden bg-bg">
       <MemoryCityBackdrop />
-      <div className="relative mx-auto flex h-full w-full max-w-[1400px] flex-col gap-2 p-2 sm:gap-3 sm:p-4">
+      <div className="relative mx-auto flex h-full w-full max-w-[1600px] flex-col gap-2 p-2 sm:p-3">
         {/* Encabezado y contadores en una sola placa: se lee bien encima del cielo. */}
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border border-border bg-bg/85 px-3 py-2 shadow-[var(--shadow)] backdrop-blur-sm">
           <div className="flex min-w-0 items-center gap-3">
@@ -200,7 +200,7 @@ function MemoryMatchSession({
             const isMatched = game.matchedPairIds.includes(card.pairId)
             const isShaking = game.shakingIds.includes(card.cardId)
             // Texto proporcional a la carta: legible en una carta grande y sin desbordar en una chica.
-            const labelSize = Math.max(11, Math.min(18, Math.round(grid.cardWidth / 10)))
+            const labelSize = Math.max(13, Math.min(20, Math.round(grid.cardWidth / 9)))
 
             return (
               <button
@@ -249,7 +249,7 @@ function MemoryMatchSession({
                     )}
                     {card.imageUrl && card.title && (
                       <p
-                        className="shrink-0 truncate px-1.5 py-1 text-center font-semibold leading-tight text-text-h"
+                        className="line-clamp-2 shrink-0 bg-bg px-1.5 py-1 text-center font-bold leading-tight text-text-h"
                         style={{ fontSize: labelSize }}
                         title={card.title}
                       >

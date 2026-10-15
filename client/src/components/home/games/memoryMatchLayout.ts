@@ -26,7 +26,7 @@ export function zonePairSizes(totalPairs: number, perZone: number): number[] {
 export type BoardGrid = { cols: number; rows: number; cardWidth: number; cardHeight: number }
 
 /** Proporción ancho/alto de una carta: imagen casi cuadrada y una línea de texto debajo. */
-export const CARD_ASPECT = 0.8
+export const CARD_ASPECT = 0.82
 
 /**
  * Elige las columnas que dan la carta más grande dentro de `width` × `height`.
@@ -48,7 +48,7 @@ export function bestBoardGrid(cardCount: number, width: number, height: number, 
     if (!best || grid.cardWidth > best.cardWidth) best = grid
     if (cardCount % cols === 0 && (!bestComplete || grid.cardWidth > bestComplete.cardWidth)) bestComplete = grid
   }
-  // Una cuadrícula completa gana si su carta no es mucho más chica (≤ 15 %).
-  if (best && bestComplete && bestComplete.cardWidth >= best.cardWidth * 0.85) return bestComplete
+  // Una cuadrícula completa gana solo si su carta casi no es más chica (≤ 5 %).
+  if (best && bestComplete && bestComplete.cardWidth >= best.cardWidth * 0.95) return bestComplete
   return best ?? { cols: 1, rows: cardCount, cardWidth: 0, cardHeight: 0 }
 }
