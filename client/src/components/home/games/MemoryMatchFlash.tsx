@@ -141,7 +141,12 @@ export function MemoryMatchFlash({
             <p className="mt-3 text-[30px] font-extrabold tracking-tight" style={{ color: primaryColor }}>
               {headline}
             </p>
-            {detail && <p className="max-w-[320px] truncate text-[16px] font-semibold text-text-h">{detail}</p>}
+            {/* Sin recortar: si el nombre es largo, el texto baja a otra línea. */}
+            {detail && (
+              <p className="max-w-[min(480px,85vw)] text-balance break-words text-center text-[16px] font-semibold leading-snug text-text-h">
+                {detail}
+              </p>
+            )}
           </>
         )}
         {streak >= 2 && (
