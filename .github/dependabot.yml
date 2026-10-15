@@ -5,6 +5,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # TypeScript 7 no expone la API programática que necesita `nest build`
+    # (vuelve en 7.1): no subir de major hasta que el CLI de Nest lo soporte.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types:
