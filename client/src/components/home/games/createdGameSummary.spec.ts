@@ -9,6 +9,7 @@ const EXPECTED: Record<CreatedGameKind, { typeLabel: string; isMultiplayer: bool
   MAZE_COLLECTOR: { typeLabel: 'Recolector de laberinto', isMultiplayer: false },
   SNAKES_LADDERS: { typeLabel: 'Escaleras y Serpientes', isMultiplayer: true },
   DUAL_QUEST: { typeLabel: 'Dúo Lógico', isMultiplayer: true },
+  TRUE_FALSE_MAZE: { typeLabel: 'Laberinto Verdadero o Falso', isMultiplayer: false },
 }
 
 describe('summarizeCreatedGame (issue #245)', () => {

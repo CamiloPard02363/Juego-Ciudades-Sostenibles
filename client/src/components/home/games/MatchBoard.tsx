@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { CircleHelp, Clock3, SkipForward, Sparkles, Volume2 } from 'lucide-react'
 import { MIN_DISCARDS_TO_ACCUSE, type GuessWhoCard, type RoomPlayerView } from './guessWhoTypes'
 import { CardInfoBubble } from './CardInfoBubble'
+import { playGuessWhoCardToggle, playGuessWhoCountdownTick, playGuessWhoTurnCue } from '../../../utils/gameFeedback'
+import { ScrollMoreHint } from '../../ScrollMoreHint'
 
 /**
  * Cuenta el tiempo restante hasta `deadline` (epoch ms) y se refresca cada
@@ -57,6 +59,10 @@ export function TurnBanner({
   const viewBox = isInline ? '0 0 48 48' : '0 0 52 52'
   const center = isInline ? 24 : 26
   const strokeWidth = isInline ? 4 : 4
+
+  useEffect(() => {
+    if (secondsLeft > 0 && secondsLeft <= 5) playGuessWhoCountdownTick(secondsLeft)
+  }, [secondsLeft])
 
   return (
     <div
@@ -130,6 +136,7 @@ export function TurnPopBanner({
 
   useEffect(() => {
     setVisible(true)
+    playGuessWhoTurnCue(isMyTurn)
     const timeout = setTimeout(() => setVisible(false), 1700)
     return () => clearTimeout(timeout)
   }, [isMyTurn, accusationMessage])
@@ -235,7 +242,7 @@ export function AccusationOverlay({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="max-h-[calc(100dvh-40px)] w-full max-w-[420px] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] animate-[accusation-overlay-pop-in_0.25s_cubic-bezier(0.16,1,0.3,1)]"
+        className="flex max-h-[calc(100dvh-40px)] w-full max-w-[760px] flex-col rounded-2xl border border-border bg-surface p-5 shadow-[var(--shadow)] animate-[accusation-overlay-pop-in_0.25s_cubic-bezier(0.16,1,0.3,1)] sm:p-6"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === 'Escape') { event.stopPropagation(); onCancel() }
@@ -251,7 +258,10 @@ export function AccusationOverlay({
       >
         <h3 id={titleId} className="mb-2 text-[18px] font-bold text-text-h">¿Cuál es la identidad oculta?</h3>
         <p className="mb-4 text-[13px] text-text">Elige una tarjeta y confirma tu respuesta. Si aciertas, ganas; si fallas, pierdes el turno.</p>
-        <div className="grid grid-cols-3 gap-2.5">
+        {/* Solo las tarjetas hacen scroll (con el aviso "Desliza para ver más");
+            el título y los botones de confirmar quedan siempre a la vista. */}
+        <div className="relative -mx-1 min-h-0 flex-1 overflow-y-auto px-1 pt-1 pb-1">
+        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5">
           {remaining.map((card, index) => (
             <div key={card.cardId} className="relative">
               <button
@@ -261,8 +271,8 @@ export function AccusationOverlay({
                 style={{ animation: `card-pop-in 0.25s ease-out ${index * 0.03}s backwards` }}
                 onClick={() => setSelectedId(card.cardId)}
               >
-                <img src={card.imageUrl} alt="" className="h-16 w-full object-cover" />
-                <p className="truncate bg-surface px-1.5 py-1 text-[10.5px] font-medium text-text-h">
+                <img src={card.imageUrl} alt="" className="h-20 w-full object-cover sm:h-24" />
+                <p className="truncate bg-surface px-1.5 py-1 text-[11.5px] font-medium text-text-h">
                   {card.label}
                 </p>
               </button>
@@ -270,21 +280,26 @@ export function AccusationOverlay({
             </div>
           ))}
         </div>
-        <div className="mt-4 rounded-xl border border-accent/40 bg-accent/10 p-3" aria-live="polite">
+        <ScrollMoreHint fade="surface" minHiddenPx={8} />
+        </div>
+        <div className="mt-3 shrink-0 rounded-xl border border-accent/40 bg-accent/10 px-3 py-2.5" aria-live="polite">
           <p className="text-[13px] font-semibold text-text-h">{selected ? `¿Crees que ${selected.label} es la identidad oculta?` : 'Selecciona una tarjeta para confirmar.'}</p>
         </div>
-        <button type="button" disabled={!selected} className="mt-3 w-full rounded-xl bg-accent px-4 py-3 text-[14px] font-bold text-white disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent" onClick={() => {
+        {/* Botones en una fila: dejan más alto para las imágenes. */}
+        <div className="mt-3 flex shrink-0 gap-2">
+        <button type="button" disabled={!selected} className="flex-1 rounded-xl bg-accent px-4 py-3 text-[14px] font-bold text-white disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent" onClick={() => {
           if (!selected || submitted.current) return
           submitted.current = true
           onAccuse(selected.cardId)
         }}>Sí, confirmar</button>
         <button
           type="button"
-          className="mt-4 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
+          className="flex-1 rounded-xl border border-border px-4 py-3 text-[13.5px] font-medium text-text-h transition-transform hover:-translate-y-0.5"
           onClick={onCancel}
         >
           Seguir pensando
         </button>
+        </div>
       </div>
     </div>
   )
@@ -327,7 +342,6 @@ export function MatchBoard({
   const [accusing, setAccusing] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const turnRemainingMs = useCountdown(turnDeadline)
-  const remainingForSelf = cards.length - self.discardedCardIds.length
   const secretCard = cards.find((card) => card.cardId === self.secretCardId)
   const discardsMissing = Math.max(0, MIN_DISCARDS_TO_ACCUSE - self.discardedCardIds.length)
   const guessAvailable = canAccuse && isMyTurn && discardsMissing === 0
@@ -350,25 +364,29 @@ export function MatchBoard({
 
       <div className="guess-who-board-columns flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="guess-who-board-actions flex shrink-0 flex-col gap-3 sm:w-[210px]">
-          <div className="rounded-xl border border-accent/40 bg-accent/5 p-3.5">
-            <p className="text-[10.5px] font-semibold tracking-wide text-accent uppercase">Tu tarjeta secreta</p>
+          <div
+            key={self.secretCardId}
+            className="rounded-xl border border-accent/60 bg-gradient-to-br from-accent/20 via-surface to-accent-2/10 p-3.5 shadow-[0_10px_28px_-18px_var(--accent)] animate-[secret-card-reveal_0.72s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none"
+          >
+            <div className="flex items-center gap-1.5 text-accent">
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
+              <p className="text-[11px] font-extrabold tracking-[0.12em] uppercase">Tú eres…</p>
+            </div>
             {/* Se muestra la imagen real (no solo el nombre) para que sea
                 más intuitivo y pedagógico: quien juega ve la bandera/tarjeta
                 que su rival debe adivinar, no solo su etiqueta de texto. */}
+            <p className="mt-1 text-[11px] font-bold tracking-wide text-accent-2 uppercase">Tu bandera es</p>
             {secretCard?.imageUrl && (
               <div className="relative mt-2">
                 <img
                   src={secretCard.imageUrl}
                   alt=""
-                  className="h-20 w-full rounded-lg border border-border object-cover"
+                  className="h-20 w-full rounded-lg border border-accent/35 object-cover shadow-[0_6px_16px_-10px_var(--accent)]"
                 />
                 {secretCard.info && <CardInfoBubble info={secretCard.info} label={secretCard.label} />}
               </div>
             )}
             <p className="mt-2 text-[14px] font-semibold text-text-h">{secretCard?.label ?? '—'}</p>
-            <p className="mt-1.5 text-[11.5px] text-text">
-              Quedan {remainingForSelf} de {cards.length}
-            </p>
           </div>
 
           <div className="rounded-xl border border-accent/40 bg-accent/5 p-2.5">
@@ -424,15 +442,17 @@ export function MatchBoard({
         <div className={`guess-who-board-cards grid flex-1 grid-cols-3 gap-2.5 sm:grid-cols-4 ${!isMyTurn ? 'opacity-60' : ''}`}>
           {cards.map((card, index) => {
             const discarded = self.discardedCardIds.includes(card.cardId)
-            const locked = !isMyTurn || discarded
+            const locked = !isMyTurn
             return (
               <div key={card.cardId} className="relative">
                 <button
                   type="button"
                   disabled={locked}
+                  aria-pressed={discarded}
+                  title={discarded ? 'Restaurar tarjeta' : 'Descartar tarjeta'}
                   className={`group relative w-full overflow-hidden rounded-lg border text-left transition-[transform,border-color] duration-200 ${
                     discarded
-                      ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out]'
+                      ? 'border-border opacity-40 grayscale animate-[card-flip-out_0.4s_ease-in-out] hover:border-accent hover:opacity-70'
                       : locked
                         ? 'cursor-not-allowed border-border'
                         : 'border-border hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_6px_16px_-8px_var(--accent)]'
@@ -442,7 +462,11 @@ export function MatchBoard({
                       ? undefined
                       : `card-pop-in 0.3s ease-out ${Math.min(index, 12) * 0.03}s backwards`,
                   }}
-                  onClick={() => !locked && onDiscard(card.cardId)}
+                  onClick={() => {
+                    if (locked) return
+                    playGuessWhoCardToggle(discarded)
+                    onDiscard(card.cardId)
+                  }}
                 >
                   <img src={card.imageUrl} alt="" className="h-20 w-full object-cover" />
                   <p className="truncate bg-surface px-1.5 py-1 text-[11px] font-medium text-text-h">{card.label}</p>

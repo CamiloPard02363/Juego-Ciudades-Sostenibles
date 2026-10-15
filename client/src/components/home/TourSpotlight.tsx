@@ -18,10 +18,17 @@ import type { SpotlightRect } from './tourSpotlightLayout'
  * señalado sigue siendo clicable; los paneles alrededor absorben los clics
  * como lo hacía el fondo de antes.
  */
-export function TourSpotlight({ rect }: { rect: SpotlightRect | null }) {
+export function TourSpotlight({
+  rect,
+  onBackdropClick,
+}: {
+  rect: SpotlightRect | null
+  /** Opcional (issue #2): clic en el fondo difuminado; el tour no lo usa. */
+  onBackdropClick?: () => void
+}) {
   if (!rect) {
     return createPortal(
-      <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm" aria-hidden="true" />,
+      <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm" aria-hidden="true" onClick={onBackdropClick} />,
       document.body,
     )
   }
@@ -32,7 +39,7 @@ export function TourSpotlight({ rect }: { rect: SpotlightRect | null }) {
   // anillo, para que el hueco tenga las esquinas redondeadas.
   const blurPanel = 'tour-spotlight-panel fixed z-40 backdrop-blur-sm'
   return createPortal(
-    <div aria-hidden="true">
+    <div aria-hidden="true" onClick={onBackdropClick}>
       <div className={blurPanel} style={{ top: 0, left: 0, right: 0, height: Math.max(0, rect.top) }} />
       <div className={blurPanel} style={{ top: bottom, left: 0, right: 0, bottom: 0 }} />
       <div className={blurPanel} style={{ top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height }} />

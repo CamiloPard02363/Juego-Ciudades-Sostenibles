@@ -82,6 +82,20 @@
   --shadow: 0 20px 45px -25px rgba(20, 18, 28, 0.35);
   --glow: 0 0 0 rgba(124, 58, 237, 0);
 
+  /* Sistema visual de fichas Dominexo. Mantiene independientes los tonos de
+   * superficie, texto, estados y categoria sin cambiar la geometria externa. */
+  --domino-tile-surface: #fffdf8;
+  --domino-tile-surface-shade: #f4f0e7;
+  --domino-tile-text-primary: #26354f;
+  --domino-tile-text-secondary: #52627b;
+  --domino-tile-divider: #92a0b2;
+  --domino-tile-border: #c8d1dc;
+  --domino-tile-relief: #ffffff;
+  --domino-tile-shadow: rgba(24, 36, 58, 0.22);
+  --domino-tile-selected-shadow: rgba(84, 48, 194, 0.34);
+  --domino-tile-playable: #6f55c7;
+  --domino-tile-focus: #5430c2;
+
   --sans: var(--font-sans);
   --heading: var(--font-heading);
   --mono: var(--font-mono);
@@ -448,6 +462,847 @@ code {
   }
 }
 
+/* Sala de Dominexo: paleta y composición propias, aisladas del resto de juegos. */
+.domino-premium-room {
+  --color-accent: #813cff;
+  --color-accent-2: #3487ff;
+  --accent: #813cff;
+  --accent-2: #3487ff;
+  --accent-bg: rgba(129, 60, 255, 0.14);
+  --accent-border: rgba(129, 60, 255, 0.46);
+  --shadow: 0 18px 42px -28px rgba(0, 0, 0, 0.9);
+  --glow: 0 0 24px -8px rgba(129, 60, 255, 0.5);
+  background: linear-gradient(145deg, #30385f 0%, #262e50 46%, #1e2542 100%);
+}
+
+.domino-premium-shell { min-height: 100%; }
+
+.domino-premium-header,
+.domino-premium-hand-dock {
+  border-color: rgba(137, 163, 211, 0.2);
+  background: #111d38;
+  box-shadow: 0 14px 32px -26px rgba(0, 0, 0, 0.9);
+}
+
+.domino-premium-header {
+  min-height: 48px;
+}
+
+.domino-premium-match-facts {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.domino-premium-match-fact {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 220px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(137, 163, 211, 0.2);
+  border-radius: 999px;
+  background: rgba(8, 15, 36, 0.46);
+  padding: 4px 7px;
+  color: #aab8cf;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.domino-premium-match-fact small {
+  color: #8292ae;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.domino-premium-match-fact strong {
+  min-width: 0;
+  max-width: 104px;
+  overflow: hidden;
+  color: #e4edff;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.domino-premium-match-fact b {
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(52, 135, 255, 0.16);
+  color: #cfe2ff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.domino-premium-match-fact--boneyard b {
+  background: rgba(129, 60, 255, 0.2);
+  color: #e4d5ff;
+}
+
+.domino-premium-status {
+  color: #bfa6ff;
+  border: 1px solid rgba(129, 60, 255, 0.38);
+  background: rgba(129, 60, 255, 0.14);
+}
+
+.domino-premium-exit {
+  color: #d8e4ff;
+  border-color: rgba(137, 163, 211, 0.28);
+  background: rgba(52, 135, 255, 0.06);
+}
+
+.domino-premium-exit:hover {
+  border-color: rgba(52, 135, 255, 0.75);
+  color: #ffffff;
+}
+
+.domino-premium-turn {
+  display: flex;
+  align-items: center;
+  position: relative;
+  min-width: 0;
+  border: 1px solid rgba(137, 163, 211, 0.25);
+  border-radius: 0.8rem;
+  background: rgba(8, 15, 36, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.domino-premium-turn--self {
+  border-color: rgba(129, 60, 255, 0.62);
+  background: linear-gradient(135deg, rgba(129, 60, 255, 0.18), rgba(52, 135, 255, 0.08));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 18px -11px rgba(129, 60, 255, 0.95);
+}
+
+.domino-premium-turn-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #6c7a95;
+}
+
+.domino-premium-turn--self .domino-premium-turn-dot {
+  background: #b794ff;
+  box-shadow: 0 0 9px rgba(183, 148, 255, 0.95);
+}
+
+.domino-premium-turn > div {
+  min-width: auto;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+.domino-premium-stage { min-height: 0; }
+
+.domino-premium-table-meta {
+  min-height: 42px;
+}
+
+.domino-premium-rival-card,
+.domino-premium-boneyard {
+  position: relative;
+  min-height: 42px;
+  border-color: rgba(137, 163, 211, 0.17);
+  background: rgba(17, 29, 56, 0.56);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.domino-premium-rival-card {
+  min-width: 148px;
+  padding-left: 35px;
+}
+
+.domino-premium-rival-card::before {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  content: 'R';
+  transform: translateY(-50%);
+  border: 1px solid rgba(52, 135, 255, 0.45);
+  border-radius: 999px;
+  color: #b9d5ff;
+  background: rgba(52, 135, 255, 0.11);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.domino-premium-rival-card strong:last-of-type {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  place-items: center;
+  border-radius: 999px;
+  color: #dce8ff;
+  background: rgba(52, 135, 255, 0.13);
+  font-size: 10px;
+}
+
+.domino-premium-rival-name {
+  display: inline-block;
+  max-width: min(23vw, 170px);
+  overflow: hidden;
+  vertical-align: bottom;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.domino-premium-boneyard {
+  min-width: 100px;
+  padding-left: 35px;
+}
+
+.domino-premium-boneyard::before {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 17px;
+  height: 22px;
+  content: '';
+  transform: translateY(-42%) rotate(-4deg);
+  border: 1px solid rgba(181, 196, 219, 0.72);
+  border-radius: 4px;
+  background: linear-gradient(145deg, #f8f6ed, #dbe1e8);
+  box-shadow: 3px -3px 0 -1px #c9d2df, 6px -6px 0 -2px #9eabba, 0 4px 9px -6px rgba(0, 0, 0, 0.9);
+}
+
+.domino-premium-boneyard strong:last-of-type {
+  color: #ffffff;
+}
+
+.domino-premium-board {
+  position: relative;
+  isolation: isolate;
+  border-color: rgba(129, 60, 255, 0.25);
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(132, 139, 245, 0.18), transparent 46%),
+    linear-gradient(145deg, #454f7e 0%, #37416b 46%, #2c355a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    inset 0 0 0 1px rgba(52, 135, 255, 0.05),
+    inset 0 -28px 50px -42px rgba(0, 0, 0, 0.95),
+    0 18px 42px -32px rgba(0, 0, 0, 0.9),
+    0 0 28px -20px rgba(129, 60, 255, 0.8);
+}
+
+.domino-premium-board > :not(.domino-premium-board-mark) {
+  position: relative;
+  z-index: 1;
+}
+
+.domino-premium-chain-viewport {
+  padding: 16px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(129, 60, 255, 0.5) transparent;
+}
+
+.domino-premium-chain-viewport::-webkit-scrollbar { height: 6px; }
+.domino-premium-chain-viewport::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(129, 60, 255, 0.45);
+}
+
+.domino-premium-chain {
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.domino-premium-chain--scroll {
+  transform-origin: left center !important;
+}
+
+.domino-premium-board-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 0;
+  width: 118px;
+  height: 118px;
+  border: 1px solid rgba(52, 135, 255, 0.12);
+  border-radius: 55% 45% 58% 42%;
+  transform: translate(-50%, -50%) rotate(-28deg);
+  box-shadow: inset 0 0 24px rgba(129, 60, 255, 0.05), 0 0 34px rgba(52, 135, 255, 0.04);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.domino-premium-board-mark::before,
+.domino-premium-board-mark::after {
+  position: absolute;
+  content: '';
+  border: 1px solid rgba(129, 60, 255, 0.11);
+  pointer-events: none;
+}
+
+.domino-premium-board-mark::before {
+  width: 48px;
+  height: 68px;
+  left: 31px;
+  top: 17px;
+  border-radius: 100% 0 100% 0;
+  transform: rotate(32deg);
+}
+
+.domino-premium-board-mark::after {
+  width: 32px;
+  height: 50px;
+  left: 57px;
+  top: 47px;
+  border-radius: 0 100% 0 100%;
+  transform: rotate(28deg);
+}
+
+/* Capa pasiva para el futuro recorrido geométrico; siempre se monta detrás de fichas. */
+.domino-chain-connectors {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.domino-chain-connector {
+  stroke: rgba(129, 60, 255, 0.36);
+  stroke-width: 3;
+}
+
+.domino-chain-connector--turn {
+  stroke: rgba(52, 135, 255, 0.3);
+}
+
+.domino-premium-board > .domino-serpentine-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.domino-virtual-board-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  transition: transform 180ms ease-out;
+}
+
+.domino-board-camera-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  width: min(300px, calc(100% - 24px));
+  padding: 4px;
+  border: 1px solid rgba(129, 60, 255, 0.35);
+  border-radius: 12px;
+  background: rgba(8, 15, 36, 0.84);
+  box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(8px);
+}
+
+.domino-board-camera-controls__header {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 1px 4px 4px;
+  color: rgba(224, 232, 255, 0.92);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.domino-board-camera-controls__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.domino-board-camera-control {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: rgba(224, 232, 255, 0.9);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.1;
+  white-space: nowrap;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.domino-board-camera-control:hover,
+.domino-board-camera-control[aria-pressed='true'] {
+  border-color: rgba(129, 60, 255, 0.7);
+  background: rgba(129, 60, 255, 0.18);
+  color: white;
+}
+
+.domino-board-camera-control:focus-visible {
+  outline: 2px solid #3487ff;
+  outline-offset: 2px;
+}
+
+.domino-board-camera-help {
+  position: relative;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.domino-board-camera-help summary {
+  cursor: pointer;
+  color: #a98bff;
+  list-style: none;
+}
+
+.domino-board-camera-help summary::-webkit-details-marker {
+  display: none;
+}
+
+.domino-board-camera-help summary:focus-visible {
+  outline: 2px solid #3487ff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.domino-board-camera-help p {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: -4px;
+  z-index: 5;
+  width: min(250px, calc(100vw - 36px));
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(129, 60, 255, 0.52);
+  border-radius: 9px;
+  background: rgba(8, 15, 36, 0.97);
+  box-shadow: 0 12px 28px -18px rgba(0, 0, 0, 0.95);
+  color: rgba(224, 232, 255, 0.95);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+@media (max-width: 420px) {
+  .domino-board-camera-controls {
+    top: 8px;
+    right: 8px;
+    width: calc(100% - 16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .domino-virtual-board-world,
+  .domino-board-camera-control,
+  .domino-concept-tooltip {
+    transition: none;
+  }
+}
+
+.domino-serpentine-tile {
+  position: absolute;
+  z-index: 1;
+}
+
+.domino-serpentine-end {
+  z-index: 2;
+}
+
+/* Fichas de Dominexo: el mismo formato físico para mano y tablero. */
+.domino-premium-tile {
+  position: relative;
+  isolation: isolate;
+  border-color: #ccd6e4;
+  background: linear-gradient(145deg, #fffdf7 0%, #f4f0e7 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(148, 163, 184, 0.15),
+    0 7px 15px -10px rgba(0, 0, 0, 0.72);
+}
+
+.domino-tile-half {
+  min-width: 0;
+  min-height: 0;
+  color: #26354f;
+}
+
+.domino-tile-half--board {
+  overflow: hidden;
+}
+
+.domino-tile-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.domino-premium-tile .text-text-h {
+  color: #26354f;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.domino-premium-tile svg {
+  filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.13));
+}
+
+.domino-tile-divider {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  background: linear-gradient(180deg, #aeb9c8, #7f8da2, #aeb9c8);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+.domino-board-tile {
+  border-color: var(--domino-tile-border);
+  background: linear-gradient(145deg, var(--domino-tile-relief) 0%, var(--domino-tile-surface) 58%, var(--domino-tile-surface-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--domino-tile-relief),
+    inset 0 -1px 0 rgba(148, 163, 184, 0.14),
+    0 6px 12px -10px var(--domino-tile-shadow);
+}
+
+.domino-board-tile .domino-tile-half--board {
+  position: relative;
+  background: transparent !important;
+}
+
+.domino-board-concept {
+  z-index: 2;
+  appearance: none;
+  border: 0;
+  color: inherit;
+  cursor: help;
+  outline: 0;
+}
+
+.domino-board-concept:focus-visible {
+  outline: 2px solid var(--domino-tile-focus);
+  outline-offset: -3px;
+}
+
+.domino-concept-tooltip {
+  position: fixed;
+  z-index: 110;
+  display: inline-flex;
+  max-width: min(220px, calc(100vw - 24px));
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--domino-tooltip-color) 52%, var(--domino-tile-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--domino-tile-surface) 96%, white);
+  box-shadow: 0 10px 22px -14px rgba(8, 15, 36, 0.72);
+  color: var(--domino-tile-text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.domino-concept-tooltip--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.domino-concept-tooltip__icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--domino-tooltip-color);
+}
+
+.domino-board-tile .domino-tile-divider {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--domino-tile-divider) 72%, var(--domino-tile-relief)), var(--domino-tile-divider), color-mix(in srgb, var(--domino-tile-divider) 72%, var(--domino-tile-relief)));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--domino-tile-relief) 70%, transparent);
+}
+
+.domino-board-tile--double {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 0 0 1px rgba(52, 135, 255, 0.18),
+    0 8px 15px -11px rgba(0, 0, 0, 0.78);
+}
+
+.domino-board-tile--articulation {
+  border-color: rgba(129, 60, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 0 0 1px rgba(129, 60, 255, 0.22),
+    0 8px 16px -10px rgba(61, 27, 132, 0.45);
+}
+
+.domino-hand-tile {
+  cursor: pointer;
+}
+
+.domino-hand-tile::before {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  content: '';
+  border-radius: 8px;
+  box-shadow: inset 0 0 5px rgba(183, 148, 255, 0.65);
+  pointer-events: none;
+}
+
+.domino-hand-tile:not(.domino-tile--waiting) {
+  animation: domino-hand-float 2.6s ease-in-out infinite;
+}
+
+.domino-hand-tile:not(.domino-tile--waiting):nth-child(2n) {
+  animation-delay: -0.65s;
+}
+
+.domino-hand-tile:not(.domino-tile--waiting):nth-child(3n) {
+  animation-delay: -1.3s;
+}
+
+@keyframes domino-hand-float {
+  0%, 100% { translate: 0 -3px; }
+  50% { translate: 0 -9px; }
+}
+
+.domino-hand-tile:focus-visible {
+  outline: 2px solid #813cff;
+  outline-offset: 3px;
+}
+
+.domino-tile--waiting {
+  border-color: #b794ff;
+  opacity: 0.9;
+  box-shadow: 0 0 5px rgba(183, 148, 255, 0.55), 0 0 12px rgba(129, 60, 255, 0.3);
+}
+
+.domino-tile--playable {
+  border-color: #c4a5ff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 0 0 1px rgba(129, 60, 255, 0.1),
+    0 0 5px rgba(216, 190, 255, 0.95),
+    0 0 14px rgba(154, 93, 255, 0.75),
+    0 0 24px rgba(129, 60, 255, 0.35);
+}
+
+.domino-tile--playable::after {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 2;
+  width: 6px;
+  height: 6px;
+  content: '';
+  border-radius: 999px;
+  background: #813cff;
+  box-shadow: 0 0 8px rgba(129, 60, 255, 0.85);
+}
+
+.domino-tile--selected {
+  z-index: 10;
+  border-color: #e2cfff;
+  transform: translateY(-8px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 0 0 1px rgba(129, 60, 255, 0.22),
+    0 16px 25px -14px rgba(0, 0, 0, 0.8),
+    0 0 0 2px rgba(183, 148, 255, 0.5),
+    0 0 8px rgba(226, 207, 255, 1),
+    0 0 20px rgba(154, 93, 255, 0.9),
+    0 0 30px rgba(129, 60, 255, 0.5);
+}
+
+.domino-tile--unavailable {
+  border-color: #b794ff;
+  box-shadow: 0 0 5px rgba(183, 148, 255, 0.45), 0 0 10px rgba(129, 60, 255, 0.25);
+  opacity: 0.68;
+  filter: saturate(0.72);
+}
+
+.domino-premium-hand-dock {
+  background: linear-gradient(145deg, rgba(17, 29, 56, 0.98), rgba(13, 25, 50, 0.98));
+  border-top-color: rgba(129, 60, 255, 0.48);
+  box-shadow: inset 0 1px 0 rgba(183, 148, 255, 0.1), 0 -14px 30px -28px rgba(0, 0, 0, 0.9);
+}
+
+.domino-premium-hand-layout {
+  display: grid;
+  grid-template-areas: 'player hand actions';
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.domino-premium-local-player {
+  grid-area: player;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: max-content;
+}
+
+.domino-premium-local-player--active .domino-premium-local-avatar {
+  border-color: rgba(183, 148, 255, 0.82);
+  box-shadow: 0 0 16px -7px rgba(129, 60, 255, 0.88);
+}
+
+.domino-premium-local-avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(129, 60, 255, 0.5);
+  border-radius: 999px;
+  color: #d9ccff;
+  background: linear-gradient(145deg, rgba(129, 60, 255, 0.26), rgba(52, 135, 255, 0.16));
+  box-shadow: 0 0 14px -9px rgba(129, 60, 255, 0.9);
+}
+
+.domino-premium-local-player strong,
+.domino-premium-local-player small { display: block; }
+
+.domino-premium-local-player strong {
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.domino-premium-local-player small {
+  margin-top: 3px;
+  color: #aab8cf;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.domino-premium-hand-area {
+  grid-area: hand;
+  min-width: 0;
+}
+
+.domino-premium-hand-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 14px 12px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(129, 60, 255, 0.48) transparent;
+}
+
+.domino-premium-hand-scroll::-webkit-scrollbar { height: 6px; }
+.domino-premium-hand-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(129, 60, 255, 0.45);
+}
+
+.domino-premium-hand-tiles {
+  width: max-content;
+  min-width: 100%;
+  justify-content: center;
+}
+
+.domino-premium-header .text-text-h,
+.domino-premium-table-meta .text-text-h,
+.domino-premium-header .text-accent { color: #a989ff; }
+
+.domino-premium-table-meta,
+.domino-premium-table-meta .text-text {
+  color: #aab8cf;
+}
+
+.domino-premium-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #d8e4ff;
+  border-color: rgba(137, 163, 211, 0.28);
+  background: rgba(52, 135, 255, 0.09);
+}
+
+.domino-premium-actions button:disabled {
+  color: #9aa8c1;
+  border-color: rgba(137, 163, 211, 0.2);
+  background: rgba(137, 163, 211, 0.07);
+  opacity: 1;
+}
+
+.domino-tile--playable:hover {
+  transform: translateY(-4px);
+  border-color: #e2cfff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 0 0 1px rgba(129, 60, 255, 0.14),
+    0 0 7px rgba(226, 207, 255, 1),
+    0 0 18px rgba(154, 93, 255, 0.85),
+    0 0 28px rgba(129, 60, 255, 0.45);
+}
+
+.domino-premium-actions button:hover:not(:disabled) {
+  color: #ffffff;
+  border-color: rgba(52, 135, 255, 0.75);
+}
+
+@media (max-width: 960px) {
+  .domino-premium-header { flex-wrap: wrap; }
+
+  .domino-premium-match-facts {
+    order: 3;
+    width: 100%;
+  }
+
+  .domino-premium-match-fact { max-width: calc(50vw - 28px); }
+}
+
+@media (max-width: 760px) {
+  .domino-premium-hand-layout {
+    grid-template-areas:
+      'player actions'
+      'hand hand';
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .domino-premium-hand-scroll { padding-top: 18px; }
+}
+
+@media (max-width: 470px) {
+  .domino-premium-actions { gap: 5px; }
+  .domino-premium-actions button { padding-left: 8px; padding-right: 8px; font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .domino-premium-room *,
+  .domino-premium-room *::before,
+  .domino-premium-room *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (min-width: 640px) {
+  .domino-premium-game { min-height: calc(100dvh - 126px); }
+}
+
 @keyframes trophy-pop-in {
   0% {
     opacity: 0;
@@ -593,6 +1448,16 @@ code {
   }
 }
 
+/* Laberinto Verdadero o Falso: barra que se vacía mientras se presenta cada pregunta. */
+@keyframes tf-maze-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 @keyframes maze-levelup-pop {
   0% {
     opacity: 0;
@@ -682,6 +1547,60 @@ code {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* La identidad propia se revela al iniciar o reiniciar una partida. */
+@keyframes secret-card-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.92);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+  58% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.035);
+    box-shadow: 0 0 28px -6px color-mix(in srgb, var(--accent) 68%, transparent);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 10px 28px -18px var(--accent);
+  }
+}
+
+/* Secuencia breve de la guía de Dominexo: muestra cada acción sin usar el juego real. */
+@keyframes domino-demo-board {
+  0% { opacity: 0; transform: translateY(18px) rotate(-4deg) scale(0.9); }
+  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes domino-demo-select {
+  0% { transform: translateY(14px) scale(0.92); }
+  60% { transform: translateY(-12px) scale(1.08); }
+  100% { transform: translateY(-6px) scale(1.04); }
+}
+
+@keyframes domino-demo-connect {
+  0% { opacity: 0; transform: translate(58px, 76px) scale(0.8); }
+  20% { opacity: 1; transform: translate(48px, 64px) scale(0.84); }
+  70% { opacity: 1; transform: translate(-3px, -2px) scale(1.03); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes domino-demo-well {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  35% { transform: translateY(-5px) rotate(-4deg); }
+  65% { transform: translateY(0) rotate(3deg); }
+}
+
+@keyframes domino-demo-card-peek {
+  0% { opacity: 0; transform: translateY(18px) rotate(-10deg) scale(0.75); }
+  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes domino-demo-draw {
+  0% { opacity: 0; transform: translateX(-42px) rotate(-12deg) scale(0.75); }
+  100% { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
 }
 
 /* Indicador de "es tu turno" (GuessWhoRoom.tsx): un resplandor que respira
@@ -1184,4 +2103,116 @@ code {
   100% {
     --scroll-fade-size: 0px;
   }
+}
+
+/*
+ * Nube de foco post-creación (JustCreatedFocus.tsx, issue #2). Solo usa los
+ * tokens de la plataforma, así que sigue los temas claro, oscuro y kids.
+ * Entrada: fade + scale desde la cola; después una leve flotación. El bloque
+ * global prefers-reduced-motion reduce ambas a ~0 sin ocultar información.
+ */
+.just-created-cloud {
+  animation:
+    just-created-cloud-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both,
+    just-created-cloud-float 4s ease-in-out 0.35s infinite;
+}
+
+.just-created-cloud[data-side='bottom'] { transform-origin: top center; }
+.just-created-cloud[data-side='top'] { transform-origin: bottom center; }
+.just-created-cloud[data-side='left'] { transform-origin: right center; }
+.just-created-cloud[data-side='right'] { transform-origin: left center; }
+
+.just-created-cloud-tail {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--surface);
+  border-style: solid;
+  border-color: var(--accent);
+  transform: rotate(45deg);
+}
+
+@keyframes just-created-cloud-in {
+  from { opacity: 0; scale: 0.92; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes just-created-cloud-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .just-created-cloud { animation: none; }
+}
+
+/* MatchMente (issue #30): destello que explica cada acierto. Entra con un
+ * rebote, se sostiene y se desvanece solo, sin frenar el juego. */
+@keyframes match-flash {
+  0% { opacity: 0; transform: scale(0.6); }
+  15% { opacity: 1; transform: scale(1.06); }
+  25% { transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.92) translateY(-12px); }
+}
+
+/* Racha visible: el contador late cada vez que crece. */
+@keyframes streak-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* Demostración de la guía de MatchMente: carta A, luego carta B, brillo y ✓. */
+@keyframes memory-demo-flip-a {
+  0%, 10% { transform: rotateY(0deg); }
+  20%, 85% { transform: rotateY(180deg); }
+  95%, 100% { transform: rotateY(0deg); }
+}
+@keyframes memory-demo-flip-b {
+  0%, 30% { transform: rotateY(0deg); }
+  40%, 85% { transform: rotateY(180deg); }
+  95%, 100% { transform: rotateY(0deg); }
+}
+@keyframes memory-demo-glow {
+  0%, 45% { box-shadow: none; }
+  55%, 80% { box-shadow: 0 0 0 4px #22c55e; }
+  90%, 100% { box-shadow: none; }
+}
+@keyframes memory-demo-check {
+  0%, 48% { opacity: 0; transform: scale(0.3); }
+  56% { opacity: 1; transform: scale(1.2); }
+  62%, 80% { opacity: 1; transform: scale(1); }
+  90%, 100% { opacity: 0; transform: scale(0.3); }
+}
+
+/* MatchMente en Opuestos: la explicación entra y se queda hasta "¡Seguir!". */
+@keyframes match-flash-in {
+  0% { opacity: 0; transform: scale(0.7); }
+  70% { opacity: 1; transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* Nubes del fondo de ciudad de MatchMente: vaivén lento de lado a lado. */
+@keyframes memory-city-clouds {
+  from { transform: translateX(-60px); }
+  to { transform: translateX(60px); }
+}
+
+/* Fondo de MatchMente: estrellas, antenas y luciérnagas que titilan. */
+@keyframes memory-city-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Estrella fugaz: cruza el cielo en ~1 s y descansa el resto del ciclo. */
+@keyframes memory-city-shooting-star {
+  0% { opacity: 0; transform: translate(200px, 40px); }
+  2% { opacity: 1; }
+  12% { opacity: 0; transform: translate(900px, 280px); }
+  100% { opacity: 0; transform: translate(900px, 280px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*='memory-city-'] { animation: none !important; }
 }

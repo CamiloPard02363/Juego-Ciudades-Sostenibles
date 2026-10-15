@@ -19,20 +19,20 @@
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^6.30.6",
+    "react-router-dom": "^7.18.4",
     "socket.io-client": "^4.8.3",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "@types/matter-js": "^0.19.8",
+    "@types/matter-js": "^0.20.2",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "jsqr": "^1.4.0",
     "oxlint": "^1.79.0",
-    "typescript": "~6.0.2",
+    "typescript": "~7.0.2",
     "vite": "^8.2.2",
-    "vitest": "^4.1.2"
+    "vitest": "^5.0.3"
   }
 }

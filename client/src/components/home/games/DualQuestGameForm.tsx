@@ -11,6 +11,8 @@ import { CategorySelectField } from './create/CategorySelectField'
 import { DualQuestBoard } from './DualQuestBoard'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
+import type { AdaptedGameDraft } from '../../../services/game-adaptation.service'
+import { useApplyAdaptation } from './useApplyAdaptation'
 import { createGame, publishGame } from '../../../services/game.service'
 import {
   listSubjects as listCategories,
@@ -74,6 +76,8 @@ function isPosition(value: unknown): value is DualQuestCellPosition {
 }
 
 type DualQuestGameFormProps = {
+  /** Borrador de adaptación desde otro juego (issue #8); pre-llena el formulario al montar. */
+  adaptation?: AdaptedGameDraft
   onClose: () => void
   onCreated: (gameId: string, visibility: 'private' | 'community') => void
   onBack: () => void
@@ -89,7 +93,7 @@ type DualQuestGameFormProps = {
  * posición en la lista (no un número manual) — así siempre es 1..N sin
  * huecos, como exige el validador del servidor.
  */
-export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreated }: DualQuestGameFormProps) {
+export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreated, adaptation }: DualQuestGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
   const [title, setTitle] = useState('')
@@ -138,6 +142,14 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
         console.error('No se pudieron cargar las organizaciones del usuario:', err)
       })
   }, [token])
+
+  useApplyAdaptation(adaptation, (adapted) => {
+    setTitle(adapted.title)
+    setDescription(adapted.description)
+    setCoverImageUrl(adapted.theme.coverImageUrl)
+    setCategoryId(adapted.categoryId)
+    applyAiDraft(adapted)
+  })
 
   function applyAiDraft(draft: GameDraft) {
     const config = (draft.config ?? {}) as Record<string, unknown>
@@ -318,6 +330,7 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
         title: title.trim(),
         description: description.trim(),
         gameType: 'DUAL_QUEST',
+        sourceGameId: adaptation?.sourceGameId ?? undefined,
         categoryId,
         organizationId: organizationId || undefined,
         theme: coverImageUrl ? { coverImageUrl } : undefined,
@@ -371,8 +384,6 @@ export function DualQuestGameForm({ onClose, onCreated, onBack, onCategoryCreate
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
-        gameKind="DUAL_QUEST"
-        gameTitle={title.trim()}
       />
     )
   }

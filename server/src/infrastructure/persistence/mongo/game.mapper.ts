@@ -14,6 +14,8 @@ export interface GameDocument {
   creatorUserId: string;
   /** Ausente o `null` en documentos previos a organizaciones = juego personal. */
   organizationId?: string | null;
+  /** Ausente o `null` = juego creado desde cero, no adaptado de otro (issue #8). */
+  sourceGameId?: string | null;
   status: string;
   config: Record<string, unknown>;
   content: unknown[];
@@ -35,6 +37,7 @@ export class GameMapper {
       categoryId: doc.categoryId,
       creatorUserId: doc.creatorUserId,
       organizationId: doc.organizationId ?? null,
+      sourceGameId: doc.sourceGameId ?? null,
       status: GameStatus.create(doc.status),
       config: doc.config,
       content: doc.content,
@@ -57,6 +60,7 @@ export class GameMapper {
       categoryId: props.categoryId,
       creatorUserId: props.creatorUserId,
       organizationId: props.organizationId,
+      sourceGameId: props.sourceGameId,
       status: props.status.getName(),
       config: props.config,
       content: props.content,

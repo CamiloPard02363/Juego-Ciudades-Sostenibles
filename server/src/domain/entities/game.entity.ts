@@ -30,6 +30,12 @@ export interface GameProps {
    * su significado original (quién lo hizo) incluso tras una donación.
    */
   organizationId: string | null;
+  /**
+   * Juego publicado a partir del cual se adaptó este (issue #8). Solo
+   * trazabilidad: no da permisos ni sincroniza contenido. El juego adaptado
+   * es del usuario que lo adaptó (`creatorUserId`), no del autor original.
+   */
+  sourceGameId: string | null;
   status: GameStatus;
   config: Record<string, unknown>;
   content: unknown[];
@@ -67,6 +73,8 @@ export interface CreateGameProps {
   creatorUserId: string;
   /** Opcional: si viene, el juego nace ya como institucional de esa organización. */
   organizationId?: string | null;
+  /** Opcional: id del juego del que se adaptó este (issue #8). */
+  sourceGameId?: string | null;
   config: Record<string, unknown>;
   content: unknown[];
 }
@@ -91,6 +99,7 @@ export class Game {
       categoryId: props.categoryId,
       creatorUserId: props.creatorUserId,
       organizationId: props.organizationId ?? null,
+      sourceGameId: props.sourceGameId ?? null,
       status: GameStatus.draft(),
       config: props.config,
       content: props.content,
@@ -138,6 +147,10 @@ export class Game {
 
   get organizationId(): string | null {
     return this.props.organizationId;
+  }
+
+  get sourceGameId(): string | null {
+    return this.props.sourceGameId;
   }
 
   /** `true` si el juego pertenece a una organización (institucional). */

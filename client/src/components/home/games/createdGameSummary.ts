@@ -1,7 +1,7 @@
 import { gameInstructionSummaries, type CreationInstructionKind } from './gameInstructions'
 import { isMultiplayerGameType } from './gameModeVisuals'
 
-/** Los 7 formularios de creación que terminan en `SaveVisibilityModal`. */
+/** Los 8 formularios de creación que terminan en `SaveVisibilityModal`. */
 export type CreatedGameKind =
   | 'PAIRS'
   | 'OPPOSITES'
@@ -10,6 +10,7 @@ export type CreatedGameKind =
   | 'MAZE_COLLECTOR'
   | 'SNAKES_LADDERS'
   | 'DUAL_QUEST'
+  | 'TRUE_FALSE_MAZE'
 
 /**
  * Mapeo explícito de cada formulario de creación a (issue #245):
@@ -30,6 +31,11 @@ const CREATED_GAME_KINDS: Record<CreatedGameKind, { label: string; gameType: str
   MAZE_COLLECTOR: { label: 'Recolector de laberinto', gameType: 'MAZE_COLLECTOR', instructionKind: 'MAZE_COLLECTOR' },
   SNAKES_LADDERS: { label: 'Escaleras y Serpientes', gameType: 'SNAKES_LADDERS', instructionKind: 'SNAKES_LADDERS' },
   DUAL_QUEST: { label: 'Dúo Lógico', gameType: 'DUAL_QUEST', instructionKind: 'DUAL_QUEST' },
+  TRUE_FALSE_MAZE: {
+    label: 'Laberinto Verdadero o Falso',
+    gameType: 'TRUE_FALSE_MAZE',
+    instructionKind: 'TRUE_FALSE_MAZE',
+  },
 }
 
 export type CreatedGameSummary = {
@@ -44,4 +50,30 @@ export function summarizeCreatedGame(kind: CreatedGameKind): CreatedGameSummary 
   const { label, gameType, instructionKind } = CREATED_GAME_KINDS[kind]
   const { purpose, howTo } = gameInstructionSummaries[instructionKind]
   return { typeLabel: label, gameType, isMultiplayer: isMultiplayerGameType(gameType), purpose, howTo }
+}
+
+export type SavedDestinationCopy = {
+  /** Nombre visible del destino (el mismo del menú lateral, no la ruta). */
+  destination: string
+  /** Título de éxito con el vocabulario del rol. */
+  heading: string
+  /** Texto del botón de cierre. */
+  ctaLabel: string
+}
+
+/**
+ * Textos de éxito según rol y visibilidad (issues #245 y #2): "actividad" para
+ * docentes y cuentas institucionales/administradoras, "juego" para
+ * estudiantes; "Mis actividades" es el nombre que el menú da a `/mis-juegos`
+ * para docentes.
+ */
+export function savedDestinationCopy(role: string | undefined, visibility: 'private' | 'community'): SavedDestinationCopy {
+  const upper = role?.toUpperCase()
+  const isStudent = upper === 'STUDENT'
+  const destination = visibility === 'community' ? 'Comunidad' : upper === 'TEACHER' ? 'Mis actividades' : 'Mis juegos privados'
+  return {
+    destination,
+    heading: isStudent ? `Juego guardado en ${destination}` : `Actividad guardada en ${destination}`,
+    ctaLabel: 'Entendido',
+  }
 }

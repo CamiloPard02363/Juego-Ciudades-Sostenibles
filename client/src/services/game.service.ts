@@ -17,6 +17,8 @@ export type GameSummary = {
   creatorUserId: string
   /** `null` = juego personal; con valor = institucional de esa organización. */
   organizationId: string | null
+  /** Juego del que se adaptó este (issue #8); `null` si se creó desde cero. */
+  sourceGameId: string | null
   /** Solo viene en el listado de "Comunidad". */
   creatorDisplayName?: string
   createdAt: string
@@ -138,7 +140,14 @@ export type SnakesLaddersQuestionInput = {
   difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
 }
 
-export type CreateGameInput =
+export type TrueFalseMazeQuestionInput = {
+  questionId?: string
+  statement: string
+  answer: boolean
+  explanation?: string
+}
+
+type CreateGameInputBase =
   | {
       title: string
       description: string
@@ -225,6 +234,29 @@ export type CreateGameInput =
       }
       content: DualQuestGemInput[]
     }
+  | {
+      title: string
+      description: string
+      gameType: 'TRUE_FALSE_MAZE'
+      categoryId: string
+      organizationId?: string | null
+      theme?: { primaryColor?: string; coverImageUrl?: string | null }
+      config: {
+        skin: 'NAVE_ESPACIAL'
+        lives: number
+        enemyCount: number
+        enemySpeed: number
+        relocateSeconds: number
+        shuffleQuestions: boolean
+        lightsOut: boolean
+      }
+      content: TrueFalseMazeQuestionInput[]
+    }
+
+export type CreateGameInput = CreateGameInputBase & {
+  /** Juego del que se adaptó este (issue #8); solo trazabilidad. */
+  sourceGameId?: string | null
+}
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */
 export function createGame(token: string, input: CreateGameInput): Promise<GameDetail> {

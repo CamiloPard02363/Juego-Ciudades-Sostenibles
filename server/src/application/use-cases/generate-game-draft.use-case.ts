@@ -1,19 +1,27 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   AI_CONTENT_ASSISTANT,
   type AiContentAssistant,
 } from '../../domain/ports/ai-content-assistant.port.js';
 import { IMAGE_STORAGE, type ImageStorage } from '../../domain/ports/image-storage.port.js';
-import {
-  CONTENT_IMAGE_FINDER,
-  type ContentImageFinder,
-} from '../../domain/ports/content-image-finder.port.js';
 import { InvalidGameContentError } from '../../domain/errors/game.errors.js';
 import { GameType, type GameTypeName } from '../../domain/value-objects/game-type.vo.js';
 import type { UseCase } from '../ports/use-case.port.js';
 import { ContentValidatorRegistry } from '../content-validators/content-validator.registry.js';
 import { resolveGamePromptSpec, type GamePromptSpec } from '../ai/game-prompt-catalog.js';
-import { FileTextExtractor, type SourceFile } from '../../infrastructure/ai/file-text-extractor.js';
+import { normalizeDraft } from '../ai/draft-normalizers.js';
+import { sanitizeEmoji } from '../ai/element-illustration.js';
+import {
+  ContentImageResolver,
+  describeImageResolution,
+  type ImageNeed,
+} from '../services/content-image-resolver.service.js';
+import {
+  FileTextExtractor,
+  type ImageDescription,
+  type SourceFile,
+  type TextExtraction,
+} from '../../infrastructure/ai/file-text-extractor.js';
 import { extractEmbeddedImages } from '../../infrastructure/ai/content-image-extractor.js';
 
 export interface GenerateGameDraftInput {
@@ -22,43 +30,76 @@ export interface GenerateGameDraftInput {
   mode?: string;
   /**
    * Instrucción libre del usuario para guiar a la IA (p. ej. "enfócate en el
-   * capítulo 3", o directamente el tema completo del juego) — puede ser la
-   * ÚNICA fuente de contenido si `files` viene vacío, en CUALQUIER tipo de
-   * juego (issues #234/#238). Para los tipos con imagen obligatoria por
-   * elemento (Quién Es, Parejas), la IA además consigue una imagen para cada
-   * elemento (issue #240, ver `ContentImageFinder`); las que no encuentre
-   * quedan sin imagen (`imageUrl: null`) para que el usuario las agregue a
-   * mano.
+   * capítulo 3", "nivel fácil para primaria", o directamente el tema completo
+   * del juego) — puede ser la ÚNICA fuente de contenido si `files` viene
+   * vacío, en CUALQUIER tipo de juego (issues #234/#238).
    */
   message?: string;
   /**
    * Puede venir vacío siempre que `message` traiga texto (issues #234/#238)
-   * — `execute()` es quien decide, según el `GamePromptSpec`, si eso implica
-   * generar sin imágenes o directamente sin ninguna fuente visual.
+   * — `execute()` es quien decide, según el `GamePromptSpec`, cómo armar el
+   * borrador con lo que haya.
    */
   files: SourceFile[];
+  /**
+   * Texto fuente ya extraído, que se suma al de los archivos. Lo usa la
+   * adaptación de un juego existente a otro tipo (issue #8): el contenido del
+   * juego origen entra como fuente en vez de un archivo. Cuenta como fuente
+   * suficiente, igual que `files` o `message`.
+   */
+  sourceText?: string;
 }
 
 export interface GenerateGameDraftOutput {
   config: Record<string, unknown>;
   content: unknown[];
   /**
-   * Aviso opcional para mostrarle al usuario junto con el borrador (p. ej.
-   * cuántas imágenes consiguió la IA y cuántas faltan completar a mano).
+   * Aviso opcional para mostrarle al usuario junto con el borrador (p. ej. de
+   * dónde salió cada imagen, o qué archivos la IA no pudo leer).
    */
   notice?: string;
 }
 
 const MAX_FILES = 65;
-/** Búsquedas/descargas de imágenes en paralelo como máximo (cortesía con la fuente externa). */
-const IMAGE_SEARCH_CONCURRENCY = 4;
+/**
+ * Veces que se le devuelve a la IA un borrador rechazado (con el motivo del
+ * rechazo) para que lo corrija, antes de rendirse y mostrarle el error al
+ * usuario. Total de llamadas por generación: 1 + este número.
+ */
+const MAX_REPAIR_ATTEMPTS = 2;
+
+const NO_FILES_TEXT =
+  '(el usuario no adjuntó archivos — genera el juego únicamente a partir de las instrucciones de abajo.)';
+const UNREADABLE_FILES_TEXT =
+  '(no se pudo leer ningún archivo adjunto — genera el juego únicamente a partir de las instrucciones de abajo.)';
+
+/** Nombres de archivo que no dicen qué hay adentro (cámara, capturas, descargas…). */
+const GENERIC_FILE_NAME = /^(img|image|imagen|foto|photo|picture|pic|dsc|dscn|pxl|screenshot|captura|capture|whatsapp|scan|download|untitled|sin ?titulo)/i;
+
+interface GenerationRequest {
+  gameTypeName: GameTypeName;
+  mode?: string;
+  instructions: string;
+  sourceText: string;
+  imageDescriptions?: string[];
+  /** Arregla la forma/tamaño de lo que devolvió la IA y lo deja listo para validar (puede lanzar `InvalidGameContentError`). */
+  prepare: (raw: { config: unknown; content: unknown }) => { config: unknown; content: unknown };
+}
+
+interface ValidatedGeneration {
+  /** Ya validado con las reglas del tipo de juego. */
+  draft: { config: Record<string, unknown>; content: unknown[] };
+  /** Lo mismo ANTES de validar: conserva campos extra (imageQuery, emoji…) que el validador descarta. */
+  prepared: { config: unknown; content: unknown };
+  sourceTruncated: boolean;
+}
 
 /**
  * Arma un borrador de `config`/`content` para un juego a partir de archivos
- * que sube el usuario — nunca guarda nada: el profesor revisa/edita el
- * borrador en el formulario de siempre y lo crea con el flujo normal
- * (`POST /games`). Por eso NO depende de `GameRepository` ni de
- * `GameFactoryService`: solo genera datos, no persiste.
+ * que sube el usuario y/o un texto que escribe — nunca guarda nada: el
+ * profesor revisa/edita el borrador en el formulario de siempre y lo crea con
+ * el flujo normal (`POST /games`). Por eso NO depende de `GameRepository` ni
+ * de `GameFactoryService`: solo genera datos, no persiste.
  *
  * La validación es la MISMA que corre al crear un juego a mano
  * (`ContentValidatorRegistry`) — si el modelo de IA devuelve algo que no
@@ -66,44 +107,38 @@ const IMAGE_SEARCH_CONCURRENCY = 4;
  * hubiera mandado datos inválidos. No existe un camino de validación
  * paralelo "más permisivo" para contenido generado por IA.
  *
- * Tipos de juego con imagen obligatoria por elemento (Quién Es, Parejas): la
- * IA nunca inventa esas imágenes. Lo normal es que el profesor suba sus
- * propias imágenes junto con los demás archivos — sueltas, o dentro de un
- * PDF/Word con varias fotos adentro (se extraen automáticamente, ver
- * `content-image-extractor.ts`, issue #208) — y este caso de uso las sube a
- * Cloudinary (mismo `ImageStorage` que usa la subida manual) y le pide al
- * modelo que las "organice" — que les asigne un concepto — referenciándolas
- * por posición ("imageIndex") en vez de por URL, y luego reemplaza cada
- * índice por la URL real ya subida antes de validar. Pero si no sube NINGUNA
- * imagen y en cambio escribe el tema en `message` (issue #238), la IA genera
- * igual el contenido completo (labels/info/config) solo con ese texto y,
- * además (issue #240), consigue ella misma una imagen real para cada
- * elemento: el modelo propone una búsqueda por elemento (`imageQuery`) y
- * `ContentImageFinder` la resuelve en una fuente de imágenes libres; cada
- * imagen encontrada se sube a Cloudinary igual que una subida manual. Las
- * que no encuentre quedan con `imageUrl: null` — el usuario las completa a
- * mano en el formulario de siempre antes de poder crear/guardar el juego de
- * verdad (ahí el validador vuelve a exigirla, sin excepción).
+ * A prueba de errores (issue #21): antes de rechazar, (1) se normalizan los
+ * descuidos de forma/tamaño que un modelo comete seguido (ver
+ * `draft-normalizers.ts`) y (2) si el validador igual lo rechaza, se le
+ * devuelve a la IA el motivo exacto para que lo corrija — hasta
+ * `MAX_REPAIR_ATTEMPTS` veces. Solo si sigue fallando el usuario ve el error.
  *
- * Tipos de juego SIN imagen obligatoria (Dominó, Laberinto, Escaleras,
- * Opuestos, Dúo Lógico — issue #234): acá `files` es opcional de verdad. El
- * usuario puede escribir solo el tema/instrucciones en `message` sin adjuntar
- * nada, y la IA genera el juego completo a partir de ese texto.
+ * Fuentes de contenido: siempre alcanza con UNA — un texto (`message`), un
+ * documento (PDF/Word/Excel/CSV) o imágenes (la IA las lee con visión). Si la
+ * lectura de imágenes no está disponible, la generación sigue con lo que haya
+ * (texto, nombre de los archivos) y se le avisa al usuario.
  *
- * En resumen (issues #234/#238): nunca es obligatorio adjuntar un archivo
- * para poder generar un borrador, en ningún tipo de juego — pero sí se exige
- * al menos UNA de las dos fuentes (archivos o mensaje), nunca ninguna.
+ * Tipos con imagen por elemento (Quién Es, Parejas):
+ * - Si el usuario sube sus imágenes (sueltas, o dentro de un PDF/Word —
+ *   issue #208), SON ESAS las que se usan: se suben al almacenamiento y la IA
+ *   solo las "organiza" (les asigna un concepto), referenciándolas por
+ *   posición ("imageIndex") en vez de por URL.
+ * - Si NO sube ninguna, la IA arma el contenido con el tema y consigue una
+ *   imagen por elemento (ver `ContentImageResolver`): una foto libre de
+ *   Wikimedia Commons o, si no hay, una ilustración básica que crea ella.
  */
 @Injectable()
 export class GenerateGameDraftUseCase
   implements UseCase<GenerateGameDraftInput, GenerateGameDraftOutput>
 {
+  private readonly logger = new Logger(GenerateGameDraftUseCase.name);
+
   constructor(
     @Inject(AI_CONTENT_ASSISTANT) private readonly aiContentAssistant: AiContentAssistant,
     @Inject(IMAGE_STORAGE) private readonly imageStorage: ImageStorage,
     private readonly fileTextExtractor: FileTextExtractor,
     private readonly contentValidators: ContentValidatorRegistry,
-    @Inject(CONTENT_IMAGE_FINDER) private readonly contentImageFinder: ContentImageFinder,
+    private readonly contentImageResolver: ContentImageResolver,
   ) {}
 
   async execute(input: GenerateGameDraftInput): Promise<GenerateGameDraftOutput> {
@@ -119,67 +154,64 @@ export class GenerateGameDraftUseCase
       );
     }
 
-    if (spec.imageRequirement) {
-      // Sin archivos NI mensaje no hay nada de dónde partir — con mensaje
-      // (issue #238), `executeWithContentImages` genera igual sin ninguna
-      // imagen si no encuentra ninguna entre los archivos.
-      if (input.files.length === 0 && !input.message?.trim()) {
-        throw new InvalidGameContentError(
-          'sube al menos un archivo o escribe el tema para generar el juego.',
-        );
-      }
-      return this.executeWithContentImages(gameType.getName(), spec, input.files, input.message);
-    }
-
-    // Sin imagen obligatoria (issue #234): basta con UNA de las dos fuentes
-    // — archivos o un mensaje de texto — nunca ninguna de las dos.
-    if (input.files.length === 0 && !input.message?.trim()) {
+    // Nunca es obligatorio adjuntar un archivo (issues #234/#238), pero sí
+    // hace falta UNA de las dos fuentes: archivos o mensaje.
+    const message = input.message?.trim() || undefined;
+    const extraSourceText = input.sourceText?.trim() || undefined;
+    if (input.files.length === 0 && !message && !extraSourceText) {
       throw new InvalidGameContentError(
-        'sube al menos un archivo o escribe el tema/instrucciones para generar el juego.',
+        spec.imageRequirement
+          ? 'sube tus imágenes o escribe el tema para generar el juego.'
+          : 'sube al menos un archivo o escribe el tema/instrucciones para generar el juego.',
       );
     }
-    return this.executeTextOnly(gameType.getName(), spec, input.files, input.message);
+
+    return spec.imageRequirement
+      ? this.executeWithContentImages(gameType.getName(), input.mode, spec, input.files, message, extraSourceText)
+      : this.executeTextOnly(gameType.getName(), input.mode, spec, input.files, message, extraSourceText);
   }
 
   /**
-   * Tipos de juego sin imagen obligatoria (Dominó, Laberinto, Escaleras,
-   * Opuestos, Dual Quest…). `files` puede venir vacío (issue #234): sin
-   * archivos, `sourceText` queda vacío y la IA genera el juego completo
-   * usando únicamente `message` como fuente — `execute()` ya garantizó que
-   * al menos una de las dos (archivos o mensaje) llegó con algo.
+   * Tipos de juego sin imagen por elemento (Dominó, Laberintos, Escaleras,
+   * Opuestos, Dúo Lógico…). `files` puede venir vacío (issue #234): sin
+   * archivos, la IA genera el juego completo usando únicamente `message`.
+   * Los archivos pueden ser documentos o imágenes (se leen con visión).
    */
   private async executeTextOnly(
     gameTypeName: GameTypeName,
+    mode: string | undefined,
     spec: GamePromptSpec,
     files: SourceFile[],
     message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
-    const sourceText = files.length > 0 ? await this.fileTextExtractor.extractAll(files) : '';
-    if (!sourceText.trim() && !message?.trim()) {
-      throw new InvalidGameContentError(
-        'no se pudo extraer texto de los archivos subidos y no escribiste ningún tema.',
-      );
+    const extraction = await this.extractText(files, extraSourceText);
+    if (!extraction.text.trim() && !message) {
+      throw new InvalidGameContentError(unreadableFilesReason(files));
     }
 
-    const draft = await this.aiContentAssistant.generateGameDraft({
-      gameType: gameTypeName,
-      sourceText:
-        sourceText.trim() ||
-        '(el usuario no adjuntó archivos — genera el juego únicamente a partir de las instrucciones de abajo.)',
+    const generation = await this.generateValidatedDraft({
+      gameTypeName,
+      mode,
       instructions: buildInstructions(spec, message),
+      sourceText: extraction.text.trim() || (files.length > 0 ? UNREADABLE_FILES_TEXT : NO_FILES_TEXT),
+      prepare: (raw) => normalizeDraft({ gameType: gameTypeName, mode, dedupe: true }, raw.config, raw.content),
     });
 
-    const content =
-      gameTypeName === 'MEMORY_MATCH' ? normalizeOppositesImageFields(draft.content) : draft.content;
-    return this.validate(gameTypeName, draft.config, content);
+    return withNotice(generation.draft, [
+      unreadableNotice(extraction.unreadable),
+      truncatedNotice(generation.sourceTruncated),
+    ]);
   }
 
-  /** Tipos de juego con imagen obligatoria por elemento (Quién Es, Parejas). */
+  /** Tipos con imagen por elemento (Quién Es, Parejas). */
   private async executeWithContentImages(
     gameTypeName: GameTypeName,
+    mode: string | undefined,
     spec: GamePromptSpec,
     files: SourceFile[],
     message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
     const { min, max, enforceMinimum } = spec.imageRequirement!;
     const directImageFiles = files.filter((file) => file.mimeType.startsWith('image/'));
@@ -203,16 +235,9 @@ export class GenerateGameDraftUseCase
     const imageFiles = [...directImageFiles, ...embeddedImageFiles];
 
     if (imageFiles.length === 0) {
-      // Sin ninguna imagen (ni suelta ni incrustada) — issue #238: si el
-      // usuario escribió un tema, la IA genera igual el contenido completo
-      // sin imágenes, para que él las agregue a mano después. Sin mensaje,
-      // no hay nada de dónde partir.
-      if (message?.trim()) {
-        return this.executeImageRequirementTextOnly(gameTypeName, spec, documentFiles, message);
-      }
-      throw new InvalidGameContentError(
-        'sube al menos una imagen — suelta, o dentro de un PDF/Word (la IA las extrae automáticamente) — o escribe el tema para que la IA arme el contenido y lo completes con imágenes después.',
-      );
+      // Sin ninguna imagen del usuario: la IA arma el contenido con el tema
+      // (mensaje y/o documentos de texto) y consigue o crea las imágenes.
+      return this.executeWithoutUserImages(gameTypeName, mode, spec, documentFiles, message, extraSourceText);
     }
     if (enforceMinimum !== false && imageFiles.length < min) {
       throw new InvalidGameContentError(
@@ -223,55 +248,80 @@ export class GenerateGameDraftUseCase
       throw new InvalidGameContentError(`sube como máximo ${max} imágenes.`);
     }
 
-    const folder = spec.contentImageFolder ?? 'ai-game-content';
-    const [uploadedImages, imageDescriptions, sourceText] = await Promise.all([
-      Promise.all(imageFiles.map((file) => this.imageStorage.upload(file.buffer, folder))),
-      Promise.all(
-        imageFiles.map((file) =>
-          this.aiContentAssistant.describeImage({ buffer: file.buffer, mimeType: file.mimeType }),
-        ),
-      ),
-      documentFiles.length > 0 ? this.fileTextExtractor.extractAll(documentFiles) : Promise.resolve(''),
+    const [described, extraction] = await Promise.all([
+      this.fileTextExtractor.describeImages(imageFiles),
+      this.extractText(documentFiles, extraSourceText),
     ]);
 
-    const draft = await this.aiContentAssistant.generateGameDraft({
-      gameType: gameTypeName,
-      sourceText: sourceText.trim() || '(el usuario no adjuntó texto de referencia — usa solo las imágenes.)',
+    const unreadableImages = described.filter((image) => !image.ok).length;
+    const hasOtherContext = Boolean(message) || extraction.text.trim().length > 0;
+    if (unreadableImages === imageFiles.length && !hasOtherContext && !imageFiles.some((file) => meaningfulFileLabel(file.filename))) {
+      // Se corta ANTES de subir nada: no tiene sentido guardar imágenes de un borrador que no se va a generar.
+      throw new InvalidGameContentError(
+        'la IA no pudo leer tus imágenes en este momento y sus nombres de archivo no dicen qué contienen. Escribe el tema (o el nombre de cada imagen) y vuelve a intentarlo.',
+      );
+    }
+
+    const folder = spec.contentImageFolder ?? 'ai-game-content';
+    const uploadedImages = await Promise.all(imageFiles.map((file) => this.imageStorage.upload(file.buffer, folder)));
+    const imageUrls = uploadedImages.map((image) => image.url);
+    const generation = await this.generateValidatedDraft({
+      gameTypeName,
+      mode,
       instructions: buildInstructions(spec, message),
-      imageDescriptions,
+      sourceText: extraction.text.trim() || '(el usuario no adjuntó texto de referencia — usa solo las imágenes.)',
+      imageDescriptions: described.map((image, index) => composeImageDescription(image, imageFiles[index].filename)),
+      prepare: (raw) => {
+        // Las tarjetas corresponden 1 a 1 con las imágenes del usuario: no se descarta ninguna.
+        const normalized = normalizeDraft({ gameType: gameTypeName, mode, dedupe: false }, raw.config, raw.content);
+        return { config: normalized.config, content: resolveImageIndexes(normalized.content, imageUrls) };
+      },
     });
 
-    const content = resolveImageIndexes(draft.content, uploadedImages.map((image) => image.url));
-    return this.validate(gameTypeName, draft.config, content);
+    return withNotice(generation.draft, [
+      unreadableImages > 0
+        ? `La IA no pudo leer el contenido de ${unreadableImages} de ${imageFiles.length} imágenes (límite de uso o archivo muy pesado): se guio por el nombre del archivo y tu texto — revisa los nombres de esas tarjetas.`
+        : null,
+      unreadableNotice(extraction.unreadable),
+      truncatedNotice(generation.sourceTruncated),
+    ]);
   }
 
   /**
-   * Tipos con imagen obligatoria por elemento (Quién Es, Parejas), pero SIN
-   * ninguna imagen disponible todavía (issue #238): la IA genera el
-   * contenido completo (labels/info/config) solo con el tema que escribe el
-   * usuario, usando `spec.textOnlyInstructions`/`textOnlyJsonShapeExample`
-   * en vez de las instrucciones normales (que darían por hecho que hay
-   * imágenes que organizar).
+   * Tipos con imagen por elemento (Quién Es, Parejas), pero SIN ninguna
+   * imagen del usuario (issues #238/#240/#21): la IA genera el contenido
+   * completo (labels/info/config) con el tema que escribió el usuario y/o el
+   * texto de sus documentos, usando `spec.textOnlyInstructions`/
+   * `textOnlyJsonShapeExample` en vez de las instrucciones normales (que
+   * darían por hecho que hay imágenes que organizar).
    *
-   * Imágenes (issue #240): el modelo devuelve un `imageQuery` por elemento y
-   * `fillImagesFromQueries` consigue y sube una imagen para cada uno. Las
-   * que no aparezcan quedan con `imageUrl: null` — el mismo validador, en
-   * modo borrador (`isDraft`, ver `validate()`), lo permite; el usuario
-   * completa esas a mano antes de poder crear/guardar el juego de verdad.
+   * Cada elemento recibe su imagen de `ContentImageResolver`: primero una
+   * foto libre de Wikimedia Commons (el modelo propone un `imageQuery`) y,
+   * si no hay, una ilustración básica creada con el `emoji` y el `color` que
+   * eligió el modelo. Si ni eso se pudo, queda `imageUrl: null` y el usuario
+   * la agrega a mano (el mismo validador, en modo borrador, lo permite; al
+   * crear el juego de verdad vuelve a exigirla).
    */
-  private async executeImageRequirementTextOnly(
+  private async executeWithoutUserImages(
     gameTypeName: GameTypeName,
+    mode: string | undefined,
     spec: GamePromptSpec,
     documentFiles: SourceFile[],
-    message: string,
+    message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
-    const sourceText = documentFiles.length > 0 ? await this.fileTextExtractor.extractAll(documentFiles) : '';
+    const extraction = await this.extractText(documentFiles, extraSourceText);
+    if (!extraction.text.trim() && !message) {
+      throw new InvalidGameContentError(
+        documentFiles.length > 0
+          ? `${unreadableFilesReason(documentFiles)} También puedes subir tus imágenes.`
+          : 'sube tus imágenes o escribe el tema para generar el juego.',
+      );
+    }
 
-    const draft = await this.aiContentAssistant.generateGameDraft({
-      gameType: gameTypeName,
-      sourceText:
-        sourceText.trim() ||
-        '(el usuario no adjuntó archivos — genera el contenido únicamente a partir de las instrucciones de abajo.)',
+    const generation = await this.generateValidatedDraft({
+      gameTypeName,
+      mode,
       instructions: buildInstructions(
         {
           instructions: spec.textOnlyInstructions ?? spec.instructions,
@@ -279,78 +329,90 @@ export class GenerateGameDraftUseCase
         },
         message,
       ),
+      sourceText: extraction.text.trim() || (documentFiles.length > 0 ? UNREADABLE_FILES_TEXT : NO_FILES_TEXT),
+      prepare: (raw) => {
+        const normalized = normalizeDraft({ gameType: gameTypeName, mode, dedupe: true }, raw.config, raw.content);
+        return { config: normalized.config, content: withoutImageUrls(normalized.content) };
+      },
     });
 
-    const queries = extractImageQueries(draft.content);
-    const content = normalizeMissingImageFields(draft.content);
-    // Validar primero sin imágenes: si el contenido del modelo no sirve, se
-    // rechaza antes de gastar búsquedas/descargas/subidas.
-    const withoutImages = this.validate(gameTypeName, draft.config, content);
-    if (!Array.isArray(content) || content.length === 0) return withoutImages;
+    const notices = [unreadableNotice(extraction.unreadable), truncatedNotice(generation.sourceTruncated)];
+    // Validado ya sin imágenes: si el contenido del modelo no sirve se rechaza
+    // antes de gastar búsquedas/descargas/subidas.
+    const { draft, prepared } = generation;
+    if (draft.content.length === 0) return withNotice(draft, notices);
 
-    const folder = spec.contentImageFolder ?? 'ai-game-content';
-    const imageUrls = await this.fillImagesFromQueries(queries, folder);
-    const found = imageUrls.filter(Boolean).length;
-    if (found === 0) {
-      return {
-        ...withoutImages,
-        notice:
-          'La IA armó el contenido, pero no encontró imágenes para este tema — agrega la imagen de cada elemento a mano.',
-      };
-    }
+    const needs = extractImageNeeds(prepared.content);
+    const resolution = await this.contentImageResolver.resolve(needs, spec.contentImageFolder ?? 'ai-game-content');
+    const imageNotice = describeImageResolution(resolution.counts, needs.length);
 
-    const contentWithImages = content.map((item, index) =>
-      typeof item === 'object' && item !== null ? { ...item, imageUrl: imageUrls[index] ?? null } : item,
+    const contentWithImages = draft.content.map((item, index) =>
+      typeof item === 'object' && item !== null
+        ? { ...item, imageUrl: resolution.images[index]?.url ?? null }
+        : item,
     );
-    const missing = content.length - found;
-    return {
-      ...this.validate(gameTypeName, draft.config, contentWithImages),
-      notice:
-        missing === 0
-          ? `La IA consiguió las ${found} imágenes en Wikimedia Commons — revisa que cada una corresponda.`
-          : `La IA consiguió ${found} de ${content.length} imágenes en Wikimedia Commons — agrega a mano las ${missing} que faltan.`,
-    };
+
+    try {
+      const withImages = this.validate(gameTypeName, draft.config, contentWithImages);
+      return withNotice(withImages, [...notices, imageNotice]);
+    } catch (error) {
+      // Las imágenes nunca deben tumbar un borrador ya válido.
+      this.logger.warn(`El borrador con imágenes no pasó la validación; se entrega sin imágenes: ${errorText(error)}`);
+      return withNotice(draft, [
+        ...notices,
+        'La IA armó el contenido, pero no pudo agregar las imágenes — agrega la imagen de cada elemento a mano.',
+      ]);
+    }
+  }
+
+  private async extractText(files: SourceFile[], extraSourceText?: string): Promise<TextExtraction> {
+    const extraction =
+      files.length > 0 ? await this.fileTextExtractor.extractAllDetailed(files) : { text: '', unreadable: [] };
+    return { ...extraction, text: joinSourceTexts(extraction.text, extraSourceText) };
   }
 
   /**
-   * Una imagen por elemento a partir de su búsqueda (`null` si no hay
-   * búsqueda, no se encontró nada o falló la descarga/subida — nunca lanza).
-   * Nunca repite la misma imagen en dos elementos: cada candidato se
-   * reserva de forma síncrona antes de descargarlo, así dos búsquedas en
-   * paralelo no pueden quedarse con el mismo.
+   * Pide el borrador a la IA, lo normaliza y lo valida. Si el contenido es
+   * rechazado (`InvalidGameContentError`: JSON ilegible, valores fuera de
+   * regla, un `imageIndex` inventado…), vuelve a pedirlo diciéndole a la IA
+   * exactamente qué estuvo mal, hasta `MAX_REPAIR_ATTEMPTS` veces. Cualquier
+   * otro error (proveedor caído, cuota agotada) se propaga tal cual: repetir
+   * la llamada no lo arregla y ya lo manejó el adaptador.
    */
-  private async fillImagesFromQueries(
-    queries: Array<{ query: string; label: string } | null>,
-    folder: string,
-  ): Promise<Array<string | null>> {
-    const reserved = new Set<string>();
-    return mapWithConcurrency(queries, IMAGE_SEARCH_CONCURRENCY, async (entry) => {
-      if (!entry) return null;
-      const candidates = await this.contentImageFinder.search(entry.query, entry.label);
-      for (const candidate of candidates) {
-        const key = candidate.url.split('?')[0];
-        if (reserved.has(key)) continue;
-        reserved.add(key);
-        const image = await this.contentImageFinder.download(candidate);
-        if (!image) continue;
-        try {
-          const uploaded = await this.imageStorage.upload(image.buffer, folder);
-          return uploaded.url;
-        } catch {
-          // Sin almacenamiento disponible no tiene sentido seguir probando
-          // candidatos: el elemento queda sin imagen para completarlo a mano.
-          return null;
-        }
+  private async generateValidatedDraft(request: GenerationRequest): Promise<ValidatedGeneration> {
+    let lastReason = '';
+
+    for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
+      try {
+        const raw = await this.aiContentAssistant.generateGameDraft({
+          gameType: request.gameTypeName,
+          sourceText: request.sourceText,
+          instructions: attempt === 0 ? request.instructions : `${request.instructions}${repairSection(lastReason)}`,
+          ...(request.imageDescriptions ? { imageDescriptions: request.imageDescriptions } : {}),
+        });
+
+        const prepared = request.prepare({ config: raw.config, content: raw.content });
+        const draft = this.validate(request.gameTypeName, prepared.config, prepared.content);
+        return { draft, prepared, sourceTruncated: raw.sourceTruncated === true };
+      } catch (error) {
+        if (!(error instanceof InvalidGameContentError)) throw error;
+        lastReason = stripErrorPrefix(error.message);
+        this.logger.warn(
+          `La IA devolvió un borrador inválido para ${request.gameTypeName} (intento ${attempt + 1}/${MAX_REPAIR_ATTEMPTS + 1}): ${lastReason}`,
+        );
       }
-      return null;
-    });
+    }
+
+    throw new InvalidGameContentError(
+      `la IA no logró armar un borrador válido después de ${MAX_REPAIR_ATTEMPTS + 1} intentos (${lastReason}). Prueba con un tema más claro o con más detalle en las instrucciones.`,
+    );
   }
 
   private validate(
     gameTypeName: GameTypeName,
     config: unknown,
     content: unknown,
-  ): GenerateGameDraftOutput {
+  ): { config: Record<string, unknown>; content: unknown[] } {
     const validator = this.contentValidators.resolve(gameTypeName);
     const validatedConfig = validator.validateConfig(config);
     // isDraft: true porque esto SIEMPRE es un borrador (nunca el juego
@@ -359,6 +421,14 @@ export class GenerateGameDraftUseCase
     const validatedContent = validator.validateContent(content, validatedConfig, { isDraft: true });
     return { config: validatedConfig, content: validatedContent };
   }
+}
+
+/** Une el texto extraído de archivos con el texto fuente adicional, sin vacíos. */
+function joinSourceTexts(...parts: Array<string | undefined>): string {
+  return parts
+    .map((part) => part?.trim() ?? '')
+    .filter((part) => part.length > 0)
+    .join('\n\n');
 }
 
 /**
@@ -378,6 +448,70 @@ function buildInstructions(
   return `${spec.instructions}${userInstructions}\n\nForma de JSON esperada:\n${spec.jsonShapeExample}`;
 }
 
+/** Sección que se agrega a las instrucciones al reintentar: dice por qué se rechazó el borrador anterior. */
+function repairSection(reason: string): string {
+  return `\n\nIMPORTANTE: tu respuesta anterior fue RECHAZADA por esta razón: "${reason}"\nVuelve a responder el JSON COMPLETO corrigiendo exactamente ese problema y respetando todas las reglas de arriba. No expliques nada: solo el JSON.`;
+}
+
+/** Quita el prefijo "Contenido de juego inválido: " que agrega `InvalidGameContentError`. */
+function stripErrorPrefix(message: string): string {
+  return message.replace(/^Contenido de juego inválido:\s*/i, '');
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function unreadableFilesReason(files: SourceFile[]): string {
+  const onlyImages = files.length > 0 && files.every((file) => file.mimeType.startsWith('image/'));
+  return onlyImages
+    ? 'la IA no pudo leer el contenido de las imágenes en este momento. Escribe el tema o sube un documento con texto.'
+    : 'no se pudo extraer texto de los archivos subidos y no escribiste ningún tema.';
+}
+
+function unreadableNotice(unreadable: string[]): string | null {
+  if (unreadable.length === 0) return null;
+  const names = unreadable.slice(0, 3).join(', ');
+  const rest = unreadable.length > 3 ? ` y ${unreadable.length - 3} más` : '';
+  return `No se pudo leer: ${names}${rest}.`;
+}
+
+function truncatedNotice(truncated: boolean): string | null {
+  return truncated ? 'Tu texto era muy largo: la IA usó solo la primera parte.' : null;
+}
+
+function withNotice(
+  draft: { config: Record<string, unknown>; content: unknown[] },
+  notices: Array<string | null>,
+): GenerateGameDraftOutput {
+  const notice = notices.filter(Boolean).join(' ');
+  return notice ? { ...draft, notice } : draft;
+}
+
+/**
+ * Qué decirle a la IA de una imagen: lo que leyó la visión (más el nombre del
+ * archivo si dice algo), o — si no se pudo leer — solo el nombre del archivo.
+ */
+function composeImageDescription(image: ImageDescription, filename: string): string {
+  const hint = meaningfulFileLabel(filename);
+  if (image.ok) return hint ? `${image.description} (archivo: ${hint})` : image.description;
+  return hint
+    ? `(no se pudo leer la imagen; por el nombre del archivo parece ser: "${hint}")`
+    : '(no se pudo leer esta imagen y su nombre de archivo no dice qué es — guíate por las instrucciones del usuario)';
+}
+
+/** El nombre del archivo sin extensión, si dice algo (no es "IMG_0231", "captura", etc.). */
+function meaningfulFileLabel(filename: string): string | null {
+  const base = filename
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_\-.]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const letters = base.replace(/[^\p{L}]/gu, '');
+  if (letters.length < 3 || GENERIC_FILE_NAME.test(base)) return null;
+  return base.slice(0, 80);
+}
+
 /**
  * Reemplaza cada "imageIndex" que devolvió la IA por la URL real ya subida a
  * Cloudinary en esa posición — la IA nunca ve ni inventa URLs, solo elige
@@ -393,7 +527,7 @@ function resolveImageIndexes(content: unknown, imageUrls: string[]): unknown {
 
     if (!Number.isInteger(index) || (index as number) < 0 || (index as number) >= imageUrls.length) {
       throw new InvalidGameContentError(
-        `la IA referenció una imagen inválida en el elemento ${position} — vuelve a intentarlo.`,
+        `la IA referenció una imagen inválida en el elemento ${position} (imageIndex debe ser un número entre 0 y ${imageUrls.length - 1}).`,
       );
     }
 
@@ -403,74 +537,37 @@ function resolveImageIndexes(content: unknown, imageUrls: string[]): unknown {
 }
 
 /**
- * MEMORY_MATCH en modo OPPOSITES exige que posImageUrl/negImageUrl sean
- * `null` explícito (no `undefined`/ausente) cuando no hay imagen — se
- * normaliza acá en vez de confiar en que el modelo siempre lo escriba así.
- * Solo se llama para OPPOSITES (ver `executeTextOnly`), nunca para otros
- * tipos de juego que no tienen estos campos.
+ * Fuerza "imageUrl": null y descarta cualquier "imageIndex" que el modelo haya
+ * devuelto de más (aunque se le pidió que no lo hiciera) — camino sin ninguna
+ * imagen del usuario (issue #238). Conserva `imageQuery`/`emoji`/`color`, que
+ * `extractImageNeeds` necesita para conseguir las imágenes.
  */
-function normalizeOppositesImageFields(content: unknown): unknown {
+function withoutImageUrls(content: unknown): unknown {
   if (!Array.isArray(content)) return content;
 
   return content.map((item) => {
     if (typeof item !== 'object' || item === null) return item;
-    const raw = item as Record<string, unknown>;
-    return {
-      ...raw,
-      posImageUrl: raw.posImageUrl ?? null,
-      negImageUrl: raw.negImageUrl ?? null,
-    };
-  });
-}
-
-/**
- * Fuerza "imageUrl": null (y descarta cualquier "imageIndex" que el modelo
- * haya devuelto de más, aunque se le pidió que no lo hiciera) en cada
- * elemento — issue #238, camino sin ninguna imagen disponible para Quién Es
- * y Parejas. Mismo patrón que `normalizeOppositesImageFields`, para cuando
- * se genera sin imágenes en vez de sin ellas por diseño.
- */
-function normalizeMissingImageFields(content: unknown): unknown {
-  if (!Array.isArray(content)) return content;
-
-  return content.map((item) => {
-    if (typeof item !== 'object' || item === null) return item;
-    const raw = item as Record<string, unknown>;
-    const { imageIndex: _imageIndex, imageQuery: _imageQuery, ...rest } = raw;
+    const { imageIndex: _imageIndex, ...rest } = item as Record<string, unknown>;
     return { ...rest, imageUrl: null };
   });
 }
 
 /**
- * Búsqueda de imagen que propuso el modelo para cada elemento (issue #240),
- * en el mismo orden que `content`. Si el modelo no mandó `imageQuery`, se
- * usa el `label` como búsqueda; `null` si no hay ninguno de los dos.
+ * Qué necesita cada elemento para conseguirle una imagen, en el mismo orden
+ * que `content`: la búsqueda que propuso el modelo (o el `label` si no mandó
+ * ninguna), y el emoji y color para la ilustración de respaldo.
  */
-function extractImageQueries(content: unknown): Array<{ query: string; label: string } | null> {
+function extractImageNeeds(content: unknown): ImageNeed[] {
   if (!Array.isArray(content)) return [];
   return content.map((item) => {
-    if (typeof item !== 'object' || item === null) return null;
-    const raw = item as Record<string, unknown>;
+    const raw = (typeof item === 'object' && item !== null ? item : {}) as Record<string, unknown>;
     const label = typeof raw.label === 'string' ? raw.label.trim() : '';
     const query = typeof raw.imageQuery === 'string' && raw.imageQuery.trim() ? raw.imageQuery.trim() : label;
-    return query ? { query: query.slice(0, 200), label } : null;
+    return {
+      label,
+      query: query ? query.slice(0, 200) : null,
+      emoji: sanitizeEmoji(raw.emoji),
+      color: typeof raw.color === 'string' ? raw.color : null,
+    };
   });
-}
-
-/** `Promise.all` con un máximo de tareas simultáneas; conserva el orden de `items`. */
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  task: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await task(items[index]);
-    }
-  });
-  await Promise.all(workers);
-  return results;
 }

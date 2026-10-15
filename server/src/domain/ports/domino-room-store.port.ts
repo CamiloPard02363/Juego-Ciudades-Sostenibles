@@ -46,6 +46,8 @@ export interface DominoRoomState {
   /** Fichas que no se repartieron a nadie; se roban de acá cuando no hay jugada posible. */
   boneyard: DominoTile[];
   board: DominoPlacedTile[];
+  /** Id real de la primera ficha aceptada en la partida actual. */
+  openingTileId?: string | null;
   activePlayerUserId: string | null;
   turnDeadline: number | null;
   winnerUserId: string | null;

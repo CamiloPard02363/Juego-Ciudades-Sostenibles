@@ -13,6 +13,8 @@ import { CategorySelectField } from './create/CategorySelectField'
 import { useCreateGameProgress } from './create/CreateGameProgressContext'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
+import type { AdaptedGameDraft } from '../../../services/game-adaptation.service'
+import { useApplyAdaptation } from './useApplyAdaptation'
 import { createGame, publishGame } from '../../../services/game.service'
 import {
   listSubjects as listCategories,
@@ -28,6 +30,7 @@ import {
   MIN_DOMINO_CONCEPTS,
   iconForConcept,
 } from './dominoTypes'
+import { DOMINO_TILE_SUGGESTED_COLORS } from './dominoTileVisualTokens'
 
 type ConceptDraft = {
   label: string
@@ -36,24 +39,11 @@ type ConceptDraft = {
 }
 
 /** Paleta sugerida: colores bien diferenciables entre sí, para que las mitades de ficha no se confundan de un vistazo. */
-const SUGGESTED_COLORS = [
-  '#f59e0b',
-  '#22c55e',
-  '#3b82f6',
-  '#14b8a6',
-  '#06b6d4',
-  '#8b5cf6',
-  '#ec4899',
-  '#ef4444',
-  '#84cc16',
-  '#f97316',
-]
-
 function emptyConcept(index: number): ConceptDraft {
   return {
     label: '',
     icon: DOMINO_ICON_KEYS[index % DOMINO_ICON_KEYS.length],
-    color: SUGGESTED_COLORS[index % SUGGESTED_COLORS.length],
+    color: DOMINO_TILE_SUGGESTED_COLORS[index % DOMINO_TILE_SUGGESTED_COLORS.length],
   }
 }
 
@@ -70,6 +60,8 @@ const PHASES = [
 const TOTAL_PHASES = PHASES.length
 
 type DominoGameFormProps = {
+  /** Borrador de adaptación desde otro juego (issue #8); pre-llena el formulario al montar. */
+  adaptation?: AdaptedGameDraft
   onClose: () => void
   /**
    * Se dispara tras elegir visibilidad en SaveVisibilityModal, con el id del
@@ -91,7 +83,7 @@ export function DominoGameForm({
   onClose,
   onCreated,
   onBack,
-  onCategoryCreated,
+  onCategoryCreated, adaptation,
 }: DominoGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
@@ -137,6 +129,14 @@ export function DominoGameForm({
       })
   }, [token])
 
+  useApplyAdaptation(adaptation, (adapted) => {
+    setTitle(adapted.title)
+    setDescription(adapted.description)
+    setCoverImageUrl(adapted.theme.coverImageUrl)
+    setCategoryId(adapted.categoryId)
+    applyAiDraft(adapted)
+  })
+
   function applyAiDraft(draft: GameDraft) {
     const items = Array.isArray(draft.content) ? draft.content : []
     setConcepts(
@@ -147,7 +147,7 @@ export function DominoGameForm({
           icon: typeof raw.icon === 'string' && DOMINO_ICON_KEYS.includes(raw.icon)
             ? raw.icon
             : DOMINO_ICON_KEYS[index % DOMINO_ICON_KEYS.length],
-          color: typeof raw.color === 'string' ? raw.color : SUGGESTED_COLORS[index % SUGGESTED_COLORS.length],
+          color: typeof raw.color === 'string' ? raw.color : DOMINO_TILE_SUGGESTED_COLORS[index % DOMINO_TILE_SUGGESTED_COLORS.length],
         }
       }),
     )
@@ -252,6 +252,7 @@ export function DominoGameForm({
         title: title.trim(),
         description: description.trim(),
         gameType: 'DOMINO',
+        sourceGameId: adaptation?.sourceGameId ?? undefined,
         categoryId,
         organizationId: organizationId || undefined,
         theme: coverImageUrl ? { coverImageUrl } : undefined,
@@ -283,8 +284,6 @@ export function DominoGameForm({
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
-        gameKind="DOMINO"
-        gameTitle={title.trim()}
       />
     )
   }

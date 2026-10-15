@@ -13,6 +13,8 @@ type ScrollMoreHintProps = {
   scope?: 'container' | 'window'
   /** Color de fondo del área, para que el degradado se funda con ella. */
   fade?: 'bg' | 'surface'
+  /** Píxeles ocultos a partir de los cuales se muestra (por defecto 48). Más bajo en listas donde cualquier tarjeta cortada importa. */
+  minHiddenPx?: number
 }
 
 /**
@@ -29,7 +31,7 @@ type ScrollMoreHintProps = {
  * directo) y vigila scroll, cambios de tamaño y contenido que carga después
  * (imágenes, listas que llegan de la API, cambios de ruta dentro del layout).
  */
-export function ScrollMoreHint({ scope = 'container', fade = 'bg' }: ScrollMoreHintProps) {
+export function ScrollMoreHint({ scope = 'container', fade = 'bg', minHiddenPx = MIN_HIDDEN_PX }: ScrollMoreHintProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
   // `sticky` se pega al borde del área de contenido, no al del contenedor:
@@ -54,7 +56,7 @@ export function ScrollMoreHint({ scope = 'container', fade = 'bg' }: ScrollMoreH
         const coveredByDialog = !!dialog && !dialog.contains(element)
         // Durante la guía el indicador no se muestra: el recorrido ya dirige la vista.
         const inGuide = !!document.querySelector('.welcome-tour-card, [data-testid="tour-spotlight"]')
-        setVisible(hidden > MIN_HIDDEN_PX && !coveredByDialog && !inGuide)
+        setVisible(hidden > minHiddenPx && !coveredByDialog && !inGuide)
         if (scope === 'container') setBottomOffset(parseFloat(getComputedStyle(element).paddingBottom) || 0)
       })
     }
@@ -85,7 +87,7 @@ export function ScrollMoreHint({ scope = 'container', fade = 'bg' }: ScrollMoreH
       scrollTarget.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
     }
-  }, [scope])
+  }, [scope, minHiddenPx])
 
   function scrollDown() {
     const element = scope === 'window' ? document.scrollingElement : ref.current?.parentElement

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, KeyRound, PlusCircle, Sparkles, Trash2, Trophy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../../hooks/useToast'
 import { DEFAULT_CATEGORY_COLOR, colorForCategory, iconForCategory } from './gamesCatalogVisuals'
 import {
   listGames,
@@ -21,6 +22,9 @@ import {
 import { ApiError } from '../../utils/http'
 import { trackEvent } from '../../services/analytics.service'
 import { GameCard } from './games/GameCard'
+import { playTargetFor, UNSUPPORTED_GAME_MESSAGE } from './games/gamePlayRoute'
+import { JustCreatedFocus } from './JustCreatedFocus'
+import { parseCreatedKind } from './games/create/justCreatedRedirect'
 import { GameDetailModal } from './games/GameDetailModal'
 import { Modal } from './games/Modal'
 import { JoinByCodeModal } from './games/JoinByCodeModal'
@@ -73,11 +77,13 @@ export function GamesSection({
   const navigate = useNavigate()
   const { slug: slugFromUrl } = useParams<{ slug?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
+  // Tipo de formulario que creó el juego (issue #2), para el resumen de la nube.
+  const justCreatedKind = parseCreatedKind(searchParams.get('kind'))
   // Id del juego recién creado (issue #218): llega por query param desde el
   // redirect post-creación en SaveVisibilityModal/GuessWhoGameFormPage, y se
   // usa para resaltar su tarjeta en este listado. Se limpia de la URL tras
-  // interactuar con el highlight o pasado un tiempo razonable, sin quedar
-  // permanente ni sobrevivir a un refresh manual de la página.
+  // cerrar la nube de foco (issue #2: sin timeout) o interactuar con la
+  // tarjeta, sin sobrevivir a un refresh manual de la página.
   const [justCreatedGameId, setJustCreatedGameId] = useState<string | null>(
     () => searchParams.get('justCreated'),
   )
@@ -87,16 +93,11 @@ export function GamesSection({
     if (searchParams.has('justCreated')) {
       const next = new URLSearchParams(searchParams)
       next.delete('justCreated')
+      next.delete('kind')
       setSearchParams(next, { replace: true })
     }
   }
 
-  useEffect(() => {
-    if (!justCreatedGameId) return
-    const timeout = setTimeout(dismissJustCreatedHighlight, 12000)
-    return () => clearTimeout(timeout)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [justCreatedGameId])
   // En modo 'game-type' la lista vive en /tipos-de-juego/:gameType, así que
   // el detalle debe anidarse ahí (/tipos-de-juego/:gameType/:slug) para no
   // perder el filtro de tipo al navegar de vuelta o al recargar (issue #156).
@@ -105,6 +106,7 @@ export function GamesSection({
       ? `${BASE_PATH_BY_MODE[mode]}/${gameTypeFilter}`
       : BASE_PATH_BY_MODE[mode]
   const { token, user } = useAuth()
+  const { showToast } = useToast()
   const isTeacher = user?.role?.toUpperCase() === 'TEACHER'
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
   const [games, setGames] = useState<GameSummary[]>([])
@@ -318,6 +320,22 @@ export function GamesSection({
     return true
   })
 
+  // Foco post-creación (issue #2): el juego recién creado debe poder verse.
+  // Si un filtro lo oculta se limpian los filtros; si ni siquiera está en el
+  // listado cargado, se descarta el efecto (fallback seguro, sin blur vacío).
+  const justCreatedGame = justCreatedGameId ? games.find((g) => g.id === justCreatedGameId) ?? null : null
+  const justCreatedFiltered = justCreatedGame !== null && !filteredGames.includes(justCreatedGame)
+  useEffect(() => {
+    if (justCreatedFiltered) {
+      setActiveModes(new Set())
+      setActiveTypes(new Set())
+    }
+  }, [justCreatedFiltered])
+  useEffect(() => {
+    if (justCreatedGameId && !loading && !justCreatedGame) dismissJustCreatedHighlight()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justCreatedGameId, loading, justCreatedGame])
+
   const typeFilterOptions: GameTypeFilterOption[] = Array.from(
     games.reduce((acc, game) => acc.set(game.gameType, (acc.get(game.gameType) ?? 0) + 1), new Map<string, number>()),
   )
@@ -475,57 +493,24 @@ export function GamesSection({
     }
   }
 
+  /**
+   * Cada tipo de juego tiene su propia página o sala (ver gamePlayRoute.ts).
+   * Un tipo que este cliente no conoce NO se abre como Memoria: se avisa.
+   */
   function handlePlayClick() {
     if (!selectedGame) return
-    if (selectedGame.gameType === 'GUESS_WHO') {
+    const target = playTargetFor(selectedGame)
+    if (target.kind === 'unsupported') {
+      showToast(UNSUPPORTED_GAME_MESSAGE, 'error', 8000)
+      return
+    }
+    if (target.kind === 'guess-who-room') {
       setGuessWhoRoomGameId(selectedGame.id)
       closeGame()
       return
     }
-    // El dominó ahora es una sala 1v1 en tiempo real con página propia (ver
-    // DominoRoomPage/App.tsx) en vez de un pop-up de un solo jugador: se
-    // navega a la ruta, que crea la sala apenas monta (?gameId=).
-    if (selectedGame.gameType === 'DOMINO') {
-      closeGame()
-      navigate(`/domino/sala?gameId=${selectedGame.id}`)
-      return
-    }
-    // El recolector es un solo jugador contra la IA, sin sala en vivo —
-    // vista dedicada con ruta propia (ver MazeCollectorPlayPage.tsx). La
-    // configuración (vidas, velocidad, laberinto) ya quedó fija al crear el
-    // juego, así que no hace falta el popup de opciones de Memory Match.
-    if (selectedGame.gameType === 'MAZE_COLLECTOR') {
-      closeGame()
-      navigate(`/jugar/laberinto/${selectedGame.slug}`)
-      return
-    }
-    // Mismo criterio que Dominó: sala en tiempo real con página propia, no
-    // un pop-up — acá de 2 a 4 jugadores en vez de 1v1.
-    if (selectedGame.gameType === 'SNAKES_LADDERS') {
-      closeGame()
-      navigate(`/escaleras-serpientes/sala?gameId=${selectedGame.id}`)
-      return
-    }
-    // Igual que Escaleras y Serpientes: sala en tiempo real con página
-    // propia — acá siempre exactamente 2 jugadores (Fuego/Agua).
-    if (selectedGame.gameType === 'DUAL_QUEST') {
-      closeGame()
-      navigate(`/dual-quest/sala?gameId=${selectedGame.id}`)
-      return
-    }
-    // Motor físico (PixiJS + Matter.js): un solo mundo compartido en el
-    // navegador de quien lo abre, sin sala en tiempo real — página propia
-    // que carga el nivel por slug (ver DualQuestPixiPlayPage.tsx).
-    if (selectedGame.gameType === 'DUAL_QUEST_PIXI') {
-      closeGame()
-      navigate(`/dual-quest-pixi/${selectedGame.slug}`)
-      return
-    }
-    // Memory Match (Parejas/Opuestos): vista dedicada con ruta propia (ver
-    // MemoryMatchPlayPage.tsx), que monta ahí mismo el popup de opciones
-    // antes de arrancar — ya no se abre acá como overlay.
     closeGame()
-    navigate(`/jugar/memoria/${selectedGame.slug}`)
+    navigate(target.path)
   }
 
   /**
@@ -1188,6 +1173,15 @@ export function GamesSection({
           </div>
         )}
       </div>
+
+      {justCreatedGame && !loading && !justCreatedFiltered && (
+        <JustCreatedFocus
+          gameTitle={justCreatedGame.title}
+          kind={justCreatedKind}
+          visibility={mode === 'community' ? 'community' : 'private'}
+          onClose={dismissJustCreatedHighlight}
+        />
+      )}
 
       {joinByCodeOpen && (
         <JoinByCodeModal

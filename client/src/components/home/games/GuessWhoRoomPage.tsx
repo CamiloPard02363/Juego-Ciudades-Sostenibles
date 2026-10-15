@@ -3,7 +3,7 @@ import { MultiplayerLobby } from './MultiplayerLobby'
 import { ChatPanel } from './ChatPanel'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Copy, LogOut, Trophy, XCircle } from 'lucide-react'
+import { Copy, LogOut, Trophy, Volume2, VolumeX, XCircle } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useGuessWhoRoom } from './useGuessWhoRoom'
 import { MIN_DISCARDS_TO_ACCUSE } from './guessWhoTypes'
@@ -11,6 +11,7 @@ import { Modal } from './Modal'
 import { DealCountdownOverlay, MatchBoard, useCountdown } from './MatchBoard'
 import { ConfettiBurst } from '../../kids/ConfettiBurst'
 import { CardInfoBubble } from './CardInfoBubble'
+import { setGuessWhoSoundMuted, startGuessWhoAmbience, stopGuessWhoAmbience } from '../../../utils/gameFeedback'
 
 /**
  * Sala 1v1 de "¿Quién Es?" en página propia (ruta `/quien-es/sala/:code?`,
@@ -79,6 +80,17 @@ function GuessWhoRoomSession() {
   }, [room?.code])
 
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('guess-who-sound-muted') !== 'true')
+
+  useEffect(() => {
+    setGuessWhoSoundMuted(!soundEnabled)
+    localStorage.setItem('guess-who-sound-muted', String(!soundEnabled))
+  }, [soundEnabled])
+
+  useEffect(() => {
+    if (room?.phase !== 'PLAYING') stopGuessWhoAmbience()
+    return () => stopGuessWhoAmbience()
+  }, [room?.phase])
 
   const [dealDeadline, setDealDeadline] = useState<number | null>(null)
   useEffect(() => {
@@ -91,6 +103,7 @@ function GuessWhoRoomSession() {
   const dealRemainingMs = useCountdown(dealDeadline)
 
   function handleExit() {
+    stopGuessWhoAmbience()
     leaveRoom()
     navigate('/')
   }
@@ -218,6 +231,20 @@ function GuessWhoRoomSession() {
           </button>
           <button
             type="button"
+            aria-label={soundEnabled ? 'Silenciar efectos de sonido' : 'Activar efectos de sonido'}
+            title={soundEnabled ? 'Silenciar efectos de sonido' : 'Activar efectos de sonido'}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-text-h transition-colors hover:border-accent hover:text-accent"
+            onClick={() => {
+              const nextSoundEnabled = !soundEnabled
+              setGuessWhoSoundMuted(!nextSoundEnabled)
+              if (nextSoundEnabled) startGuessWhoAmbience()
+              setSoundEnabled(nextSoundEnabled)
+            }}
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4" strokeWidth={2} /> : <VolumeX className="h-4 w-4" strokeWidth={2} />}
+          </button>
+          <button
+            type="button"
             className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[13px] font-medium text-text-h transition-colors hover:border-accent/50 hover:text-accent"
             onClick={handleExit}
           >
@@ -264,10 +291,11 @@ function GuessWhoRoomSession() {
         )}
 
         {room.phase === 'FINISHED' && opponent && self && (
-          <div className="relative flex flex-col items-center gap-4 py-6 text-center">
+          // Pantalla final sin scroll: los tamaños dependen del alto disponible (dvh).
+          <div className="relative flex min-h-full flex-col items-center justify-center gap-[clamp(6px,1.6dvh,16px)] py-[clamp(4px,1.5dvh,24px)] text-center">
             {winnerIsSelf && <ConfettiBurst trigger={room.winnerUserId ?? 'win'} />}
             <span
-              className="flex h-14 w-14 items-center justify-center rounded-full text-white animate-[trophy-pop-in_0.5s_cubic-bezier(0.16,1,0.3,1)]"
+              className="flex h-[clamp(40px,7dvh,56px)] w-[clamp(40px,7dvh,56px)] shrink-0 items-center justify-center rounded-full text-white animate-[trophy-pop-in_0.5s_cubic-bezier(0.16,1,0.3,1)]"
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             >
               <Trophy className="h-7 w-7" strokeWidth={1.75} />
@@ -277,15 +305,16 @@ function GuessWhoRoomSession() {
             </p>
 
             <div className="flex items-start justify-center gap-4 animate-[fade-in-up_0.4s_ease-out_0.2s_backwards]">
+              {/* Primero la del rival: es la que el jugador quiere conocer al terminar. */}
+              <RevealedSecretCard
+                ownerLabel={`La tarjeta de ${opponent.displayName} era`}
+                card={room.cards.find((card) => card.cardId === opponent.secretCardId)}
+                isWinner={opponent.userId === room.winnerUserId}
+              />
               <RevealedSecretCard
                 ownerLabel="Tu tarjeta era"
                 card={room.cards.find((card) => card.cardId === self.secretCardId)}
                 isWinner={self.userId === room.winnerUserId}
-              />
-              <RevealedSecretCard
-                ownerLabel={`Tarjeta de ${opponent.displayName}`}
-                card={room.cards.find((card) => card.cardId === opponent.secretCardId)}
-                isWinner={opponent.userId === room.winnerUserId}
               />
             </div>
 
@@ -362,9 +391,9 @@ function RevealedSecretCard({
 }) {
   if (!card) return null
   return (
-    <div className="relative flex w-[112px] flex-col items-center gap-1.5">
+    <div className="relative flex w-[clamp(120px,24dvh,170px)] flex-col items-center gap-0.5">
       <div className={`relative overflow-hidden rounded-lg border-2 ${isWinner ? 'border-accent' : 'border-border'}`}>
-        <img src={card.imageUrl} alt="" className="h-24 w-full object-cover" />
+        <img src={card.imageUrl} alt="" className="h-[clamp(52px,13dvh,120px)] w-full object-cover" />
         {isWinner && (
           <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-white">
             <Trophy className="h-3 w-3" strokeWidth={2.5} />
@@ -372,7 +401,7 @@ function RevealedSecretCard({
         )}
       </div>
       {card.info && <CardInfoBubble info={card.info} label={card.label} />}
-      <p className="text-[11px] font-medium text-text">{ownerLabel}</p>
+      <p className="text-[11px] leading-tight font-medium text-text">{ownerLabel}</p>
       <p className="text-[12.5px] font-semibold text-text-h">{card.label}</p>
     </div>
   )

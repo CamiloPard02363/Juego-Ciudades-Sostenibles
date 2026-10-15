@@ -10,6 +10,8 @@ import { OrganizationSelectField } from './create/OrganizationSelectField'
 import { CategorySelectField } from './create/CategorySelectField'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
+import type { AdaptedGameDraft } from '../../../services/game-adaptation.service'
+import { useApplyAdaptation } from './useApplyAdaptation'
 import { createGame, publishGame } from '../../../services/game.service'
 import {
   listSubjects as listCategories,
@@ -49,6 +51,8 @@ function emptyCellQuestion(cellNumber: number): CellQuestionDraft {
 }
 
 type SnakesLaddersGameFormProps = {
+  /** Borrador de adaptación desde otro juego (issue #8); pre-llena el formulario al montar. */
+  adaptation?: AdaptedGameDraft
   onClose: () => void
   onCreated: (gameId: string, visibility: 'private' | 'community') => void
   onBack: () => void
@@ -62,7 +66,7 @@ type SnakesLaddersGameFormProps = {
  * mantener sincronizadas a mano) — al enviar, se separan en `config`
  * (posiciones) y `content` (retos), como espera el validador del servidor.
  */
-export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCreated }: SnakesLaddersGameFormProps) {
+export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCreated, adaptation }: SnakesLaddersGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
   const [title, setTitle] = useState('')
@@ -98,6 +102,14 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
         console.error('No se pudieron cargar las organizaciones del usuario:', err)
       })
   }, [token])
+
+  useApplyAdaptation(adaptation, (adapted) => {
+    setTitle(adapted.title)
+    setDescription(adapted.description)
+    setCoverImageUrl(adapted.theme.coverImageUrl)
+    setCategoryId(adapted.categoryId)
+    applyAiDraft(adapted)
+  })
 
   function applyAiDraft(draft: GameDraft) {
     const config = (draft.config ?? {}) as Record<string, unknown>
@@ -228,6 +240,7 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
         title: title.trim(),
         description: description.trim(),
         gameType: 'SNAKES_LADDERS',
+        sourceGameId: adaptation?.sourceGameId ?? undefined,
         categoryId,
         organizationId: organizationId || undefined,
         theme: coverImageUrl ? { coverImageUrl } : undefined,
@@ -283,8 +296,6 @@ export function SnakesLaddersGameForm({ onClose, onCreated, onBack, onCategoryCr
       <SaveVisibilityModal
         onChoose={handleChooseVisibility}
         onDone={(visibility) => onCreated(createdGameId, visibility)}
-        gameKind="SNAKES_LADDERS"
-        gameTitle={title.trim()}
       />
     )
   }

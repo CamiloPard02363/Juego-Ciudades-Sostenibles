@@ -64,9 +64,8 @@ export function AdminAiProviderLogsSection() {
         <div>
           <h2 className="mb-1 text-[22px] tracking-tight text-text-h">Proveedores de IA</h2>
           <p className="text-[14px] text-text">
-            Historial de llamadas del asistente de IA. Gemini es el proveedor principal; si falla o
-            agota su cuota, se usa Groq automáticamente como respaldo, sin que el usuario note nada
-            más que una respuesta un poco más lenta.
+            Historial de llamadas del asistente de IA. Groq es el proveedor de IA activo; aquí puedes
+            ver si cada llamada tuvo éxito o falló.
           </p>
         </div>
         <button

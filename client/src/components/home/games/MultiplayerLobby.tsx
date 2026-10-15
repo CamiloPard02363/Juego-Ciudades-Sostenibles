@@ -170,48 +170,42 @@ export function MultiplayerLobby({
             </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface/90 p-3">
-            <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-text">
-              <span className="font-medium text-text-h">Código de sala:</span>
-              <code className="rounded-lg border border-accent/30 bg-accent/5 px-2 py-1 text-[13px] font-semibold text-accent">
-                {room.code}
-              </code>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-xl border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
-                onClick={() => copyValue(room.code, 'Código copiado')}
-              >
-                <Copy className="h-3 w-3" strokeWidth={2} />
-                Copiar código
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-xl border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
-                onClick={() =>
-                  copyValue(
-                    invitationUrl,
-                    'Enlace copiado',
-                  )
-                }
-              >
-                <Link className="h-3 w-3" strokeWidth={2} />
-                Copiar enlace
-              </button>
-              {copyFeedback && (
-                <span
-                  className="text-[11px] font-medium text-accent"
-                  role="status"
+          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-border bg-surface/90 p-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-text">
+                <span className="font-medium text-text-h">Código de sala:</span>
+                <code className="rounded-lg border border-accent/30 bg-accent/5 px-2 py-1 text-[13px] font-semibold tracking-wider text-accent">
+                  {room.code}
+                </code>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-text-h transition-colors hover:border-accent hover:text-accent"
+                  onClick={() => copyValue(room.code, 'Código copiado')}
                 >
-                  {copyFeedback}
-                </span>
-              )}
-              <figure className="ml-auto flex shrink-0 flex-col items-center gap-1.5 rounded-xl border border-accent/30 bg-surface p-2" aria-label="Invitación por código QR">
-                <QRCodeSVG value={invitationUrl} size={144} level="M" marginSize={4} bgColor="#ffffff" fgColor="#000000" role="img" title={`Escanea para unirte a la sala ${room.code}`} />
-                <figcaption className="text-center text-[11px] font-semibold text-accent">Escanea para unirte</figcaption>
-              </figure>
+                  <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+                  Copiar código
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20"
+                  onClick={() => copyValue(invitationUrl, 'Enlace copiado')}
+                >
+                  <Link className="h-3.5 w-3.5" strokeWidth={2} />
+                  Copiar enlace
+                </button>
+                {copyFeedback && (
+                  <span className="text-[11px] font-medium text-accent" role="status">
+                    {copyFeedback}
+                  </span>
+                )}
+              </div>
             </div>
+            <figure className="flex shrink-0 flex-col items-center gap-1 rounded-xl border border-accent/30 bg-surface p-1.5" aria-label="Invitación por código QR">
+              <QRCodeSVG value={invitationUrl} size={104} level="M" marginSize={2} bgColor="#ffffff" fgColor="#000000" role="img" title={`Escanea para unirte a la sala ${room.code}`} />
+              <figcaption className="text-center text-[10px] font-semibold text-accent">Escanea para unirte</figcaption>
+            </figure>
           </div>
         </div>
 

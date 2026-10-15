@@ -1,0 +1,619 @@
+/*
+ * Estilos de la guía del Laberinto Verdadero o Falso (TrueFalseMazeGuide.tsx).
+ * Las ilustraciones son escenas animadas con CSS puro y los sprites reales del
+ * juego. Cada escena vive en un recuadro con `container-type: inline-size`,
+ * así que sus medidas están en `cqw` (1cqw = 1% del ancho del recuadro) y la
+ * escena se escala entera, sin romperse, en cualquier pantalla.
+ *
+ * El recuadro mide 100cqw de ancho x 62.5cqw de alto (relación 16:10), salvo
+ * la escena de movimiento (16:11, 68.75cqw de alto).
+ */
+
+.tfg-scene {
+  position: relative;
+  overflow: hidden;
+  container-type: inline-size;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(124, 58, 237, 0.28), transparent 60%),
+    radial-gradient(90% 80% at 100% 100%, rgba(6, 182, 212, 0.18), transparent 55%), #070a1a;
+  box-shadow: 0 24px 60px -28px rgba(124, 58, 237, 0.7);
+}
+
+.tfg-floor {
+  position: absolute;
+  inset: 0;
+  background-size: 17cqw;
+  background-position: center;
+  opacity: 0.5;
+}
+
+.tfg-floor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(90% 80% at 50% 45%, transparent 30%, rgba(4, 5, 13, 0.8)),
+    linear-gradient(rgba(7, 10, 26, 0.35), rgba(7, 10, 26, 0.35));
+}
+
+.tfg-abs {
+  position: absolute;
+}
+
+.tfg-sprite {
+  display: block;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* ------------------------------------------------------------ teclas */
+
+.tfg-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tfg-key, 2.6rem);
+  height: var(--tfg-key, 2.6rem);
+  border-radius: calc(var(--tfg-key, 2.6rem) * 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, #526077, #334155);
+  box-shadow:
+    0 calc(var(--tfg-key, 2.6rem) * 0.1) 0 #1b2536,
+    0 calc(var(--tfg-key, 2.6rem) * 0.2) calc(var(--tfg-key, 2.6rem) * 0.35) calc(var(--tfg-key, 2.6rem) * -0.12) rgba(0, 0, 0, 0.6);
+  color: #e2e8f0;
+  font-weight: 800;
+  font-size: calc(var(--tfg-key, 2.6rem) * 0.42);
+  line-height: 1;
+}
+
+.tfg-key--lit {
+  border-color: #67e8f9;
+  background: linear-gradient(180deg, #67e8f9, #0891b2);
+  color: #04202a;
+  box-shadow:
+    0 calc(var(--tfg-key, 2.6rem) * 0.04) 0 #0e5b6e,
+    0 0 calc(var(--tfg-key, 2.6rem) * 0.4) rgba(34, 211, 238, 0.85);
+  transform: translateY(calc(var(--tfg-key, 2.6rem) * 0.06));
+}
+
+.tfg-key-cluster {
+  display: grid;
+  grid-template-columns: repeat(3, var(--tfg-key, 2.6rem));
+  grid-template-rows: repeat(2, var(--tfg-key, 2.6rem));
+  gap: 0.4rem;
+}
+
+/* ------------------------------------------------------------ animaciones comunes */
+
+@keyframes tfg-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5%);
+  }
+}
+
+@keyframes tfg-pulse-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes tfg-step-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.tfg-step-in {
+  animation: tfg-step-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.tfg-float {
+  animation: tfg-float 3.2s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------ paso 2: movimiento (ciclo de 12 s) */
+
+@keyframes tfg-demo-walk {
+  0%,
+  6% {
+    transform: translateX(0);
+  }
+  28%,
+  50% {
+    transform: translateX(30cqw);
+  }
+  58%,
+  62% {
+    transform: translateX(0);
+  }
+  84%,
+  97% {
+    transform: translateX(-30cqw);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes tfg-face-down {
+  0%,
+  6% {
+    opacity: 1;
+  }
+  7%,
+  57% {
+    opacity: 0;
+  }
+  58%,
+  62% {
+    opacity: 1;
+  }
+  63%,
+  96% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes tfg-face-right {
+  0%,
+  6% {
+    opacity: 0;
+  }
+  7%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tfg-face-left {
+  0%,
+  49% {
+    opacity: 0;
+  }
+  50%,
+  57% {
+    opacity: 1;
+  }
+  58%,
+  62% {
+    opacity: 0;
+  }
+  63%,
+  96% {
+    opacity: 1;
+  }
+  97%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tfg-key-right {
+  0%,
+  6% {
+    transform: none;
+    background: linear-gradient(180deg, #526077, #334155);
+  }
+  7%,
+  27% {
+    border-color: #67e8f9;
+    background: linear-gradient(180deg, #67e8f9, #0891b2);
+    color: #04202a;
+    box-shadow:
+      0 calc(var(--tfg-key, 2.6rem) * 0.04) 0 #0e5b6e,
+      0 0 calc(var(--tfg-key, 2.6rem) * 0.4) rgba(34, 211, 238, 0.85);
+    transform: translateY(calc(var(--tfg-key, 2.6rem) * 0.06));
+  }
+  28%,
+  100% {
+    transform: none;
+    background: linear-gradient(180deg, #526077, #334155);
+  }
+}
+
+@keyframes tfg-key-left {
+  0%,
+  62% {
+    transform: none;
+    background: linear-gradient(180deg, #526077, #334155);
+  }
+  63%,
+  83% {
+    border-color: #67e8f9;
+    background: linear-gradient(180deg, #67e8f9, #0891b2);
+    color: #04202a;
+    box-shadow:
+      0 calc(var(--tfg-key, 2.6rem) * 0.04) 0 #0e5b6e,
+      0 0 calc(var(--tfg-key, 2.6rem) * 0.4) rgba(34, 211, 238, 0.85);
+    transform: translateY(calc(var(--tfg-key, 2.6rem) * 0.06));
+  }
+  84%,
+  100% {
+    transform: none;
+    background: linear-gradient(180deg, #526077, #334155);
+  }
+}
+
+@keyframes tfg-q-first {
+  0%,
+  52% {
+    opacity: 1;
+    transform: none;
+  }
+  54%,
+  100% {
+    opacity: 0;
+    transform: translateY(-30%);
+  }
+}
+
+@keyframes tfg-q-second {
+  0%,
+  54% {
+    opacity: 0;
+    transform: translateY(30%);
+  }
+  56%,
+  98% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tfg-pop-right {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translateY(30%) scale(0.5);
+  }
+  32%,
+  46% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50%,
+  100% {
+    opacity: 0;
+    transform: translateY(-40%) scale(1);
+  }
+}
+
+@keyframes tfg-pop-left {
+  0%,
+  84% {
+    opacity: 0;
+    transform: translateY(30%) scale(0.5);
+  }
+  88%,
+  96% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  99%,
+  100% {
+    opacity: 0;
+    transform: translateY(-40%) scale(1);
+  }
+}
+
+@keyframes tfg-zone-right-hit {
+  0%,
+  28% {
+    filter: none;
+  }
+  32%,
+  46% {
+    filter: brightness(1.45) drop-shadow(0 0 1.6cqw rgba(74, 222, 128, 0.95));
+  }
+  50%,
+  100% {
+    filter: none;
+  }
+}
+
+@keyframes tfg-zone-left-hit {
+  0%,
+  84% {
+    filter: none;
+  }
+  88%,
+  96% {
+    filter: brightness(1.45) drop-shadow(0 0 1.6cqw rgba(248, 113, 113, 0.95));
+  }
+  99%,
+  100% {
+    filter: none;
+  }
+}
+
+/* ------------------------------------------------------------ paso 3: medusa (ciclo de 6 s) */
+
+@keyframes tfg-chase {
+  0%,
+  24% {
+    transform: translateX(0);
+  }
+  44%,
+  58% {
+    transform: translateX(-27cqw);
+  }
+  78%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes tfg-hurt {
+  0%,
+  44% {
+    filter: none;
+    transform: none;
+  }
+  47%,
+  57% {
+    filter: drop-shadow(0 0 1.2cqw rgba(239, 68, 68, 1)) drop-shadow(0 0 2.6cqw rgba(239, 68, 68, 0.9)) saturate(1.5);
+    transform: translateX(-0.8cqw);
+  }
+  50%,
+  54% {
+    transform: translateX(0.8cqw);
+  }
+  60%,
+  100% {
+    filter: none;
+    transform: none;
+  }
+}
+
+@keyframes tfg-battery-lose {
+  0%,
+  45% {
+    color: #6ee7b7;
+    opacity: 1;
+    transform: none;
+  }
+  50%,
+  86% {
+    color: #475569;
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+  92%,
+  100% {
+    color: #6ee7b7;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tfg-warn {
+  0%,
+  44% {
+    opacity: 0;
+    transform: translateY(40%) scale(0.6);
+  }
+  50%,
+  72% {
+    opacity: 1;
+    transform: none;
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: translateY(-30%);
+  }
+}
+
+@keyframes tfg-danger-ring {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.1);
+  }
+}
+
+/* ------------------------------------------------------------ paso 4: núcleo (ciclo de 5 s) */
+
+@keyframes tfg-core-ring {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.15);
+  }
+  70% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes tfg-jelly-normal {
+  0%,
+  18% {
+    opacity: 1;
+  }
+  24%,
+  88% {
+    opacity: 0;
+  }
+  96%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes tfg-jelly-stunned {
+  0%,
+  18% {
+    opacity: 0;
+  }
+  24%,
+  88% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tfg-score-rise {
+  0%,
+  45% {
+    opacity: 0;
+    transform: translateY(40%) scale(0.6);
+  }
+  55%,
+  80% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  95%,
+  100% {
+    opacity: 0;
+    transform: translateY(-80%) scale(1);
+  }
+}
+
+@keyframes tfg-stars-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------ paso 5: tarjetas (ciclo de 5 s) */
+
+@keyframes tfg-vent-out {
+  0%,
+  8% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  28%,
+  100% {
+    opacity: 0;
+    transform: scale(0.1) translateY(40%);
+  }
+}
+
+@keyframes tfg-vent-in {
+  0%,
+  48% {
+    opacity: 0;
+    transform: scale(0.1) translateY(40%);
+  }
+  68%,
+  92% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes tfg-swap-a {
+  0%,
+  30% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  38% {
+    opacity: 0;
+  }
+  42%,
+  80% {
+    transform: translateX(var(--tfg-swap, 42cqw));
+    opacity: 1;
+  }
+  88% {
+    opacity: 0;
+  }
+  92%,
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes tfg-swap-b {
+  0%,
+  30% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  38% {
+    opacity: 0;
+  }
+  42%,
+  80% {
+    transform: translateX(calc(var(--tfg-swap, 42cqw) * -1));
+    opacity: 1;
+  }
+  88% {
+    opacity: 0;
+  }
+  92%,
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes tfg-spotlight {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes tfg-bounce-arrow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12%);
+  }
+}

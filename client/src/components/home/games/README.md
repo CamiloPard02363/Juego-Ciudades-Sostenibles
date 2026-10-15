@@ -72,7 +72,7 @@ Mongo, y su forma la garantiza el validador.
    - Validación en cliente que **espeje la del validador del backend**, para dar el error antes del
      viaje de red. El backend sigue siendo la autoridad.
    - Llama a `createGame(...)` con `gameType: '<TIPO>'`; el juego nace en `DRAFT`.
-   - Al terminar muestra `SaveVisibilityModal` para que el creador elija privado o publicado.
+   - Al terminar muestra `SaveVisibilityModal` para que el creador elija privado o publicado y redirige de inmediato al listado (`/comunidad` o `/mis-juegos` con `?justCreated=<id>&kind=<tipo>`), donde `JustCreatedFocus` (blur + nube anclada a la tarjeta, issue #2) hace de pantalla de éxito.
 
 8. **Tipo en el servicio**: agrega la variante correspondiente a la unión `CreateGameInput` en
    `client/src/services/game.service.ts`.

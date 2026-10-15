@@ -2,6 +2,8 @@ import { Archive, Gamepad2, Sparkles, User, Users } from 'lucide-react'
 import type { GameSummary } from '../../../services/game.service'
 import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
 import { modeColorForGameType } from './gameModeVisuals'
+import { useAuth } from '../../../hooks/useAuth'
+import { AdaptGameCornerButton } from './AdaptGameCornerButton'
 
 type GameCardProps = {
   game: GameSummary
@@ -24,7 +26,7 @@ type GameCardProps = {
    * true cuando este es el juego recién creado que redirigió aquí (issue
    * #218): pinta un resaltado temporal (glow) con una minisección "Este es
    * el juego que acabas de crear" + CTA para abrirlo. GamesSection controla
-   * cuándo desaparece (interacción o timeout), esta tarjeta solo pinta.
+   * cuándo desaparece (interacción o cierre de la nube, issue #2), esta tarjeta solo pinta.
    */
   justCreated?: boolean
   /** Se dispara al interactuar con el resaltado (click en la tarjeta o en el CTA), para apagarlo ya. */
@@ -40,7 +42,11 @@ export function GameCard({
   justCreated = false,
   onDismissJustCreated,
 }: GameCardProps) {
+  const { user } = useAuth()
   const accentColor = color ?? game.theme.primaryColor
+  // Adaptar (issue #8): cualquier juego publicado, o uno propio/de administrador.
+  const canAdapt =
+    game.status === 'PUBLISHED' || user?.role === 'ADMIN' || user?.id === game.creatorUserId
 
   function handleClick() {
     if (justCreated) onDismissJustCreated?.()
@@ -50,9 +56,11 @@ export function GameCard({
   const isMultiplayer = LIVE_ROOM_GAME_TYPES.includes(game.gameType)
   const modeColor = modeColorForGameType(game.gameType)
   return (
+    <div className="relative h-full min-w-0 w-full">
     <button
       type="button"
       onClick={handleClick}
+      data-just-created={justCreated ? 'true' : undefined}
       className={`group relative flex h-full min-w-0 w-full flex-col overflow-hidden rounded-2xl border bg-surface text-left shadow-[var(--shadow)] transition-transform hover:-translate-y-1 ${
         justCreated
           ? 'border-accent ring-2 ring-accent/60 shadow-[0_0_0_4px_rgba(var(--accent-rgb,59,130,246),0.15),0_0_28px_-4px_var(--accent)] animate-[glow-pulse_1.8s_ease-in-out_infinite]'
@@ -87,7 +95,7 @@ export function GameCard({
       </span>
       {isTypeArchived && (
         <span
-          className={`absolute right-2 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)] ${justCreated ? 'top-9' : 'top-2'}`}
+          className={`absolute right-12 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)] ${justCreated ? 'top-9' : 'top-2'}`}
           title="Este tipo de juego está archivado: solo lo ven los administradores y no admite juegos nuevos."
         >
           <Archive className="h-3 w-3" strokeWidth={2.5} />
@@ -136,5 +144,9 @@ export function GameCard({
         )}
       </div>
     </button>
+    {canAdapt && (
+      <AdaptGameCornerButton game={game} topClassName={justCreated ? 'top-9' : 'top-2'} />
+    )}
+    </div>
   )
 }
