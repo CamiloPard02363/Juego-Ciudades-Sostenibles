@@ -2,13 +2,20 @@ import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Hand, LogOut, PackageOpen, RotateCcw, SkipForward, Trophy } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Crosshair, Hand, LogOut, PackageOpen, RotateCcw, SkipForward, Trophy } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
 import type { DominoPlacedTileView, DominoTileView } from './dominoRoomTypes'
 import type { DominoVisualOrientation, Point } from './dominoChainLayout'
 import { DEFAULT_DOMINO_BOARD_RENDER_MODE, resolveDominoBoardPresentation } from './dominoBoardRenderMode'
+import {
+  dominoEndDropZoneFocus,
+  dominoBoardCameraTransform,
+  focusDominoBoardCamera,
+  resolveDominoLogicalViewport,
+  type DominoCameraDestination,
+} from './dominoBoardCamera'
 import { DealCountdownOverlay, TurnBanner, TurnPopBanner, useCountdown } from './MatchBoard'
 import { Modal } from './Modal'
 
@@ -54,6 +61,7 @@ function DominoRoomPageSession() {
   const [boardScale, setBoardScale] = useState(1)
   const [boardNeedsScroll, setBoardNeedsScroll] = useState(false)
   const [boardViewport, setBoardViewport] = useState({ width: 0, height: 0 })
+  const [cameraDestination, setCameraDestination] = useState<DominoCameraDestination>('opening')
   const [draggedTileId, setDraggedTileId] = useState<string | null>(null)
   const boardViewportRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
@@ -106,10 +114,22 @@ function DominoRoomPageSession() {
   const leftEnd = board[0]?.left
   const rightEnd = board[board.length - 1]?.right
   const hand: DominoTileView[] = self?.hand ?? []
+  const logicalBoardViewport = useMemo(() => resolveDominoLogicalViewport(boardViewport), [boardViewport])
   const boardPresentation = useMemo(
-    () => resolveDominoBoardPresentation(DEFAULT_DOMINO_BOARD_RENDER_MODE, board, boardViewport, room?.openingTileId),
-    [board, boardViewport, room?.openingTileId],
+    () => resolveDominoBoardPresentation(DEFAULT_DOMINO_BOARD_RENDER_MODE, board, logicalBoardViewport, room?.openingTileId),
+    [board, logicalBoardViewport, room?.openingTileId],
   )
+  const boardCamera = useMemo(() => {
+    if (boardPresentation.kind !== 'bidirectional') return null
+    const opening = boardPresentation.layout.tiles.find((tile) => tile.id === room?.openingTileId)
+    if (!opening) return null
+    const focus = cameraDestination === 'left'
+      ? dominoEndDropZoneFocus(boardPresentation.layout.leftEnd)
+      : cameraDestination === 'right'
+        ? dominoEndDropZoneFocus(boardPresentation.layout.rightEnd)
+        : { x: opening.x + opening.width / 2, y: opening.y + opening.height / 2 }
+    return focusDominoBoardCamera(boardViewport, logicalBoardViewport, focus)
+  }, [boardPresentation, boardViewport, cameraDestination, logicalBoardViewport, room?.openingTileId])
 
   function tileMatchesEnd(tile: DominoTileView, end: number | undefined): boolean {
     if (end === undefined) return true
@@ -310,6 +330,59 @@ function DominoRoomPageSession() {
                 </p>
               ) : boardPresentation.kind !== 'linear' ? (
                 <div className="domino-serpentine-stage">
+                  {boardPresentation.kind === 'bidirectional' && (
+                    <div className="domino-board-camera-controls" role="group" aria-label="Navegación del tablero virtual">
+                      <div className="domino-board-camera-controls__header">
+                        <span>Explorar tablero</span>
+                        <details className="domino-board-camera-help">
+                          <summary aria-label="Cómo explorar el tablero">Ayuda</summary>
+                          <p>Usa estos botones para recorrer el dominó. La vista seguirá el extremo que elijas.</p>
+                        </details>
+                      </div>
+                      <div className="domino-board-camera-controls__actions">
+                        <button
+                          type="button"
+                          className="domino-board-camera-control"
+                          aria-label="Ir al extremo A de la cadena"
+                          aria-pressed={cameraDestination === 'left'}
+                          onClick={() => setCameraDestination('left')}
+                        >
+                          <ChevronLeft aria-hidden="true" size={17} />
+                          <span>Extremo A</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="domino-board-camera-control"
+                          aria-label="Centrar en la ficha inicial"
+                          aria-pressed={cameraDestination === 'opening'}
+                          onClick={() => setCameraDestination('opening')}
+                        >
+                          <Crosshair aria-hidden="true" size={15} />
+                          <span>Inicio</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="domino-board-camera-control"
+                          aria-label="Ir al extremo B de la cadena"
+                          aria-pressed={cameraDestination === 'right'}
+                          onClick={() => setCameraDestination('right')}
+                        >
+                          <ChevronRight aria-hidden="true" size={17} />
+                          <span>Extremo B</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div
+                    className="domino-virtual-board-world"
+                    style={boardPresentation.kind === 'bidirectional' && boardCamera
+                      ? {
+                          width: logicalBoardViewport.width,
+                          height: logicalBoardViewport.height,
+                          transform: dominoBoardCameraTransform(boardCamera),
+                        }
+                      : undefined}
+                  >
                   {boardPresentation.layout.tiles.map((placement) => {
                     const placed = board[placement.index]
                     const visualOrientation = 'visualOrientation' in placement
@@ -345,6 +418,7 @@ function DominoRoomPageSession() {
                     visualPosition={{ x: boardPresentation.layout.rightEnd.x - 20, y: boardPresentation.layout.rightEnd.y - 34 }}
                     className="domino-serpentine-end"
                   />
+                  </div>
                 </div>
               ) : (
                 <div className={`domino-premium-chain-viewport flex min-h-[82px] w-full items-center ${boardNeedsScroll ? 'justify-start overflow-x-auto' : 'justify-center overflow-hidden'}`}>
