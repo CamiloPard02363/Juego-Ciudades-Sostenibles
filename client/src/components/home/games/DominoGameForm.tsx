@@ -13,6 +13,8 @@ import { CategorySelectField } from './create/CategorySelectField'
 import { useCreateGameProgress } from './create/CreateGameProgressContext'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
+import type { AdaptedGameDraft } from '../../../services/game-adaptation.service'
+import { useApplyAdaptation } from './useApplyAdaptation'
 import { createGame, publishGame } from '../../../services/game.service'
 import {
   listSubjects as listCategories,
@@ -70,6 +72,8 @@ const PHASES = [
 const TOTAL_PHASES = PHASES.length
 
 type DominoGameFormProps = {
+  /** Borrador de adaptación desde otro juego (issue #8); pre-llena el formulario al montar. */
+  adaptation?: AdaptedGameDraft
   onClose: () => void
   /**
    * Se dispara tras elegir visibilidad en SaveVisibilityModal, con el id del
@@ -91,7 +95,7 @@ export function DominoGameForm({
   onClose,
   onCreated,
   onBack,
-  onCategoryCreated,
+  onCategoryCreated, adaptation,
 }: DominoGameFormProps) {
   const { token } = useAuth()
   const { showToast } = useToast()
@@ -136,6 +140,14 @@ export function DominoGameForm({
         console.error('No se pudieron cargar las organizaciones del usuario:', err)
       })
   }, [token])
+
+  useApplyAdaptation(adaptation, (adapted) => {
+    setTitle(adapted.title)
+    setDescription(adapted.description)
+    setCoverImageUrl(adapted.theme.coverImageUrl)
+    setCategoryId(adapted.categoryId)
+    applyAiDraft(adapted)
+  })
 
   function applyAiDraft(draft: GameDraft) {
     const items = Array.isArray(draft.content) ? draft.content : []
@@ -252,6 +264,7 @@ export function DominoGameForm({
         title: title.trim(),
         description: description.trim(),
         gameType: 'DOMINO',
+        sourceGameId: adaptation?.sourceGameId ?? undefined,
         categoryId,
         organizationId: organizationId || undefined,
         theme: coverImageUrl ? { coverImageUrl } : undefined,

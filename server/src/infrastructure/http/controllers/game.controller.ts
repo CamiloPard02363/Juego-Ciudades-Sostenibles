@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { AdaptGameUseCase } from '../../../application/use-cases/adapt-game.use-case.js';
 import { CreateGameUseCase } from '../../../application/use-cases/create-game.use-case.js';
 import { GetGameByIdUseCase } from '../../../application/use-cases/get-game-by-id.use-case.js';
 import { GetGameBySlugUseCase } from '../../../application/use-cases/get-game-by-slug.use-case.js';
@@ -26,6 +27,7 @@ import { CreateGameDto } from '../dtos/create-game.dto.js';
 import { UpdateGameDto } from '../dtos/update-game.dto.js';
 import { ListGamesQueryDto } from '../dtos/list-games-query.dto.js';
 import { DonateGameDto } from '../dtos/donate-game.dto.js';
+import { AdaptGameDto } from '../dtos/adapt-game.dto.js';
 
 @Controller('games')
 @UseGuards(JwtAuthGuard)
@@ -40,6 +42,7 @@ export class GameController {
     private readonly unpublishGameUseCase: UnpublishGameUseCase,
     private readonly deleteGameUseCase: DeleteGameUseCase,
     private readonly donateGameUseCase: DonateGameToOrganizationUseCase,
+    private readonly adaptGameUseCase: AdaptGameUseCase,
   ) {}
 
   @Post()
@@ -92,6 +95,25 @@ export class GameController {
   @Patch(':id/unpublish')
   unpublish(@CurrentUserId() requestingUserId: string, @Param('id') gameId: string) {
     return this.unpublishGameUseCase.execute({ gameId, requestingUserId });
+  }
+
+  /**
+   * Arma un borrador del mismo tema en otro tipo de juego (issue #8). No
+   * guarda nada: el cliente lo revisa y lo crea con `POST /games`.
+   */
+  @Post(':id/adapt')
+  @HttpCode(HttpStatus.OK)
+  adapt(
+    @CurrentUserId() requestingUserId: string,
+    @Param('id') gameId: string,
+    @Body() dto: AdaptGameDto,
+  ) {
+    return this.adaptGameUseCase.execute({
+      gameId,
+      requestingUserId,
+      targetType: dto.targetType,
+      mode: dto.mode,
+    });
   }
 
   /** Dona un juego personal a una organización. `creatorUserId` no cambia. */

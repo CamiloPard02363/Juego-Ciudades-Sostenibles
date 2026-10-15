@@ -41,6 +41,13 @@ export interface GenerateGameDraftInput {
    * borrador con lo que haya.
    */
   files: SourceFile[];
+  /**
+   * Texto fuente ya extraído, que se suma al de los archivos. Lo usa la
+   * adaptación de un juego existente a otro tipo (issue #8): el contenido del
+   * juego origen entra como fuente en vez de un archivo. Cuenta como fuente
+   * suficiente, igual que `files` o `message`.
+   */
+  sourceText?: string;
 }
 
 export interface GenerateGameDraftOutput {
@@ -150,7 +157,8 @@ export class GenerateGameDraftUseCase
     // Nunca es obligatorio adjuntar un archivo (issues #234/#238), pero sí
     // hace falta UNA de las dos fuentes: archivos o mensaje.
     const message = input.message?.trim() || undefined;
-    if (input.files.length === 0 && !message) {
+    const extraSourceText = input.sourceText?.trim() || undefined;
+    if (input.files.length === 0 && !message && !extraSourceText) {
       throw new InvalidGameContentError(
         spec.imageRequirement
           ? 'sube tus imágenes o escribe el tema para generar el juego.'
@@ -159,8 +167,8 @@ export class GenerateGameDraftUseCase
     }
 
     return spec.imageRequirement
-      ? this.executeWithContentImages(gameType.getName(), input.mode, spec, input.files, message)
-      : this.executeTextOnly(gameType.getName(), input.mode, spec, input.files, message);
+      ? this.executeWithContentImages(gameType.getName(), input.mode, spec, input.files, message, extraSourceText)
+      : this.executeTextOnly(gameType.getName(), input.mode, spec, input.files, message, extraSourceText);
   }
 
   /**
@@ -175,8 +183,9 @@ export class GenerateGameDraftUseCase
     spec: GamePromptSpec,
     files: SourceFile[],
     message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
-    const extraction = await this.extractText(files);
+    const extraction = await this.extractText(files, extraSourceText);
     if (!extraction.text.trim() && !message) {
       throw new InvalidGameContentError(unreadableFilesReason(files));
     }
@@ -202,6 +211,7 @@ export class GenerateGameDraftUseCase
     spec: GamePromptSpec,
     files: SourceFile[],
     message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
     const { min, max, enforceMinimum } = spec.imageRequirement!;
     const directImageFiles = files.filter((file) => file.mimeType.startsWith('image/'));
@@ -227,7 +237,7 @@ export class GenerateGameDraftUseCase
     if (imageFiles.length === 0) {
       // Sin ninguna imagen del usuario: la IA arma el contenido con el tema
       // (mensaje y/o documentos de texto) y consigue o crea las imágenes.
-      return this.executeWithoutUserImages(gameTypeName, mode, spec, documentFiles, message);
+      return this.executeWithoutUserImages(gameTypeName, mode, spec, documentFiles, message, extraSourceText);
     }
     if (enforceMinimum !== false && imageFiles.length < min) {
       throw new InvalidGameContentError(
@@ -240,7 +250,7 @@ export class GenerateGameDraftUseCase
 
     const [described, extraction] = await Promise.all([
       this.fileTextExtractor.describeImages(imageFiles),
-      this.extractText(documentFiles),
+      this.extractText(documentFiles, extraSourceText),
     ]);
 
     const unreadableImages = described.filter((image) => !image.ok).length;
@@ -298,8 +308,9 @@ export class GenerateGameDraftUseCase
     spec: GamePromptSpec,
     documentFiles: SourceFile[],
     message: string | undefined,
+    extraSourceText?: string,
   ): Promise<GenerateGameDraftOutput> {
-    const extraction = await this.extractText(documentFiles);
+    const extraction = await this.extractText(documentFiles, extraSourceText);
     if (!extraction.text.trim() && !message) {
       throw new InvalidGameContentError(
         documentFiles.length > 0
@@ -354,8 +365,10 @@ export class GenerateGameDraftUseCase
     }
   }
 
-  private async extractText(files: SourceFile[]): Promise<TextExtraction> {
-    return files.length > 0 ? this.fileTextExtractor.extractAllDetailed(files) : { text: '', unreadable: [] };
+  private async extractText(files: SourceFile[], extraSourceText?: string): Promise<TextExtraction> {
+    const extraction =
+      files.length > 0 ? await this.fileTextExtractor.extractAllDetailed(files) : { text: '', unreadable: [] };
+    return { ...extraction, text: joinSourceTexts(extraction.text, extraSourceText) };
   }
 
   /**
@@ -408,6 +421,14 @@ export class GenerateGameDraftUseCase
     const validatedContent = validator.validateContent(content, validatedConfig, { isDraft: true });
     return { config: validatedConfig, content: validatedContent };
   }
+}
+
+/** Une el texto extraído de archivos con el texto fuente adicional, sin vacíos. */
+function joinSourceTexts(...parts: Array<string | undefined>): string {
+  return parts
+    .map((part) => part?.trim() ?? '')
+    .filter((part) => part.length > 0)
+    .join('\n\n');
 }
 
 /**

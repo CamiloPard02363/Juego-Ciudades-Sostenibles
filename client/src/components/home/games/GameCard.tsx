@@ -2,6 +2,8 @@ import { Archive, Gamepad2, Sparkles, User, Users } from 'lucide-react'
 import type { GameSummary } from '../../../services/game.service'
 import { LIVE_ROOM_GAME_TYPES } from './resolveRoomCode'
 import { modeColorForGameType } from './gameModeVisuals'
+import { useAuth } from '../../../hooks/useAuth'
+import { AdaptGameCornerButton } from './AdaptGameCornerButton'
 
 type GameCardProps = {
   game: GameSummary
@@ -40,7 +42,11 @@ export function GameCard({
   justCreated = false,
   onDismissJustCreated,
 }: GameCardProps) {
+  const { user } = useAuth()
   const accentColor = color ?? game.theme.primaryColor
+  // Adaptar (issue #8): cualquier juego publicado, o uno propio/de administrador.
+  const canAdapt =
+    game.status === 'PUBLISHED' || user?.role === 'ADMIN' || user?.id === game.creatorUserId
 
   function handleClick() {
     if (justCreated) onDismissJustCreated?.()
@@ -50,6 +56,7 @@ export function GameCard({
   const isMultiplayer = LIVE_ROOM_GAME_TYPES.includes(game.gameType)
   const modeColor = modeColorForGameType(game.gameType)
   return (
+    <div className="relative h-full min-w-0 w-full">
     <button
       type="button"
       onClick={handleClick}
@@ -88,7 +95,7 @@ export function GameCard({
       </span>
       {isTypeArchived && (
         <span
-          className={`absolute right-2 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)] ${justCreated ? 'top-9' : 'top-2'}`}
+          className={`absolute right-12 z-10 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[10.5px] font-medium text-text shadow-[var(--shadow)] ${justCreated ? 'top-9' : 'top-2'}`}
           title="Este tipo de juego está archivado: solo lo ven los administradores y no admite juegos nuevos."
         >
           <Archive className="h-3 w-3" strokeWidth={2.5} />
@@ -137,5 +144,9 @@ export function GameCard({
         )}
       </div>
     </button>
+    {canAdapt && (
+      <AdaptGameCornerButton game={game} topClassName={justCreated ? 'top-9' : 'top-2'} />
+    )}
+    </div>
   )
 }

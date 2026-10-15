@@ -5,6 +5,8 @@ import { listMyOrganizations, type OrganizationWithMyRole } from '../../../servi
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { ApiError } from '../../../utils/http'
+import { AdaptGameModal } from './AdaptGameModal'
+import { AiSparklesIcon } from './AiSparklesIcon'
 import { ImageUploadField } from './ImageUploadField'
 import { Modal } from './Modal'
 import { resolveRoomCode, LIVE_ROOM_GAME_TYPES, type ResolvedRoom } from './resolveRoomCode'
@@ -58,6 +60,7 @@ export function GameDetailModal({
   const joinHeading = isGuessWho ? 'Únete a una partida ya creada' : '¿Ya tienes un código de sala de este juego?'
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
+  const [adapting, setAdapting] = useState(false)
   const [editingTheme, setEditingTheme] = useState(false)
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(game.theme.coverImageUrl ?? null)
   const [savingTheme, setSavingTheme] = useState(false)
@@ -76,6 +79,8 @@ export function GameDetailModal({
   // dashboard, no desde acá).
   const isCreator = Boolean(user && game.creatorUserId === user.id)
   const canDonate = isCreator && !game.organizationId
+  // Issue #8: cualquier juego publicado, o uno propio/administrable aunque sea borrador.
+  const canAdapt = game.status === 'PUBLISHED' || isCreator || isAdmin
   const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
   const [donateOrgId, setDonateOrgId] = useState('')
   const [donating, setDonating] = useState(false)
@@ -198,6 +203,7 @@ export function GameDetailModal({
   }
 
   return (
+    <>
     <Modal onClose={onClose} fitContent maxHeightClassName="max-h-[calc(100dvh-40px)]">
       <div
         className={`mb-4 flex items-center justify-center rounded-xl text-4xl ${game.theme.coverImageUrl ? 'h-28' : 'h-14'}`}
@@ -505,6 +511,17 @@ export function GameDetailModal({
             </div>
           )}
 
+          {canAdapt && (
+            <button
+              type="button"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent/50 px-3.5 py-2.5 text-[13px] font-semibold text-accent transition-colors hover:bg-accent/10"
+              onClick={() => setAdapting(true)}
+            >
+              <AiSparklesIcon className="h-4 w-4" />
+              Adaptar a otro tipo de juego
+            </button>
+          )}
+
           {/* Donar a una organización: solo el creador de un juego personal
               que sea miembro de alguna organización (ver canDonate arriba). */}
           {canDonate && organizations.length > 0 && (
@@ -543,5 +560,7 @@ export function GameDetailModal({
         </div>
       )}
     </Modal>
+    {adapting && <AdaptGameModal game={game} onClose={() => setAdapting(false)} />}
+    </>
   )
 }

@@ -16,6 +16,7 @@ import {
   type OrganizationRepository,
 } from '../../domain/ports/organization.repository.port.js';
 import {
+  GameNotFoundError,
   GameSlugAlreadyTakenError,
   NotAnOrganizationMemberError,
   OrganizationNotFoundError,
@@ -30,6 +31,8 @@ export interface BuildGameInput {
   gameType: string;
   categoryId: string;
   organizationId?: string | null;
+  /** Juego del que se adapta este (issue #8); debe existir. */
+  sourceGameId?: string | null;
   slug?: string;
   theme?: { primaryColor?: string; coverImageUrl?: string | null };
   config?: unknown;
@@ -60,6 +63,13 @@ export class GameFactoryService {
   async build(input: BuildGameInput): Promise<Game> {
     if (input.organizationId) {
       await this.assertIsMemberOf(input.organizationId, input.creatorUserId);
+    }
+
+    if (input.sourceGameId) {
+      const source = await this.gameRepository.findById(input.sourceGameId);
+      if (!source) {
+        throw new GameNotFoundError(input.sourceGameId);
+      }
     }
 
     const gameType = GameType.create(input.gameType);
@@ -105,6 +115,7 @@ export class GameFactoryService {
       categoryId: input.categoryId,
       creatorUserId: input.creatorUserId,
       organizationId: input.organizationId ?? null,
+      sourceGameId: input.sourceGameId ?? null,
       config,
       content,
     });

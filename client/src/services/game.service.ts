@@ -17,6 +17,8 @@ export type GameSummary = {
   creatorUserId: string
   /** `null` = juego personal; con valor = institucional de esa organización. */
   organizationId: string | null
+  /** Juego del que se adaptó este (issue #8); `null` si se creó desde cero. */
+  sourceGameId: string | null
   /** Solo viene en el listado de "Comunidad". */
   creatorDisplayName?: string
   createdAt: string
@@ -145,7 +147,7 @@ export type TrueFalseMazeQuestionInput = {
   explanation?: string
 }
 
-export type CreateGameInput =
+type CreateGameInputBase =
   | {
       title: string
       description: string
@@ -250,6 +252,11 @@ export type CreateGameInput =
       }
       content: TrueFalseMazeQuestionInput[]
     }
+
+export type CreateGameInput = CreateGameInputBase & {
+  /** Juego del que se adaptó este (issue #8); solo trazabilidad. */
+  sourceGameId?: string | null
+}
 
 /** POST /games — crea un juego en estado DRAFT. Cualquier usuario autenticado puede llamarlo. */
 export function createGame(token: string, input: CreateGameInput): Promise<GameDetail> {
