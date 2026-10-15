@@ -36,6 +36,30 @@ function expectLayout(board: DominoChainTile[], openingTileId = 'opening', size 
   return result
 }
 
+function pointDistance(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.hypot(a.x - b.x, a.y - b.y)
+}
+
+function rectangleGap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
+  const horizontal = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), 0)
+  const vertical = Math.max(a.y - (b.y + b.height), b.y - (a.y + a.height), 0)
+  return { horizontal, vertical, distance: Math.hypot(horizontal, vertical) }
+}
+
+function expectPhysicalTurns(result: NonNullable<ReturnType<typeof expectLayout>>) {
+  result.connections.forEach((connection) => {
+    const from = result.tiles[connection.fromIndex]
+    const to = result.tiles[connection.toIndex]
+    const orthogonal = (from.flowDirection === 'left' || from.flowDirection === 'right')
+      !== (to.flowDirection === 'left' || to.flowDirection === 'right')
+    if (!orthogonal) return
+
+    expect(pointDistance(from.exit, to.entry)).toBeCloseTo(DOMINO_LAYOUT.tileGap)
+    const gap = rectangleGap(from, to)
+    expect(gap.distance).toBeCloseTo(DOMINO_LAYOUT.tileGap)
+  })
+}
+
 describe('layoutBidirectionalDominoChain', () => {
   it('fija la ficha inicial real en el centro con una sola ficha', () => {
     const result = expectLayout(chain(1, 0))
@@ -74,6 +98,36 @@ describe('layoutBidirectionalDominoChain', () => {
     const rightFlows = result.tiles.slice(11).map((tile) => tile.flowDirection)
     expect(leftFlows).toContain('up')
     expect(rightFlows).toContain('down')
+  })
+
+  it('conecta físicamente los giros hacia arriba y abajo con fichas normales', () => {
+    const result = expectLayout(chain(21, 10), 'opening', { width: 1560, height: 824 })
+    if (!result) return
+    expectPhysicalTurns(result)
+  })
+
+  it('conecta físicamente los giros cuando la ficha de giro es doble', () => {
+    const result = expectLayout(chain(21, 10, new Set(Array.from({ length: 21 }, (_, index) => index))), 'opening', { width: 1560, height: 824 })
+    if (!result) return
+    expect(result.tiles.filter((tile) => tile.flowDirection === 'up' || tile.flowDirection === 'down')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ visualOrientation: 'double-horizontal' }),
+    ]))
+    expectPhysicalTurns(result)
+  })
+
+  it.each([
+    [{ width: 1560, height: 824 }, 7, true],
+    [{ width: 1560, height: 824 }, 14, true],
+    [{ width: 1560, height: 824 }, 21, true],
+    [{ width: 1560, height: 824 }, 28, false],
+    [{ width: 1400, height: 700 }, 7, true],
+    [{ width: 1400, height: 700 }, 14, true],
+    [{ width: 1400, height: 700 }, 21, true],
+    [{ width: 1400, height: 700 }, 28, false],
+  ])('mantiene la capacidad esperada en el mundo %o con %i fichas', (size, count, expectedViable) => {
+    const result = layoutBidirectionalDominoChain(chain(count, Math.floor(count / 2)), size, 'opening')
+    expect(result.viable).toBe(expectedViable)
+    if (result.viable) expectPhysicalTurns(result)
   })
 
   it('gira antes del borde cuando ambas rutas necesitan otra fila', () => {

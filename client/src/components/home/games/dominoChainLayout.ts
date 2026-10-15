@@ -264,6 +264,7 @@ type RoutePlacement = {
   placement: BidirectionalDominoTilePlacement
   inward: Point
   outward: Point
+  rail?: 'top' | 'bottom'
 }
 
 type RouteSide = 'left' | 'right'
@@ -354,9 +355,9 @@ export function layoutBidirectionalDominoChain(
     const route: RoutePlacement[] = []
     let flowDirection: DominoFlowDirection = side
     let cursor = side === 'left' ? anchor.x - tileGap : anchor.x + anchor.width + tileGap
-    let rowCenter = viewport.height / 2
-    let rowTop = anchor.y
-    let rowBottom = anchor.y + anchor.height
+    let horizontalRail: 'top' | 'bottom' = side === 'left' ? 'top' : 'bottom'
+    let rowTop = side === 'left' ? anchor.y : anchor.y + anchor.height - DOMINO_LAYOUT.doubleVertical.height
+    let rowBottom = side === 'left' ? anchor.y + DOMINO_LAYOUT.doubleVertical.height : anchor.y + anchor.height
     let rowStartCursor = cursor
 
     for (let routeIndex = 0; routeIndex < indexes.length; routeIndex += 1) {
@@ -365,24 +366,23 @@ export function layoutBidirectionalDominoChain(
       let visual = visualDimensions(tile, flowDirection)
       const horizontalFlow = flowDirection === 'left' || flowDirection === 'right'
       let x = horizontalFlow && flowDirection === 'left' ? cursor - visual.width : cursor
-      let y = horizontalFlow ? rowCenter - visual.height / 2 : rowCenter - visual.height / 2
+      let y = horizontalRail === 'top' ? rowTop : rowBottom - visual.height
       const fits = horizontalFlow && x >= usableLeft && x + visual.width <= usableRight
       const turnDirection: DominoFlowDirection = side === 'left' ? 'up' : 'down'
       const turnVisual = visualDimensions(tile, turnDirection)
       const rowCapacity = flowDirection === 'left' ? rowStartCursor - usableLeft : usableRight - rowStartCursor
       const rowUsageAfterTile = Math.abs(cursor - rowStartCursor) + visual.width + tileGap
       const reachesCompositionThreshold = rowUsageAfterTile > rowCapacity * DOMINO_LAYOUT.bidirectionalTurnRatio
-      const turnBoundary = flowDirection === 'left' ? cursor + tileGap : cursor - tileGap
+      const previous = route.at(-1)?.placement ?? anchor
+      const turnBoundary = flowDirection === 'left' ? previous.x : previous.x + previous.width
       const turnX = turnBoundary - turnVisual.width / 2
-      const turnY = turnDirection === 'up' ? rowTop - tileGap - turnVisual.height : rowBottom + tileGap
+      const turnY = turnDirection === 'up' ? previous.y - tileGap - turnVisual.height : previous.y + previous.height + tileGap
       const nextFlowDirection: DominoFlowDirection = flowDirection === 'left' ? 'right' : 'left'
       const nextLaneHeight = Math.max(DOMINO_LAYOUT.normal.height, DOMINO_LAYOUT.doubleVertical.height)
-      const nextRowCenter = turnDirection === 'up'
-        ? turnY - tileGap - nextLaneHeight / 2
-        : turnY + turnVisual.height + tileGap + nextLaneHeight / 2
-      const nextCursor = nextFlowDirection === 'right'
-        ? turnX + turnVisual.width / 2 + tileGap
-        : turnX + turnVisual.width / 2 - tileGap
+      const nextHorizontalRail: 'top' | 'bottom' = turnDirection === 'up' ? 'bottom' : 'top'
+      const nextRowBottom = turnDirection === 'up' ? turnY - tileGap : turnY + turnVisual.height + tileGap + nextLaneHeight
+      const nextRowTop = turnDirection === 'up' ? nextRowBottom - nextLaneHeight : turnY + turnVisual.height + tileGap
+      const nextCursor = turnX + turnVisual.width / 2
       const turnPrototype: DominoTilePlacement = {
         id: tile.id, index, x: turnX, y: turnY, width: turnVisual.width, height: turnVisual.height,
         orientation: turnVisual.orientation, entry: { x: 0, y: 0 }, exit: { x: 0, y: 0 },
@@ -398,7 +398,7 @@ export function layoutBidirectionalDominoChain(
         const continuationX = nextFlowDirection === 'right' ? nextCursor : nextCursor - continuationVisual.width
         return {
           id: 'reserved-continuation', index: -1, x: continuationX,
-          y: nextRowCenter - continuationVisual.height / 2,
+          y: nextHorizontalRail === 'top' ? nextRowTop : nextRowBottom - continuationVisual.height,
           width: continuationVisual.width, height: continuationVisual.height,
           orientation: continuationVisual.orientation, entry: { x: 0, y: 0 }, exit: { x: 0, y: 0 },
         } satisfies DominoTilePlacement
@@ -425,16 +425,16 @@ export function layoutBidirectionalDominoChain(
           return { viable: false, reason: continuationExceedsHeight ? 'insufficient-height' : 'collision' }
         }
         visual = turnVisual
-        const boundary = flowDirection === 'left' ? cursor + tileGap : cursor - tileGap
+        const boundary = flowDirection === 'left' ? previous.x : previous.x + previous.width
         x = boundary - visual.width / 2
-        y = turnDirection === 'up' ? rowTop - tileGap - visual.height : rowBottom + tileGap
+        y = turnDirection === 'up' ? previous.y - tileGap - visual.height : previous.y + previous.height + tileGap
         if (x < margin || x + visual.width > viewport.width - margin || y < margin || y + visual.height > viewport.height - margin) {
           // El giro anticipado es opcional: si no hay altura o el carril se
           // cruza, se conserva el tramo actual mientras la ficha siga cabiendo.
           if (shouldTurnEarly) {
             visual = visualDimensions(tile, flowDirection)
             x = flowDirection === 'left' ? cursor - visual.width : cursor
-            y = rowCenter - visual.height / 2
+            y = horizontalRail === 'top' ? rowTop : rowBottom - visual.height
           } else {
             return { viable: false, reason: 'insufficient-height' }
           }
@@ -445,7 +445,7 @@ export function layoutBidirectionalDominoChain(
         }, other))) {
           visual = visualDimensions(tile, flowDirection)
           x = flowDirection === 'left' ? cursor - visual.width : cursor
-          y = rowCenter - visual.height / 2
+          y = horizontalRail === 'top' ? rowTop : rowBottom - visual.height
         } else if (shouldTurnEarly || !fits) {
           const inward = pointAtFlowEdge(x, y, visual.width, visual.height, turnDirection, false)
           const outward = pointAtFlowEdge(x, y, visual.width, visual.height, turnDirection, true)
@@ -458,10 +458,10 @@ export function layoutBidirectionalDominoChain(
           allPlacements.push(placement)
           route.push({ placement, inward, outward })
           flowDirection = flowDirection === 'left' ? 'right' : 'left'
-          rowCenter = nextRowCenter
-          rowTop = rowCenter - nextLaneHeight / 2
-          rowBottom = rowCenter + nextLaneHeight / 2
-          cursor = flowDirection === 'right' ? x + visual.width / 2 + tileGap : x + visual.width / 2 - tileGap
+          horizontalRail = nextHorizontalRail
+          rowTop = nextRowTop
+          rowBottom = nextRowBottom
+          cursor = x + visual.width / 2
           rowStartCursor = cursor
           continue
         }
@@ -478,9 +478,7 @@ export function layoutBidirectionalDominoChain(
         return { viable: false, reason: 'collision' }
       }
       allPlacements.push(placement)
-      route.push({ placement, inward, outward })
-      rowTop = Math.min(rowTop, y)
-      rowBottom = Math.max(rowBottom, y + visual.height)
+      route.push({ placement, inward, outward, rail: horizontalRail })
       cursor = flowDirection === 'left' ? x - tileGap : x + visual.width + tileGap
     }
     return route
@@ -493,24 +491,60 @@ export function layoutBidirectionalDominoChain(
 
   const tiles = Array<BidirectionalDominoTilePlacement>(board.length)
   tiles[openingIndex] = anchor
+  const horizontalRails = new Map<number, 'top' | 'bottom'>()
   for (const item of leftRoute) {
     // En el lado izquierdo, el extremo lógico hacia el ancla es la salida.
     item.placement.entry = item.outward
     item.placement.exit = item.inward
     tiles[item.placement.index] = item.placement
+    if (item.rail) horizontalRails.set(item.placement.index, item.rail)
   }
   for (const item of rightRoute) {
     item.placement.entry = item.inward
     item.placement.exit = item.outward
     tiles[item.placement.index] = item.placement
+    if (item.rail) horizontalRails.set(item.placement.index, item.rail)
   }
 
-  const connections = tiles.slice(0, -1).map((tile, index) => ({
-    fromIndex: index,
-    toIndex: index + 1,
-    points: [tile.exit, tiles[index + 1].entry],
-    kind: tile.flowDirection === 'up' || tile.flowDirection === 'down' || tiles[index + 1].flowDirection === 'up' || tiles[index + 1].flowDirection === 'down' ? 'turn' as const : 'straight' as const,
-  }))
+  const isHorizontal = (tile: BidirectionalDominoTilePlacement) => tile.flowDirection === 'left' || tile.flowDirection === 'right'
+  const center = (tile: BidirectionalDominoTilePlacement) => ({ x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 })
+  const railFor = (fromIndex: number, toIndex: number): 'top' | 'bottom' => {
+    if (fromIndex < openingIndex) return horizontalRails.get(fromIndex) ?? 'top'
+    if (toIndex > openingIndex) return horizontalRails.get(toIndex) ?? 'bottom'
+    return fromIndex === openingIndex ? 'bottom' : 'top'
+  }
+  const connections = tiles.slice(0, -1).map((tile, index) => {
+    const next = tiles[index + 1]
+    const fromHorizontal = isHorizontal(tile)
+    const toHorizontal = isHorizontal(next)
+    const fromCenter = center(tile)
+    const toCenter = center(next)
+
+    if (fromHorizontal && toHorizontal) {
+      const rail = railFor(index, index + 1)
+      const y = rail === 'top' ? Math.max(tile.y, next.y) : Math.min(tile.y + tile.height, next.y + next.height)
+      const toRight = toCenter.x >= fromCenter.x
+      tile.exit = { x: toRight ? tile.x + tile.width : tile.x, y }
+      next.entry = { x: toRight ? next.x : next.x + next.width, y }
+    } else if (fromHorizontal) {
+      const toBelow = toCenter.y >= fromCenter.y
+      const toRight = toCenter.x >= fromCenter.x
+      tile.exit = { x: toRight ? tile.x + tile.width : tile.x, y: toBelow ? tile.y + tile.height : tile.y }
+      next.entry = { x: toCenter.x, y: toBelow ? next.y : next.y + next.height }
+    } else if (toHorizontal) {
+      const toBelow = toCenter.y >= fromCenter.y
+      const toRight = toCenter.x >= fromCenter.x
+      tile.exit = { x: fromCenter.x, y: toBelow ? tile.y + tile.height : tile.y }
+      next.entry = { x: toRight ? next.x : next.x + next.width, y: toBelow ? next.y : next.y + next.height }
+    }
+
+    return {
+      fromIndex: index,
+      toIndex: index + 1,
+      points: [tile.exit, next.entry],
+      kind: !fromHorizontal || !toHorizontal ? 'turn' as const : 'straight' as const,
+    }
+  })
   const minX = Math.min(...tiles.map((tile) => tile.x))
   const minY = Math.min(...tiles.map((tile) => tile.y))
   const maxX = Math.max(...tiles.map((tile) => tile.x + tile.width))
