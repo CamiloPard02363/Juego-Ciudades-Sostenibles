@@ -5,7 +5,6 @@ import { Sidebar } from './Sidebar'
 import { SearchBar } from './SearchBar'
 import { ProfileMenu } from './ProfileMenu'
 import { SettingsButton } from './SettingsButton'
-import { AdaptGameLauncher } from './AdaptGameLauncher'
 import { ThemeToggle } from '../ThemeToggle'
 import { SettingsPanel } from './SettingsPanel'
 import { trackEvent } from '../../services/analytics.service'
@@ -72,7 +71,6 @@ export function HomeLayout() {
           <SearchBar value={searchInput} onChange={setSearchInput} onSearch={handleSearch} />
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <WelcomeTour key={`${user.id}:${user.role}`} user={user} canAccessOrganization={canAccessOrganization || canManageUsers} />
-            <AdaptGameLauncher />
             <ThemeToggle />
             <SettingsButton onClick={() => setSettingsOpen(true)} />
             <ProfileMenu user={user} onSignOut={signOut} />

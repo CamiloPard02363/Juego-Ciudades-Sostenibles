@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Archive, Globe2, Image, Layers, Lock, Settings, Trash2 } from 'lucide-react'
+import { Archive, Globe2, Image, Lock, Settings, Trash2 } from 'lucide-react'
 import { donateGame, publishGame, updateGame, type GameDetail } from '../../../services/game.service'
 import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import { ApiError } from '../../../utils/http'
-import { AdaptGameModal } from './AdaptGameModal'
-import { AiSparklesIcon } from './AiSparklesIcon'
 import { ImageUploadField } from './ImageUploadField'
 import { Modal } from './Modal'
 import { resolveRoomCode, LIVE_ROOM_GAME_TYPES, type ResolvedRoom } from './resolveRoomCode'
@@ -60,7 +58,6 @@ export function GameDetailModal({
   const joinHeading = isGuessWho ? 'Únete a una partida ya creada' : '¿Ya tienes un código de sala de este juego?'
   const [confirming, setConfirming] = useState(false)
   const [editingConfig, setEditingConfig] = useState(false)
-  const [adapting, setAdapting] = useState(false)
   const [editingTheme, setEditingTheme] = useState(false)
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(game.theme.coverImageUrl ?? null)
   const [savingTheme, setSavingTheme] = useState(false)
@@ -78,8 +75,6 @@ export function GameDetailModal({
   // DonateGameToOrganizationUseCase — el ADMIN de organización dona desde el
   // dashboard, no desde acá).
   const isCreator = Boolean(user && game.creatorUserId === user.id)
-  // Issue #8: cualquier juego publicado, o uno propio/administrable aunque sea borrador.
-  const canAdapt = game.status === 'PUBLISHED' || isCreator || isAdmin
   const canDonate = isCreator && !game.organizationId
   const [organizations, setOrganizations] = useState<OrganizationWithMyRole[]>([])
   const [donateOrgId, setDonateOrgId] = useState('')
@@ -203,10 +198,9 @@ export function GameDetailModal({
   }
 
   return (
-    <>
     <Modal onClose={onClose} fitContent maxHeightClassName="max-h-[calc(100dvh-40px)]">
       <div
-        className={`relative mb-4 flex items-center justify-center rounded-xl text-4xl ${game.theme.coverImageUrl ? 'h-28' : 'h-14'}`}
+        className={`mb-4 flex items-center justify-center rounded-xl text-4xl ${game.theme.coverImageUrl ? 'h-28' : 'h-14'}`}
         style={{
           background: `linear-gradient(135deg, ${accentColor}22, ${accentColor}0a)`,
         }}
@@ -221,18 +215,6 @@ export function GameDetailModal({
           <span aria-hidden="true" style={{ color: accentColor }}>
 
           </span>
-        )}
-        {canAdapt && (
-          <button
-            type="button"
-            title="Adaptar este juego a otro tipo con IA"
-            aria-label="Adaptar este juego a otro tipo con IA"
-            className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full text-white shadow-lg ring-2 ring-white/70 transition-transform hover:scale-110 motion-safe:animate-bounce"
-            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-            onClick={() => setAdapting(true)}
-          >
-            <AiSparklesIcon className="h-5 w-5" />
-          </button>
         )}
       </div>
 
@@ -523,53 +505,6 @@ export function GameDetailModal({
             </div>
           )}
 
-          {/* Adaptar a otro tipo de juego (issue #8): tarjeta destacada con
-              iconos, para que se entienda de un vistazo qué hace. */}
-          {canAdapt && (
-            <div
-              className="rounded-xl border border-accent/50 p-3.5"
-              style={{
-                background: `linear-gradient(135deg, ${accentColor}18, ${accentColor}08)`,
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white"
-                  style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-                >
-                  <AiSparklesIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-[14px] font-semibold text-text-h">Crea una versión con IA</p>
-                  <p className="text-[12px] leading-snug text-text">
-                    Convierte este tema en otro tipo de juego sin empezar de cero.
-                  </p>
-                </div>
-              </div>
-              <div
-                className="mt-3 flex items-center justify-center gap-2 text-[11.5px] font-medium text-text"
-                aria-hidden="true"
-              >
-                <span className="flex items-center gap-1 rounded-full border border-border px-2 py-1">
-                  <Layers className="h-3.5 w-3.5" /> Este juego
-                </span>
-                <ArrowRight className="h-4 w-4 text-accent" strokeWidth={2.5} />
-                <span className="flex items-center gap-1 rounded-full border border-accent/50 px-2 py-1 text-accent">
-                  <AiSparklesIcon className="h-3.5 w-3.5" /> Otro tipo
-                </span>
-              </div>
-              <button
-                type="button"
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-[13.5px] font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
-                onClick={() => setAdapting(true)}
-              >
-                <AiSparklesIcon className="h-4 w-4" />
-                Adaptar a otro tipo de juego
-              </button>
-            </div>
-          )}
-
           {/* Donar a una organización: solo el creador de un juego personal
               que sea miembro de alguna organización (ver canDonate arriba). */}
           {canDonate && organizations.length > 0 && (
@@ -608,7 +543,5 @@ export function GameDetailModal({
         </div>
       )}
     </Modal>
-    {adapting && <AdaptGameModal game={game} onClose={() => setAdapting(false)} />}
-    </>
   )
 }
