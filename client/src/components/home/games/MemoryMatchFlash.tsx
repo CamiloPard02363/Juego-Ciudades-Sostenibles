@@ -176,15 +176,19 @@ export function MemoryMatchFlash({
 /**
  * Demostración animada de 3 s (sin texto largo): dos cartas se voltean,
  * se iluminan juntas y aparece el ✓. Se repite en bucle dentro de la guía.
+ * En Pares, una carta es la imagen y la otra el nombre (no son dos imágenes
+ * iguales); en Opuestos, dos conceptos contrarios.
  */
 export function MemoryMatchDemo({ opposites }: { opposites: boolean }) {
-  const faces = opposites ? ['☀️', '🌙'] : ['🐶', '🐶']
+  const faces = opposites
+    ? [{ content: '☀️', isText: false }, { content: '🌙', isText: false }]
+    : [{ content: '🐶', isText: false }, { content: 'Perro', isText: true }]
   return (
     <div className="flex flex-col items-center gap-3 py-2" aria-hidden="true">
       <div className="relative flex items-center gap-3">
         {[0, 1, 2].map((slot) => {
           const isPair = slot !== 1
-          const face = isPair ? faces[slot === 0 ? 0 : 1] : '🍎'
+          const face = isPair ? faces[slot === 0 ? 0 : 1] : { content: '🍎', isText: false }
           return (
             <div key={slot} className="h-[92px] w-[66px] [perspective:600px]">
               <div
@@ -195,10 +199,12 @@ export function MemoryMatchDemo({ opposites }: { opposites: boolean }) {
                   ✦
                 </div>
                 <div
-                  className="absolute inset-0 flex items-center justify-center rounded-xl border-2 border-accent bg-bg text-[34px] [backface-visibility:hidden] [transform:rotateY(180deg)]"
+                  className={`absolute inset-0 flex items-center justify-center rounded-xl border-2 border-accent bg-bg [backface-visibility:hidden] [transform:rotateY(180deg)] ${
+                    face.isText ? 'text-[15px] font-bold text-text-h' : 'text-[34px]'
+                  }`}
                   style={{ animation: isPair ? 'memory-demo-glow 3.2s ease-in-out infinite' : undefined }}
                 >
-                  {face}
+                  {face.content}
                 </div>
               </div>
             </div>
@@ -212,7 +218,7 @@ export function MemoryMatchDemo({ opposites }: { opposites: boolean }) {
         </span>
       </div>
       <p className="text-[18px] font-bold text-text-h">
-        {opposites ? 'Une los opuestos' : 'Encuentra las iguales'}
+        {opposites ? 'Une los opuestos' : 'Une la imagen con su nombre'}
       </p>
     </div>
   )

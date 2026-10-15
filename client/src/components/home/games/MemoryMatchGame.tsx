@@ -241,8 +241,26 @@ function MemoryMatchSession({
                         />
                       </div>
                     ) : (
-                      <div className="flex min-h-0 flex-1 items-center justify-center p-2">
-                        <span className="text-center font-bold leading-tight text-text-h" style={{ fontSize: labelSize + 2 }}>
+                      // Carta de concepto (sin imagen): mismo tamaño que la de imagen; el
+                      // espacio alrededor de la palabra es a propósito, con fondo de color
+                      // para que no se vea vacía.
+                      <div
+                        className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-3"
+                        style={{ backgroundImage: `linear-gradient(160deg, ${primaryColor}22, ${primaryColor}08 60%)` }}
+                      >
+                        {!card.badge && (
+                          <span
+                            aria-hidden="true"
+                            className="rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+                            style={{ background: primaryColor }}
+                          >
+                            Aa
+                          </span>
+                        )}
+                        <span
+                          className="line-clamp-4 break-words text-center font-extrabold leading-tight text-text-h"
+                          style={{ fontSize: Math.max(15, Math.min(30, Math.round(grid.cardWidth / 6.5))) }}
+                        >
                           {card.title}
                         </span>
                       </div>
