@@ -3,6 +3,12 @@ import type { LastMatch } from './useMemoryMatchGame'
 import { matchFlashText } from './memoryMatchFlashText'
 
 const FLASH_MS = 1300
+/** En Opuestos, el aviso que queda tras cerrar la explicación dura más, para alcanzar a verlo. */
+const OPPOSITES_FLASH_MS = 2500
+
+function flashDuration(match: LastMatch): number {
+  return match.first.badge || match.second.badge ? OPPOSITES_FLASH_MS : FLASH_MS
+}
 const BURST_COLORS = ['#ff7a1a', '#06b6d4', '#ffcc4d', '#ff4d6d', '#22c55e', '#a78bfa']
 
 /**
@@ -28,7 +34,7 @@ export function MemoryMatchFlash({
 
   useEffect(() => {
     if (!match || onContinue) return
-    const timeout = setTimeout(() => setHiddenKey(match.key), FLASH_MS)
+    const timeout = setTimeout(() => setHiddenKey(match.key), flashDuration(match))
     return () => clearTimeout(timeout)
   }, [match, onContinue])
 
@@ -67,7 +73,7 @@ export function MemoryMatchFlash({
         className="relative flex max-w-[560px] flex-col items-center rounded-3xl border-4 bg-bg/95 px-7 py-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.45)]"
         style={{
           borderColor: primaryColor,
-          animation: waiting ? 'match-flash-in 0.35s ease-out' : `match-flash ${FLASH_MS}ms ease-out forwards`,
+          animation: waiting ? 'match-flash-in 0.35s ease-out' : `match-flash ${flashDuration(match)}ms ease-out forwards`,
         }}
       >
         {[...Array(16)].map((_, i) => {
