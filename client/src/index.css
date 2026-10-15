@@ -2071,3 +2071,43 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .just-created-cloud { animation: none; }
 }
+
+/* MatchMente (issue #30): destello que explica cada acierto. Entra con un
+ * rebote, se sostiene y se desvanece solo, sin frenar el juego. */
+@keyframes match-flash {
+  0% { opacity: 0; transform: scale(0.6); }
+  15% { opacity: 1; transform: scale(1.06); }
+  25% { transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.92) translateY(-12px); }
+}
+
+/* Racha visible: el contador late cada vez que crece. */
+@keyframes streak-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* Demostración de la guía de MatchMente: carta A, luego carta B, brillo y ✓. */
+@keyframes memory-demo-flip-a {
+  0%, 10% { transform: rotateY(0deg); }
+  20%, 85% { transform: rotateY(180deg); }
+  95%, 100% { transform: rotateY(0deg); }
+}
+@keyframes memory-demo-flip-b {
+  0%, 30% { transform: rotateY(0deg); }
+  40%, 85% { transform: rotateY(180deg); }
+  95%, 100% { transform: rotateY(0deg); }
+}
+@keyframes memory-demo-glow {
+  0%, 45% { box-shadow: none; }
+  55%, 80% { box-shadow: 0 0 0 4px #22c55e; }
+  90%, 100% { box-shadow: none; }
+}
+@keyframes memory-demo-check {
+  0%, 48% { opacity: 0; transform: scale(0.3); }
+  56% { opacity: 1; transform: scale(1.2); }
+  62%, 80% { opacity: 1; transform: scale(1); }
+  90%, 100% { opacity: 0; transform: scale(0.3); }
+}

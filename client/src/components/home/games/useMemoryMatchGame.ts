@@ -18,6 +18,9 @@ type ZoneConfig = {
   cards: CardData[]
 }
 
+/** Última pareja acertada: alimenta el destello visual que explica el acierto. */
+export type LastMatch = { key: number; first: CardData; second: CardData; streak: number }
+
 type GamePhase = 'preview' | 'playing' | 'zone-cleared' | 'time-up' | 'finished'
 
 export type UseMemoryMatchGameOptions = {
@@ -118,6 +121,8 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
   const [timeLeft, setTimeLeft] = useState(timePerZone)
   const [phase, setPhase] = useState<GamePhase>(showPreview && previewSeconds > 0 ? 'preview' : 'playing')
   const [previewSecondsLeft, setPreviewSecondsLeft] = useState(previewSeconds)
+  const [lastMatch, setLastMatch] = useState<LastMatch | null>(null)
+  const [bestStreak, setBestStreak] = useState(0)
   const lockRef = useRef(false)
 
   // Tracking para métricas (issue #226): aciertos/errores de toda la
@@ -182,7 +187,9 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
             const multiplier = nextCombo >= 4 ? 1.5 : nextCombo >= 2 ? 1.2 : 1
             const points = Math.round((100 + timeLeft * 4) * multiplier)
 
-            celebrateMatch()
+            celebrateMatch(nextCombo)
+            setLastMatch({ key: Date.now(), first, second, streak: nextCombo })
+            setBestStreak((best) => Math.max(best, nextCombo))
             setMatchedPairIds((current) => [...current, first.pairId])
             setCombo(nextCombo)
             setTotalScore((score) => score + points)
@@ -250,6 +257,8 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
     shakingIds,
     totalScore,
     combo,
+    bestStreak,
+    lastMatch,
     timeLeft,
     previewSecondsLeft,
     totalPairsInZone,

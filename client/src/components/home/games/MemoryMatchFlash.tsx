@@ -1,0 +1,132 @@
+import { useEffect, useState } from 'react'
+import type { LastMatch } from './useMemoryMatchGame'
+import { matchFlashText } from './memoryMatchFlashText'
+
+const FLASH_MS = 1300
+const BURST_COLORS = ['#ff7a1a', '#06b6d4', '#ffcc4d', '#ff4d6d', '#22c55e', '#a78bfa']
+
+/**
+ * Destello que explica el acierto sin párrafos: el concepto en grande, una
+ * frase corta y una explosión de color. No bloquea clics (pointer-events-none)
+ * y se va solo en ~1,3 s, así el juego no se frena.
+ */
+export function MemoryMatchFlash({ match, primaryColor }: { match: LastMatch | null; primaryColor: string }) {
+  // Cada acierto trae una `key` nueva: se muestra hasta que su temporizador la oculta.
+  const [hiddenKey, setHiddenKey] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!match) return
+    const timeout = setTimeout(() => setHiddenKey(match.key), FLASH_MS)
+    return () => clearTimeout(timeout)
+  }, [match])
+
+  if (!match || hiddenKey === match.key) return null
+  const { first, second, streak } = match
+  const { headline, detail } = matchFlashText(first, second)
+  const isOpposites = Boolean(first.badge || second.badge)
+  const images = isOpposites
+    ? first.badge === 'positive' ? [first, second] : [second, first]
+    : [first.imageUrl ? first : second]
+
+  return (
+    <div
+      key={match.key}
+      aria-live="polite"
+      className="pointer-events-none fixed inset-0 z-20 flex items-center justify-center p-5"
+    >
+      <div
+        className="relative flex flex-col items-center rounded-3xl border-4 bg-bg/95 px-7 py-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.45)]"
+        style={{ borderColor: primaryColor, animation: `match-flash ${FLASH_MS}ms ease-out forwards` }}
+      >
+        {[...Array(16)].map((_, i) => {
+          const angle = (360 / 16) * i
+          const distance = 120 + (i % 3) * 30
+          return (
+            <span
+              key={i}
+              className="absolute top-1/2 left-1/2 h-2.5 w-2.5 rounded-sm"
+              style={{
+                background: BURST_COLORS[i % BURST_COLORS.length],
+                animation: 'kids-confetti-piece 0.9s cubic-bezier(0.2, 0.8, 0.4, 1) forwards',
+                ['--kids-confetti-dx' as string]: `${Math.cos((angle * Math.PI) / 180) * distance}px`,
+                ['--kids-confetti-dy' as string]: `${Math.sin((angle * Math.PI) / 180) * distance}px`,
+              }}
+            />
+          )
+        })}
+        <div className="flex items-center gap-3">
+          {images.map((card, index) => (
+            <div key={card.cardId} className="flex items-center gap-3">
+              {index > 0 && <span className="text-[28px] font-bold" style={{ color: primaryColor }}>↔</span>}
+              <div
+                className={`flex h-[110px] w-[110px] items-center justify-center overflow-hidden rounded-2xl border-2 sm:h-[140px] sm:w-[140px] ${
+                  card.badge === 'negative' ? 'border-danger bg-danger/10' : 'border-accent bg-accent/10'
+                }`}
+              >
+                {card.imageUrl ? (
+                  <img src={card.imageUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="px-2 text-center text-[15px] font-bold leading-tight text-text-h">{card.title}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[30px] font-extrabold tracking-tight" style={{ color: primaryColor }}>
+          {headline}
+        </p>
+        {detail && <p className="max-w-[320px] truncate text-[16px] font-semibold text-text-h">{detail}</p>}
+        {streak >= 2 && (
+          <span className="mt-2 rounded-full bg-[#ff7a1a] px-3 py-1 text-[13px] font-bold text-white">
+            🔥 Racha x{streak}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Demostración animada de 3 s (sin texto largo): dos cartas se voltean,
+ * se iluminan juntas y aparece el ✓. Se repite en bucle dentro de la guía.
+ */
+export function MemoryMatchDemo({ opposites }: { opposites: boolean }) {
+  const faces = opposites ? ['☀️', '🌙'] : ['🐶', '🐶']
+  return (
+    <div className="flex flex-col items-center gap-3 py-2" aria-hidden="true">
+      <div className="relative flex items-center gap-3">
+        {[0, 1, 2].map((slot) => {
+          const isPair = slot !== 1
+          const face = isPair ? faces[slot === 0 ? 0 : 1] : '🍎'
+          return (
+            <div key={slot} className="h-[92px] w-[66px] [perspective:600px]">
+              <div
+                className="relative h-full w-full [transform-style:preserve-3d]"
+                style={{ animation: isPair ? `memory-demo-flip-${slot === 0 ? 'a' : 'b'} 3.2s ease-in-out infinite` : undefined }}
+              >
+                <div className="absolute inset-0 flex items-center justify-center rounded-xl border-2 border-accent bg-accent/10 text-[20px] text-accent [backface-visibility:hidden]">
+                  ✦
+                </div>
+                <div
+                  className="absolute inset-0 flex items-center justify-center rounded-xl border-2 border-accent bg-bg text-[34px] [backface-visibility:hidden] [transform:rotateY(180deg)]"
+                  style={{ animation: isPair ? 'memory-demo-glow 3.2s ease-in-out infinite' : undefined }}
+                >
+                  {face}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        <span
+          className="absolute -top-3 -right-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#22c55e] text-[20px] font-bold text-white"
+          style={{ animation: 'memory-demo-check 3.2s ease-in-out infinite' }}
+        >
+          ✓
+        </span>
+      </div>
+      <p className="text-[18px] font-bold text-text-h">
+        {opposites ? 'Une los opuestos' : 'Encuentra las iguales'}
+      </p>
+    </div>
+  )
+}

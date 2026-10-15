@@ -4,6 +4,7 @@ import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
 import { useMemoryMatchGame } from './useMemoryMatchGame'
 import { ConfettiBurst } from '../../kids/ConfettiBurst'
+import { MemoryMatchFlash } from './MemoryMatchFlash'
 import { useAuth } from '../../../hooks/useAuth'
 import { recordGamePlayResult } from '../../../services/metrics.service'
 
@@ -111,10 +112,18 @@ function MemoryMatchSession({
             }
           />
           <Stat label="Puntos" value={String(game.totalScore)} />
-          <Stat
-            label="Combo"
-            value={`x${game.combo >= 4 ? 1.5 : game.combo >= 2 ? 1.2 : 1}`}
-          />
+          <div className="flex flex-col items-center px-1">
+            <span className="text-[10px] uppercase tracking-wide text-text/70">Racha</span>
+            {/* key = racha: el número late cada vez que crece (issue #30). */}
+            <span
+              key={game.combo}
+              className={`mt-0.5 text-[16px] font-semibold ${game.combo >= 2 ? 'text-[#ff7a1a]' : 'text-text-h'}`}
+              style={{ animation: game.combo > 0 ? 'streak-pop 0.4s ease-out' : undefined }}
+            >
+              {game.combo >= 2 ? '🔥 ' : ''}
+              {game.combo}
+            </span>
+          </div>
         </div>
 
         <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-border">
@@ -161,7 +170,7 @@ function MemoryMatchSession({
                     className={`absolute inset-0 flex flex-col items-center overflow-hidden rounded-xl border-2 p-2 text-center [backface-visibility:hidden] [transform:rotateY(180deg)] ${
                       card.badge === null && !card.imageUrl ? 'justify-center' : 'justify-start'
                     } ${isMatched ? 'bg-accent/10' : 'bg-bg'}`}
-                    style={{ borderColor: primaryColor }}
+                    style={{ borderColor: isShaking ? 'var(--color-danger)' : primaryColor }}
                   >
                     {card.imageUrl && (
                       <div
@@ -210,6 +219,8 @@ function MemoryMatchSession({
             )
           })}
         </div>
+
+        <MemoryMatchFlash match={game.lastMatch} primaryColor={primaryColor} />
 
         {game.phase === 'zone-cleared' && (
           <GameEndOverlay
