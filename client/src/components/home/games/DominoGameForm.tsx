@@ -30,6 +30,7 @@ import {
   MIN_DOMINO_CONCEPTS,
   iconForConcept,
 } from './dominoTypes'
+import { DOMINO_TILE_SUGGESTED_COLORS } from './dominoTileVisualTokens'
 
 type ConceptDraft = {
   label: string
@@ -38,24 +39,11 @@ type ConceptDraft = {
 }
 
 /** Paleta sugerida: colores bien diferenciables entre sí, para que las mitades de ficha no se confundan de un vistazo. */
-const SUGGESTED_COLORS = [
-  '#f59e0b',
-  '#22c55e',
-  '#3b82f6',
-  '#14b8a6',
-  '#06b6d4',
-  '#8b5cf6',
-  '#ec4899',
-  '#ef4444',
-  '#84cc16',
-  '#f97316',
-]
-
 function emptyConcept(index: number): ConceptDraft {
   return {
     label: '',
     icon: DOMINO_ICON_KEYS[index % DOMINO_ICON_KEYS.length],
-    color: SUGGESTED_COLORS[index % SUGGESTED_COLORS.length],
+    color: DOMINO_TILE_SUGGESTED_COLORS[index % DOMINO_TILE_SUGGESTED_COLORS.length],
   }
 }
 
@@ -159,7 +147,7 @@ export function DominoGameForm({
           icon: typeof raw.icon === 'string' && DOMINO_ICON_KEYS.includes(raw.icon)
             ? raw.icon
             : DOMINO_ICON_KEYS[index % DOMINO_ICON_KEYS.length],
-          color: typeof raw.color === 'string' ? raw.color : SUGGESTED_COLORS[index % SUGGESTED_COLORS.length],
+          color: typeof raw.color === 'string' ? raw.color : DOMINO_TILE_SUGGESTED_COLORS[index % DOMINO_TILE_SUGGESTED_COLORS.length],
         }
       }),
     )

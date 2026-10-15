@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Hand, Link2, PackageOpen, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Droplets, Hand, Leaf, Link2, PackageOpen, Sparkles, Wind, type LucideIcon } from 'lucide-react'
 
 const scenes = [
   { title: 'Tu objetivo', text: 'Vacía tu mano antes que tu rival.', icon: Sparkles },
@@ -12,10 +12,10 @@ const primaryButton = 'flex items-center justify-center gap-2 rounded-2xl px-4 p
 const secondaryButton = 'flex items-center justify-center gap-2 rounded-xl border border-border px-3 py-2.5 text-[13px] font-semibold text-text-h transition-colors hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40'
 const gradient = { background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }
 
-type Concept = { label: string; background: string; color: string }
-const orbit: Concept = { label: 'A', background: '#ede9fe', color: '#6d28d9' }
-const peak: Concept = { label: 'B', background: '#fef3c7', color: '#b45309' }
-const spark: Concept = { label: 'C', background: '#e0f2fe', color: '#0369a1' }
+type Concept = { label: string; color: string; icon: LucideIcon }
+const orbit: Concept = { label: 'A', color: '#5c4f80', icon: Leaf }
+const peak: Concept = { label: 'B', color: '#765c22', icon: Wind }
+const spark: Concept = { label: 'C', color: '#32626d', icon: Droplets }
 
 /** Guía visual reutilizable: las ediciones cambian de tema, la regla de conexión se mantiene. */
 export function DominoVisualDemo({ onContinue }: { onContinue: () => void }) {
@@ -103,14 +103,14 @@ function DominoScene({ scene }: { scene: number }) {
         <div className="relative">
           <p className="mb-2 text-center text-[10px] font-semibold tracking-wide text-text/70 uppercase">Tablero</p>
           <div className="flex items-center justify-center gap-1.5">
-            <MiniTile left={peak} right={orbit} animationClass={scene === 0 ? 'animate-[domino-demo-board_0.7s_ease-out_both]' : undefined} />
-            {connected && <MiniTile left={orbit} right={spark} entering />}
+            <MiniTile context="board" left={peak} right={orbit} animationClass={scene === 0 ? 'animate-[domino-demo-board_0.7s_ease-out_both]' : undefined} />
+            {connected && <MiniTile context="board" left={orbit} right={spark} entering />}
             {!connected && <span className="grid h-8 w-8 place-items-center rounded-full border border-dashed border-accent/60 bg-accent/5 text-[17px] font-bold text-accent animate-[result-glow-pulse_1.4s_ease-in-out_infinite] motion-reduce:animate-none">+</span>}
           </div>
           <p className="mb-2 mt-5 text-center text-[10px] font-semibold tracking-wide text-text/70 uppercase">Tu mano</p>
           <div className="flex items-center justify-center gap-2">
-            <MiniTile left={spark} right={peak} />
-            {!connected && <MiniTile left={orbit} right={spark} selected={selected} animationClass={scene === 1 ? 'animate-[domino-demo-select_0.75s_cubic-bezier(0.16,1,0.3,1)_both]' : undefined} />}
+            <MiniTile context="hand" left={spark} right={peak} />
+            {!connected && <MiniTile context="hand" left={orbit} right={spark} selected={selected} animationClass={scene === 1 ? 'animate-[domino-demo-select_0.75s_cubic-bezier(0.16,1,0.3,1)_both]' : undefined} />}
           </div>
           {scene === 1 && <p className="mt-3 text-center text-[11px] font-semibold text-accent">La pieza A coincide con el extremo A.</p>}
           {scene === 2 && <p className="mt-3 text-center text-[11px] font-semibold text-accent">La ficha A/C sube desde tu mano y se conecta.</p>}
@@ -120,22 +120,38 @@ function DominoScene({ scene }: { scene: number }) {
   )
 }
 
-function MiniTile({ left, right, selected = false, entering = false, animationClass }: { left: Concept; right: Concept; selected?: boolean; entering?: boolean; animationClass?: string }) {
+type DemoTileContext = 'board' | 'hand'
+
+export function demoTileHalfPresentation(context: DemoTileContext, label: string) {
+  return {
+    showLabel: context === 'hand',
+    ariaLabel: `Concepto ${label}`,
+    title: `Concepto ${label}`,
+  }
+}
+
+function MiniTile({ context, left, right, selected = false, entering = false, animationClass }: { context: DemoTileContext; left: Concept; right: Concept; selected?: boolean; entering?: boolean; animationClass?: string }) {
   return <div
-    className={`flex h-[88px] w-[134px] overflow-hidden rounded-xl border-2 shadow-[0_10px_18px_-13px_rgba(0,0,0,0.85)] transition-all sm:h-[108px] sm:w-[174px] ${selected ? 'ring-4 ring-accent/20 -translate-y-1 scale-[1.04] shadow-[0_14px_26px_-12px_var(--accent)]' : ''} ${entering ? 'animate-[domino-demo-connect_0.55s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none' : ''} ${animationClass ?? ''}`}
-    style={{ borderColor: selected ? 'var(--accent)' : '#312e3b' }}
+    className={`flex h-[88px] w-[134px] overflow-hidden rounded-xl border-2 bg-[var(--domino-tile-surface)] shadow-[0_10px_18px_-13px_rgba(0,0,0,0.85)] transition-all sm:h-[108px] sm:w-[174px] ${selected ? 'ring-4 ring-accent/20 -translate-y-1 scale-[1.04] shadow-[0_14px_26px_-12px_var(--accent)]' : ''} ${entering ? 'animate-[domino-demo-connect_0.55s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none' : ''} ${animationClass ?? ''}`}
+    style={{ borderColor: selected ? 'var(--accent)' : 'var(--domino-tile-border)' }}
   >
-    <TileHalf concept={left} side="left" />
-    <div className="w-px shrink-0" style={{ backgroundColor: '#312e3b' }} />
-    <TileHalf concept={right} side="right" />
+    <TileHalf concept={left} context={context} side="left" />
+    <div className="w-px shrink-0 bg-[var(--domino-tile-divider)]" />
+    <TileHalf concept={right} context={context} side="right" />
   </div>
 }
 
-function TileHalf({ concept, side }: { concept: Concept; side: 'left' | 'right' }) {
+function TileHalf({ concept, context, side }: { concept: Concept; context: DemoTileContext; side: 'left' | 'right' }) {
+  const Icon = concept.icon
+  const presentation = demoTileHalfPresentation(context, concept.label)
   return <div
-    className={`flex flex-1 items-center justify-center px-1 ${side === 'left' ? 'rounded-l-[9px]' : 'rounded-r-[9px]'}`}
-    style={{ backgroundColor: concept.background, color: concept.color }}
+    className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 ${side === 'left' ? 'rounded-l-[9px]' : 'rounded-r-[9px]'}`}
+    role="img"
+    aria-label={presentation.ariaLabel}
+    title={presentation.title}
+    style={{ color: concept.color }}
   >
-    <span className="text-[38px] leading-none font-black tracking-tight sm:text-[48px]">{concept.label}</span>
+    <Icon className={context === 'board' ? 'h-8 w-8 sm:h-10 sm:w-10' : 'h-6 w-6 sm:h-7 sm:w-7'} strokeWidth={2.2} aria-hidden="true" />
+    {presentation.showLabel && <span className="text-[18px] leading-none font-black tracking-tight sm:text-[22px]">{concept.label}</span>}
   </div>
 }

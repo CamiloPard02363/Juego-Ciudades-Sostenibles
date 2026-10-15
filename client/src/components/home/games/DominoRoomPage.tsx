@@ -1,11 +1,14 @@
 import { GameInstructionsGate } from './GameInstructionsGate'
 import { MultiplayerLobby } from './MultiplayerLobby'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Crosshair, Hand, LogOut, PackageOpen, RotateCcw, SkipForward, Trophy } from 'lucide-react'
 import { useAuth } from '../../../hooks/useAuth'
 import { useDominoRoom } from './useDominoRoom'
 import { iconForConcept, type DominoConcept } from './dominoTypes'
+import { dominoTileCategoryInk } from './dominoTileVisualTokens'
+import { resolveDominoTooltipPlacement, type DominoTooltipPlacement } from './dominoConceptTooltip'
 import type { DominoPlacedTileView, DominoTileView } from './dominoRoomTypes'
 import type { DominoVisualOrientation, Point } from './dominoChainLayout'
 import { DEFAULT_DOMINO_BOARD_RENDER_MODE, resolveDominoBoardPresentation } from './dominoBoardRenderMode'
@@ -566,21 +569,140 @@ function DominoRoomPageSession() {
   )
 }
 
-function ConceptHalf({ concept, size = 'md' }: { concept: DominoConcept; size?: 'board' | 'sm' | 'md' | 'lg' }) {
+type DominoConceptTileSize = 'board' | 'sm' | 'md' | 'lg'
+
+export function dominoConceptHalfPresentation(size: DominoConceptTileSize) {
+  if (size === 'board') {
+    return {
+      showLabel: false,
+      sizing: 'domino-tile-half--board px-1 py-1',
+      iconSize: 'h-7 w-7 shrink-0',
+      textSize: '',
+    }
+  }
+
+  return {
+    showLabel: true,
+    sizing: size === 'lg' ? 'px-2 py-3.5 gap-1.5' : size === 'sm' ? 'px-1.5 py-2 gap-1' : 'px-1.5 py-2.5 gap-1',
+    iconSize: size === 'lg' ? 'h-8 w-8' : size === 'sm' ? 'h-4.5 w-4.5' : 'h-6 w-6',
+    textSize: size === 'lg' ? 'text-[11px]' : size === 'sm' ? 'text-[8.5px]' : 'text-[9.5px]',
+  }
+}
+
+export function boardConceptAccessibility(label: string) {
+  return { ariaLabel: `Concepto: ${label}` }
+}
+
+function ConceptHalf({ concept, size = 'md' }: { concept: DominoConcept; size?: DominoConceptTileSize }) {
+  if (size === 'board') return <BoardConceptHalf concept={concept} />
+
   const Icon = iconForConcept(concept.icon)
-  const sizing =
-    size === 'lg' ? 'px-2 py-3.5 gap-1.5' : size === 'board' ? 'domino-tile-half--board px-1 py-1 gap-0.5' : size === 'sm' ? 'px-1.5 py-2 gap-1' : 'px-1.5 py-2.5 gap-1'
-  const iconSize = size === 'lg' ? 'h-8 w-8' : size === 'board' ? 'h-4 w-4 shrink-0' : size === 'sm' ? 'h-4.5 w-4.5' : 'h-6 w-6'
-  const textSize = size === 'lg' ? 'text-[11px]' : size === 'board' ? 'text-[8px] leading-[0.58rem]' : size === 'sm' ? 'text-[8.5px]' : 'text-[9.5px]'
+  const categoryInk = dominoTileCategoryInk(concept.color)
+  const presentation = dominoConceptHalfPresentation(size)
 
   return (
     <div
-      className={`domino-tile-half flex flex-1 flex-col items-center justify-center ${sizing}`}
+      className={`domino-tile-half flex flex-1 flex-col items-center justify-center ${presentation.sizing}`}
       style={{ background: `color-mix(in srgb, ${concept.color} 10%, transparent)` }}
     >
-      <Icon className={iconSize} style={{ color: concept.color }} strokeWidth={2} />
-      <span className={`domino-tile-label w-full text-center font-semibold text-text-h ${size === 'board' ? '' : 'leading-tight'} ${textSize}`}>{concept.label}</span>
+      <Icon className={presentation.iconSize} style={{ color: categoryInk }} strokeWidth={2} aria-hidden="true" focusable="false" />
+      {presentation.showLabel && <span className={`domino-tile-label w-full text-center font-semibold text-text-h leading-tight ${presentation.textSize}`}>{concept.label}</span>}
     </div>
+  )
+}
+
+function BoardConceptHalf({ concept }: { concept: DominoConcept }) {
+  const Icon = iconForConcept(concept.icon)
+  const anchorRef = useRef<HTMLButtonElement>(null)
+  const tooltipId = useId()
+  const [tooltipOpen, setTooltipOpen] = useState(false)
+  const presentation = dominoConceptHalfPresentation('board')
+  const accessibility = boardConceptAccessibility(concept.label)
+  const categoryInk = dominoTileCategoryInk(concept.color)
+
+  return (
+    <button
+      ref={anchorRef}
+      type="button"
+      className={`domino-tile-half domino-board-concept flex flex-1 flex-col items-center justify-center ${presentation.sizing}`}
+      aria-label={accessibility.ariaLabel}
+      aria-describedby={tooltipOpen ? tooltipId : undefined}
+      onPointerEnter={(event) => { if (event.pointerType === 'mouse') setTooltipOpen(true) }}
+      onPointerLeave={(event) => { if (event.pointerType === 'mouse') setTooltipOpen(false) }}
+      onPointerDown={(event) => { if (event.pointerType !== 'mouse') setTooltipOpen(true) }}
+      onFocus={() => setTooltipOpen(true)}
+      onBlur={() => setTooltipOpen(false)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          setTooltipOpen(false)
+          event.currentTarget.blur()
+        }
+      }}
+      style={{ '--domino-category-ink': categoryInk } as CSSProperties}
+    >
+      <Icon className={presentation.iconSize} style={{ color: categoryInk }} strokeWidth={2} aria-hidden="true" focusable="false" />
+      <DominoConceptTooltip id={tooltipId} anchorRef={anchorRef} concept={concept} open={tooltipOpen} />
+    </button>
+  )
+}
+
+function DominoConceptTooltip({
+  id,
+  anchorRef,
+  concept,
+  open,
+}: {
+  id: string
+  anchorRef: RefObject<HTMLButtonElement | null>
+  concept: DominoConcept
+  open: boolean
+}) {
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const lastPlacement = useRef<DominoTooltipPlacement | undefined>(undefined)
+  const [placement, setPlacement] = useState<DominoTooltipPlacement | undefined>(undefined)
+  const Icon = iconForConcept(concept.icon)
+  const categoryInk = dominoTileCategoryInk(concept.color)
+
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current || !tooltipRef.current) {
+      setPlacement(undefined)
+      return undefined
+    }
+
+    let animationFrame = 0
+    const updatePlacement = () => {
+      const anchor = anchorRef.current?.getBoundingClientRect()
+      const tooltip = tooltipRef.current?.getBoundingClientRect()
+      if (anchor && tooltip) {
+        const next = resolveDominoTooltipPlacement(anchor, tooltip, { width: window.innerWidth, height: window.innerHeight })
+        const previous = lastPlacement.current
+        if (!previous || previous.left !== next.left || previous.top !== next.top || previous.side !== next.side) {
+          lastPlacement.current = next
+          setPlacement(next)
+        }
+      }
+      animationFrame = window.requestAnimationFrame(updatePlacement)
+    }
+
+    updatePlacement()
+    return () => window.cancelAnimationFrame(animationFrame)
+  }, [anchorRef, open])
+
+  if (!open || typeof document === 'undefined') return null
+
+  return createPortal(
+    <div
+      ref={tooltipRef}
+      id={id}
+      role="tooltip"
+      data-side={placement?.side ?? 'bottom'}
+      className={`domino-concept-tooltip ${placement ? 'domino-concept-tooltip--visible' : ''}`}
+      style={{ left: placement?.left ?? 0, top: placement?.top ?? 0, '--domino-tooltip-color': categoryInk } as CSSProperties}
+    >
+      <span className="domino-concept-tooltip__icon" aria-hidden="true"><Icon size={17} strokeWidth={2.25} /></span>
+      <span>{concept.label}</span>
+    </div>,
+    document.body,
   )
 }
 
@@ -593,10 +715,7 @@ export type BoardTilePresentation = {
 
 export const BOARD_TILE_CONTENT = {
   padding: 4,
-  icon: 16,
-  gap: 2,
-  textFont: 8,
-  textLineHeight: 9.28,
+  icon: 28,
 } as const
 
 /** Espacio interno útil por mitad; permite validar etiquetas sin tocar la geometría. */
@@ -612,7 +731,7 @@ export function boardTileContentPresentation(orientation: DominoVisualOrientatio
   return {
     contentWidth,
     contentHeight,
-    maxLines: Math.floor((contentHeight - BOARD_TILE_CONTENT.icon - BOARD_TILE_CONTENT.gap) / BOARD_TILE_CONTENT.textLineHeight),
+    iconFits: contentWidth >= BOARD_TILE_CONTENT.icon && contentHeight >= BOARD_TILE_CONTENT.icon,
   }
 }
 
