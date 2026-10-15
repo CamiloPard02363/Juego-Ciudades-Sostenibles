@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MemoryMatchPair } from './memoryMatchTypes'
 import type { Difficulty } from './PlayOptionsPopup'
 import { DIFFICULTIES } from './PlayOptionsPopup'
+import { zonePairSizes } from './memoryMatchLayout'
 import { celebrateMatch, primeGameFeedback, signalMismatch } from '../../../utils/gameFeedback'
 
 export type CardData = {
@@ -88,10 +89,12 @@ function buildZones(pairs: MemoryMatchPair[], pairCount: number, perZone: number
   const chosen = shuffle(pairs).slice(0, pairCount)
   const zones: ZoneConfig[] = []
 
-  for (let i = 0; i < chosen.length; i += perZone) {
-    const slice = chosen.slice(i, i + perZone)
-    const cards: CardData[] = slice.flatMap(cardsForPair)
-    zones.push({ level: zones.length + 1, cards: shuffle(cards) })
+  // Zonas parejas entre sí y de máximo 6 parejas, para que quepan sin scroll.
+  let start = 0
+  for (const size of zonePairSizes(chosen.length, perZone)) {
+    const slice = chosen.slice(start, start + size)
+    start += size
+    zones.push({ level: zones.length + 1, cards: shuffle(slice.flatMap(cardsForPair)) })
   }
 
   return zones
@@ -99,10 +102,13 @@ function buildZones(pairs: MemoryMatchPair[], pairCount: number, perZone: number
 
 /** Portado de la lógica de juego del index.html original, parametrizado por contenido real. */
 export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
-  const { pairs, pairCount, difficulty, showPreview, perZone, baseTimePerZoneSeconds, previewSeconds } =
-    options
+  const { pairs, pairCount, difficulty, showPreview, perZone, baseTimePerZoneSeconds } = options
 
-  const timeMultiplier = DIFFICULTIES.find((d) => d.id === difficulty)?.timeMultiplier ?? 1
+  const difficultyConfig = DIFFICULTIES.find((d) => d.id === difficulty)
+  const timeMultiplier = difficultyConfig?.timeMultiplier ?? 1
+  // La vista previa la fija la dificultad (Relajado 30 s, Normal 15 s,
+  // Desafiante 7 s), no el juego: antes siempre eran los 5 s guardados.
+  const previewSeconds = difficultyConfig?.previewSeconds ?? options.previewSeconds
   const timePerZone = Math.max(15, Math.round(baseTimePerZoneSeconds * timeMultiplier))
 
   const zones = useMemo(
@@ -228,6 +234,11 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
 
   const resumeAfterInfo = useCallback(() => setPausedForInfo(false), [])
 
+  /** Termina la vista previa antes de tiempo (con 30 s en Relajado, no obligar a esperar). */
+  const skipPreview = useCallback(() => {
+    setPhase((current) => (current === 'preview' ? 'playing' : current))
+  }, [])
+
   const advanceZone = useCallback(() => {
     const nextIndex = zoneIndex + 1
     if (nextIndex >= zones.length) {
@@ -270,6 +281,7 @@ export function useMemoryMatchGame(options: UseMemoryMatchGameOptions) {
     lastMatch,
     pausedForInfo,
     resumeAfterInfo,
+    skipPreview,
     timeLeft,
     previewSecondsLeft,
     totalPairsInZone,

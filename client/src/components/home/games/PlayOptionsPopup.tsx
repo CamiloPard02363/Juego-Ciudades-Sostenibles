@@ -5,10 +5,17 @@ import { Modal } from './Modal'
 
 type Difficulty = 'relaxed' | 'normal' | 'challenging'
 
-const DIFFICULTIES: { id: Difficulty; label: string; description: string; timeMultiplier: number }[] = [
-  { id: 'relaxed', label: 'Relajado', description: 'Más tiempo por zona, ideal para aprender.', timeMultiplier: 1.4 },
-  { id: 'normal', label: 'Normal', description: 'El ritmo pensado por quien creó el juego.', timeMultiplier: 1 },
-  { id: 'challenging', label: 'Desafiante', description: 'Menos tiempo, más puntos por combo.', timeMultiplier: 0.7 },
+/** `previewSeconds`: cuánto se ven las cartas boca arriba antes de empezar cada zona. */
+const DIFFICULTIES: {
+  id: Difficulty
+  label: string
+  description: string
+  timeMultiplier: number
+  previewSeconds: number
+}[] = [
+  { id: 'relaxed', label: 'Relajado', description: 'Ves las cartas 30 s y tienes más tiempo por zona.', timeMultiplier: 1.4, previewSeconds: 30 },
+  { id: 'normal', label: 'Normal', description: 'Ves las cartas 15 s, con el ritmo del juego.', timeMultiplier: 1, previewSeconds: 15 },
+  { id: 'challenging', label: 'Desafiante', description: 'Ves las cartas solo 7 s y hay menos tiempo.', timeMultiplier: 0.7, previewSeconds: 7 },
 ]
 
 type PlayOptionsPopupProps = {

@@ -1225,20 +1225,8 @@ code {
   }
 }
 
-/* Sala de dominó a pantalla completa sin scroll (issue #30): la mano y los
- * botones se compactan en pantallas bajas para dejarle alto al tablero. */
-@media (max-height: 760px) {
-  .domino-premium-room .domino-hand-tile { width: 164px; height: 84px; }
-  .domino-premium-room .domino-hand-tile .domino-tile-half { padding-top: 6px; padding-bottom: 6px; }
-  .domino-premium-room .domino-hand-tile svg { width: 24px; height: 24px; }
-  .domino-premium-hand-scroll { padding-top: 8px; padding-bottom: 6px; }
-}
-
-@media (max-height: 560px) {
-  .domino-premium-room .domino-hand-tile { width: 136px; height: 66px; }
-  .domino-premium-room .domino-hand-tile svg { width: 18px; height: 18px; }
-  .domino-premium-room .domino-hand-tile .domino-tile-label { font-size: 9px; }
-  .domino-premium-hand-dock { padding: 4px 8px; }
+@media (min-width: 640px) {
+  .domino-premium-game { min-height: calc(100dvh - 126px); }
 }
 
 @keyframes trophy-pop-in {

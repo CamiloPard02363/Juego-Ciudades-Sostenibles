@@ -234,14 +234,11 @@ function DominoRoomPageSession() {
   >{dealCountdownMs !== null && <DealCountdownOverlay remainingMs={dealCountdownMs} />}</MultiplayerLobby>
 
   return (
-    // Pantalla completa sin scroll, como el Laberinto V/F: encabezado y mano
-    // con su alto natural, y el tablero ocupa lo que sobra (su cámara recorre
-    // la cadena si no cabe entera).
-    <div className="domino-premium-room fixed inset-0 z-50 h-dvh overflow-hidden bg-[#080F24]">
+    <div className="domino-premium-room fixed inset-0 z-50 overflow-y-auto bg-[#080F24]">
       {dealCountdownMs !== null && <DealCountdownOverlay remainingMs={dealCountdownMs} />}
 
-      <div className="domino-premium-shell mx-auto flex h-full w-full max-w-[1600px] flex-col p-2 sm:p-3">
-        <header className="domino-premium-header mb-1.5 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border px-3 py-1.5 sm:flex-nowrap">
+      <div className="domino-premium-shell mx-auto flex min-h-full w-full max-w-[1600px] flex-col p-3 sm:p-5">
+        <header className="domino-premium-header mb-1.5 flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-3 py-1.5 sm:flex-nowrap">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
               {room?.gameTitle ?? 'Dominó'}
@@ -325,7 +322,7 @@ function DominoRoomPageSession() {
 
             <section className="domino-premium-stage flex min-h-0 flex-1 flex-col">
             {/* Tablero */}
-            <div ref={boardViewportRef} className="domino-premium-board flex min-h-[140px] flex-1 overflow-hidden rounded-2xl border p-3 sm:p-5">
+            <div ref={boardViewportRef} className="domino-premium-board flex min-h-[260px] flex-1 overflow-hidden rounded-2xl border p-3 sm:min-h-[340px] sm:p-5">
               <span className="domino-premium-board-mark" aria-hidden="true" />
               {board.length === 0 ? (
                 <p className="m-auto text-center text-[13px] text-text">
@@ -454,7 +451,7 @@ function DominoRoomPageSession() {
             </section>
 
             {/* Acciones: robar / pasar, solo tienen efecto en tu turno */}
-            <section className="domino-premium-hand-dock shrink-0 rounded-2xl border p-2.5 sm:p-2.5">
+            <section className="domino-premium-hand-dock rounded-2xl border p-2.5 sm:p-2.5">
             <div className="domino-premium-hand-layout">
             <div className={`domino-premium-local-player ${isMyTurn ? 'domino-premium-local-player--active' : ''}`}>
               <span className="domino-premium-local-avatar" aria-hidden="true"><Hand className="h-3.5 w-3.5" strokeWidth={2} /></span>
@@ -515,7 +512,7 @@ function DominoRoomPageSession() {
         )}
 
         {room && room.phase === 'FINISHED' && opponent && self && (
-          <div className="m-auto flex flex-col items-center gap-4 py-6 text-center">
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
             <span
               className="flex h-14 w-14 items-center justify-center rounded-full text-white animate-[trophy-pop-in_0.5s_cubic-bezier(0.16,1,0.3,1)]"
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
