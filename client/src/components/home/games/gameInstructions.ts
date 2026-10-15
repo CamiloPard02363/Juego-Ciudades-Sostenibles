@@ -2,7 +2,7 @@ import { MIN_DISCARDS_TO_ACCUSE } from './guessWhoTypes'
 import { ArrowUp, ArrowUpDown, Brain, Check, CircleHelp, Compass, Copy, Dice5, DoorOpen, Ear, Eye, Flag, Footprints, Gem, Hand, Handshake, Layers, Leaf, Link2, MessageCircleQuestion, MoveRight, Puzzle, Search, Shield, SquareMousePointer, Sun, ToggleRight, Trophy, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export type InstructionKind = 'PAIRS' | 'OPPOSITES' | 'GUESS_WHO' | 'GUESS_WHO_GROUP' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS' | 'DUAL_QUEST' | 'DUAL_QUEST_PIXI'
+export type InstructionKind = 'PAIRS' | 'OPPOSITES' | 'GUESS_WHO' | 'GUESS_WHO_GROUP' | 'DOMINO' | 'MAZE_COLLECTOR' | 'SNAKES_LADDERS' | 'DUAL_QUEST' | 'DUAL_QUEST_PIXI' | 'TRUE_FALSE_MAZE'
 type Instruction = { text: string; exampleTitle: string; labels: [string, string, string, string]; icons: [LucideIcon, LucideIcon, LucideIcon, LucideIcon]; caption: string }
 
 /** Solo contenido: la presentación y la forma de continuar son comunes. */
@@ -55,6 +55,12 @@ export const gameInstructions: Record<InstructionKind, Instruction> = {
     icons: [Compass, ToggleRight, Gem, Puzzle],
     caption: 'Activen los mecanismos, recojan las gemas y ordenen las piezas en el núcleo.',
   },
+  TRUE_FALSE_MAZE: {
+    text: 'Lee la afirmación y lleva al robot a la sala VERDADERO o FALSO con las flechas, WASD o deslizando. Esquiva a las medusas galácticas: los núcleos de energía las aturden y las rejillas te llevan al otro lado de la nave. Si respondes mal o te atrapan, pierdes una batería.',
+    exampleTitle: 'Ejemplo de una ronda', labels: ['Lee', 'Corre', 'Esquiva', 'Responde'],
+    icons: [Eye, Footprints, Shield, Check],
+    caption: 'Llega a la sala correcta antes de quedarte sin baterías.',
+  },
   DUAL_QUEST_PIXI: {
     text: 'Controlen a Lumen con A/D y a Gota con las flechas. W y ↑ sirven para saltar o nadar; S y ↓ para bucear. Cooperen con los mecanismos y lleven a ambos personajes al portal para completar el nivel.',
     exampleTitle: 'Ejemplo de cooperación', labels: ['Muévete', 'Salta', 'Coopera', 'Portal'],
@@ -97,6 +103,10 @@ export const gameInstructionSummaries: Record<CreationInstructionKind, { purpose
   MAZE_COLLECTOR: {
     purpose: 'Recoge todos los elementos y esquiva a los enemigos.',
     howTo: 'Muévete con flechas o WASD. Si un enemigo te alcanza, pierdes una vida.',
+  },
+  TRUE_FALSE_MAZE: {
+    purpose: 'Decide si cada afirmación es verdadera o falsa recorriendo un laberinto.',
+    howTo: 'Lleva al robot a la sala VERDADERO o FALSO y esquiva a las medusas galácticas.',
   },
   SNAKES_LADDERS: {
     purpose: 'Avanza por el tablero respondiendo retos.',

@@ -11,7 +11,7 @@ Los docentes crean actividades y juegos (dominó, serpientes y escaleras, ¿Qui�
 | Frontend | React, TypeScript, Vite |
 | Backend | NestJS, Socket.IO, Prisma |
 | Datos | PostgreSQL (relacional), MongoDB (juegos y analítica) |
-| Servicios externos | Cloudinary, Google Identity Services, Google Gemini, Groq, Wikimedia Commons |
+| Servicios externos | Cloudinary, Google Identity Services, Groq, Wikimedia Commons |
 | Despliegue | Docker, Railway |
 
 ## Instalación rápida
@@ -72,7 +72,7 @@ La plataforma está pensada para uso educativo y puede ser usada por menores. La
 
 ### Inteligencia artificial
 
-El asistente de IA envía el contenido que el docente sube a proveedores externos (Google Gemini y, como respaldo, Groq). No subas datos personales, sensibles ni confidenciales de terceros. Los resultados pueden contener errores o sesgos y **deben ser revisados por una persona** antes de usarse con estudiantes. Cada proveedor aplica sus propios términos y políticas de privacidad.
+El asistente de IA envía el contenido que el docente sube o escribe a Groq (proveedor de IA) y, para conseguir imágenes de un tema, envía el nombre de cada elemento a Wikimedia Commons. No subas datos personales, sensibles ni confidenciales de terceros. Los resultados pueden contener errores o sesgos y **deben ser revisados por una persona** antes de usarse con estudiantes. Cada proveedor aplica sus propios términos y políticas de privacidad.
 
 ### Servicios externos
 

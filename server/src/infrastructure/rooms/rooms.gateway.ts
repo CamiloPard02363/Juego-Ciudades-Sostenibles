@@ -210,7 +210,8 @@ function toMatchClientView(match: TournamentMatch, tournament: TournamentState, 
         userId: player.userId,
         displayName: participant?.displayName ?? '???',
         discardedCardIds: player.discardedCardIds,
-        secretCardId: player.userId === forUserId ? player.secretCardId : null,
+        // Al terminar el partido se revelan ambas (pantalla "Tarjeta de …"); antes, solo la propia.
+        secretCardId: player.userId === forUserId || match.phase === 'FINISHED' ? player.secretCardId : null,
         isSelf: player.userId === forUserId,
       };
     }),
@@ -254,6 +255,8 @@ function toDominoClientView(room: DominoRoomState, forSocketId: string) {
     turnDurationSeconds: room.turnDurationSeconds,
     phase: room.phase,
     board: room.board,
+    // Las salas creadas antes de este metadato siguen siendo válidas.
+    openingTileId: room.openingTileId ?? null,
     boneyardCount: room.boneyard.length,
     winnerUserId: room.winnerUserId,
     endedByBlock: room.endedByBlock,
@@ -385,7 +388,7 @@ function toDualQuestClientView(room: DualQuestRoomState, forSocketId: string) {
 }
 
 /** Vista pública de la sala que se envía a un jugador dado: oculta la carta secreta ajena. */
-function toClientView(room: RoomState, forSocketId: string) {
+export function toClientView(room: RoomState, forSocketId: string) {
   return {
     ...guidedView(room, room.players.find(p => p.socketId === forSocketId)?.userId ?? ''),
     code: room.code,
@@ -403,8 +406,8 @@ function toClientView(room: RoomState, forSocketId: string) {
       ready: player.ready === true,
       discardedCardIds: player.discardedCardIds,
       // La carta secreta propia sí se revela al dueño (para que sepa qué le preguntan);
-      // la del rival nunca viaja a este socket.
-      secretCardId: player.socketId === forSocketId ? player.secretCardId : null,
+      // la del rival solo viaja cuando la partida ya terminó (para mostrar cuál era).
+      secretCardId: player.socketId === forSocketId || room.phase === 'FINISHED' ? player.secretCardId : null,
       isSelf: player.socketId === forSocketId,
       hasVotedRematch: room.rematchVotes[player.userId] !== undefined,
       isHost: player.userId === room.hostUserId,
@@ -1627,6 +1630,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       ],
       boneyard: [],
       board: [],
+      openingTileId: null,
       activePlayerUserId: null,
       turnDeadline: null,
       winnerUserId: null,
@@ -1760,6 +1764,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     room.players[1].hand = shuffled.slice(handSize, handSize * 2);
     room.boneyard = shuffled.slice(handSize * 2);
     room.board = [];
+    room.openingTileId = null;
     room.phase = 'PLAYING';
     room.winnerUserId = null;
     room.endedByBlock = false;
@@ -1792,6 +1797,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (room.board.length === 0) {
       placed = { id: tile.id, left: tile.a, right: tile.b, isDouble: tile.a === tile.b, placedByUserId: player.userId };
       room.board = [placed];
+      room.openingTileId = placed.id;
     } else if (body.side === 'right') {
       if (!dominoTileMatchesEnd(tile, right)) throw new Error('Esa ficha no encaja en ese extremo.');
       placed =

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Check } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Modal } from './Modal'
 import { gameInstructions, type InstructionKind } from './gameInstructions'
@@ -8,21 +8,62 @@ import { GuessWhoVisualDemo } from './GuessWhoVisualDemo'
 import { flagsDemoExample, type GuessWhoDemoExample } from './guessWhoDemoExamples'
 import { DominoVisualDemo } from './DominoVisualDemo'
 
-/** El juego no se monta hasta continuar: no hay relojes, controles ni salas activos detrás. */
+const SEEN_KEY_PREFIX = 'nexusplay:guia-vista:'
+
+/** Si esta guía ya se vio antes en este navegador (para ofrecer saltarla). Nunca lanza. */
+function wasSeen(kind: InstructionKind): boolean {
+  try {
+    return window.localStorage.getItem(SEEN_KEY_PREFIX + kind) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markSeen(kind: InstructionKind): void {
+  try {
+    window.localStorage.setItem(SEEN_KEY_PREFIX + kind, '1')
+  } catch {
+    // Sin almacenamiento (modo privado, bloqueado): solo no se recuerda.
+  }
+}
+
+/**
+ * El juego no se monta hasta continuar: no hay relojes, controles ni salas activos detrás.
+ *
+ * Arriba a la derecha siempre está "Saltar guía", para quien ya jugó antes
+ * (si esta guía ya se vio en este navegador, el botón lo dice). La ventana
+ * nunca tiene scroll: si no cabe, se reduce para que se vea entera (ver
+ * `fitContent` en Modal). El Laberinto V/F tiene su propia guía y no pasa por acá.
+ */
 export function GameInstructionsGate({ kind, children, guessWhoExample = flagsDemoExample }: { kind: InstructionKind; children: ReactNode; guessWhoExample?: GuessWhoDemoExample }) {
   const [accepted, setAccepted] = useState(false)
+  const [seenBefore] = useState(() => wasSeen(kind))
   if (accepted) return children
   const content = gameInstructions[kind]
-  const onContinue = () => setAccepted(true)
+  const onContinue = () => {
+    markSeen(kind)
+    setAccepted(true)
+  }
   const isGuessWho = kind === 'GUESS_WHO' || kind === 'GUESS_WHO_GROUP'
   const isDomino = kind === 'DOMINO'
   const hasVisualDemo = isGuessWho || isDomino
   return (
-    <Modal onClose={onContinue} maxWidthClassName={hasVisualDemo ? 'max-w-[1120px]' : 'max-w-[520px]'} maxHeightClassName={hasVisualDemo ? 'max-h-[calc(100dvh-40px)]' : undefined} ariaLabel={isGuessWho ? 'Cómo jugar a Identidad Oculta' : isDomino ? 'Cómo jugar a Dominexo' : undefined}>
-      <div className="space-y-5" data-game-instructions={kind}>
-        <div className="rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent p-4">
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Nexus Play</p>
-          <h2 className="mt-2 text-[24px] font-bold tracking-tight text-text-h">Cómo jugar</h2>
+    <Modal onClose={onContinue} fitContent maxWidthClassName={hasVisualDemo ? 'max-w-[1120px]' : 'max-w-[520px]'} maxHeightClassName="max-h-[calc(100dvh-40px)]" ariaLabel={isGuessWho ? 'Cómo jugar a Identidad Oculta' : isDomino ? 'Cómo jugar a Dominexo' : undefined}>
+      <div className="space-y-4" data-game-instructions={kind}>
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-accent/12 via-accent/5 to-transparent px-4 py-3">
+          <div>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">Nexus Play</p>
+            <h2 className="text-[22px] font-bold tracking-tight text-text-h">Cómo jugar</h2>
+          </div>
+          <button
+            type="button"
+            data-skip-guide
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[12.5px] font-semibold text-text-h transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+            onClick={onContinue}
+          >
+            {seenBefore ? 'Ya lo jugué · Saltar guía' : 'Saltar guía'}
+            <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
+          </button>
         </div>
         {isGuessWho ? <GuessWhoVisualDemo example={guessWhoExample} onContinue={onContinue} /> : isDomino ? <DominoVisualDemo onContinue={onContinue} /> : <>
         <p className="text-[13.5px] leading-relaxed text-text">{content.text}</p>

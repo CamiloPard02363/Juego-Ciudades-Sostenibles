@@ -291,10 +291,11 @@ function GuessWhoRoomSession() {
         )}
 
         {room.phase === 'FINISHED' && opponent && self && (
-          <div className="relative flex flex-col items-center gap-4 py-6 text-center">
+          // Pantalla final sin scroll: los tamaños dependen del alto disponible (dvh).
+          <div className="relative flex min-h-full flex-col items-center justify-center gap-[clamp(6px,1.6dvh,16px)] py-[clamp(4px,1.5dvh,24px)] text-center">
             {winnerIsSelf && <ConfettiBurst trigger={room.winnerUserId ?? 'win'} />}
             <span
-              className="flex h-14 w-14 items-center justify-center rounded-full text-white animate-[trophy-pop-in_0.5s_cubic-bezier(0.16,1,0.3,1)]"
+              className="flex h-[clamp(40px,7dvh,56px)] w-[clamp(40px,7dvh,56px)] shrink-0 items-center justify-center rounded-full text-white animate-[trophy-pop-in_0.5s_cubic-bezier(0.16,1,0.3,1)]"
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
             >
               <Trophy className="h-7 w-7" strokeWidth={1.75} />
@@ -304,15 +305,16 @@ function GuessWhoRoomSession() {
             </p>
 
             <div className="flex items-start justify-center gap-4 animate-[fade-in-up_0.4s_ease-out_0.2s_backwards]">
+              {/* Primero la del rival: es la que el jugador quiere conocer al terminar. */}
+              <RevealedSecretCard
+                ownerLabel={`La tarjeta de ${opponent.displayName} era`}
+                card={room.cards.find((card) => card.cardId === opponent.secretCardId)}
+                isWinner={opponent.userId === room.winnerUserId}
+              />
               <RevealedSecretCard
                 ownerLabel="Tu tarjeta era"
                 card={room.cards.find((card) => card.cardId === self.secretCardId)}
                 isWinner={self.userId === room.winnerUserId}
-              />
-              <RevealedSecretCard
-                ownerLabel={`Tarjeta de ${opponent.displayName}`}
-                card={room.cards.find((card) => card.cardId === opponent.secretCardId)}
-                isWinner={opponent.userId === room.winnerUserId}
               />
             </div>
 
@@ -389,9 +391,9 @@ function RevealedSecretCard({
 }) {
   if (!card) return null
   return (
-    <div className="relative flex w-[112px] flex-col items-center gap-1.5">
+    <div className="relative flex w-[clamp(120px,24dvh,170px)] flex-col items-center gap-0.5">
       <div className={`relative overflow-hidden rounded-lg border-2 ${isWinner ? 'border-accent' : 'border-border'}`}>
-        <img src={card.imageUrl} alt="" className="h-24 w-full object-cover" />
+        <img src={card.imageUrl} alt="" className="h-[clamp(52px,13dvh,120px)] w-full object-cover" />
         {isWinner && (
           <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-white">
             <Trophy className="h-3 w-3" strokeWidth={2.5} />
@@ -399,7 +401,7 @@ function RevealedSecretCard({
         )}
       </div>
       {card.info && <CardInfoBubble info={card.info} label={card.label} />}
-      <p className="text-[11px] font-medium text-text">{ownerLabel}</p>
+      <p className="text-[11px] leading-tight font-medium text-text">{ownerLabel}</p>
       <p className="text-[12.5px] font-semibold text-text-h">{card.label}</p>
     </div>
   )

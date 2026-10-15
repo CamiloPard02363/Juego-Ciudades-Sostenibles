@@ -8,6 +8,7 @@ import { colorForCategory, DEFAULT_CATEGORY_COLOR } from '../gamesCatalogVisuals
 import { listSubjects as listCategories, type SubjectWithGameCount } from '../../../services/subject.service'
 import { PlayOptionsPopup, type Difficulty } from './PlayOptionsPopup'
 import { MemoryMatchGame } from './MemoryMatchGame'
+import { playTargetFor, UNSUPPORTED_GAME_MESSAGE } from './gamePlayRoute'
 import type { MemoryMatchConfig, MemoryMatchPair } from './memoryMatchTypes'
 
 const DEFAULT_MEMORY_CONFIG: MemoryMatchConfig = {
@@ -48,6 +49,23 @@ export function MemoryMatchPlayPage() {
     getGameBySlug(token, slug)
       .then((game) => {
         if (cancelled) return
+        // Un juego de otro tipo (enlace viejo, o un tipo nuevo) nunca se juega
+        // como Memoria: se manda a su propia página o se avisa.
+        if (game.gameType !== 'MEMORY_MATCH') {
+          const target = playTargetFor(game)
+          if (target.kind === 'navigate') {
+            navigate(target.path, { replace: true })
+            return
+          }
+          setState({
+            status: 'error',
+            message:
+              target.kind === 'guess-who-room'
+                ? 'Este juego es una sala en vivo de ¿Quién Es?: ábrelo desde el inicio con el botón Jugar.'
+                : UNSUPPORTED_GAME_MESSAGE,
+          })
+          return
+        }
         setState({ status: 'ready', game })
         trackEvent(token, 'game_opened', { gameId: game.id, metadata: { section: 'play-page' } })
       })
@@ -58,7 +76,7 @@ export function MemoryMatchPlayPage() {
     return () => {
       cancelled = true
     }
-  }, [token, slug])
+  }, [token, slug, navigate])
 
   function handleExit() {
     navigate('/')

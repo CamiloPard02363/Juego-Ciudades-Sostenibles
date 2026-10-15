@@ -13,7 +13,7 @@ const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://
 export function useDominoRoom(token: string | null) {
   const socketRef = useRef<Socket | null>(null)
   const [messages, setMessages] = useState<GuessWhoChatMessage[]>([])
-  const waitingCodeRef = useRef<string | null>(null)
+  const roomCodeRef = useRef<string | null>(null)
   const [room, setRoom] = useState<DominoRoomStateView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
@@ -34,12 +34,13 @@ export function useDominoRoom(token: string | null) {
 
     socket.on('connect', () => {
       setConnecting(false)
-      // Reingresar al lobby tras reconectar; el servidor exige confirmar de nuevo.
-      if (waitingCodeRef.current) socket.emit('domino:join', { code: waitingCodeRef.current })
+      // La sala vive en memoria en el servidor: reingresar solicita el estado
+      // actual tras reconectar, incluida la ficha de apertura si ya hubo juego.
+      if (roomCodeRef.current) socket.emit('domino:join', { code: roomCodeRef.current })
     })
     socket.on('disconnect', () => setConnecting(true))
     socket.on('domino:state', (state: DominoRoomStateView) => {
-      waitingCodeRef.current = state.phase === 'WAITING' ? state.code : null
+      roomCodeRef.current = state.code
       setRoom((previous) => {
         const previousBoardIds = new Set((previous?.board ?? []).map((tile) => tile.id))
         const newlyPlaced = state.board.find((tile) => !previousBoardIds.has(tile.id))
@@ -59,12 +60,12 @@ export function useDominoRoom(token: string | null) {
     })
     socket.on('domino:rematch-rejected', (payload: { message: string }) => {
       setRematchRejectedMessage(payload.message)
-      waitingCodeRef.current = null
+      roomCodeRef.current = null
       setRoom(null)
     })
     socket.on('domino:opponent-left', (payload: { message: string }) => {
       setRematchRejectedMessage(payload.message)
-      waitingCodeRef.current = null
+      roomCodeRef.current = null
       setRoom(null)
     })
 
@@ -79,7 +80,7 @@ export function useDominoRoom(token: string | null) {
   }, [])
 
   const joinRoom = useCallback((code: string) => {
-    waitingCodeRef.current = code
+    roomCodeRef.current = code
     if (socketRef.current?.connected) socketRef.current.emit('domino:join', { code })
   }, [])
 
@@ -112,7 +113,7 @@ export function useDominoRoom(token: string | null) {
   }, [])
 
   const leaveRoom = useCallback(() => {
-    waitingCodeRef.current = null
+    roomCodeRef.current = null
     setMessages([])
     socketRef.current?.emit('domino:leave')
     setRoom(null)

@@ -1,4 +1,7 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { PencilLine, X } from 'lucide-react'
+import { AiDraftAppliedContext } from './aiDraftContext'
 
 type GameFormShellProps = {
   /** Texto del botón de volver, sin la flecha (ej. "Cambiar modo"). */
@@ -39,7 +42,40 @@ export function GameFormShell({
   formMaxWidthClassName = 'lg:max-w-none',
   children,
 }: GameFormShellProps) {
+  // Cuántas veces se aplicó un borrador de IA (0 = nunca): cada aplicación
+  // vuelve a mostrar el aviso aunque el usuario lo haya cerrado antes.
+  const [aiDraftCount, setAiDraftCount] = useState(0)
+  const [noticeDismissed, setNoticeDismissed] = useState(false)
+  const noticeRef = useRef<HTMLDivElement>(null)
+
+  // Primero el aviso se muestra al frente con el fondo desenfocado (es
+  // importante que se lea); al confirmarlo queda fijo arriba de los campos.
+  const [spotlightOpen, setSpotlightOpen] = useState(false)
+
+  const markAiDraftApplied = useCallback(() => {
+    setAiDraftCount((count) => count + 1)
+    setNoticeDismissed(false)
+    setSpotlightOpen(true)
+  }, [])
+
+  // Al cerrar el aviso destacado se lleva el aviso fijo a la vista (en mobile queda más abajo).
+  useEffect(() => {
+    if (aiDraftCount > 0 && !spotlightOpen) noticeRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
+  }, [aiDraftCount, spotlightOpen])
+
+  useEffect(() => {
+    if (!spotlightOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' || event.key === 'Enter') setSpotlightOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [spotlightOpen])
+
+  const showAiNotice = aiDraftCount > 0 && !noticeDismissed
+
   return (
+    <AiDraftAppliedContext.Provider value={markAiDraftApplied}>
     <div className="relative mx-auto max-w-[1180px] p-5 sm:p-8 xl:max-w-[1440px] 2xl:max-w-[1680px]">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
         <div className="absolute -top-24 -right-16 h-80 w-80 rounded-full bg-accent/20 blur-[110px]" />
@@ -75,9 +111,74 @@ export function GameFormShell({
             de la página.
           */}
           <aside className="order-1 lg:order-2 lg:sticky lg:top-8">{aiPanel}</aside>
-          <div className={`order-2 w-full lg:order-1 ${formMaxWidthClassName}`}>{children}</div>
+          <div className={`order-2 w-full lg:order-1 ${formMaxWidthClassName}`}>
+            {showAiNotice && (
+              <div
+                ref={noticeRef}
+                role="status"
+                className="mb-5 flex items-start gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-[13px] leading-relaxed text-text-h"
+              >
+                <PencilLine className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={2.2} />
+                <p className="flex-1">
+                  La IA llenó el contenido y los ajustes del juego. <strong>Ahora te toca a ti:</strong> escribe el{' '}
+                  <strong>nombre del juego</strong> y la <strong>descripción</strong>, y elige la{' '}
+                  <strong>materia</strong> — la IA no los completa. Revisa también lo que generó antes de crear el
+                  juego.
+                </p>
+                <button
+                  type="button"
+                  aria-label="Cerrar aviso"
+                  className="shrink-0 rounded-md p-0.5 text-text hover:text-text-h"
+                  onClick={() => setNoticeDismissed(true)}
+                >
+                  <X className="h-4 w-4" strokeWidth={2.2} />
+                </button>
+              </div>
+            )}
+            {children}
+          </div>
         </div>
       </div>
     </div>
+    {spotlightOpen && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-5 backdrop-blur-md animate-[fade-in-up_0.25s_ease-out_backwards]"
+        onClick={() => setSpotlightOpen(false)}
+      >
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="ai-draft-spotlight-title"
+          className="w-full max-w-[460px] rounded-2xl border border-accent/40 bg-surface p-6 text-center shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span
+            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full text-white"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+          >
+            <PencilLine className="h-6 w-6" strokeWidth={2.2} />
+          </span>
+          <h3 id="ai-draft-spotlight-title" className="mb-2 text-[18px] font-semibold text-text-h">
+            ¡La IA llenó tu juego! Ahora te toca a ti
+          </h3>
+          <p className="mb-5 text-[14px] leading-relaxed text-text">
+            La IA completó el contenido y los ajustes. Para poder crear el juego, escribe tú el{' '}
+            <strong className="text-text-h">nombre del juego</strong> y la{' '}
+            <strong className="text-text-h">descripción</strong>, y elige la{' '}
+            <strong className="text-text-h">materia</strong>. Revisa también lo que generó la IA.
+          </p>
+          <button
+            type="button"
+            autoFocus
+            className="w-full rounded-xl px-4 py-3 text-[14px] font-semibold text-white"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+            onClick={() => setSpotlightOpen(false)}
+          >
+            Entendido, completar los datos
+          </button>
+        </div>
+      </div>
+    )}
+    </AiDraftAppliedContext.Provider>
   )
 }

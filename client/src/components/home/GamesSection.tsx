@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, KeyRound, PlusCircle, Sparkles, Trash2, Trophy } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../../hooks/useToast'
 import { DEFAULT_CATEGORY_COLOR, colorForCategory, iconForCategory } from './gamesCatalogVisuals'
 import {
   listGames,
@@ -21,6 +22,7 @@ import {
 import { ApiError } from '../../utils/http'
 import { trackEvent } from '../../services/analytics.service'
 import { GameCard } from './games/GameCard'
+import { playTargetFor, UNSUPPORTED_GAME_MESSAGE } from './games/gamePlayRoute'
 import { JustCreatedFocus } from './JustCreatedFocus'
 import { parseCreatedKind } from './games/create/justCreatedRedirect'
 import { GameDetailModal } from './games/GameDetailModal'
@@ -104,6 +106,7 @@ export function GamesSection({
       ? `${BASE_PATH_BY_MODE[mode]}/${gameTypeFilter}`
       : BASE_PATH_BY_MODE[mode]
   const { token, user } = useAuth()
+  const { showToast } = useToast()
   const isTeacher = user?.role?.toUpperCase() === 'TEACHER'
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
   const [games, setGames] = useState<GameSummary[]>([])
@@ -490,57 +493,24 @@ export function GamesSection({
     }
   }
 
+  /**
+   * Cada tipo de juego tiene su propia página o sala (ver gamePlayRoute.ts).
+   * Un tipo que este cliente no conoce NO se abre como Memoria: se avisa.
+   */
   function handlePlayClick() {
     if (!selectedGame) return
-    if (selectedGame.gameType === 'GUESS_WHO') {
+    const target = playTargetFor(selectedGame)
+    if (target.kind === 'unsupported') {
+      showToast(UNSUPPORTED_GAME_MESSAGE, 'error', 8000)
+      return
+    }
+    if (target.kind === 'guess-who-room') {
       setGuessWhoRoomGameId(selectedGame.id)
       closeGame()
       return
     }
-    // El dominó ahora es una sala 1v1 en tiempo real con página propia (ver
-    // DominoRoomPage/App.tsx) en vez de un pop-up de un solo jugador: se
-    // navega a la ruta, que crea la sala apenas monta (?gameId=).
-    if (selectedGame.gameType === 'DOMINO') {
-      closeGame()
-      navigate(`/domino/sala?gameId=${selectedGame.id}`)
-      return
-    }
-    // El recolector es un solo jugador contra la IA, sin sala en vivo —
-    // vista dedicada con ruta propia (ver MazeCollectorPlayPage.tsx). La
-    // configuración (vidas, velocidad, laberinto) ya quedó fija al crear el
-    // juego, así que no hace falta el popup de opciones de Memory Match.
-    if (selectedGame.gameType === 'MAZE_COLLECTOR') {
-      closeGame()
-      navigate(`/jugar/laberinto/${selectedGame.slug}`)
-      return
-    }
-    // Mismo criterio que Dominó: sala en tiempo real con página propia, no
-    // un pop-up — acá de 2 a 4 jugadores en vez de 1v1.
-    if (selectedGame.gameType === 'SNAKES_LADDERS') {
-      closeGame()
-      navigate(`/escaleras-serpientes/sala?gameId=${selectedGame.id}`)
-      return
-    }
-    // Igual que Escaleras y Serpientes: sala en tiempo real con página
-    // propia — acá siempre exactamente 2 jugadores (Fuego/Agua).
-    if (selectedGame.gameType === 'DUAL_QUEST') {
-      closeGame()
-      navigate(`/dual-quest/sala?gameId=${selectedGame.id}`)
-      return
-    }
-    // Motor físico (PixiJS + Matter.js): un solo mundo compartido en el
-    // navegador de quien lo abre, sin sala en tiempo real — página propia
-    // que carga el nivel por slug (ver DualQuestPixiPlayPage.tsx).
-    if (selectedGame.gameType === 'DUAL_QUEST_PIXI') {
-      closeGame()
-      navigate(`/dual-quest-pixi/${selectedGame.slug}`)
-      return
-    }
-    // Memory Match (Parejas/Opuestos): vista dedicada con ruta propia (ver
-    // MemoryMatchPlayPage.tsx), que monta ahí mismo el popup de opciones
-    // antes de arrancar — ya no se abre acá como overlay.
     closeGame()
-    navigate(`/jugar/memoria/${selectedGame.slug}`)
+    navigate(target.path)
   }
 
   /**

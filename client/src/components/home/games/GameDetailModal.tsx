@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Archive, Image, Settings, Trash2 } from 'lucide-react'
-import { donateGame, updateGame, type GameDetail } from '../../../services/game.service'
+import { Archive, Globe2, Image, Lock, Settings, Trash2 } from 'lucide-react'
+import { donateGame, publishGame, updateGame, type GameDetail } from '../../../services/game.service'
 import { listMyOrganizations, type OrganizationWithMyRole } from '../../../services/organization.service'
 import { useAuth } from '../../../hooks/useAuth'
+import { useToast } from '../../../hooks/useToast'
 import { ApiError } from '../../../utils/http'
 import { AdaptGameModal } from './AdaptGameModal'
 import { ImageUploadField } from './ImageUploadField'
@@ -43,6 +44,7 @@ export function GameDetailModal({
   isTypeArchived = false,
 }: GameDetailModalProps) {
   const { token, user } = useAuth()
+  const { showToast } = useToast()
   // Edición de portada: solo administradores (institución/plataforma), no el
   // creador del juego — a diferencia de `canDelete`, que también deja
   // eliminar al creador. Ver Alcance/Tareas del issue #227.
@@ -80,6 +82,31 @@ export function GameDetailModal({
   const [donateOrgId, setDonateOrgId] = useState('')
   const [donating, setDonating] = useState(false)
   const [donateError, setDonateError] = useState<string | null>(null)
+
+  // Publicar en la comunidad: cualquier juego privado (DRAFT) se puede
+  // publicar en cualquier momento, no solo al crearlo. Lo puede hacer quien
+  // puede administrarlo (el creador o un admin; el servidor vuelve a
+  // verificarlo en PATCH /games/:id/publish).
+  const canPublish = canDelete && game.status === 'DRAFT'
+  const [confirmingPublish, setConfirmingPublish] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+
+  async function handlePublish() {
+    if (!token) return
+    setPublishing(true)
+    setPublishError(null)
+    try {
+      const updated = await publishGame(token, game.id)
+      setConfirmingPublish(false)
+      onUpdated(updated)
+      showToast('Juego publicado: ya está disponible para toda la comunidad.', 'success')
+    } catch (err) {
+      setPublishError(err instanceof ApiError ? err.message : 'No se pudo publicar el juego.')
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   useEffect(() => {
     if (!token || !canDonate) return
@@ -174,9 +201,9 @@ export function GameDetailModal({
 
   return (
     <>
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} fitContent maxHeightClassName="max-h-[calc(100dvh-40px)]">
       <div
-        className="mb-5 flex h-32 items-center justify-center rounded-xl text-4xl"
+        className={`mb-4 flex items-center justify-center rounded-xl text-4xl ${game.theme.coverImageUrl ? 'h-28' : 'h-14'}`}
         style={{
           background: `linear-gradient(135deg, ${accentColor}22, ${accentColor}0a)`,
         }}
@@ -194,7 +221,7 @@ export function GameDetailModal({
         )}
       </div>
 
-      <div className="mb-6 flex items-start justify-between gap-3">
+      <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           {isTypeArchived && (
             <p className="mb-2 flex items-center gap-1.5 rounded-lg border border-border bg-code-bg px-2.5 py-1.5 text-[12px] font-medium text-text">
@@ -202,8 +229,21 @@ export function GameDetailModal({
               Este tipo de juego está archivado: solo tú (como administrador) lo ves, y nadie puede crear juegos nuevos de este tipo hasta que lo reactives.
             </p>
           )}
-          <h2 className="mb-2 text-[22px] tracking-tight text-text-h">{game.title}</h2>
+          <h2 className="mb-1.5 text-[22px] tracking-tight text-text-h">{game.title}</h2>
           <p className="text-[14px] leading-relaxed text-text">{game.description}</p>
+          {canDelete && (game.status === 'DRAFT' || game.status === 'PUBLISHED') && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11.5px] font-medium text-text">
+              {game.status === 'DRAFT' ? (
+                <>
+                  <Lock className="h-3 w-3" strokeWidth={2.5} /> Privado: solo lo ves tú
+                </>
+              ) : (
+                <>
+                  <Globe2 className="h-3 w-3" strokeWidth={2.5} /> Publicado en la comunidad
+                </>
+              )}
+            </p>
+          )}
         </div>
         {canDelete && !confirming && !editingConfig && !editingTheme && (
           <div className="flex shrink-0 gap-2">
@@ -244,7 +284,7 @@ export function GameDetailModal({
       </div>
 
       {editingTheme ? (
-        <div className="mb-6 rounded-xl border border-border p-4">
+        <div className="mb-4 rounded-xl border border-border p-4">
           <p className="mb-3 text-[13.5px] font-semibold text-text-h">Portada del juego</p>
           <ImageUploadField
             label="Imagen de portada"
@@ -410,6 +450,59 @@ export function GameDetailModal({
               {joinError && (
                 <p className="mt-2 text-[12.5px] text-danger" role="alert">
                   {joinError}
+                </p>
+              )}
+            </div>
+          )}
+
+          {canPublish && (
+            <div className="rounded-lg border border-accent/35 bg-accent/5 p-3">
+              {confirmingPublish ? (
+                <>
+                  <p className="mb-2 text-[12.5px] leading-snug text-text-h">
+                    Al publicarlo, cualquier persona de la comunidad podrá ver y jugar "{game.title}".
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="flex-1 rounded-lg px-3.5 py-2 text-[12.5px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+                      disabled={publishing}
+                      onClick={handlePublish}
+                    >
+                      {publishing ? 'Publicando…' : 'Sí, publicar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-border px-3.5 py-2 text-[12.5px] font-medium text-text-h"
+                      disabled={publishing}
+                      onClick={() => {
+                        setConfirmingPublish(false)
+                        setPublishError(null)
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="min-w-[180px] flex-1 text-[12px] leading-snug text-text">
+                    Este juego es privado. Puedes subirlo a la comunidad cuando quieras.
+                  </p>
+                  <button
+                    type="button"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/50 px-3 py-2 text-[12.5px] font-semibold text-accent transition-colors hover:bg-accent/10"
+                    onClick={() => setConfirmingPublish(true)}
+                  >
+                    <Globe2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    Publicar en la comunidad
+                  </button>
+                </div>
+              )}
+              {publishError && (
+                <p className="mt-2 text-[12.5px] text-danger" role="alert">
+                  {publishError}
                 </p>
               )}
             </div>
