@@ -14,10 +14,10 @@ export const gameInstructions: Record<InstructionKind, Instruction> = {
     caption: 'El concepto del extremo debe coincidir.',
   },
   PAIRS: {
-    text: 'Destapa dos cartas y encuentra las imágenes iguales. Recuerda dónde están y completa las parejas de cada zona antes de que termine el tiempo.',
+    text: 'Destapa dos cartas y une cada imagen con la carta de su nombre. Recuerda dónde están y completa las parejas de cada zona antes de que termine el tiempo.',
     exampleTitle: 'Ejemplo de pareja', labels: ['Destapa', 'Mira', 'Recuerda', 'Empareja'],
     icons: [SquareMousePointer, Eye, Brain, Copy],
-    caption: 'Dos imágenes iguales forman una pareja.',
+    caption: 'Una imagen y su nombre forman una pareja.',
   },
   OPPOSITES: {
     text: 'Destapa dos cartas y une cada concepto con su opuesto. Recuerda las posiciones y completa las parejas de cada zona antes de que termine el tiempo.',
@@ -93,8 +93,8 @@ export const gameInstructionSummaries: Record<CreationInstructionKind, { purpose
     howTo: 'Destapa dos cartas y une cada concepto con su opuesto antes de que termine el tiempo.',
   },
   PAIRS: {
-    purpose: 'Entrena la memoria con imágenes iguales.',
-    howTo: 'Destapa dos cartas y encuentra las imágenes iguales antes de que termine el tiempo.',
+    purpose: 'Entrena la memoria uniendo imágenes con su nombre.',
+    howTo: 'Destapa dos cartas y une cada imagen con su nombre antes de que termine el tiempo.',
   },
   DUAL_QUEST: {
     purpose: 'Dos jugadores resuelven el reto en equipo.',
